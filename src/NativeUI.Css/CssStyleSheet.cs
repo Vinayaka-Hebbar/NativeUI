@@ -1,5 +1,6 @@
 using NativeUI.Core;
 using NativeUI.Media;
+using NativeUI.Styling;
 
 namespace NativeUI.Css;
 
@@ -232,7 +233,7 @@ public sealed class CssStyleSheet
             Width = width,
             Height = height
         };
-        return cssStyle.ApplyInline(element.Style, scopedVariables.ResolveColor);
+        return cssStyle;
     }
 
     /// <summary>
@@ -306,6 +307,18 @@ public sealed class CssStyleSheet
         });
 
         return matching;
+    }
+
+    /// <summary>
+    /// Populates a <see cref="CssVariables"/> instance with all variables active for <paramref name="element"/> in <paramref name="colorScheme"/>.
+    /// </summary>
+    public CssVariables CreateScopedVariables(
+        IUIElement element,
+        CssColorSchemeCondition colorScheme)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        List<(CssRule Rule, int Order)> matching = CollectMatchingRules(element, colorScheme, CssPseudoElement.None);
+        return CreateScopedVariables(matching, colorScheme);
     }
 
     private CssVariables CreateScopedVariables(

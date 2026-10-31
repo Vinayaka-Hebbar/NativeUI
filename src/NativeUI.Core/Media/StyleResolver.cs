@@ -10,7 +10,7 @@ namespace NativeUI.Media;
 public interface IStyleResolver
 {
     /// <summary>
-    /// Resolves inherited text properties, matching CSS declarations, and inline style values into a computed snapshot.
+    /// Resolves inherited text properties and matching CSS declarations into a computed snapshot.
     /// </summary>
     /// <param name="element">The element whose style is being computed.</param>
     ComputedStyle ResolveStyle(IUIElement element);

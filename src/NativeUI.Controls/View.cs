@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using NativeUI.Core;
 using NativeUI.Layout;
+using NativeUI.Styling;
 
 namespace NativeUI.Controls;
 
@@ -10,6 +12,15 @@ namespace NativeUI.Controls;
 /// </summary>
 public class View : UIElement
 {
+    /// <summary>
+    /// Identifies the <see cref="StyleSheet"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<StyleSheet?> StyleSheetProperty =
+        BindableProperty.Create<View, StyleSheet?>(
+            nameof(StyleSheet),
+            defaultValue: null,
+            propertyChanged: static (owner, _, _) => owner.InvalidateStyle());
+
     private readonly ObservableCollection<UIElement> _children = [];
     private readonly HashSet<UIElement> _attachedChildren = new(ReferenceEqualityComparer.Instance);
 
@@ -19,6 +30,17 @@ public class View : UIElement
     public View()
     {
         _children.CollectionChanged += OnChildrenCollectionChanged;
+    }
+
+    /// <summary>
+    /// Gets or sets the scoped <see cref="Styling.StyleSheet"/> that styles this view and its descendants.
+    /// Changes to the <see cref="StyleSheet"/> reference trigger style recomputation; changes to its rules
+    /// after assignment take effect on the next explicit recomputation.
+    /// </summary>
+    public StyleSheet? StyleSheet
+    {
+        get => GetValue(StyleSheetProperty);
+        set => SetValue(StyleSheetProperty, value);
     }
 
     /// <inheritdoc />
@@ -36,6 +58,16 @@ public class View : UIElement
         foreach (UIElement child in _children)
         {
             child.InvalidateStyle();
+        }
+    }
+
+    /// <inheritdoc />
+    protected internal override void UpdateInheritedProperties()
+    {
+        base.UpdateInheritedProperties();
+        foreach (UIElement child in _children)
+        {
+            child.UpdateInheritedProperties();
         }
     }
 

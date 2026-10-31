@@ -1,5 +1,6 @@
 using NativeUI.Core;
 using NativeUI.Media;
+using NativeUI.Styling;
 
 namespace NativeUI.Css;
 
@@ -22,7 +23,7 @@ public sealed class CssStyleResolver : IStyleResolver
         CssStyleSheet? sheet = ResolveSheet(element.StyleSheetId);
         if (sheet is null)
         {
-            return ComputedStyle.CreateInherited(element.Parent?.ComputedStyle).ApplyInline(element.Style);
+            return ComputedStyle.CreateInherited(element.Parent?.ComputedStyle);
         }
 
         return sheet.ComputeStyle(element);
@@ -46,7 +47,7 @@ public sealed class CssStyleResolver : IStyleResolver
         if (sheet is not null)
         {
             CssColorSchemeCondition scheme = ToColorSchemeCondition(element.ActualTheme);
-            CssVariables variables = sheet.CreateRootVariables(scheme);
+            CssVariables variables = sheet.CreateScopedVariables(element, scheme);
             return variables.ResolveColor(colorValue);
         }
 

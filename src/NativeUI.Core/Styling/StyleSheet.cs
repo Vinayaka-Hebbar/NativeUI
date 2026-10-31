@@ -131,6 +131,16 @@ public sealed class StyleRule
         ArgumentNullException.ThrowIfNull(selector);
         return new StyleRuleBuilder(selector(new SelectorBuilder()).Build());
     }
+
+    /// <summary>
+    /// Starts a rule from a selector string such as <c>"text.title:hover"</c>.
+    /// </summary>
+    /// <param name="selectorText">The space-separated selector string.</param>
+    public static StyleRuleBuilder Selector(string selectorText)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(selectorText);
+        return new StyleRuleBuilder(StyleSelector.Parse(selectorText));
+    }
 }
 
 /// <summary>
@@ -143,7 +153,7 @@ public sealed class StyleSheet : IStyleResolver
     /// <summary>
     /// Gets the rules in this stylesheet.
     /// </summary>
-    public IList<StyleRule> Rules { get; } = new List<StyleRule>();
+    public IList<StyleRule> Rules { get; } = [];
 
     /// <inheritdoc />
     public ComputedStyle ResolveStyle(IUIElement element)
@@ -159,7 +169,7 @@ public sealed class StyleSheet : IStyleResolver
             computed = computed.ApplyInline(rule.Style);
         }
 
-        return computed.ApplyInline(element.Style);
+        return computed;
     }
 
     /// <inheritdoc />

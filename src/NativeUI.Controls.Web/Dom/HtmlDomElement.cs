@@ -24,6 +24,11 @@ public class HtmlDomElement : INativePeer
     private string? _text;
     private bool _disposed;
 
+    /// <summary>
+    /// Gets a value indicating whether this proxy has been disposed.
+    /// </summary>
+    protected bool IsDisposed => _disposed;
+
     internal HtmlDomElement(UIElement source, JSObject? element, string tagName)
     {
         Source = source;
@@ -344,10 +349,11 @@ public class HtmlDomElement : INativePeer
     protected virtual void Initialize()
     {
         SetAttribute("id", Source.Id);
-        SetClassName(Source.Class);
-        if (Source.StyleResolver is StyleSheet styleSheet)
+        SetClassName(Source.Class.ToString());
+        string? typeTokens = StyleSheetCss.GetTypeTokens(Source);
+        if (typeTokens is not null)
         {
-            SetAttribute(StyleSheetCss.TypeAttribute, StyleSheetCss.GetTypeTokens(styleSheet, Source));
+            SetAttribute(StyleSheetCss.TypeAttribute, typeTokens);
         }
 
         UpdateVisibility();
@@ -364,7 +370,7 @@ public class HtmlDomElement : INativePeer
         }
         else if (ReferenceEquals(args.Property, UIElement.ClassProperty))
         {
-            SetClassName(Source.Class);
+            SetClassName(Source.Class.ToString());
         }
         else if (ReferenceEquals(args.Property, UIElement.IsVisibleProperty))
         {

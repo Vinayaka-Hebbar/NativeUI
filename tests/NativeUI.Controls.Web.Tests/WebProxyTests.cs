@@ -21,7 +21,9 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
     ("Unmounting clears hover state and pointer node mappings", TestPointerCleanup),
     ("C# stylesheets translate to scoped browser CSS with matching specificity", TestStyleSheetCss),
     ("Only elements matching a custom selector type receive a type token", TestStyleSheetTypeTokens),
-    ("Generated selectors use the renderer's tag mapping and reject untranslatable parts", TestStyleSheetTypeMapping)
+    ("Generated selectors use the renderer's tag mapping and reject untranslatable parts", TestStyleSheetTypeMapping),
+    ("View-scoped stylesheets generate view-scoped browser CSS rules", TestViewScopedStyleSheetCss),
+    ("View-scoped stylesheets manage view scope attributes on DOM mount and update", TestViewScopedStyleSheetLifecycle)
 ]);
 
 return exitCode;
@@ -385,6 +387,67 @@ static void TestStyleSheetTypeTokens()
     Assert.Equal("t0", StyleSheetCss.GetTypeTokens(styleSheet, view));
     Assert.Null(StyleSheetCss.GetTypeTokens(styleSheet, text));
     Assert.Equal("t1", StyleSheetCss.GetTypeTokens(styleSheet, custom));
+}
+
+static void TestViewScopedStyleSheetCss()
+{
+    StyleSheet styleSheet = new()
+    {
+        Rules =
+        {
+            StyleRule.Selector(s => s.Type<Text>().Class("title"))
+                .Style(new Style { FontSize = 26 }),
+            StyleRule.Selector("text.title:hover")
+                .Style(new Style { Color = Colors.Blue }),
+            StyleRule.Selector(s => s.Class("card").Hover().Descendant(d => d.Type<Text>()))
+                .Style(new Style { FontFamily = "Arial" }),
+            StyleRule.Selector(s => s)
+                .Style(new Style { BorderRadius = 4 })
+        }
+    };
+
+    string[] lines = StyleSheetCss.WriteScoped(styleSheet, "v1").TrimEnd().Split('\n');
+    Assert.Equal(":where([data-nui-view-scope=\"v1\"]) span.title, :where([data-nui-view-scope=\"v1\"])span.title { font-size: 26px; }", lines[0]);
+    Assert.Equal($":where([data-nui-view-scope=\"v1\"]) span.title:hover, :where([data-nui-view-scope=\"v1\"])span.title:hover {{ color: {Colors.Blue.ToCssString()}; }}", lines[1]);
+    Assert.Equal(":where([data-nui-view-scope=\"v1\"]) .card:hover span, :where([data-nui-view-scope=\"v1\"]).card:hover span { font-family: Arial; }", lines[2]);
+    Assert.Equal(":where([data-nui-view-scope=\"v1\"]) *, :where([data-nui-view-scope=\"v1\"])* { border-radius: 4px; }", lines[3]);
+}
+
+static void TestViewScopedStyleSheetLifecycle()
+{
+    StyleSheet styleSheet = new()
+    {
+        Rules =
+        {
+            StyleRule.Selector(".title")
+                .Style(new Style { FontSize = 20 })
+        }
+    };
+
+    using View view = new()
+    {
+        StyleSheet = styleSheet
+    };
+    Text child = new() { Class = "title" };
+    view.Children.Add(child);
+
+    using HtmlDomRoot domRoot = new();
+    domRoot.MountHeadless(view);
+
+    HtmlDomView viewProxy = (HtmlDomView)GetElement(view);
+    HtmlDomElement childElement = GetElement(child);
+
+    string? scopeId = viewProxy.ViewScopeId;
+    Assert.NotNull(scopeId);
+    Assert.True(scopeId!.StartsWith("v", StringComparison.Ordinal));
+    Assert.False(childElement is HtmlDomView { ViewScopeId: not null });
+
+    view.StyleSheet = null;
+    Assert.Null(viewProxy.ViewScopeId);
+
+    view.StyleSheet = styleSheet;
+    string? newScopeId = viewProxy.ViewScopeId;
+    Assert.NotNull(newScopeId);
 }
 
 static HtmlDomElement GetElement(UIElement element)

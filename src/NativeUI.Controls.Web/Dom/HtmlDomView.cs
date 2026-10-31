@@ -1,6 +1,8 @@
 using System.Collections.Specialized;
 using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
+using NativeUI.Core;
+using NativeUI.Styling;
 
 namespace NativeUI.Controls.Web;
 
@@ -10,25 +12,53 @@ namespace NativeUI.Controls.Web;
 [SupportedOSPlatform("browser")]
 public sealed class HtmlDomView : HtmlDomElement
 {
+    private static int s_lastViewScopeId;
+
     private readonly View _view;
     private readonly List<HtmlDomElement> _children = [];
+    private string? _viewScopeId;
+    private string? _injectedSheetId;
 
     internal HtmlDomView(View view, JSObject? element) : base(view, element, "div")
     {
         _view = view;
     }
 
+    /// <summary>
+    /// Gets the scope identifier for this view's stylesheet, or null if no stylesheet is scoped to this view.
+    /// </summary>
+    public string? ViewScopeId
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            return _viewScopeId;
+        }
+    }
+
     /// <inheritdoc />
     protected override void Initialize()
     {
         base.Initialize();
+        UpdateScopedStyleSheet();
         SubscribeToChildren();
         SynchronizeChildren();
     }
 
     /// <inheritdoc />
+    protected override void OnPropertyChanged(BindablePropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if (ReferenceEquals(args.Property, View.StyleSheetProperty))
+        {
+            UpdateScopedStyleSheet();
+        }
+    }
+
+    /// <inheritdoc />
     protected override void OnDisposing()
     {
+        RemoveScopedStyleSheet();
         UnsubscribeFromChildren();
 
         foreach (HtmlDomElement child in _children)
@@ -121,6 +151,49 @@ public sealed class HtmlDomView : HtmlDomElement
 
                 throw;
             }
+        }
+    }
+
+    private void UpdateScopedStyleSheet()
+    {
+        if (_view.StyleSheet is StyleSheet sheet && sheet.Rules.Count > 0)
+        {
+            _viewScopeId ??= $"v{Interlocked.Increment(ref s_lastViewScopeId)}";
+            SetAttribute(StyleSheetCss.ViewScopeAttribute, _viewScopeId);
+
+            _injectedSheetId ??= $"NativeUI.ViewStyleSheet.{_viewScopeId}";
+            string css = StyleSheetCss.WriteScoped(sheet, _viewScopeId);
+            if (OperatingSystem.IsBrowser())
+            {
+                DomInterop.InjectStyleSheet(_injectedSheetId, css);
+            }
+        }
+        else
+        {
+            RemoveScopedStyleSheet();
+        }
+    }
+
+    private void RemoveScopedStyleSheet()
+    {
+        if (_injectedSheetId is not null)
+        {
+            if (OperatingSystem.IsBrowser())
+            {
+                DomInterop.RemoveStyleSheet(_injectedSheetId);
+            }
+
+            _injectedSheetId = null;
+        }
+
+        if (_viewScopeId is not null)
+        {
+            if (!IsDisposed)
+            {
+                SetAttribute(StyleSheetCss.ViewScopeAttribute, null);
+            }
+
+            _viewScopeId = null;
         }
     }
 }

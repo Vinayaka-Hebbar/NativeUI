@@ -34,7 +34,15 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("The text cursor and selection drag survive leaving the text until release or cancellation", NativeUI.Controls.Tests.PointerRoutingTests.VerifyCursorAndSelectionDrag),
     ("Selection styles resolve inheritance, variables, specificity, and themes separately", NativeUI.Controls.Tests.SelectionStyleTests.VerifyResolution),
     ("Selection paints with complementary clips and reuses shaped layouts", NativeUI.Controls.Tests.SelectionStyleTests.VerifyPaintingOrderAndLayoutReuse),
-    ("Clipping to a region paints overlapping translucent selection rectangles once", NativeUI.Controls.Tests.SelectionStyleTests.VerifyClipPaintsTranslucentRegionOnce)
+    ("Clipping to a region paints overlapping translucent selection rectangles once", NativeUI.Controls.Tests.SelectionStyleTests.VerifyClipPaintsTranslucentRegionOnce),
+    ("View-scoped stylesheets apply to owning view and descendants, not siblings", NativeUI.Controls.Tests.ViewStyleSheetTests.VerifyScopedApplicationAndDescendants),
+    ("Outer and inner View stylesheets respect specificity over sheet depth", NativeUI.Controls.Tests.ViewStyleSheetTests.VerifyOuterAndInnerSpecificityAndPrecedence),
+    ("View stylesheet rules respect declaration order for ties", NativeUI.Controls.Tests.ViewStyleSheetTests.VerifyDeclarationOrderInSameSheet),
+    ("Inline Style overrides View stylesheet declarations", NativeUI.Controls.Tests.ViewStyleSheetTests.VerifyInlineOverridesViewStyleSheet),
+    ("View stylesheet rules match ancestor relationships", NativeUI.Controls.Tests.ViewStyleSheetTests.VerifyAncestorSelectorMatching),
+    ("Relative CSS lengths resolve against effective font size from View stylesheet", NativeUI.Controls.Tests.ViewStyleSheetTests.VerifyRelativeFontLengthsUseEffectiveFontSize),
+    ("Theme variables in View stylesheets resolve via active resolver", NativeUI.Controls.Tests.ViewStyleSheetTests.VerifyThemeVariablesResolution),
+    ("Replacing or removing View stylesheet recomputes subtree and avoids redundant invalidation", NativeUI.Controls.Tests.ViewStyleSheetTests.VerifyStyleSheetReplacementAndRemoval)
 ]);
 
 return exitCode;

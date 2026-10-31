@@ -197,11 +197,23 @@ public sealed record StyleSelector
     /// <summary>
     /// Determines whether this selector matches <paramref name="element"/> and its ancestors.
     /// </summary>
-    public bool Matches(IUIElement element)
+    /// <param name="element">The candidate element to match against the subject.</param>
+    /// <param name="container">An optional ancestor boundary beyond which ancestor matching does not traverse.</param>
+    public bool Matches(IUIElement element, IUIElement? container = null)
     {
         ArgumentNullException.ThrowIfNull(element);
 
         if (!Subject.Matches(element))
+        {
+            return false;
+        }
+
+        if (Ancestors.Length == 0)
+        {
+            return true;
+        }
+
+        if (container is not null && ReferenceEquals(element, container))
         {
             return false;
         }
@@ -211,6 +223,12 @@ public sealed record StyleSelector
         {
             while (current is not null && !Ancestors[i].Matches(current))
             {
+                if (ReferenceEquals(current, container))
+                {
+                    current = null;
+                    break;
+                }
+
                 current = current.Parent;
             }
 
@@ -219,9 +237,110 @@ public sealed record StyleSelector
                 return false;
             }
 
+            if (ReferenceEquals(current, container))
+            {
+                if (i > 0)
+                {
+                    return false;
+                }
+
+                break;
+            }
+
             current = current.Parent;
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Parses a CSS selector string (such as <c>"text.title:hover"</c> or <c>"view.card text.title"</c>) into a <see cref="StyleSelector"/>.
+    /// </summary>
+    /// <param name="selectorText">The space-separated selector string.</param>
+    public static StyleSelector Parse(string selectorText)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(selectorText);
+
+        string[] parts = selectorText.Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+        {
+            throw new ArgumentException("The selector text cannot be empty.", nameof(selectorText));
+        }
+
+        CompoundSelector[] compounds = new CompoundSelector[parts.Length];
+        for (int i = 0; i < parts.Length; i++)
+        {
+            compounds[i] = ParseCompound(parts[i]);
+        }
+
+        CompoundSelector subject = compounds[^1];
+        ImmutableArray<CompoundSelector> ancestors = compounds.Length > 1
+            ? [.. compounds[..^1]]
+            : ImmutableArray<CompoundSelector>.Empty;
+
+        return new StyleSelector(subject, ancestors);
+    }
+
+    private static CompoundSelector ParseCompound(string text)
+    {
+        string? elementType = null;
+        List<string> classes = [];
+        ElementStates states = ElementStates.None;
+
+        int index = 0;
+        int length = text.Length;
+
+        if (char.IsLetter(text[0]))
+        {
+            int start = index;
+            while (index < length && text[index] != '.' && text[index] != ':')
+            {
+                index++;
+            }
+
+            elementType = text[start..index].ToLowerInvariant();
+        }
+
+        while (index < length)
+        {
+            if (text[index] == '.')
+            {
+                index++;
+                int start = index;
+                while (index < length && text[index] != '.' && text[index] != ':')
+                {
+                    index++;
+                }
+
+                if (index > start)
+                {
+                    classes.Add(text[start..index]);
+                }
+            }
+            else if (text[index] == ':')
+            {
+                index++;
+                int start = index;
+                while (index < length && text[index] != '.' && text[index] != ':')
+                {
+                    index++;
+                }
+
+                if (index > start)
+                {
+                    string pseudo = text[start..index];
+                    if (string.Equals(pseudo, "hover", StringComparison.OrdinalIgnoreCase))
+                    {
+                        states |= ElementStates.Hover;
+                    }
+                }
+            }
+            else
+            {
+                index++;
+            }
+        }
+
+        return new CompoundSelector(elementType, [.. classes], states);
     }
 }

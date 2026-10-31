@@ -21,6 +21,11 @@ internal static class StyleSheetCss
     public const string ScopeAttribute = "data-nui-scope";
 
     /// <summary>
+    /// The attribute identifying the view element that a scoped view stylesheet applies to.
+    /// </summary>
+    public const string ViewScopeAttribute = "data-nui-view-scope";
+
+    /// <summary>
     /// Writes the rules of <paramref name="styleSheet"/> in order, scoped to the <c>native-ui</c> element with <paramref name="scopeId"/>.
     /// </summary>
     public static string Write(StyleSheet styleSheet, int scopeId)
@@ -32,6 +37,26 @@ internal static class StyleSheetCss
         foreach (StyleRule rule in styleSheet.Rules)
         {
             css.Append(WriteSelector(rule.Target, scopeId, typeIds)).Append(" {");
+            AppendDeclarations(css, rule.Style);
+            css.Append(" }\n");
+        }
+
+        return css.ToString();
+    }
+
+    /// <summary>
+    /// Writes the rules of <paramref name="styleSheet"/> in order, scoped to the view with <paramref name="viewScopeId"/>.
+    /// </summary>
+    public static string WriteScoped(StyleSheet styleSheet, string viewScopeId)
+    {
+        ArgumentNullException.ThrowIfNull(styleSheet);
+        ArgumentException.ThrowIfNullOrWhiteSpace(viewScopeId);
+
+        Dictionary<Type, string> typeIds = CreateTypeIds(styleSheet);
+        StringBuilder css = new();
+        foreach (StyleRule rule in styleSheet.Rules)
+        {
+            css.Append(WriteScopedSelector(rule.Target, viewScopeId, typeIds)).Append(" {");
             AppendDeclarations(css, rule.Style);
             css.Append(" }\n");
         }
@@ -53,6 +78,47 @@ internal static class StyleSheetCss
             .ToArray();
 
         return tokens.Length > 0 ? string.Join(' ', tokens) : null;
+    }
+
+    /// <summary>
+    /// Returns the value of <see cref="TypeAttribute"/> for <paramref name="element"/>, checking both its resolver and ancestor view stylesheets.
+    /// </summary>
+    public static string? GetTypeTokens(UIElement element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+
+        List<StyleSheet> sheets = [];
+        if (element.StyleResolver is StyleSheet rootSheet)
+        {
+            sheets.Add(rootSheet);
+        }
+
+        for (UIElement? current = element; current is not null; current = current.Parent)
+        {
+            if (current is View { StyleSheet: StyleSheet viewSheet })
+            {
+                sheets.Add(viewSheet);
+            }
+        }
+
+        if (sheets.Count == 0)
+        {
+            return null;
+        }
+
+        HashSet<string> tokens = [];
+        foreach (StyleSheet sheet in sheets)
+        {
+            foreach (KeyValuePair<Type, string> entry in CreateTypeIds(sheet))
+            {
+                if (entry.Key.IsInstanceOfType(element))
+                {
+                    tokens.Add(entry.Value);
+                }
+            }
+        }
+
+        return tokens.Count > 0 ? string.Join(' ', tokens) : null;
     }
 
     /// <summary>
@@ -96,6 +162,25 @@ internal static class StyleSheetCss
         }
 
         return css.Append(' ').Append(WriteCompound(selector.Subject, typeIds)).ToString();
+    }
+
+    private static string WriteScopedSelector(StyleSelector selector, string viewScopeId, Dictionary<Type, string> typeIds)
+    {
+        string scopeAttr = $"[{ViewScopeAttribute}=\"{viewScopeId}\"]";
+        string subject = WriteCompound(selector.Subject, typeIds);
+
+        if (selector.Ancestors.Length == 0)
+        {
+            return $":where({scopeAttr}) {subject}, :where({scopeAttr}){subject}";
+        }
+
+        StringBuilder ancestors = new();
+        foreach (CompoundSelector ancestor in selector.Ancestors)
+        {
+            ancestors.Append(WriteCompound(ancestor, typeIds)).Append(' ');
+        }
+
+        return $":where({scopeAttr}) {ancestors}{subject}, :where({scopeAttr}){ancestors}{subject}";
     }
 
     private static string WriteCompound(CompoundSelector part, Dictionary<Type, string> typeIds)

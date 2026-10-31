@@ -60,10 +60,10 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// <summary>
     /// Identifies the <see cref="Class"/> bindable property.
     /// </summary>
-    public static readonly BindableProperty<string> ClassProperty =
-        BindableProperty.Create<UIElement, string>(
+    public static readonly BindableProperty<StyleClass> ClassProperty =
+        BindableProperty.Create<UIElement, StyleClass>(
             nameof(Class),
-            defaultValue: string.Empty,
+            defaultValue: StyleClass.Empty,
             propertyChanged: static (owner, _, newValue) => owner.UpdateClassList(newValue));
 
     /// <summary>
@@ -153,9 +153,9 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
-    /// Gets or sets the space-separated list of style class names applied to this element.
+    /// Gets or sets the style class names applied to this element.
     /// </summary>
-    public string Class
+    public StyleClass Class
     {
         get => GetValue(ClassProperty);
         set => SetValue(ClassProperty, value);
@@ -197,19 +197,10 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// Gets the effective <see cref="Core.Theme"/> (<see cref="Theme.Light"/> or <see cref="Theme.Dark"/>)
     /// resolved from <see cref="Theme"/> or inherited from the parent/host.
     /// </summary>
-    public Theme ActualTheme
-    {
-        get
-        {
-            Theme requested = Theme;
-            if (requested != Theme.Default)
-            {
-                return requested;
-            }
+    public Theme ActualTheme => Theme != Theme.Default ? Theme : _inheritedTheme;
 
-            return _parent?.ActualTheme ?? _inheritedTheme;
-        }
-    }
+    /// <inheritdoc />
+    public virtual double? FontSize => ComputedStyle.FontSize;
 
     /// <summary>
     /// Gets or sets the <see cref="IStyleResolver"/> used to resolve styles for this element and its descendants.
@@ -467,13 +458,13 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     private ComputedStyle ResolveComputedStyle()
     {
         IStyleResolver? resolver = StyleResolver;
-        if (resolver is null)
-        {
-            ComputedStyle inheritedStyle = ComputedStyle.CreateInherited(_parent?.ComputedStyle);
-            return inheritedStyle.ApplyInline(Style);
-        }
+        ComputedStyle computed = resolver is not null
+            ? resolver.ResolveStyle(this)
+            : ComputedStyle.CreateInherited(_parent?.ComputedStyle);
 
-        return resolver.ResolveStyle(this);
+        computed = ViewStyleResolver.Resolve(this, computed, resolver);
+
+        return computed.ApplyInline(Style, resolver, this);
     }
 
     private void UpdateComputedStyle(ComputedStyle computedStyle, SelectionStyle selectionStyle, Theme theme)
@@ -489,7 +480,10 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         InvalidateVisual();
     }
 
-    private void UpdateInheritedProperties()
+    /// <summary>
+    /// Updates properties inherited from ancestor elements (such as effective theme) and invalidates styles.
+    /// </summary>
+    protected internal virtual void UpdateInheritedProperties()
     {
         if (_parent is not null)
         {
@@ -530,11 +524,9 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         InvalidateStyle();
     }
 
-    private void UpdateClassList(string rawClass)
+    private void UpdateClassList(StyleClass styleClass)
     {
-        _classes = string.IsNullOrWhiteSpace(rawClass)
-            ? []
-            : rawClass.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+        _classes = [.. styleClass];
         InvalidateStyle();
     }
 

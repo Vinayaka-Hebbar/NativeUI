@@ -1,0 +1,8 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="TestApp.ClassExpressionView"
+      Class="card">
+    <Text x:Name="SingleClassText" Class="badge" />
+    <Text x:Name="MultiClassText" Class="badge test" />
+    <Text x:Name="EmptyClassText" Class="" />
+</View>

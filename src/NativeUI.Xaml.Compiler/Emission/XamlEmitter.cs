@@ -46,6 +46,7 @@ public static class XamlEmitter
             classMembers.Add(BuildNamedElementProperty(propName, controlType));
         }
 
+        classMembers.Add(BuildAttachStylesPartialMethod());
         classMembers.Add(BuildInitializeComponentMethod(document));
 
         AttributeListSyntax xamlCompilationAttr = AttributeList(SingletonSeparatedList(
@@ -108,12 +109,21 @@ public static class XamlEmitter
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
     }
 
+    private static MethodDeclarationSyntax BuildAttachStylesPartialMethod()
+    {
+        return MethodDeclaration(PredefinedType(Token(SyntaxKind.VoidKeyword)), Identifier("AttachStyles"))
+            .WithModifiers(TokenList(Token(SyntaxKind.PartialKeyword)))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+    }
+
     private static MethodDeclarationSyntax BuildInitializeComponentMethod(ValidatedXamlDocument document)
     {
         List<StatementSyntax> statements = [];
 
         ValidatedXamlElement root = document.RootElement!;
         EmitElementPropertyStatements(statements, ThisExpression(), root, document.DataType, document.NamespaceName);
+
+        statements.Add(ExpressionStatement(InvocationExpression(IdentifierName("AttachStyles"))));
 
         int counter = 0;
         foreach (ValidatedXamlElement child in root.Children)
@@ -233,12 +243,26 @@ public static class XamlEmitter
                 targetExpr,
                 IdentifierName(propertyName));
 
-        ExpressionSyntax rhsExpr = string.Equals(propertyName, "IsVisible", StringComparison.Ordinal)
-            ? LiteralExpression(
+        ExpressionSyntax rhsExpr;
+        if (string.Equals(propertyName, "Class", StringComparison.Ordinal))
+        {
+            string[] classes = rawLiteral.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            rhsExpr = classes.Length == 0
+                ? CollectionExpression()
+                : CollectionExpression(SeparatedList<CollectionElementSyntax>(
+                    classes.Select(static c => ExpressionElement(StringLiteral(c)))));
+        }
+        else if (string.Equals(propertyName, "IsVisible", StringComparison.Ordinal))
+        {
+            rhsExpr = LiteralExpression(
                 string.Equals(rawLiteral, "false", StringComparison.OrdinalIgnoreCase)
                     ? SyntaxKind.FalseLiteralExpression
-                    : SyntaxKind.TrueLiteralExpression)
-            : StringLiteral(rawLiteral);
+                    : SyntaxKind.TrueLiteralExpression);
+        }
+        else
+        {
+            rhsExpr = StringLiteral(rawLiteral);
+        }
 
         return ExpressionStatement(
             AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, targetMember, rhsExpr));

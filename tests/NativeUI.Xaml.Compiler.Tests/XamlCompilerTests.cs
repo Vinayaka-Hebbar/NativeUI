@@ -6,7 +6,8 @@ int exitCode = TestRunner.RunSuite("NativeUI.Xaml.Compiler.Tests",
     ("XamlParser builds structured AST with attributes and children from XAML file", TestXamlParserAst),
     ("BindingExpressionParser parses shorthand and named Mode parameters", TestBindingExpressionParser),
     ("XamlValidator reports diagnostics for unknown elements, properties, and CSS classes", TestXamlValidatorDiagnostics),
-    ("XamlEmitter uses SyntaxFactory to generate clean C# without global:: prefixes", TestXamlEmitterCleanSyntaxFactoryOutput)
+    ("XamlEmitter uses SyntaxFactory to generate clean C# without global:: prefixes", TestXamlEmitterCleanSyntaxFactoryOutput),
+    ("XamlEmitter generates collection expressions for Class attribute", TestXamlEmitterClassCollectionExpressions)
 ]);
 
 return exitCode;
@@ -77,7 +78,27 @@ static void TestXamlEmitterCleanSyntaxFactoryOutput()
     Assert.Contains("using NativeUI.Xaml;", emittedCSharp);
     Assert.Contains("namespace NativeUI.Sample.Shared;", emittedCSharp);
     Assert.Contains("public partial class HelloView : View", emittedCSharp);
+    Assert.Contains("partial void AttachStyles();", emittedCSharp);
+    Assert.Contains("Class = [\"card\"];", emittedCSharp);
+    Assert.Contains("AttachStyles();", emittedCSharp);
+    Assert.Contains("TitleText.Class = [\"title\"];", emittedCSharp);
     Assert.Contains("public Text TitleText { get; private set; } = null!;", emittedCSharp);
     Assert.Contains("new CompiledBinding<HelloViewModel, string>(\"Title\", static source => source.Title, null, BindingMode.OneWay)", emittedCSharp);
     Assert.False(emittedCSharp.Contains("global::", StringComparison.Ordinal), "Generated C# must not contain global:: clutter.");
+}
+
+static void TestXamlEmitterClassCollectionExpressions()
+{
+    string xaml = TestRunner.ReadFixture("ClassExpressionView.xaml");
+    ValidatedXamlDocument doc = XamlValidator.Validate(
+        XamlParser.Parse("ClassExpressionView.xaml", xaml),
+        new HashSet<string>(["card", "badge", "test"]),
+        "TestApp");
+
+    string emittedCSharp = XamlEmitter.Emit(doc);
+
+    Assert.Contains("Class = [\"card\"];", emittedCSharp);
+    Assert.Contains("SingleClassText.Class = [\"badge\"];", emittedCSharp);
+    Assert.Contains("MultiClassText.Class = [\"badge\", \"test\"];", emittedCSharp);
+    Assert.Contains("EmptyClassText.Class = [];", emittedCSharp);
 }

@@ -66,6 +66,25 @@ public readonly record struct ThemeValue<T>
     }
 
     /// <summary>
+    /// Creates a new <see cref="ThemeValue{T}"/> referencing a named theme variable.
+    /// </summary>
+    /// <param name="key">The theme key or CSS variable name.</param>
+    public static ThemeValue<T> Variable(string key)
+    {
+        return new ThemeValue<T>(key);
+    }
+
+    /// <summary>
+    /// Creates a new <see cref="ThemeValue{T}"/> referencing a named theme variable with a fallback value.
+    /// </summary>
+    /// <param name="key">The theme key or CSS variable name.</param>
+    /// <param name="fallback">The fallback value used when the theme key is not defined in the active scope.</param>
+    public static ThemeValue<T> Variable(string key, T fallback)
+    {
+        return new ThemeValue<T>(key, fallback);
+    }
+
+    /// <summary>
     /// Implicitly converts a literal value of type <typeparamref name="T"/> into a <see cref="ThemeValue{T}"/>.
     /// </summary>
     public static implicit operator ThemeValue<T>(T value)

@@ -52,4 +52,9 @@ public interface IUIElement
     /// Gets the element's current interaction states.
     /// </summary>
     ElementStates States { get; }
+
+    /// <summary>
+    /// Gets the specified font size in logical pixels from scoped stylesheets or inline styles, or null if unspecified.
+    /// </summary>
+    double? FontSize { get; }
 }

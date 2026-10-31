@@ -1,3 +1,4 @@
+using NativeUI.Core;
 using NativeUI.Styling;
 
 namespace NativeUI.Media;
@@ -99,8 +100,9 @@ public sealed record ComputedStyle
     /// Applies specified inline values without modifying this computed snapshot.
     /// </summary>
     /// <param name="inlineStyle">The specified inline properties, or <see langword="null"/> to preserve this snapshot.</param>
-    /// <param name="resolveColor">An optional scoped theme-token resolver; unresolved tokens use their fallback or the existing value.</param>
-    public ComputedStyle ApplyInline(IStyle? inlineStyle, Func<ThemeValue<Color>, Color?>? resolveColor = null)
+    /// <param name="resolver">An optional style resolver used to look up theme color variables.</param>
+    /// <param name="element">The element being styled, or <see langword="null"/> if not associated with an element.</param>
+    public ComputedStyle ApplyInline(IStyle? inlineStyle, IStyleResolver? resolver = null, IUIElement? element = null)
     {
         if (inlineStyle is null)
         {
@@ -109,8 +111,8 @@ public sealed record ComputedStyle
 
         return this with
         {
-            TextColor = ResolveColor(inlineStyle.Color, TextColor, resolveColor),
-            BackgroundColor = ResolveColor(inlineStyle.BackgroundColor, BackgroundColor, resolveColor),
+            TextColor = ResolveColor(inlineStyle.Color, TextColor, resolver, element),
+            BackgroundColor = ResolveColor(inlineStyle.BackgroundColor, BackgroundColor, resolver, element),
             FontSize = inlineStyle.FontSize ?? FontSize,
             FontWeight = inlineStyle.FontWeight ?? FontWeight,
             FontFamily = inlineStyle.FontFamily ?? FontFamily,
@@ -124,16 +126,24 @@ public sealed record ComputedStyle
         };
     }
 
-    private static Color? ResolveColor(ThemeValue<Color>? value, Color? fallback, Func<ThemeValue<Color>, Color?>? resolveColor)
+    private static Color? ResolveColor(
+        ThemeValue<Color>? value,
+        Color? fallback,
+        IStyleResolver? resolver,
+        IUIElement? element)
     {
         if (value is not ThemeValue<Color> specified)
         {
             return fallback;
         }
 
-        if (specified.IsThemeKey && resolveColor?.Invoke(specified) is Color resolved)
+        if (specified.IsThemeKey && resolver is not null && element is not null)
         {
-            return resolved;
+            Color? resolved = resolver.ResolveColor(specified, element);
+            if (resolved.HasValue)
+            {
+                return resolved.Value;
+            }
         }
 
         return specified.HasValue ? specified.Value : fallback;
