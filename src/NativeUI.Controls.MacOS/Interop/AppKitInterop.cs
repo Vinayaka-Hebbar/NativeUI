@@ -100,6 +100,36 @@ internal static partial class AppKitInterop
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
     public static partial nint SendMessageImageInitWithData(nint receiver, nint selector, nint nsData);
 
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    public static partial void SendMessageSetSize(nint receiver, nint selector, CGSize size);
+
+    public static bool IsSystemDarkMode()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return false;
+        }
+
+        EnsureFrameworksLoaded();
+        nint defaultsClass = GetClass("NSUserDefaults");
+        nint standardDefaults = SendMessage(defaultsClass, GetSelector("standardUserDefaults"));
+        if (standardDefaults == nint.Zero)
+        {
+            return false;
+        }
+
+        nint key = CreateNSString("AppleInterfaceStyle");
+        nint valObj = SendMessage(standardDefaults, GetSelector("stringForKey:"), key);
+        if (valObj == nint.Zero)
+        {
+            return false;
+        }
+
+        nint utf8Ptr = SendMessage(valObj, GetSelector("UTF8String"));
+        string? style = Marshal.PtrToStringUTF8(utf8Ptr);
+        return string.Equals(style, "Dark", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static nint CreateNSString(string text)
     {
         nint nsStringClass = GetClass("NSString");

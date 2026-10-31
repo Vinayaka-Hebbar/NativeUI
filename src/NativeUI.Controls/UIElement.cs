@@ -5,14 +5,17 @@ using NativeUI.Media;
 namespace NativeUI.Controls;
 
 /// <summary>
-/// Base class for all visual elements in NativeUI, participating in inline C# <see cref="Controls.Style"/>,
-/// optional <see cref="StyleResolver"/> styling, desktop layout/rendering, and Web DOM synchronization.
+/// Base class for all visual elements in NativeUI, participating in visual-tree <see cref="Core.Theme"/>
+/// and <see cref="IStyleResolver"/> inheritance, inline C# <see cref="Controls.Style"/>, desktop layout/rendering,
+/// and Web DOM synchronization.
 /// </summary>
 public abstract class UIElement : BindableObject, ILayoutNode
 {
     private IReadOnlyList<string> _classes = [];
     private ComputedStyle _computedStyle = ComputedStyle.Default;
     private UIElement? _parent;
+    private Theme _inheritedTheme = Theme.Light;
+    private IStyleResolver? _styleResolver;
 
     /// <summary>
     /// Identifies the <see cref="Id"/> bindable property.
@@ -46,6 +49,15 @@ public abstract class UIElement : BindableObject, ILayoutNode
             nameof(Style),
             defaultValue: null,
             propertyChanged: static (owner, oldStyle, newStyle) => owner.OnInlineStyleReplaced(oldStyle, newStyle));
+
+    /// <summary>
+    /// Identifies the <see cref="Theme"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<Theme> ThemeProperty =
+        BindableProperty.Create<UIElement, Theme>(
+            nameof(Theme),
+            defaultValue: Theme.Default,
+            propertyChanged: static (owner, _, _) => owner.UpdateInheritedProperties());
 
     /// <summary>
     /// Occurs whenever a visual property or computed style on this element changes.
@@ -94,6 +106,52 @@ public abstract class UIElement : BindableObject, ILayoutNode
     }
 
     /// <summary>
+    /// Gets or sets the theme explicitly requested on this element (<see cref="Theme.Default"/> inherits from parent/host).
+    /// </summary>
+    public Theme Theme
+    {
+        get => GetValue(ThemeProperty);
+        set => SetValue(ThemeProperty, value);
+    }
+
+    /// <summary>
+    /// Gets the effective <see cref="Core.Theme"/> (<see cref="Theme.Light"/> or <see cref="Theme.Dark"/>)
+    /// resolved from <see cref="Theme"/> or inherited from the parent/host.
+    /// </summary>
+    public Theme ActualTheme
+    {
+        get
+        {
+            Theme requested = Theme;
+            if (requested != Theme.Default)
+            {
+                return requested;
+            }
+
+            return _parent?.ActualTheme ?? _inheritedTheme;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the <see cref="IStyleResolver"/> used to resolve styles for this element and its descendants.
+    /// Inherits from <see cref="Parent"/> when not explicitly set on this instance.
+    /// </summary>
+    public IStyleResolver? StyleResolver
+    {
+        get => _styleResolver ?? _parent?.StyleResolver ?? Media.StyleResolver.Default;
+        set
+        {
+            if (ReferenceEquals(_styleResolver, value))
+            {
+                return;
+            }
+
+            _styleResolver = value;
+            InvalidateStyle();
+        }
+    }
+
+    /// <summary>
     /// Gets the parent <see cref="UIElement"/> in the visual tree, or <see langword="null"/> if this is a root element.
     /// </summary>
     public UIElement? Parent
@@ -101,9 +159,13 @@ public abstract class UIElement : BindableObject, ILayoutNode
         get => _parent;
         internal set
         {
+            if (ReferenceEquals(_parent, value))
+            {
+                return;
+            }
+
             _parent = value;
-            SetInheritedDataContext(value?.DataContext);
-            RecomputeStyle();
+            OnParentChanged();
         }
     }
 
@@ -113,7 +175,7 @@ public abstract class UIElement : BindableObject, ILayoutNode
     public object? NativePeer { get; set; }
 
     /// <summary>
-    /// Gets the canonical type name used by optional style resolvers (for example, <c>"view"</c> or <c>"text"</c>).
+    /// Gets the canonical type name used by style resolvers (for example, <c>"view"</c> or <c>"text"</c>).
     /// </summary>
     public abstract string StyleTypeName { get; }
 
@@ -127,16 +189,25 @@ public abstract class UIElement : BindableObject, ILayoutNode
     IReadOnlyList<ILayoutNode> ILayoutNode.LayoutChildren => GetLayoutChildren();
 
     /// <summary>
-    /// Recomputes the element's <see cref="ComputedStyle"/> from any registered <see cref="StyleResolver.Current"/>
-    /// and inline <see cref="Style"/> properties.
+    /// Invalidates and recomputes the element's <see cref="ComputedStyle"/> and propagates style invalidation.
+    /// </summary>
+    public virtual void InvalidateStyle()
+    {
+        RecomputeStyle();
+    }
+
+    /// <summary>
+    /// Recomputes the element's <see cref="ComputedStyle"/> using its effective <see cref="StyleResolver"/>,
+    /// <see cref="ActualTheme"/>, and inline <see cref="Style"/> overrides.
     /// </summary>
     public virtual void RecomputeStyle()
     {
         string scopeName = FindScopeTypeName();
-        IStyleResolver? resolver = StyleResolver.Current;
+        IStyleResolver? resolver = StyleResolver;
+        Theme theme = ActualTheme;
 
         ComputedStyle baseStyle = resolver is not null
-            ? resolver.ResolveBaseStyle(StyleTypeName, _classes, scopeName)
+            ? resolver.ResolveBaseStyle(StyleTypeName, _classes, scopeName, theme)
             : ComputedStyle.Default;
 
         Style? inline = Style;
@@ -151,7 +222,7 @@ public abstract class UIElement : BindableObject, ILayoutNode
         if (inline.Color is ThemeValue<Color> fg)
         {
             resolvedTextColor = resolver is not null
-                ? resolver.ResolveColor(fg, scopeName)
+                ? resolver.ResolveColor(fg, scopeName, theme)
                 : (fg.HasValue ? fg.Value : resolvedTextColor);
         }
 
@@ -159,7 +230,7 @@ public abstract class UIElement : BindableObject, ILayoutNode
         if (inline.BackgroundColor is ThemeValue<Color> bg)
         {
             resolvedBgColor = resolver is not null
-                ? resolver.ResolveColor(bg, scopeName)
+                ? resolver.ResolveColor(bg, scopeName, theme)
                 : (bg.HasValue ? bg.Value : resolvedBgColor);
         }
 
@@ -180,6 +251,24 @@ public abstract class UIElement : BindableObject, ILayoutNode
         };
 
         InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Invoked when the <see cref="Parent"/> of this element changes.
+    /// </summary>
+    protected virtual void OnParentChanged()
+    {
+        SetInheritedDataContext(_parent?.DataContext);
+        UpdateInheritedProperties();
+    }
+
+    /// <summary>
+    /// Sets the inherited <paramref name="theme"/> from a platform host when this element is the root of a window.
+    /// </summary>
+    protected internal void SetInheritedTheme(Theme theme)
+    {
+        _inheritedTheme = theme != Theme.Default ? theme : Theme.Light;
+        UpdateInheritedProperties();
     }
 
     /// <summary>
@@ -207,6 +296,16 @@ public abstract class UIElement : BindableObject, ILayoutNode
         return [];
     }
 
+    private void UpdateInheritedProperties()
+    {
+        if (_parent is not null)
+        {
+            _inheritedTheme = _parent.ActualTheme;
+        }
+
+        InvalidateStyle();
+    }
+
     private string FindScopeTypeName()
     {
         UIElement current = this;
@@ -230,12 +329,12 @@ public abstract class UIElement : BindableObject, ILayoutNode
             newStyle.Changed += OnInlineStylePropertyChanged;
         }
 
-        RecomputeStyle();
+        InvalidateStyle();
     }
 
     private void OnInlineStylePropertyChanged(object? sender, EventArgs e)
     {
-        RecomputeStyle();
+        InvalidateStyle();
     }
 
     private void UpdateClassList(string rawClass)
@@ -243,6 +342,6 @@ public abstract class UIElement : BindableObject, ILayoutNode
         _classes = string.IsNullOrWhiteSpace(rawClass)
             ? []
             : rawClass.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
-        RecomputeStyle();
+        InvalidateStyle();
     }
 }

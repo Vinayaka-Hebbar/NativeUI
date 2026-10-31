@@ -6,7 +6,7 @@ namespace NativeUI.Controls;
 
 /// <summary>
 /// Represents a composite view or container element that manages child <see cref="UIElement"/> instances,
-/// their parent-child relationships, <c>DataContext</c> inheritance, and disposal lifecycle.
+/// their parent-child relationships, <c>DataContext</c> and style invalidation propagation, and disposal lifecycle.
 /// </summary>
 public class View : UIElement
 {
@@ -29,12 +29,12 @@ public class View : UIElement
     public IList<UIElement> Children => _children;
 
     /// <inheritdoc />
-    public override void RecomputeStyle()
+    public override void InvalidateStyle()
     {
-        base.RecomputeStyle();
+        base.InvalidateStyle();
         foreach (UIElement child in _children)
         {
-            child.RecomputeStyle();
+            child.InvalidateStyle();
         }
     }
 

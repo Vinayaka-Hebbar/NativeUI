@@ -30,7 +30,8 @@ public sealed class VisualTreeRenderer
         DrawingContext context,
         UIElement root,
         Size logicalViewport,
-        float scaleFactor = 1.0f)
+        float scaleFactor = 1.0f,
+        Color? background = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(root);
@@ -39,7 +40,7 @@ public sealed class VisualTreeRenderer
 
         context.Save();
         context.Scale(scaleFactor, scaleFactor);
-        context.Clear(Colors.White);
+        context.Clear(background ?? root.ComputedStyle.BackgroundColor ?? Colors.Transparent);
 
         DrawBoxRecursive(context, rootBox, parentOpacity: 1.0);
 

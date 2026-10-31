@@ -1,6 +1,7 @@
 using NativeUI.Controls;
 using NativeUI.Controls.MacOS;
 using NativeUI.Controls.Web;
+using NativeUI.Core;
 using NativeUI.Layout;
 using NativeUI.Media;
 using NativeUI.Sample;
@@ -8,7 +9,7 @@ using NativeUI.Tests;
 
 int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
 [
-    ("Control supports CSS Class styling and inline C# Style object overrides", TestClassAndInlineStyleSystem),
+    ("Control supports CSS Class styling, inline C# Style overrides, and Theme/ActualTheme inheritance", TestClassAndInlineStyleSystem),
     ("Desktop LayoutEngine and SkiaSurface render HelloView and re-render on ViewModel change", TestDesktopSkiaRenderingAndBindingUpdate),
     ("WebHost mounts real DOM hierarchy and performs targeted incremental updates", TestWebHostIncrementalDomUpdates)
 ]);
@@ -50,6 +51,17 @@ static void TestClassAndInlineStyleSystem()
     // 3. Mutating inline Style triggers immediate recomputation
     styledBadge.Style.BorderRadius = 10;
     Assert.Equal(10.0, styledBadge.ComputedStyle.BorderRadius);
+
+    // 4. Setting Theme on parent View propagates ActualTheme to children and re-evaluates @media (prefers-color-scheme: dark)
+    view.Theme = Theme.Light;
+    Assert.Equal(Theme.Light, view.TitleText.ActualTheme);
+    Color? lightTitleColor = view.TitleText.ComputedStyle.TextColor;
+
+    view.Theme = Theme.Dark;
+    Assert.Equal(Theme.Dark, view.TitleText.ActualTheme);
+    Color? darkTitleColor = view.TitleText.ComputedStyle.TextColor;
+
+    Assert.False(EqualityComparer<Color?>.Default.Equals(lightTitleColor, darkTitleColor));
 }
 
 static void TestDesktopSkiaRenderingAndBindingUpdate()

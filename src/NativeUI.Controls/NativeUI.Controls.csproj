@@ -5,6 +5,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="NativeUI.Controls.MacOS" />
+    <InternalsVisibleTo Include="NativeUI.Controls.Web" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\NativeUI.Core\NativeUI.Core.csproj" />
     <ProjectReference Include="..\NativeUI.Layout\NativeUI.Layout.csproj" />
   </ItemGroup>

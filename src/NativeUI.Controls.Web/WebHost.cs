@@ -47,6 +47,7 @@ public sealed class WebHost : IDisposable
     public WebHost(bool useBrowserInterop = true)
     {
         _useBrowserInterop = useBrowserInterop && OperatingSystem.IsBrowser();
+        HotReloadManager.HotReloaded += OnHotReloaded;
     }
 
     /// <summary>
@@ -112,6 +113,8 @@ public sealed class WebHost : IDisposable
         }
 
         _disposed = true;
+        HotReloadManager.HotReloaded -= OnHotReloaded;
+
         foreach (UIElement element in _mountedElements)
         {
             element.PropertyChanged -= OnElementPropertyChanged;
@@ -145,6 +148,20 @@ public sealed class WebHost : IDisposable
         EmitBrowserCommand(new { op = "mountRoot", id = rootId });
     }
 
+    private void OnHotReloaded(Type[]? updatedTypes)
+    {
+        if (_disposed || _rootElement is null)
+        {
+            return;
+        }
+
+        _rootElement.RecomputeStyle();
+        if (CssStyleRegistry.TryGet(_rootElement.GetType().Name, out CssStyleSheet? sheet) && sheet is not null)
+        {
+            InjectStyleSheet(sheet);
+        }
+    }
+
     private (JSObject? DomNode, int NodeId) BuildElementSubtree(UIElement element)
     {
         string htmlTag = GetHtmlTagName(element);
@@ -174,6 +191,10 @@ public sealed class WebHost : IDisposable
         if (!element.IsVisible)
         {
             SetStyleProperty(domNode, nodeId, htmlTag, "display", "none");
+        }
+        else if (element is Text)
+        {
+            SetStyleProperty(domNode, nodeId, htmlTag, "display", "block");
         }
 
         if (element.Style is Style inlineStyle)
@@ -238,7 +259,8 @@ public sealed class WebHost : IDisposable
         }
         else if (ReferenceEquals(e.Property, UIElement.IsVisibleProperty))
         {
-            SetStyleProperty(domNode, nodeId, htmlTag, "display", element.IsVisible ? string.Empty : "none");
+            string visibleDisplay = element is Text ? "block" : string.Empty;
+            SetStyleProperty(domNode, nodeId, htmlTag, "display", element.IsVisible ? visibleDisplay : "none");
         }
         else if (ReferenceEquals(e.Property, UIElement.StyleProperty) && element.Style is Style updatedStyle)
         {

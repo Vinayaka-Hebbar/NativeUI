@@ -1,14 +1,17 @@
 using NativeUI.Controls;
+using NativeUI.Core;
 using NativeUI.Graphics;
 using NativeUI.Graphics.Skia;
 using NativeUI.Layout;
+using NativeUI.Media;
 using SkiaSharp;
 
 namespace NativeUI.Controls.MacOS;
 
 /// <summary>
-/// Represents a native macOS desktop window that hosts a <see cref="UIElement"/> hierarchy
-/// and renders its visual tree using <see cref="VisualTreeRenderer"/> and <see cref="SkiaSurface"/>.
+/// Represents a native macOS desktop window that hosts a <see cref="UIElement"/> hierarchy,
+/// propagates <see cref="ActualTheme"/> and <see cref="StyleResolver"/>, and renders its visual tree
+/// using <see cref="VisualTreeRenderer"/> and <see cref="SkiaSurface"/>.
 /// </summary>
 public sealed class Window : IDisposable
 {
@@ -19,11 +22,26 @@ public sealed class Window : IDisposable
     private const ulong BackingStoreBuffered = 2UL;
 
     private readonly VisualTreeRenderer _renderer = new(SkiaTextLayout.Shared);
+    private readonly IPlatformSettings _platformSettings;
     private UIElement? _content;
+    private Theme _theme = Theme.Default;
+    private IStyleResolver? _styleResolver;
+    private Color? _background;
     private nint _nsWindow;
     private nint _nsImageView;
     private string _title = "NativeUI";
     private bool _disposed;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Window"/> class.
+    /// </summary>
+    /// <param name="platformSettings">Optional platform settings service; defaults to <see cref="MacOSPlatformSettings.Instance"/>.</param>
+    public Window(IPlatformSettings? platformSettings = null)
+    {
+        _platformSettings = platformSettings ?? MacOSPlatformSettings.Instance;
+        _platformSettings.ThemeChanged += OnPlatformThemeChanged;
+        HotReloadManager.HotReloaded += OnHotReloaded;
+    }
 
     /// <summary>
     /// Gets or sets the window title displayed in the native macOS title bar.
@@ -56,6 +74,62 @@ public sealed class Window : IDisposable
     /// Gets or sets the DPI backing scale factor (for example, 2.0f on Retina displays).
     /// </summary>
     public float ScaleFactor { get; set; } = 2.0f;
+
+    /// <summary>
+    /// Gets or sets the requested <see cref="Core.Theme"/> for this window (<see cref="Theme.Default"/> follows the OS appearance).
+    /// </summary>
+    public Theme Theme
+    {
+        get => _theme;
+        set
+        {
+            if (_theme == value)
+            {
+                return;
+            }
+
+            _theme = value;
+            SyncContentThemeAndStyle();
+            InvalidateFrame();
+        }
+    }
+
+    /// <summary>
+    /// Gets the resolved <see cref="Core.Theme"/> (<see cref="Theme.Light"/> or <see cref="Theme.Dark"/>) active in this window.
+    /// </summary>
+    public Theme ActualTheme => _theme != Theme.Default ? _theme : _platformSettings.GetSystemTheme();
+
+    /// <summary>
+    /// Gets or sets the <see cref="IStyleResolver"/> propagated to the window's content tree.
+    /// </summary>
+    public IStyleResolver? StyleResolver
+    {
+        get => _styleResolver ?? Media.StyleResolver.Default;
+        set
+        {
+            if (ReferenceEquals(_styleResolver, value))
+            {
+                return;
+            }
+
+            _styleResolver = value;
+            SyncContentThemeAndStyle();
+            InvalidateFrame();
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the optional window surface clear color.
+    /// </summary>
+    public Color? Background
+    {
+        get => _background;
+        set
+        {
+            _background = value;
+            InvalidateFrame();
+        }
+    }
 
     /// <summary>
     /// Gets the total number of frames rendered by this window.
@@ -93,7 +167,7 @@ public sealed class Window : IDisposable
             _content = value;
             if (_content is not null)
             {
-                _content.RecomputeStyle();
+                SyncContentThemeAndStyle();
                 _content.VisualInvalidated += OnContentVisualInvalidated;
             }
 
@@ -109,6 +183,8 @@ public sealed class Window : IDisposable
         if (OperatingSystem.IsMacOS() && _nsWindow == nint.Zero)
         {
             AppKitInterop.EnsureFrameworksLoaded();
+            SyncContentThemeAndStyle();
+
             AppKitInterop.CGRect rect = new(120, 120, Width, Height);
             ulong styleMask = StyleMaskTitled | StyleMaskClosable | StyleMaskMiniaturizable | StyleMaskResizable;
 
@@ -155,7 +231,7 @@ public sealed class Window : IDisposable
         int pixelHeight = Math.Max(1, (int)Math.Round(Height * ScaleFactor));
 
         using SkiaSurface surface = new(pixelWidth, pixelHeight, SkiaTextLayout.Shared);
-        LastLayout = _renderer.Render(surface.DrawingContext, _content, new Size(Width, Height), ScaleFactor);
+        LastLayout = _renderer.Render(surface.DrawingContext, _content, new Size(Width, Height), ScaleFactor, _background);
         RenderCount++;
 
         SKImage snapshot = surface.Snapshot();
@@ -176,6 +252,9 @@ public sealed class Window : IDisposable
         }
 
         _disposed = true;
+        _platformSettings.ThemeChanged -= OnPlatformThemeChanged;
+        HotReloadManager.HotReloaded -= OnHotReloaded;
+
         if (_content is not null)
         {
             _content.VisualInvalidated -= OnContentVisualInvalidated;
@@ -184,6 +263,43 @@ public sealed class Window : IDisposable
 
         _nsImageView = nint.Zero;
         _nsWindow = nint.Zero;
+    }
+
+    private void SyncContentThemeAndStyle()
+    {
+        if (_content is null)
+        {
+            return;
+        }
+
+        if (_styleResolver is not null)
+        {
+            _content.StyleResolver = _styleResolver;
+        }
+
+        _content.SetInheritedTheme(ActualTheme);
+    }
+
+    private void OnPlatformThemeChanged(object? sender, Theme newSystemTheme)
+    {
+        if (_disposed || _theme != Theme.Default)
+        {
+            return;
+        }
+
+        SyncContentThemeAndStyle();
+        InvalidateFrame();
+    }
+
+    private void OnHotReloaded(Type[]? updatedTypes)
+    {
+        if (_disposed || _content is null)
+        {
+            return;
+        }
+
+        SyncContentThemeAndStyle();
+        InvalidateFrame();
     }
 
     private void OnContentVisualInvalidated(object? sender, EventArgs e)
@@ -219,6 +335,10 @@ public sealed class Window : IDisposable
 
         if (nsImage != nint.Zero)
         {
+            AppKitInterop.SendMessageSetSize(
+                nsImage,
+                AppKitInterop.GetSelector("setSize:"),
+                new AppKitInterop.CGSize(Width, Height));
             AppKitInterop.SendMessageVoid(_nsImageView, AppKitInterop.GetSelector("setImage:"), nsImage);
         }
     }
