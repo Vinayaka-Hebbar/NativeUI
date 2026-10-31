@@ -9,10 +9,11 @@ namespace NativeUI.Controls;
 /// and <see cref="IStyleResolver"/> inheritance, inline C# <see cref="Controls.Style"/>, desktop layout/rendering,
 /// and Web DOM synchronization.
 /// </summary>
-public abstract class UIElement : BindableObject, ILayoutNode
+public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
 {
     private IReadOnlyList<string> _classes = [];
     private ComputedStyle _computedStyle = ComputedStyle.Default;
+    private Theme _computedTheme = Theme.Light;
     private UIElement? _parent;
     private Theme _inheritedTheme = Theme.Light;
     private IStyleResolver? _styleResolver;
@@ -175,12 +176,19 @@ public abstract class UIElement : BindableObject, ILayoutNode
     public object? NativePeer { get; set; }
 
     /// <summary>
-    /// Gets the canonical type name used by style resolvers (for example, <c>"view"</c> or <c>"text"</c>).
+    /// Gets the canonical NativeUI tag name used by CSS type selectors, such as <c>view</c> or <c>text</c>.
     /// </summary>
-    public abstract string StyleTypeName { get; }
+    public abstract string TagName { get; }
 
     /// <inheritdoc />
     public ComputedStyle ComputedStyle => _computedStyle;
+
+    /// <inheritdoc />
+    public string StyleSheetId => FindScopeTypeName();
+
+    IUIElement? IUIElement.Parent => Parent;
+
+    IStyle? IUIElement.Style => Style;
 
     /// <inheritdoc />
     string? ILayoutNode.TextContent => GetLayoutTextContent();
@@ -202,55 +210,8 @@ public abstract class UIElement : BindableObject, ILayoutNode
     /// </summary>
     public virtual void RecomputeStyle()
     {
-        string scopeName = FindScopeTypeName();
-        IStyleResolver? resolver = StyleResolver;
-        Theme theme = ActualTheme;
-
-        ComputedStyle baseStyle = resolver is not null
-            ? resolver.ResolveBaseStyle(StyleTypeName, _classes, scopeName, theme)
-            : ComputedStyle.Default;
-
-        Style? inline = Style;
-        if (inline is null)
-        {
-            _computedStyle = baseStyle;
-            InvalidateVisual();
-            return;
-        }
-
-        Color? resolvedTextColor = baseStyle.TextColor;
-        if (inline.Color is ThemeValue<Color> fg)
-        {
-            resolvedTextColor = resolver is not null
-                ? resolver.ResolveColor(fg, scopeName, theme)
-                : (fg.HasValue ? fg.Value : resolvedTextColor);
-        }
-
-        Color? resolvedBgColor = baseStyle.BackgroundColor;
-        if (inline.BackgroundColor is ThemeValue<Color> bg)
-        {
-            resolvedBgColor = resolver is not null
-                ? resolver.ResolveColor(bg, scopeName, theme)
-                : (bg.HasValue ? bg.Value : resolvedBgColor);
-        }
-
-        _computedStyle = new ComputedStyle
-        {
-            TextColor = resolvedTextColor,
-            BackgroundColor = resolvedBgColor,
-            FontSize = inline.FontSize ?? baseStyle.FontSize,
-            FontWeight = inline.FontWeight ?? baseStyle.FontWeight,
-            FontFamily = inline.FontFamily ?? baseStyle.FontFamily,
-            TextAlign = inline.TextAlign ?? baseStyle.TextAlign,
-            Padding = inline.Padding ?? baseStyle.Padding,
-            Margin = inline.Margin ?? baseStyle.Margin,
-            BorderRadius = inline.BorderRadius ?? baseStyle.BorderRadius,
-            Opacity = inline.Opacity is double op ? Math.Clamp(op, 0.0, 1.0) : baseStyle.Opacity,
-            Width = inline.Width ?? baseStyle.Width,
-            Height = inline.Height ?? baseStyle.Height
-        };
-
-        InvalidateVisual();
+        ComputedStyle computedStyle = ResolveComputedStyle();
+        UpdateComputedStyle(computedStyle, ActualTheme);
     }
 
     /// <summary>
@@ -294,6 +255,30 @@ public abstract class UIElement : BindableObject, ILayoutNode
     protected virtual IReadOnlyList<ILayoutNode> GetLayoutChildren()
     {
         return [];
+    }
+
+    private ComputedStyle ResolveComputedStyle()
+    {
+        IStyleResolver? resolver = StyleResolver;
+        if (resolver is null)
+        {
+            ComputedStyle inheritedStyle = ComputedStyle.CreateInherited(_parent?.ComputedStyle);
+            return inheritedStyle.ApplyInline(Style);
+        }
+
+        return resolver.ResolveStyle(this);
+    }
+
+    private void UpdateComputedStyle(ComputedStyle computedStyle, Theme theme)
+    {
+        if (_computedStyle == computedStyle && _computedTheme == theme)
+        {
+            return;
+        }
+
+        _computedStyle = computedStyle;
+        _computedTheme = theme;
+        InvalidateVisual();
     }
 
     private void UpdateInheritedProperties()

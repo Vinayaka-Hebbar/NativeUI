@@ -1,10 +1,10 @@
 namespace NativeUI.Media;
 
 /// <summary>
-/// Represents the resolved, concrete style values for a UI element after applying any active
+/// Represents an immutable, value-comparable snapshot of a UI element's resolved style after applying any active
 /// <see cref="IStyleResolver"/> (such as optional CSS rules) and inline C# style overrides.
 /// </summary>
-public sealed class ComputedStyle
+public sealed record ComputedStyle
 {
     /// <summary>
     /// Gets the default computed style with standard baseline typography and zero spacing.
@@ -70,4 +70,70 @@ public sealed class ComputedStyle
     /// Gets the explicit height in logical pixels, or <see langword="null"/> for auto sizing.
     /// </summary>
     public double? Height { get; init; }
+
+    /// <summary>
+    /// Creates an element's initial style by inheriting text properties from its parent.
+    /// Box geometry, background, and opacity start at their initial values.
+    /// </summary>
+    /// <param name="parent">The parent's computed style, or <see langword="null"/> for a root element.</param>
+    public static ComputedStyle CreateInherited(ComputedStyle? parent)
+    {
+        if (parent is null)
+        {
+            return Default;
+        }
+
+        return new ComputedStyle
+        {
+            TextColor = parent.TextColor,
+            FontSize = parent.FontSize,
+            FontWeight = parent.FontWeight,
+            FontFamily = parent.FontFamily,
+            TextAlign = parent.TextAlign
+        };
+    }
+
+    /// <summary>
+    /// Applies specified inline values without modifying this computed snapshot.
+    /// </summary>
+    /// <param name="inlineStyle">The specified inline properties, or <see langword="null"/> to preserve this snapshot.</param>
+    /// <param name="resolveColor">An optional scoped theme-token resolver; unresolved tokens use their fallback or the existing value.</param>
+    public ComputedStyle ApplyInline(IStyle? inlineStyle, Func<ThemeValue<Color>, Color?>? resolveColor = null)
+    {
+        if (inlineStyle is null)
+        {
+            return this;
+        }
+
+        return this with
+        {
+            TextColor = ResolveColor(inlineStyle.Color, TextColor, resolveColor),
+            BackgroundColor = ResolveColor(inlineStyle.BackgroundColor, BackgroundColor, resolveColor),
+            FontSize = inlineStyle.FontSize ?? FontSize,
+            FontWeight = inlineStyle.FontWeight ?? FontWeight,
+            FontFamily = inlineStyle.FontFamily ?? FontFamily,
+            TextAlign = inlineStyle.TextAlign ?? TextAlign,
+            Padding = inlineStyle.Padding ?? Padding,
+            Margin = inlineStyle.Margin ?? Margin,
+            BorderRadius = inlineStyle.BorderRadius ?? BorderRadius,
+            Opacity = inlineStyle.Opacity is double opacity ? Math.Clamp(opacity, 0.0, 1.0) : Opacity,
+            Width = inlineStyle.Width ?? Width,
+            Height = inlineStyle.Height ?? Height
+        };
+    }
+
+    private static Color? ResolveColor(ThemeValue<Color>? value, Color? fallback, Func<ThemeValue<Color>, Color?>? resolveColor)
+    {
+        if (value is not ThemeValue<Color> specified)
+        {
+            return fallback;
+        }
+
+        if (specified.IsThemeKey && resolveColor?.Invoke(specified) is Color resolved)
+        {
+            return resolved;
+        }
+
+        return specified.HasValue ? specified.Value : fallback;
+    }
 }

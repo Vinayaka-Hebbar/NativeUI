@@ -1,3 +1,4 @@
+using NativeUI.Core;
 using NativeUI.Media;
 
 namespace NativeUI.Css;
@@ -71,21 +72,23 @@ public sealed class CssStyleSheet
     }
 
     /// <summary>
-    /// Computes the cascaded <see cref="ComputedStyle"/> for an element with the given type name and CSS classes.
+    /// Computes the cascaded <see cref="ComputedStyle"/> for an element using its CSS classes, theme, and inherited and inline styles.
     /// </summary>
-    public ComputedStyle ComputeStyle(
-        string elementTypeName,
-        IReadOnlyList<string> classes,
-        CssVariables? variables = null,
-        CssColorSchemeCondition colorScheme = CssColorSchemeCondition.Light)
+    /// <param name="element">The element whose style is being computed.</param>
+    public ComputedStyle ComputeStyle(IUIElement element)
     {
-        CssVariables effectiveVariables = variables ?? CreateRootVariables(colorScheme);
+        ArgumentNullException.ThrowIfNull(element);
+
+        CssColorSchemeCondition colorScheme = element.ActualTheme == Theme.Dark
+            ? CssColorSchemeCondition.Dark
+            : CssColorSchemeCondition.Light;
+        CssVariables effectiveVariables = CreateRootVariables(colorScheme);
 
         List<(CssRule Rule, int Order)> matching = [];
         for (int i = 0; i < Rules.Count; i++)
         {
             CssRule rule = Rules[i];
-            if (rule.Matches(elementTypeName, classes, colorScheme))
+            if (rule.Matches(element.TagName, element.Classes, colorScheme))
             {
                 matching.Add((rule, i));
             }
@@ -110,18 +113,31 @@ public sealed class CssStyleSheet
             }
         }
 
-        Color? textColor = null;
+        ComputedStyle inheritedStyle = ComputedStyle.CreateInherited(element.Parent?.ComputedStyle);
+        Color? textColor = inheritedStyle.TextColor;
         Color? backgroundColor = null;
-        double fontSize = 16.0;
-        FontWeight fontWeight = FontWeight.Normal;
-        string? fontFamily = null;
-        TextAlign textAlign = TextAlign.Left;
+        double fontSize = inheritedStyle.FontSize;
+        FontWeight fontWeight = inheritedStyle.FontWeight;
+        string? fontFamily = inheritedStyle.FontFamily;
+        TextAlign textAlign = inheritedStyle.TextAlign;
         Thickness padding = Thickness.Zero;
         Thickness margin = Thickness.Zero;
         double borderRadius = 0.0;
         double opacity = 1.0;
         double? width = null;
         double? height = null;
+
+        // Font-relative lengths use the winning font size, regardless of declaration order.
+        foreach ((CssRule rule, _) in matching)
+        {
+            if (rule.Declarations.TryGetValue("font-size", out CssValue? fontSizeValue)
+                && scopedVariables.Resolve(fontSizeValue) is CssLengthValue fontSizeLength)
+            {
+                fontSize = fontSizeLength.ToLogicalPixels(inheritedStyle.FontSize, inheritedStyle.FontSize);
+            }
+        }
+
+        fontSize = element.Style?.FontSize ?? fontSize;
 
         foreach ((CssRule rule, _) in matching)
         {
@@ -152,13 +168,6 @@ public sealed class CssStyleSheet
                         if (resolved is CssColorValue bg)
                         {
                             backgroundColor = bg.Color;
-                        }
-                        break;
-
-                    case "font-size":
-                        if (resolved is CssLengthValue fs)
-                        {
-                            fontSize = fs.ToLogicalPixels(fontSize);
                         }
                         break;
 
@@ -236,7 +245,7 @@ public sealed class CssStyleSheet
             }
         }
 
-        return new ComputedStyle
+        ComputedStyle cssStyle = new()
         {
             TextColor = textColor,
             BackgroundColor = backgroundColor,
@@ -251,5 +260,6 @@ public sealed class CssStyleSheet
             Width = width,
             Height = height
         };
+        return cssStyle.ApplyInline(element.Style, scopedVariables.ResolveColor);
     }
 }

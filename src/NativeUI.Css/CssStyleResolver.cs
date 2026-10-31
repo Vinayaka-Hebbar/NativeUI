@@ -15,33 +15,28 @@ public sealed class CssStyleResolver : IStyleResolver
     public static CssStyleResolver Instance { get; } = new();
 
     /// <inheritdoc />
-    public ComputedStyle ResolveBaseStyle(
-        string elementTypeName,
-        IReadOnlyList<string> classes,
-        string? scopeName = null,
-        Theme theme = Theme.Light)
+    public ComputedStyle ResolveStyle(IUIElement element)
     {
-        CssStyleSheet? sheet = ResolveSheet(scopeName);
+        ArgumentNullException.ThrowIfNull(element);
+
+        CssStyleSheet? sheet = ResolveSheet(element.StyleSheetId);
         if (sheet is null)
         {
-            return ComputedStyle.Default;
+            return ComputedStyle.CreateInherited(element.Parent?.ComputedStyle).ApplyInline(element.Style);
         }
 
-        CssColorSchemeCondition scheme = ToColorSchemeCondition(theme);
-        CssVariables variables = sheet.CreateRootVariables(scheme);
-        return sheet.ComputeStyle(elementTypeName, classes, variables, scheme);
+        return sheet.ComputeStyle(element);
     }
 
     /// <inheritdoc />
-    public Color? ResolveColor(
-        ThemeValue<Color> colorValue,
-        string? scopeName = null,
-        Theme theme = Theme.Light)
+    public Color? ResolveColor(ThemeValue<Color> colorValue, IUIElement element)
     {
-        CssStyleSheet? sheet = ResolveSheet(scopeName);
+        ArgumentNullException.ThrowIfNull(element);
+
+        CssStyleSheet? sheet = ResolveSheet(element.StyleSheetId);
         if (sheet is not null)
         {
-            CssColorSchemeCondition scheme = ToColorSchemeCondition(theme);
+            CssColorSchemeCondition scheme = ToColorSchemeCondition(element.ActualTheme);
             CssVariables variables = sheet.CreateRootVariables(scheme);
             return variables.ResolveColor(colorValue);
         }

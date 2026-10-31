@@ -52,7 +52,7 @@ public class Text : UIElement
             defaultValue: null);
 
     /// <inheritdoc />
-    public override string StyleTypeName => "text";
+    public override string TagName => "text";
 
     /// <summary>
     /// Gets or sets the text string displayed by this control.

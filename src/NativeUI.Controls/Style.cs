@@ -7,7 +7,7 @@ namespace NativeUI.Controls;
 /// (for example, <c>Style = new() { BackgroundColor = Colors.Blue, Color = Colors.White, Padding = new(12, 8), BorderRadius = 6 }</c>).
 /// Overrides properties from CSS classes when present.
 /// </summary>
-public sealed class Style
+public sealed class Style : IStyle
 {
     private ThemeValue<Color>? _color;
     private ThemeValue<Color>? _backgroundColor;
@@ -182,4 +182,5 @@ public sealed class Style
             Changed?.Invoke(this, EventArgs.Empty);
         }
     }
+
 }

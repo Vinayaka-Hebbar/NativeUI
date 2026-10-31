@@ -4,31 +4,23 @@ namespace NativeUI.Media;
 
 /// <summary>
 /// Defines a style resolution provider (such as the CSS stylesheet engine) that resolves
-/// base <see cref="ComputedStyle"/> values and <see cref="ThemeValue{T}"/> variables for a given
+/// complete <see cref="ComputedStyle"/> values and <see cref="ThemeValue{T}"/> variables for a given
 /// <see cref="Theme"/> without coupling UI controls directly to CSS.
 /// </summary>
 public interface IStyleResolver
 {
     /// <summary>
-    /// Resolves the base <see cref="ComputedStyle"/> for an element before inline C# style overrides are applied.
+    /// Resolves inherited text properties, matching CSS declarations, and inline style values into a computed snapshot.
     /// </summary>
-    /// <param name="elementTypeName">The control's style type name (for example, <c>"view"</c> or <c>"text"</c>).</param>
-    /// <param name="classes">The class names applied to the element.</param>
-    /// <param name="scopeName">An optional scope identifier (such as the enclosing view's type name).</param>
-    /// <param name="theme">The effective <see cref="Theme"/> for the element.</param>
-    ComputedStyle ResolveBaseStyle(
-        string elementTypeName,
-        IReadOnlyList<string> classes,
-        string? scopeName = null,
-        Theme theme = Theme.Light);
+    /// <param name="element">The element whose style is being computed.</param>
+    ComputedStyle ResolveStyle(IUIElement element);
 
     /// <summary>
     /// Resolves a <see cref="ThemeValue{T}"/> color token against the active theme variables in the given scope and theme.
     /// </summary>
-    Color? ResolveColor(
-        ThemeValue<Color> colorValue,
-        string? scopeName = null,
-        Theme theme = Theme.Light);
+    /// <param name="colorValue">The literal color or theme token to resolve.</param>
+    /// <param name="element">The element supplying the stylesheet scope and effective theme.</param>
+    Color? ResolveColor(ThemeValue<Color> colorValue, IUIElement element);
 }
 
 /// <summary>

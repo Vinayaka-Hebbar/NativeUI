@@ -17,6 +17,7 @@
 }
 
 .card {
+    font-family: Arial;
     background-color: var(--color-surface);
     padding: 32px;
     border-radius: 12px;

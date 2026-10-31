@@ -21,7 +21,7 @@ public class View : UIElement
     }
 
     /// <inheritdoc />
-    public override string StyleTypeName => "view";
+    public override string TagName => "view";
 
     /// <summary>
     /// Gets the child <see cref="UIElement"/> collection contained within this view.
@@ -29,9 +29,9 @@ public class View : UIElement
     public IList<UIElement> Children => _children;
 
     /// <inheritdoc />
-    public override void InvalidateStyle()
+    public override void RecomputeStyle()
     {
-        base.InvalidateStyle();
+        base.RecomputeStyle();
         foreach (UIElement child in _children)
         {
             child.InvalidateStyle();

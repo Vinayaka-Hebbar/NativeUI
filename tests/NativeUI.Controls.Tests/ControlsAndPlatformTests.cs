@@ -3,6 +3,7 @@ using NativeUI.Controls;
 using NativeUI.Controls.MacOS;
 using NativeUI.Controls.Web;
 using NativeUI.Core;
+using NativeUI.Css;
 using NativeUI.Graphics.Skia;
 using NativeUI.Layout;
 using NativeUI.Media;
@@ -15,6 +16,10 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("Desktop LayoutEngine and SkiaSurface render HelloView and re-render on ViewModel change", TestDesktopSkiaRenderingAndBindingUpdate),
     ("HarfBuzz SkiaTextShaper and SkiaTextLayout support hit-testing, word boundaries, wrapped selection rects, and disposal", TestHarfBuzzTextShapingAndHitTesting),
     ("Selection follows font bounds with balanced line spacing and accurate cluster hit-testing", NativeUI.Controls.Tests.SelectionGeometryTests.Verify),
+    ("Text inherits its parent's CSS font family and preserves local overrides", NativeUI.Controls.Tests.FontInheritanceTests.Verify),
+    ("Style resolution inherits text properties and respects explicit CSS and inline overrides", NativeUI.Controls.Tests.StyleResolutionTests.VerifyInheritanceAndOverrides),
+    ("Relative CSS lengths use inherited and final font sizes", NativeUI.Controls.Tests.StyleResolutionTests.VerifyRelativeLengths),
+    ("Unchanged styles skip repaint while inherited and theme changes invalidate affected elements", NativeUI.Controls.Tests.StyleResolutionTests.VerifyInvalidation),
     ("Desktop Window supports pointer drag selection, double-click word selection, and async clipboard copy", TestDesktopWindowTextSelectionAndClipboard),
     ("WebHost mounts real DOM hierarchy, enables text selection by default, and performs targeted incremental updates", TestWebHostIncrementalDomUpdates)
 ]);
@@ -30,6 +35,7 @@ static void TestClassAndInlineStyleSystem()
     Assert.Equal("title", view.TitleText.Class);
     Assert.Equal(26.0, view.TitleText.ComputedStyle.FontSize);
     Assert.Equal(FontWeight.Bold, view.TitleText.ComputedStyle.FontWeight);
+    Assert.Equal("Arial", view.TitleText.ComputedStyle.FontFamily);
 
     // Verify inline Style = new() { ... } works standalone and overrides CSS class properties
     Text styledBadge = new()
@@ -61,10 +67,17 @@ static void TestClassAndInlineStyleSystem()
     view.Theme = Theme.Light;
     Assert.Equal(Theme.Light, view.TitleText.ActualTheme);
     Color? lightTitleColor = view.TitleText.ComputedStyle.TextColor;
+    IUIElement element = view.TitleText;
+    ThemeValue<Color> textColorToken = new("--color-text");
+    Assert.Equal(lightTitleColor, CssStyleResolver.Instance.ResolveColor(textColorToken, element));
+    ComputedStyle beforeResolution = element.ComputedStyle;
+    Assert.Equal(beforeResolution, CssStyleResolver.Instance.ResolveStyle(element));
+    Assert.Same(beforeResolution, element.ComputedStyle);
 
     view.Theme = Theme.Dark;
     Assert.Equal(Theme.Dark, view.TitleText.ActualTheme);
     Color? darkTitleColor = view.TitleText.ComputedStyle.TextColor;
+    Assert.Equal(darkTitleColor, CssStyleResolver.Instance.ResolveColor(textColorToken, element));
 
     Assert.False(EqualityComparer<Color?>.Default.Equals(lightTitleColor, darkTitleColor));
 }
@@ -208,7 +221,7 @@ static void TestWebHostIncrementalDomUpdates()
     Assert.True(webHost.MutationLog.Any(static m => m.Operation == "CreateElement" && m.TargetTag == "span" && m.Detail == "title"));
     Assert.True(webHost.MutationLog.Any(static m => m.Operation == "SetStyleProperty" && m.TargetTag == "span" && m.Detail == "user-select:text"));
     Assert.True(webHost.MutationLog.Any(static m => m.Operation == "SetStyleProperty" && m.TargetTag == "span" && m.Detail == $"background-color:{Colors.Blue.ToCssString()}"));
-    Assert.True(webHost.MutationLog.Any(static m => m.Operation == "SetStyleProperty" && m.TargetTag == "span" && m.Detail == "padding:8px 12px 8px 12px"));
+    Assert.True(webHost.MutationLog.Any(static m => m.Operation == "SetStyleProperty" && m.TargetTag == "span" && m.Detail == "padding:12px 8px 12px 8px"));
     Assert.True(webHost.MutationLog.Any(static m => m.Operation == "SetStyleProperty" && m.TargetTag == "span" && m.Detail == "border-radius:6px"));
 
     webHost.ClearMutationLog();
