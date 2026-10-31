@@ -1,50 +1,59 @@
 /* Shared compiled stylesheet for HelloView */
 :root {
-    --color-primary: oklch(0.55 0.22 255);
-    --color-surface: #f8fafc;
-    --color-text: #0f172a;
-    --color-muted: hsl(215 16% 47%);
-    --color-accent: oklch(0.62 0.19 160);
+  --color-primary: oklch(0.55 0.22 255);
+  --color-surface: #f8fafc;
+  --color-text: #0f172a;
+  --color-muted: hsl(215 16% 47%);
+  --color-accent: oklch(0.62 0.19 160);
 }
 
 @media (prefers-color-scheme: dark) {
-    :root {
-        --color-primary: oklch(0.72 0.18 250);
-        --color-surface: #0f172a;
-        --color-text: #f8fafc;
-        --color-muted: hsl(215 20% 70%);
-    }
+  :root {
+    --color-primary: oklch(0.72 0.18 250);
+    --color-surface: #0f172a;
+    --color-text: #f8fafc;
+    --color-muted: hsl(215 20% 70%);
+  }
 }
 
 .card {
-    font-family: Arial;
-    background-color: var(--color-surface);
-    padding: 32px;
-    border-radius: 12px;
+  font-family: Arial;
+  background-color: var(--color-surface);
+  padding: 32px;
+  border-radius: 12px;
 }
 
 .badge {
-    color: var(--color-primary);
-    font-size: 13px;
-    font-weight: 700;
-    margin: 0px 0px 8px 0px;
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0px 0px 8px 0px;
 }
 
 .title {
-    color: var(--color-text);
-    font-size: 26px;
-    font-weight: bold;
-    margin: 0px 0px 12px 0px;
+  color: var(--color-text);
+  font-size: 26px;
+  font-weight: bold;
+  margin: 0px 0px 12px 0px;
+}
+
+.title:hover {
+  background-color: var(--color-primary);
+}
+
+.title::selection {
+  background-color: var(--color-primary);
+  color: #ffffff;
 }
 
 .subtitle {
-    color: var(--color-muted);
-    font-size: 16px;
-    margin: 0px 0px 16px 0px;
+  color: var(--color-muted);
+  font-size: 16px;
+  margin: 0px 0px 16px 0px;
 }
 
 .status {
-    color: var(--color-accent, #10b981);
-    font-size: 14px;
-    font-weight: 600;
+  color: var(--color-accent, #10b981);
+  font-size: 14px;
+  font-weight: 600;
 }

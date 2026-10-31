@@ -8,12 +8,12 @@ namespace NativeUI.Core;
 public interface IUIElement
 {
     /// <summary>
-    /// Gets the canonical NativeUI tag name used by CSS type selectors, such as <c>text</c> or <c>view</c>.
+    /// Gets the canonical NativeUI element type name, such as <c>text</c> or <c>view</c>, available to style resolvers.
     /// </summary>
     string TagName { get; }
 
     /// <summary>
-    /// Gets the CSS class names applied to the element.
+    /// Gets the style class names applied to the element.
     /// </summary>
     IReadOnlyList<string> Classes { get; }
 
@@ -41,4 +41,14 @@ public interface IUIElement
     /// Gets the most recently computed style snapshot.
     /// </summary>
     ComputedStyle ComputedStyle { get; }
+
+    /// <summary>
+    /// Gets the most recently computed snapshot of the element's selected-text colors.
+    /// </summary>
+    SelectionStyle SelectionStyle { get; }
+
+    /// <summary>
+    /// Gets the element's current interaction states.
+    /// </summary>
+    ElementStates States { get; }
 }

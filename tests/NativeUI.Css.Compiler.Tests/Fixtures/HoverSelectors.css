@@ -1,0 +1,20 @@
+text.title:hover {
+    color: #60a5fa;
+}
+
+.card:hover .title {
+    color: #2563eb;
+}
+
+view .card:hover text.title::selection {
+    background-color: #2563eb;
+    color: #ffffff;
+}
+
+* {
+    margin: 0px;
+}
+
+.text {
+    color: #111111;
+}

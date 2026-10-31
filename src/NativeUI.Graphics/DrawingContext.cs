@@ -4,10 +4,32 @@ using NativeUI.Media;
 namespace NativeUI.Graphics;
 
 /// <summary>
+/// Specifies how a clip region combines with the current clip.
+/// </summary>
+public enum ClipMode
+{
+    /// <summary>
+    /// Restricts drawing to the region.
+    /// </summary>
+    Intersect,
+
+    /// <summary>
+    /// Prevents drawing inside the region.
+    /// </summary>
+    Exclude
+}
+
+/// <summary>
 /// Provides a platform- and graphics-backend-agnostic 2D drawing abstraction for rendering laid-out UI elements.
 /// </summary>
 public abstract class DrawingContext
 {
+    /// <summary>
+    /// Clips subsequent drawing against the union of <paramref name="region"/> until the matching <see cref="Restore"/>.
+    /// Intersect and Exclude clips of the same region cover each pixel exactly once.
+    /// </summary>
+    public abstract void ClipRegion(IReadOnlyList<Rect> region, ClipMode mode);
+
     /// <summary>
     /// Saves the current transform and clip state onto the internal stack.
     /// </summary>

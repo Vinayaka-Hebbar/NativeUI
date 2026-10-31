@@ -10,12 +10,13 @@ namespace NativeUI.Graphics;
 /// Traverses a <see cref="UIElement"/> hierarchy, computes its <see cref="LayoutBox"/> geometry via <see cref="LayoutEngine"/>,
 /// and issues drawing commands (including text selection highlights and shaped text layouts) to a <see cref="DrawingContext"/>.
 /// </summary>
-public sealed class VisualTreeRenderer
+public sealed class VisualTreeRenderer : IDisposable
 {
     private static readonly Color s_lightSelectionColor = Color.FromRgbBytes(37, 99, 235, 76);
     private static readonly Color s_darkSelectionColor = Color.FromRgbBytes(96, 165, 250, 96);
 
     private readonly LayoutEngine _layoutEngine;
+    private readonly RetainedTextMeasurer _textMeasurer;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="VisualTreeRenderer"/> class.
@@ -24,7 +25,8 @@ public sealed class VisualTreeRenderer
     public VisualTreeRenderer(ITextMeasurer textMeasurer)
     {
         ArgumentNullException.ThrowIfNull(textMeasurer);
-        _layoutEngine = new LayoutEngine(textMeasurer);
+        _textMeasurer = new RetainedTextMeasurer(textMeasurer);
+        _layoutEngine = new LayoutEngine(_textMeasurer);
     }
 
     /// <summary>
@@ -41,7 +43,16 @@ public sealed class VisualTreeRenderer
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(root);
 
-        LayoutBox rootBox = _layoutEngine.ComputeLayout(root, logicalViewport);
+        _textMeasurer.BeginPass();
+        LayoutBox rootBox;
+        try
+        {
+            rootBox = _layoutEngine.ComputeLayout(root, logicalViewport);
+        }
+        finally
+        {
+            _textMeasurer.EndPass();
+        }
 
         context.Save();
         context.Scale(scaleFactor, scaleFactor);
@@ -51,6 +62,14 @@ public sealed class VisualTreeRenderer
 
         context.Restore();
         return rootBox;
+    }
+
+    /// <summary>
+    /// Disposes the retained text layouts. Layout boxes returned by <see cref="Render"/> can no longer be drawn.
+    /// </summary>
+    public void Dispose()
+    {
+        _textMeasurer.Dispose();
     }
 
     private static void DrawBoxRecursive(DrawingContext context, LayoutBox box, double parentOpacity)
@@ -79,33 +98,7 @@ public sealed class VisualTreeRenderer
         {
             if (box.TextLayout is ITextLayout textLayout)
             {
-                if (textControl.IsTextSelectionEnabled && textControl.HasSelection)
-                {
-                    Color selectionColor = textControl.ActualTheme == Theme.Dark
-                        ? s_darkSelectionColor
-                        : s_lightSelectionColor;
-
-                    ImmutableArray<Rect> selectionRects = textLayout.HitTestTextRange(
-                        textControl.SelectionStart,
-                        textControl.SelectionLength);
-
-                    foreach (Rect localRect in selectionRects)
-                    {
-                        Rect viewportRect = new(
-                            box.ContentBox.X + localRect.X,
-                            box.ContentBox.Y + localRect.Y,
-                            localRect.Width,
-                            localRect.Height);
-                        context.DrawRectangle(viewportRect, selectionColor, effectiveOpacity);
-                    }
-                }
-
-                Color textColor = style.TextColor ?? Colors.Black;
-                context.DrawTextLayout(
-                    textLayout,
-                    new Point(box.ContentBox.X, box.ContentBox.Y),
-                    textColor,
-                    effectiveOpacity);
+                DrawSelectableText(context, box, textControl, textLayout, style.TextColor ?? Colors.Black, effectiveOpacity);
             }
             else
             {
@@ -126,5 +119,149 @@ public sealed class VisualTreeRenderer
         {
             DrawBoxRecursive(context, child, effectiveOpacity);
         }
+    }
+
+    /// <summary>
+    /// Paints the selection background and shaped glyphs. The same layout is drawn in both colors under complementary
+    /// clips, so selection never reshapes text or moves glyphs.
+    /// </summary>
+    private static void DrawSelectableText(
+        DrawingContext context,
+        LayoutBox box,
+        Text textControl,
+        ITextLayout textLayout,
+        Color textColor,
+        double opacity)
+    {
+        Point origin = new(box.ContentBox.X, box.ContentBox.Y);
+        Rect[] region = GetSelectionRegion(box, textControl, textLayout);
+        if (region.Length == 0)
+        {
+            context.DrawTextLayout(textLayout, origin, textColor, opacity);
+            return;
+        }
+
+        SelectionStyle selectionStyle = textControl.SelectionStyle;
+        Color selectionBackground = selectionStyle.BackgroundColor
+            ?? (textControl.ActualTheme == Theme.Dark ? s_darkSelectionColor : s_lightSelectionColor);
+
+        context.Save();
+        context.ClipRegion(region, ClipMode.Intersect);
+        context.DrawRectangle(GetBounds(region), selectionBackground, opacity);
+        context.Restore();
+
+        if (selectionStyle.TextColor is not Color selectedTextColor || selectedTextColor == textColor)
+        {
+            context.DrawTextLayout(textLayout, origin, textColor, opacity);
+            return;
+        }
+
+        context.Save();
+        context.ClipRegion(region, ClipMode.Exclude);
+        context.DrawTextLayout(textLayout, origin, textColor, opacity);
+        context.Restore();
+
+        context.Save();
+        context.ClipRegion(region, ClipMode.Intersect);
+        context.DrawTextLayout(textLayout, origin, selectedTextColor, opacity);
+        context.Restore();
+    }
+
+    private static Rect[] GetSelectionRegion(LayoutBox box, Text textControl, ITextLayout textLayout)
+    {
+        if (!textControl.IsTextSelectionEnabled || !textControl.HasSelection)
+        {
+            return [];
+        }
+
+        ImmutableArray<Rect> localRects = textLayout.HitTestTextRange(
+            textControl.SelectionStart,
+            textControl.SelectionLength);
+        Rect[] region = new Rect[localRects.Length];
+        for (int i = 0; i < region.Length; i++)
+        {
+            Rect local = localRects[i];
+            region[i] = new Rect(box.ContentBox.X + local.X, box.ContentBox.Y + local.Y, local.Width, local.Height);
+        }
+
+        return region;
+    }
+
+    private static Rect GetBounds(Rect[] region)
+    {
+        double left = region.Min(static rect => rect.X);
+        double top = region.Min(static rect => rect.Y);
+        double right = region.Max(static rect => rect.Right);
+        double bottom = region.Max(static rect => rect.Bottom);
+        return new Rect(left, top, right - left, bottom - top);
+    }
+
+    /// <summary>
+    /// Reuses shaped layouts between layout passes while text, typography, and available size are unchanged,
+    /// and disposes layouts that the latest pass no longer uses. Color changes never affect the cache key.
+    /// </summary>
+    private sealed class RetainedTextMeasurer(ITextMeasurer inner) : ITextMeasurer, IDisposable
+    {
+        private Dictionary<LayoutKey, ITextLayout> _retained = [];
+        private Dictionary<LayoutKey, ITextLayout> _current = [];
+
+        public void BeginPass()
+        {
+            _current = [];
+        }
+
+        public void EndPass()
+        {
+            foreach (KeyValuePair<LayoutKey, ITextLayout> entry in _retained)
+            {
+                if (!_current.ContainsKey(entry.Key))
+                {
+                    (entry.Value as IDisposable)?.Dispose();
+                }
+            }
+
+            _retained = _current;
+        }
+
+        public Size MeasureText(string text, Size availableSize, ComputedStyle style)
+        {
+            return inner.MeasureText(text, availableSize, style);
+        }
+
+        public ITextLayout CreateTextLayout(string text, Size availableSize, ComputedStyle style)
+        {
+            LayoutKey key = new(text, availableSize, style.FontSize, style.FontWeight, style.FontFamily, style.TextAlign);
+            if (_current.TryGetValue(key, out ITextLayout? current))
+            {
+                return current;
+            }
+
+            if (!_retained.TryGetValue(key, out ITextLayout? layout))
+            {
+                layout = inner.CreateTextLayout(text, availableSize, style);
+            }
+
+            _current[key] = layout;
+            return layout;
+        }
+
+        public void Dispose()
+        {
+            foreach (ITextLayout layout in _retained.Values)
+            {
+                (layout as IDisposable)?.Dispose();
+            }
+
+            _retained = [];
+            _current = [];
+        }
+
+        private readonly record struct LayoutKey(
+            string Text,
+            Size AvailableSize,
+            double FontSize,
+            FontWeight FontWeight,
+            string? FontFamily,
+            TextAlign TextAlign);
     }
 }

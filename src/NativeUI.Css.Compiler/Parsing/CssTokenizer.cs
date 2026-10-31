@@ -56,6 +56,11 @@ public static class CssTokenizer
                     tokens.Add(MakeSimpleToken(CssTokenKind.CloseParen, ")", startPos, startLine, startCol, index, line, col, hadTrivia));
                     continue;
 
+                case '*':
+                    Advance(source, ref index, ref line, ref col);
+                    tokens.Add(MakeSimpleToken(CssTokenKind.Star, "*", startPos, startLine, startCol, index, line, col, hadTrivia));
+                    continue;
+
                 case ':':
                     Advance(source, ref index, ref line, ref col);
                     tokens.Add(MakeSimpleToken(CssTokenKind.Colon, ":", startPos, startLine, startCol, index, line, col, hadTrivia));

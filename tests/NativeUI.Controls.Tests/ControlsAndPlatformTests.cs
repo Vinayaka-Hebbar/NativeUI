@@ -19,7 +19,18 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("Style resolution inherits text properties and respects explicit CSS and inline overrides", NativeUI.Controls.Tests.StyleResolutionTests.VerifyInheritanceAndOverrides),
     ("Relative CSS lengths use inherited and final font sizes", NativeUI.Controls.Tests.StyleResolutionTests.VerifyRelativeLengths),
     ("Unchanged styles skip repaint while inherited and theme changes invalidate affected elements", NativeUI.Controls.Tests.StyleResolutionTests.VerifyInvalidation),
-    ("Desktop Window supports pointer drag selection, double-click word selection, and async clipboard copy", TestDesktopWindowTextSelectionAndClipboard)
+    ("Desktop Window supports pointer drag selection, double-click word selection, and async clipboard copy", TestDesktopWindowTextSelectionAndClipboard),
+    (":root rules supply global variables and style only the root element", NativeUI.Controls.Tests.StyleResolutionTests.VerifyRootRuleMatching),
+    ("Routed events follow direct, tunnel, and bubble order", NativeUI.Controls.Tests.PointerRoutingTests.VerifyRoutingOrder),
+    ("Routed events preserve source, honor Handled, and remove registrations", NativeUI.Controls.Tests.PointerRoutingTests.VerifyHandledSourceAndRemoval),
+    ("Routed events snapshot the route and handlers before dispatch", NativeUI.Controls.Tests.PointerRoutingTests.VerifyDispatchSnapshots),
+    ("Hover updates state before ordered enter and exit events and drives descendant selectors", NativeUI.Controls.Tests.PointerRoutingTests.VerifyHoverOrderAndSelectors),
+    ("Hit-testing uses the topmost visible element and dispatches once per native event", NativeUI.Controls.Tests.PointerRoutingTests.VerifyHitTestingAndSingleDispatch),
+    ("A stationary pointer is reevaluated after layout changes without recursive rendering", NativeUI.Controls.Tests.PointerRoutingTests.VerifyStationaryPointerRefresh),
+    ("The text cursor and selection drag survive leaving the text until release or cancellation", NativeUI.Controls.Tests.PointerRoutingTests.VerifyCursorAndSelectionDrag),
+    ("Selection styles resolve inheritance, variables, specificity, and themes separately", NativeUI.Controls.Tests.SelectionStyleTests.VerifyResolution),
+    ("Selection paints with complementary clips and reuses shaped layouts", NativeUI.Controls.Tests.SelectionStyleTests.VerifyPaintingOrderAndLayoutReuse),
+    ("Clipping to a region paints overlapping translucent selection rectangles once", NativeUI.Controls.Tests.SelectionStyleTests.VerifyClipPaintsTranslucentRegionOnce)
 ]);
 
 return exitCode;

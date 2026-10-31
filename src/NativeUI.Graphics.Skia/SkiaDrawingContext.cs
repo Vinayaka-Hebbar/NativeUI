@@ -46,6 +46,22 @@ public sealed class SkiaDrawingContext : DrawingContext
     }
 
     /// <inheritdoc />
+    public override void ClipRegion(IReadOnlyList<Rect> region, ClipMode mode)
+    {
+        ArgumentNullException.ThrowIfNull(region);
+
+        using SKPath path = new() { FillType = SKPathFillType.Winding };
+        foreach (Rect rect in region)
+        {
+            path.AddRect(ToSKRect(rect));
+        }
+
+        // Aliased edges keep complementary clips from double-painting boundary pixels.
+        SKClipOperation operation = mode == ClipMode.Intersect ? SKClipOperation.Intersect : SKClipOperation.Difference;
+        _canvas.ClipPath(path, operation, antialias: false);
+    }
+
+    /// <inheritdoc />
     public override void Clear(Color color)
     {
         _canvas.Clear(color.ToSKColor());

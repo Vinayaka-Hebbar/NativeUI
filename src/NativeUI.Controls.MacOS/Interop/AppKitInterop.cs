@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using NativeUI.Core;
 using NativeUI.Layout;
 
 namespace NativeUI.Controls.MacOS;
@@ -14,8 +15,17 @@ internal static partial class AppKitInterop
     private const string ObjCLib = "/usr/lib/libobjc.A.dylib";
     private const string AppKitFramework = "/System/Library/Frameworks/AppKit.framework/AppKit";
     private const string FoundationFramework = "/System/Library/Frameworks/Foundation.framework/Foundation";
-    private const ulong EventModifierFlagCommand = 1UL << 20;
+    private const ulong EventModifierFlagShift = 1UL << 17;
     private const ulong EventModifierFlagControl = 1UL << 18;
+    private const ulong EventModifierFlagOption = 1UL << 19;
+    private const ulong EventModifierFlagCommand = 1UL << 20;
+    private const ulong TrackingMouseEnteredAndExited = 0x01;
+    private const ulong TrackingMouseMoved = 0x02;
+    private const ulong TrackingCursorUpdate = 0x04;
+    private const ulong TrackingActiveInKeyWindow = 0x20;
+    private const ulong TrackingInVisibleRect = 0x200;
+    private const string WindowDidResignKeyNotification = "NSWindowDidResignKeyNotification";
+    private const string WindowDidResizeNotification = "NSWindowDidResizeNotification";
 
     private static readonly ConcurrentDictionary<nint, Window> s_viewToWindow = new();
     private static bool s_frameworksLoaded;
@@ -117,6 +127,27 @@ internal static partial class AppKitInterop
     public static partial nint SendMessage(nint receiver, nint selector, nint arg1, ulong arg2);
 
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    public static partial void SendMessageVoid(nint receiver, nint selector, nint arg1, nint arg2, nint arg3, nint arg4);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    public static partial nint SendMessageTrackingAreaInit(
+        nint receiver,
+        nint selector,
+        CGRect rect,
+        ulong options,
+        nint owner,
+        nint userInfo);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    public static partial CGPoint SendMessageConvertPoint(nint receiver, nint selector, CGPoint point, nint view);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    private static partial CGRect SendMessageRect(nint receiver, nint selector);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend_stret")]
+    private static partial CGRect SendMessageRectStret(nint receiver, nint selector);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
     public static partial ulong SendMessageUInt64(nint receiver, nint selector);
 
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
@@ -175,6 +206,11 @@ internal static partial class AppKitInterop
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> mouseDownPtr = &OnMouseDown;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> mouseDraggedPtr = &OnMouseDragged;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> mouseUpPtr = &OnMouseUp;
+        delegate* unmanaged[Cdecl]<nint, nint, nint, void> mouseMovedPtr = &OnMouseMoved;
+        delegate* unmanaged[Cdecl]<nint, nint, nint, void> mouseExitedPtr = &OnMouseExited;
+        delegate* unmanaged[Cdecl]<nint, nint, nint, void> cursorUpdatePtr = &OnCursorUpdate;
+        delegate* unmanaged[Cdecl]<nint, nint, nint, void> windowDidResignKeyPtr = &OnWindowDidResignKey;
+        delegate* unmanaged[Cdecl]<nint, nint, nint, void> windowDidResizePtr = &OnWindowDidResize;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> keyDownPtr = &OnKeyDown;
         delegate* unmanaged[Cdecl]<nint, nint, nint, byte> performKeyEquivPtr = &OnPerformKeyEquivalent;
 
@@ -182,12 +218,61 @@ internal static partial class AppKitInterop
         _ = ClassAddMethod(subClass, GetSelector("mouseDown:"), (nint)mouseDownPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("mouseDragged:"), (nint)mouseDraggedPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("mouseUp:"), (nint)mouseUpPtr, "v@:@");
+        _ = ClassAddMethod(subClass, GetSelector("mouseMoved:"), (nint)mouseMovedPtr, "v@:@");
+        _ = ClassAddMethod(subClass, GetSelector("mouseEntered:"), (nint)mouseMovedPtr, "v@:@");
+        _ = ClassAddMethod(subClass, GetSelector("mouseExited:"), (nint)mouseExitedPtr, "v@:@");
+        _ = ClassAddMethod(subClass, GetSelector("cursorUpdate:"), (nint)cursorUpdatePtr, "v@:@");
+        _ = ClassAddMethod(subClass, GetSelector("nativeUIWindowDidResignKey:"), (nint)windowDidResignKeyPtr, "v@:@");
+        _ = ClassAddMethod(subClass, GetSelector("nativeUIWindowDidResize:"), (nint)windowDidResizePtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("keyDown:"), (nint)keyDownPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("performKeyEquivalent:"), (nint)performKeyEquivPtr, "c@:@");
 
         RegisterClassPair(subClass);
         s_interactiveViewClass = subClass;
         return subClass;
+    }
+
+    /// <summary>
+    /// Registers the view for pointer movement, entry, exit, and cursor callbacks and for window activation and resize notifications.
+    /// </summary>
+    public static void InstallPointerTracking(nint nsWindow, nint nsView)
+    {
+        SendMessageVoid(nsWindow, GetSelector("setAcceptsMouseMovedEvents:"), true);
+
+        ulong options = TrackingMouseEnteredAndExited | TrackingMouseMoved | TrackingCursorUpdate |
+            TrackingActiveInKeyWindow | TrackingInVisibleRect;
+        nint allocated = SendMessage(GetClass("NSTrackingArea"), GetSelector("alloc"));
+        nint trackingArea = SendMessageTrackingAreaInit(
+            allocated,
+            GetSelector("initWithRect:options:owner:userInfo:"),
+            default,
+            options,
+            nsView,
+            nint.Zero);
+        SendMessageVoid(nsView, GetSelector("addTrackingArea:"), trackingArea);
+
+        nint center = SendMessage(GetClass("NSNotificationCenter"), GetSelector("defaultCenter"));
+        nint addObserver = GetSelector("addObserver:selector:name:object:");
+        SendMessageVoid(center, addObserver, nsView, GetSelector("nativeUIWindowDidResignKey:"), CreateNSString(WindowDidResignKeyNotification), nsWindow);
+        SendMessageVoid(center, addObserver, nsView, GetSelector("nativeUIWindowDidResize:"), CreateNSString(WindowDidResizeNotification), nsWindow);
+    }
+
+    /// <summary>
+    /// Removes the notification registrations added by <see cref="InstallPointerTracking"/>.
+    /// </summary>
+    public static void RemovePointerTracking(nint nsView)
+    {
+        nint center = SendMessage(GetClass("NSNotificationCenter"), GetSelector("defaultCenter"));
+        SendMessageVoid(center, GetSelector("removeObserver:"), nsView);
+    }
+
+    /// <summary>
+    /// Applies the native I-beam cursor when <paramref name="useTextCursor"/> is set, or the arrow otherwise.
+    /// </summary>
+    public static void SetCursor(bool useTextCursor)
+    {
+        nint cursor = SendMessage(GetClass("NSCursor"), GetSelector(useTextCursor ? "IBeamCursor" : "arrowCursor"));
+        _ = SendMessage(cursor, GetSelector("set"));
     }
 
     public static void SetPasteboardString(string text)
@@ -302,10 +387,8 @@ internal static partial class AppKitInterop
             return;
         }
 
-        CGPoint loc = SendMessagePoint(nsEvent, GetSelector("locationInWindow"));
         long clicks = SendMessageInt64(nsEvent, GetSelector("clickCount"));
-        Point topDownPoint = new(loc.X, Math.Max(0, window.Height - loc.Y));
-        window.HandlePointerPressed(topDownPoint, (int)Math.Max(1, clicks));
+        window.HandlePointerPressed(GetTopDownPoint(self, nsEvent), (int)Math.Max(1, clicks), GetModifiers(nsEvent));
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
@@ -316,9 +399,7 @@ internal static partial class AppKitInterop
             return;
         }
 
-        CGPoint loc = SendMessagePoint(nsEvent, GetSelector("locationInWindow"));
-        Point topDownPoint = new(loc.X, Math.Max(0, window.Height - loc.Y));
-        window.HandlePointerMoved(topDownPoint, isPressed: true);
+        window.HandlePointerMoved(GetTopDownPoint(self, nsEvent), isPressed: true, GetModifiers(nsEvent));
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
@@ -329,9 +410,99 @@ internal static partial class AppKitInterop
             return;
         }
 
-        CGPoint loc = SendMessagePoint(nsEvent, GetSelector("locationInWindow"));
-        Point topDownPoint = new(loc.X, Math.Max(0, window.Height - loc.Y));
-        window.HandlePointerReleased(topDownPoint);
+        window.HandlePointerReleased(GetTopDownPoint(self, nsEvent), GetModifiers(nsEvent));
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnMouseMoved(nint self, nint cmd, nint nsEvent)
+    {
+        if (s_viewToWindow.TryGetValue(self, out Window? window) && nsEvent != nint.Zero)
+        {
+            window.HandlePointerMoved(GetTopDownPoint(self, nsEvent), isPressed: false, GetModifiers(nsEvent));
+        }
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnMouseExited(nint self, nint cmd, nint nsEvent)
+    {
+        if (s_viewToWindow.TryGetValue(self, out Window? window))
+        {
+            window.HandlePointerExited();
+        }
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnCursorUpdate(nint self, nint cmd, nint nsEvent)
+    {
+        if (s_viewToWindow.TryGetValue(self, out Window? window))
+        {
+            window.HandleCursorUpdate();
+        }
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnWindowDidResignKey(nint self, nint cmd, nint notification)
+    {
+        if (s_viewToWindow.TryGetValue(self, out Window? window))
+        {
+            window.HandlePointerCancelled();
+        }
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnWindowDidResize(nint self, nint cmd, nint notification)
+    {
+        if (s_viewToWindow.TryGetValue(self, out Window? window))
+        {
+            CGRect bounds = GetBounds(self);
+            window.HandleResized(new Size(bounds.Size.Width, bounds.Size.Height));
+        }
+    }
+
+    private static CGRect GetBounds(nint nsView)
+    {
+        nint selector = GetSelector("bounds");
+        return RuntimeInformation.ProcessArchitecture == Architecture.X64
+            ? SendMessageRectStret(nsView, selector)
+            : SendMessageRect(nsView, selector);
+    }
+
+    /// <summary>
+    /// Converts an event's window location to top-down logical coordinates using the view's current bounds.
+    /// </summary>
+    private static Point GetTopDownPoint(nint nsView, nint nsEvent)
+    {
+        CGPoint location = SendMessagePoint(nsEvent, GetSelector("locationInWindow"));
+        CGPoint viewPoint = SendMessageConvertPoint(nsView, GetSelector("convertPoint:fromView:"), location, nint.Zero);
+        CGRect bounds = GetBounds(nsView);
+        return new Point(viewPoint.X - bounds.Origin.X, bounds.Origin.Y + bounds.Size.Height - viewPoint.Y);
+    }
+
+    private static PointerModifiers GetModifiers(nint nsEvent)
+    {
+        ulong flags = SendMessageUInt64(nsEvent, GetSelector("modifierFlags"));
+        PointerModifiers modifiers = PointerModifiers.None;
+        if ((flags & EventModifierFlagShift) != 0)
+        {
+            modifiers |= PointerModifiers.Shift;
+        }
+
+        if ((flags & EventModifierFlagControl) != 0)
+        {
+            modifiers |= PointerModifiers.Control;
+        }
+
+        if ((flags & EventModifierFlagOption) != 0)
+        {
+            modifiers |= PointerModifiers.Alt;
+        }
+
+        if ((flags & EventModifierFlagCommand) != 0)
+        {
+            modifiers |= PointerModifiers.Meta;
+        }
+
+        return modifiers;
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]

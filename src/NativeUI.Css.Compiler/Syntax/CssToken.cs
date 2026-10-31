@@ -63,6 +63,11 @@ public enum CssTokenKind
     String,
 
     /// <summary>
+    /// Asterisk (<c>*</c>), the universal selector.
+    /// </summary>
+    Star,
+
+    /// <summary>
     /// Colon (<c>:</c>).
     /// </summary>
     Colon,

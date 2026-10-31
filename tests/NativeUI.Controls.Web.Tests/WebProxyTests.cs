@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using NativeUI.Controls;
 using NativeUI.Controls.Web;
+using NativeUI.Core;
+using NativeUI.Layout;
 using NativeUI.Media;
 using NativeUI.Sample;
 using NativeUI.Tests;
@@ -13,7 +15,9 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
     ("View proxies reconcile children without recreating unchanged proxies", TestChildCollections),
     ("WebHost unmounts subscriptions and proxies before remounting", TestMountLifetime),
     ("WebHost rejects elements mounted by another host without disposing their proxies", TestHostOwnership),
-    ("Disposing a control disposes its proxy and the proxies of its children", TestControlDisposal)
+    ("Disposing a control disposes its proxy and the proxies of its children", TestControlDisposal),
+    ("Each browser pointer event routes once and updates hover in C#", TestPointerEventRouting),
+    ("Unmounting clears hover state and pointer node mappings", TestPointerCleanup)
 ]);
 
 return exitCode;
@@ -183,6 +187,99 @@ static void TestControlDisposal()
     using Text remounted = new() { Value = "Remounted" };
     host.MountHeadless(remounted);
     Assert.Equal("Remounted", GetElement(remounted).TextContent);
+}
+
+static void TestPointerEventRouting()
+{
+    using View root = new();
+    Text child = new() { Value = "Child" };
+    root.Children.Add(child);
+    using HtmlDomRoot host = new();
+    host.MountHeadless(root);
+    int childNode = ((HtmlDomElement)child.NativePeer!).NodeId;
+
+    List<string> order = [];
+    PointerEventArgs? pressed = null;
+    object? pressedSender = null;
+    root.PointerEntered += (_, _) => order.Add("enter root");
+    child.PointerEntered += (_, _) => order.Add("enter child");
+    child.PointerExited += (_, _) => order.Add("exit child");
+    root.PointerExited += (_, _) => order.Add("exit root");
+    child.PointerMoved += (_, _) => order.Add("move child");
+    root.PointerMoved += (_, _) => order.Add("move root");
+    child.PointerReleased += (_, args) =>
+    {
+        order.Add("up child");
+        args.Handled = true;
+    };
+    root.PointerReleased += (_, _) => order.Add("up root");
+    root.PointerPressed += (sender, args) =>
+    {
+        order.Add("down root");
+        pressedSender = sender;
+        pressed = args;
+    };
+
+    Point position = new(5.5, 6);
+    host.DispatchPointerEvent(new PointerEventData { Kind = PointerEventKind.Move, NodeId = childNode, PointerId = 7, Position = position });
+    Assert.Equal("enter root,enter child,move child,move root", string.Join(',', order));
+    Assert.Equal(ElementStates.Hover, root.States);
+    Assert.Equal(ElementStates.Hover, child.States);
+
+    order.Clear();
+    host.DispatchPointerEvent(new PointerEventData
+    {
+        Kind = PointerEventKind.Press,
+        NodeId = childNode,
+        PointerId = 7,
+        Position = position,
+        Buttons = PointerButtons.Primary,
+        Modifiers = PointerModifiers.Shift | PointerModifiers.Meta,
+        ClickCount = 2
+    });
+    host.DispatchPointerEvent(new PointerEventData
+    {
+        Kind = PointerEventKind.Release,
+        NodeId = childNode,
+        PointerId = 7,
+        Position = position,
+        ClickCount = 2
+    });
+    Assert.Equal("down root,up child", string.Join(',', order));
+    Assert.Same(root, pressedSender!);
+    Assert.Same(child, pressed!.Source!);
+    Assert.Equal(7L, pressed.PointerId);
+    Assert.Equal(5.5, pressed.Position.X);
+    Assert.Equal(PointerButtons.Primary, pressed.Buttons);
+    Assert.Equal(PointerModifiers.Shift | PointerModifiers.Meta, pressed.Modifiers);
+    Assert.Equal(2, pressed.ClickCount);
+
+    order.Clear();
+    host.DispatchPointerEvent(new PointerEventData { Kind = PointerEventKind.Leave, PointerId = 7, Position = new Point(-1, -1) });
+    Assert.Equal("exit child,exit root", string.Join(',', order));
+    Assert.Equal(ElementStates.None, root.States);
+}
+
+static void TestPointerCleanup()
+{
+    using View root = new();
+    Text child = new() { Value = "Child" };
+    root.Children.Add(child);
+    using HtmlDomRoot host = new();
+    host.MountHeadless(root);
+    int childNode = ((HtmlDomElement)child.NativePeer!).NodeId;
+    host.DispatchPointerEvent(new PointerEventData { Kind = PointerEventKind.Move, NodeId = childNode, PointerId = 1 });
+    Assert.NotNull(HtmlDomElement.FindByNodeId(childNode));
+
+    host.Unmount();
+
+    Assert.Null(HtmlDomElement.FindByNodeId(childNode));
+    Assert.Equal(ElementStates.None, child.States);
+
+    int moves = 0;
+    child.PointerMoved += (_, _) => moves++;
+    host.DispatchPointerEvent(new PointerEventData { Kind = PointerEventKind.Move, NodeId = childNode, PointerId = 1 });
+    Assert.Equal(0, moves);
 }
 
 static HtmlDomElement GetElement(UIElement element)

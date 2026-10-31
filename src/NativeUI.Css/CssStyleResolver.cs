@@ -29,6 +29,15 @@ public sealed class CssStyleResolver : IStyleResolver
     }
 
     /// <inheritdoc />
+    public SelectionStyle ResolveSelectionStyle(IUIElement element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+
+        CssStyleSheet? sheet = ResolveSheet(element.StyleSheetId);
+        return sheet?.ComputeSelectionStyle(element) ?? element.Parent?.SelectionStyle ?? SelectionStyle.Default;
+    }
+
+    /// <inheritdoc />
     public Color? ResolveColor(ThemeValue<Color> colorValue, IUIElement element)
     {
         ArgumentNullException.ThrowIfNull(element);

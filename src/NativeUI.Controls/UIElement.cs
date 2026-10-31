@@ -13,10 +13,42 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
 {
     private IReadOnlyList<string> _classes = [];
     private ComputedStyle _computedStyle = ComputedStyle.Default;
+    private SelectionStyle _selectionStyle = SelectionStyle.Default;
     private Theme _computedTheme = Theme.Light;
     private UIElement? _parent;
     private Theme _inheritedTheme = Theme.Light;
     private IStyleResolver? _styleResolver;
+    private Dictionary<RoutedEvent, RoutedHandler[]>? _routedHandlers;
+
+    /// <summary>
+    /// Identifies the <see cref="PointerPressed"/> routed event.
+    /// </summary>
+    public static readonly RoutedEvent<PointerEventArgs> PointerPressedEvent =
+        RoutedEvent.Register<UIElement, PointerEventArgs>(nameof(PointerPressed), RoutingStrategy.Bubble);
+
+    /// <summary>
+    /// Identifies the <see cref="PointerReleased"/> routed event.
+    /// </summary>
+    public static readonly RoutedEvent<PointerEventArgs> PointerReleasedEvent =
+        RoutedEvent.Register<UIElement, PointerEventArgs>(nameof(PointerReleased), RoutingStrategy.Bubble);
+
+    /// <summary>
+    /// Identifies the <see cref="PointerMoved"/> routed event.
+    /// </summary>
+    public static readonly RoutedEvent<PointerEventArgs> PointerMovedEvent =
+        RoutedEvent.Register<UIElement, PointerEventArgs>(nameof(PointerMoved), RoutingStrategy.Bubble);
+
+    /// <summary>
+    /// Identifies the <see cref="PointerEntered"/> routed event.
+    /// </summary>
+    public static readonly RoutedEvent<PointerEventArgs> PointerEnteredEvent =
+        RoutedEvent.Register<UIElement, PointerEventArgs>(nameof(PointerEntered), RoutingStrategy.Direct);
+
+    /// <summary>
+    /// Identifies the <see cref="PointerExited"/> routed event.
+    /// </summary>
+    public static readonly RoutedEvent<PointerEventArgs> PointerExitedEvent =
+        RoutedEvent.Register<UIElement, PointerEventArgs>(nameof(PointerExited), RoutingStrategy.Direct);
 
     /// <summary>
     /// Identifies the <see cref="Id"/> bindable property.
@@ -64,6 +96,51 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// Occurs whenever a visual property or computed style on this element changes.
     /// </summary>
     public event EventHandler? VisualInvalidated;
+
+    /// <summary>
+    /// Occurs when a pointer button is pressed over this element or one of its descendants.
+    /// </summary>
+    public event EventHandler<PointerEventArgs> PointerPressed
+    {
+        add => AddHandler(PointerPressedEvent, value);
+        remove => RemoveHandler(PointerPressedEvent, value);
+    }
+
+    /// <summary>
+    /// Occurs when a pointer button is released over this element or one of its descendants.
+    /// </summary>
+    public event EventHandler<PointerEventArgs> PointerReleased
+    {
+        add => AddHandler(PointerReleasedEvent, value);
+        remove => RemoveHandler(PointerReleasedEvent, value);
+    }
+
+    /// <summary>
+    /// Occurs when a pointer moves over this element or one of its descendants.
+    /// </summary>
+    public event EventHandler<PointerEventArgs> PointerMoved
+    {
+        add => AddHandler(PointerMovedEvent, value);
+        remove => RemoveHandler(PointerMovedEvent, value);
+    }
+
+    /// <summary>
+    /// Occurs when a pointer enters the bounds of this element or one of its descendants.
+    /// </summary>
+    public event EventHandler<PointerEventArgs> PointerEntered
+    {
+        add => AddHandler(PointerEnteredEvent, value);
+        remove => RemoveHandler(PointerEnteredEvent, value);
+    }
+
+    /// <summary>
+    /// Occurs when a pointer leaves the bounds of this element and its descendants.
+    /// </summary>
+    public event EventHandler<PointerEventArgs> PointerExited
+    {
+        add => AddHandler(PointerExitedEvent, value);
+        remove => RemoveHandler(PointerExitedEvent, value);
+    }
 
     /// <summary>
     /// Gets or sets the unique element identifier.
@@ -184,11 +261,25 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     public ComputedStyle ComputedStyle => _computedStyle;
 
     /// <inheritdoc />
+    public SelectionStyle SelectionStyle => _selectionStyle;
+
+    /// <inheritdoc />
     public string StyleSheetId => FindScopeTypeName();
 
     IUIElement? IUIElement.Parent => Parent;
 
     IStyle? IUIElement.Style => Style;
+
+    /// <inheritdoc />
+    public ElementStates States { get; private set; }
+
+    /// <summary>
+    /// Sets or clears <paramref name="state"/> without recomputing styles, so a host can update a complete path first.
+    /// </summary>
+    internal void SetState(ElementStates state, bool enabled)
+    {
+        States = enabled ? States | state : States & ~state;
+    }
 
     /// <inheritdoc />
     string? ILayoutNode.TextContent => GetLayoutTextContent();
@@ -205,13 +296,84 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
-    /// Recomputes the element's <see cref="ComputedStyle"/> using its effective <see cref="StyleResolver"/>,
-    /// <see cref="ActualTheme"/>, and inline <see cref="Style"/> overrides.
+    /// Recomputes the element's <see cref="ComputedStyle"/> and <see cref="SelectionStyle"/> using its effective
+    /// <see cref="StyleResolver"/>, <see cref="ActualTheme"/>, and inline <see cref="Style"/> overrides.
     /// </summary>
     public virtual void RecomputeStyle()
     {
         ComputedStyle computedStyle = ResolveComputedStyle();
-        UpdateComputedStyle(computedStyle, ActualTheme);
+        SelectionStyle selectionStyle = ResolveSelectionStyle();
+        UpdateComputedStyle(computedStyle, selectionStyle, ActualTheme);
+    }
+
+    /// <summary>
+    /// Adds a handler for <paramref name="routedEvent"/>.
+    /// </summary>
+    /// <param name="routedEvent">The event to handle.</param>
+    /// <param name="handler">The handler to invoke with the current route element as its sender.</param>
+    /// <param name="handledEventsToo">Whether to invoke the handler after an earlier handler sets <see cref="RoutedEventArgs.Handled"/>.</param>
+    public void AddHandler<TArgs>(RoutedEvent<TArgs> routedEvent, EventHandler<TArgs> handler, bool handledEventsToo = false)
+        where TArgs : RoutedEventArgs
+    {
+        ArgumentNullException.ThrowIfNull(routedEvent);
+        ArgumentNullException.ThrowIfNull(handler);
+
+        _routedHandlers ??= [];
+        RoutedHandler[] existing = _routedHandlers.GetValueOrDefault(routedEvent, []);
+        _routedHandlers[routedEvent] = [.. existing, new RoutedHandler(handler, handledEventsToo)];
+    }
+
+    /// <summary>
+    /// Removes the most recently added registration of <paramref name="handler"/> for <paramref name="routedEvent"/>.
+    /// </summary>
+    public void RemoveHandler<TArgs>(RoutedEvent<TArgs> routedEvent, EventHandler<TArgs> handler)
+        where TArgs : RoutedEventArgs
+    {
+        ArgumentNullException.ThrowIfNull(routedEvent);
+        ArgumentNullException.ThrowIfNull(handler);
+
+        if (_routedHandlers is null || !_routedHandlers.TryGetValue(routedEvent, out RoutedHandler[]? existing))
+        {
+            return;
+        }
+
+        int index = Array.FindLastIndex(existing, entry => Equals(entry.Handler, handler));
+        if (index < 0)
+        {
+            return;
+        }
+
+        if (existing.Length == 1)
+        {
+            _routedHandlers.Remove(routedEvent);
+            return;
+        }
+
+        _routedHandlers[routedEvent] = [.. existing[..index], .. existing[(index + 1)..]];
+    }
+
+    /// <summary>
+    /// Raises <paramref name="routedEvent"/> from this element along its registered route.
+    /// The route and its handlers are captured first, so changes made by a handler affect only subsequent events.
+    /// </summary>
+    public void RaiseEvent<TArgs>(RoutedEvent<TArgs> routedEvent, TArgs args)
+        where TArgs : RoutedEventArgs
+    {
+        ArgumentNullException.ThrowIfNull(routedEvent);
+        ArgumentNullException.ThrowIfNull(args);
+
+        args.BeginRoute(routedEvent, this);
+        (UIElement Element, RoutedHandler[] Handlers)[] route = CreateRoute(routedEvent);
+        foreach ((UIElement element, RoutedHandler[] handlers) in route)
+        {
+            foreach (RoutedHandler entry in handlers)
+            {
+                if (!args.Handled || entry.HandledEventsToo)
+                {
+                    ((EventHandler<TArgs>)entry.Handler)(element, args);
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -264,9 +426,41 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         {
             NativePeer?.Dispose();
             NativePeer = null;
+            _routedHandlers = null;
         }
 
         base.Dispose(disposing);
+    }
+
+    private (UIElement Element, RoutedHandler[] Handlers)[] CreateRoute(RoutedEvent routedEvent)
+    {
+        if (routedEvent.RoutingStrategy == RoutingStrategy.Direct)
+        {
+            return [(this, GetHandlers(routedEvent))];
+        }
+
+        List<(UIElement Element, RoutedHandler[] Handlers)> route = [];
+        for (UIElement? current = this; current is not null; current = current._parent)
+        {
+            route.Add((current, current.GetHandlers(routedEvent)));
+        }
+
+        if (routedEvent.RoutingStrategy == RoutingStrategy.Tunnel)
+        {
+            route.Reverse();
+        }
+
+        return [.. route];
+    }
+
+    private RoutedHandler[] GetHandlers(RoutedEvent routedEvent)
+    {
+        return _routedHandlers?.GetValueOrDefault(routedEvent) ?? [];
+    }
+
+    private SelectionStyle ResolveSelectionStyle()
+    {
+        return StyleResolver?.ResolveSelectionStyle(this) ?? _parent?.SelectionStyle ?? SelectionStyle.Default;
     }
 
     private ComputedStyle ResolveComputedStyle()
@@ -281,14 +475,15 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         return resolver.ResolveStyle(this);
     }
 
-    private void UpdateComputedStyle(ComputedStyle computedStyle, Theme theme)
+    private void UpdateComputedStyle(ComputedStyle computedStyle, SelectionStyle selectionStyle, Theme theme)
     {
-        if (_computedStyle == computedStyle && _computedTheme == theme)
+        if (_computedStyle == computedStyle && _selectionStyle == selectionStyle && _computedTheme == theme)
         {
             return;
         }
 
         _computedStyle = computedStyle;
+        _selectionStyle = selectionStyle;
         _computedTheme = theme;
         InvalidateVisual();
     }
@@ -341,4 +536,9 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
             : rawClass.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
         InvalidateStyle();
     }
+
+    /// <summary>
+    /// Stores a typed handler delegate with its handled-event delivery option.
+    /// </summary>
+    private readonly record struct RoutedHandler(Delegate Handler, bool HandledEventsToo);
 }

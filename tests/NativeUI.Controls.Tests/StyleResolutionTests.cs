@@ -157,6 +157,43 @@ internal static class StyleResolutionTests
         Assert.Equal(Theme.Dark, child.ActualTheme);
     }
 
+    internal static void VerifyRootRuleMatching()
+    {
+        CssStyleRegistry.Register(new CssStyleSheet(nameof(RootRuleView), string.Empty,
+        [
+            new CssRule(":root", null, [], true, 10, new Dictionary<string, CssValue>
+            {
+                ["--accent"] = new CssColorValue(Colors.Green),
+                ["background-color"] = new CssVariableReference("--accent"),
+                ["color"] = new CssColorValue(Colors.Blue)
+            }),
+            new CssRule(":root", null, [], true, 10, new Dictionary<string, CssValue>
+            {
+                ["color"] = new CssColorValue(Colors.White)
+            }, CssColorSchemeCondition.Dark),
+            Rule("uses-accent", new Dictionary<string, CssValue>
+            {
+                ["border-radius"] = new CssLengthValue(4),
+                ["background-color"] = new CssVariableReference("--accent")
+            })
+        ]));
+
+        using RootRuleView root = new() { Theme = Theme.Light };
+        Text child = new() { Class = "uses-accent" };
+        Text plain = new();
+        root.Children.Add(child);
+        root.Children.Add(plain);
+
+        Assert.Equal<Color?>(Colors.Green, root.ComputedStyle.BackgroundColor);
+        Assert.Equal<Color?>(Colors.Blue, root.ComputedStyle.TextColor);
+        Assert.Equal<Color?>(Colors.Blue, plain.ComputedStyle.TextColor);
+        Assert.Equal<Color?>(null, plain.ComputedStyle.BackgroundColor);
+        Assert.Equal<Color?>(Colors.Green, child.ComputedStyle.BackgroundColor);
+
+        root.Theme = Theme.Dark;
+        Assert.Equal<Color?>(Colors.White, root.ComputedStyle.TextColor);
+    }
+
     private static CssRule Rule(string className, IReadOnlyDictionary<string, CssValue> declarations)
     {
         return new CssRule("." + className, null, [className], false, 10, declarations);
@@ -165,4 +202,6 @@ internal static class StyleResolutionTests
     private sealed class StyleResolutionView : View
     {
     }
+
+    private sealed class RootRuleView : View;
 }

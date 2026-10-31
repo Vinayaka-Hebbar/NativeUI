@@ -107,6 +107,21 @@ public static partial class DomInterop
     public static partial void RemoveElement(JSObject element);
 
     /// <summary>
+    /// Associates a DOM element with the identifier reported for pointer events targeting it.
+    /// </summary>
+    [JSImport("nativeui.setNodeId", "nativeui-dom")]
+    public static partial void SetNodeId(JSObject element, int nodeId);
+
+    /// <summary>
+    /// Sets the callback that a <c>native-ui</c> element invokes, in order, with each forwarded pointer event.
+    /// The element adds its delegated listeners when connected and removes them when disconnected.
+    /// </summary>
+    [JSImport("nativeui.setPointerDispatcher", "nativeui-dom")]
+    public static partial void SetPointerDispatcher(
+        JSObject root,
+        [JSMarshalAs<JSType.Function<JSType.Object>>] Action<JSObject> dispatch);
+
+    /// <summary>
     /// Injects or updates a <c>&lt;style&gt;</c> tag in <c>document.head</c> for a compiled <c>CssStyleSheet</c>.
     /// </summary>
     [JSImport("nativeui.injectStyleSheet", "nativeui-dom")]

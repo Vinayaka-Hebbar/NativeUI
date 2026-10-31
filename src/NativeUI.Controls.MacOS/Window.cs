@@ -21,8 +21,10 @@ public sealed class Window : IDisposable
     private const ulong StyleMaskMiniaturizable = 1UL << 2;
     private const ulong StyleMaskResizable = 1UL << 3;
     private const ulong BackingStoreBuffered = 2UL;
+    private const long MousePointerId = 1;
 
     private readonly VisualTreeRenderer _renderer = new(SkiaTextShaper.Shared);
+    private readonly PointerInputRouter _pointerRouter = new();
     private readonly IPlatformSettings _platformSettings;
     private readonly IClipboard _clipboard;
     private UIElement? _content;
@@ -36,6 +38,11 @@ public sealed class Window : IDisposable
     private LayoutBox? _activeSelectionBox;
     private int _selectionAnchorPosition;
     private bool _isDraggingSelection;
+    private Point? _pointerPosition;
+    private PointerButtons _pointerButtons;
+    private PointerModifiers _pointerModifiers;
+    private int _frameBatchDepth;
+    private bool _isFrameDirty;
     private bool _disposed;
 
     /// <summary>
@@ -160,6 +167,11 @@ public sealed class Window : IDisposable
     public nint NativeHandle => _nsWindow;
 
     /// <summary>
+    /// Gets a value indicating whether this window requests the I-beam cursor, either over selectable text or during a selection drag.
+    /// </summary>
+    public bool IsTextCursorActive { get; private set; }
+
+    /// <summary>
     /// Gets or sets the root <see cref="UIElement"/> content displayed inside this window.
     /// </summary>
     public UIElement? Content
@@ -172,11 +184,24 @@ public sealed class Window : IDisposable
                 return;
             }
 
+            BeginFrameBatch();
+            try
+            {
+                ClearPointerState();
+            }
+            finally
+            {
+                _isFrameDirty = false;
+                _frameBatchDepth--;
+            }
+
             if (_content is not null)
             {
                 _content.VisualInvalidated -= OnContentVisualInvalidated;
             }
 
+            _activeSelectionText = null;
+            _activeSelectionBox = null;
             _content = value;
             if (_content is not null)
             {
@@ -223,6 +248,7 @@ public sealed class Window : IDisposable
 
             AppKitInterop.RegisterWindowView(_nsImageView, this);
             AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setContentView:"), _nsImageView);
+            AppKitInterop.InstallPointerTracking(_nsWindow, _nsImageView);
             _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
             _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("center"));
             AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("makeKeyAndOrderFront:"), nint.Zero);
@@ -233,22 +259,46 @@ public sealed class Window : IDisposable
 
     /// <summary>
     /// Handles a pointer press at <paramref name="viewportPoint"/> (in logical window coordinates)
-    /// to begin character selection or perform double-click word selection.
+    /// by routing pointer events and beginning character selection or performing double-click word selection.
     /// </summary>
-    public void HandlePointerPressed(Point viewportPoint, int clickCount = 1)
+    public void HandlePointerPressed(
+        Point viewportPoint,
+        int clickCount = 1,
+        PointerModifiers modifiers = PointerModifiers.None)
     {
         if (_content is null || LastLayout is null)
         {
             return;
         }
 
-        ClearAllTextSelections(_content);
+        BeginFrameBatch();
+        try
+        {
+            StorePointerState(viewportPoint, PointerButtons.Primary, modifiers);
+            UIElement? hoveredElement = HitTest(viewportPoint);
+            UpdateHoverState(hoveredElement);
+            hoveredElement?.RaiseEvent(
+                UIElement.PointerPressedEvent,
+                new PointerEventArgs(MousePointerId, viewportPoint, PointerButtons.Primary, modifiers, clickCount));
+            BeginSelection(hoveredElement, viewportPoint, clickCount);
+            UpdateCursor();
+        }
+        finally
+        {
+            EndFrameBatch();
+        }
+    }
+
+    private void BeginSelection(UIElement? hoveredElement, Point viewportPoint, int clickCount)
+    {
+        ClearAllTextSelections(_content!);
         _activeSelectionText = null;
         _activeSelectionBox = null;
         _isDraggingSelection = false;
 
-        LayoutBox? hitBox = FindSelectableTextBoxAt(LastLayout, viewportPoint);
-        if (hitBox is null || hitBox.Element is not Text textControl || hitBox.TextLayout is not ITextLayout textLayout)
+        if (hoveredElement is not Text { IsTextSelectionEnabled: true } textControl ||
+            FindBoxForElement(LastLayout!, textControl) is not LayoutBox hitBox ||
+            hitBox.TextLayout is not ITextLayout textLayout)
         {
             return;
         }
@@ -280,11 +330,45 @@ public sealed class Window : IDisposable
 
     /// <summary>
     /// Handles pointer movement at <paramref name="viewportPoint"/> (in logical window coordinates)
-    /// to update active drag text selection.
+    /// by updating hover, routing pointer events, and extending any active selection drag.
     /// </summary>
-    public void HandlePointerMoved(Point viewportPoint, bool isPressed = true)
+    public void HandlePointerMoved(
+        Point viewportPoint,
+        bool isPressed = true,
+        PointerModifiers modifiers = PointerModifiers.None)
     {
-        if (!_isDraggingSelection || !isPressed || _activeSelectionText is null || _activeSelectionBox?.TextLayout is not ITextLayout textLayout)
+        if (_content is null)
+        {
+            return;
+        }
+
+        BeginFrameBatch();
+        try
+        {
+            PointerButtons buttons = isPressed ? PointerButtons.Primary : PointerButtons.None;
+            StorePointerState(viewportPoint, buttons, modifiers);
+            UIElement? hoveredElement = HitTest(viewportPoint);
+            UpdateHoverState(hoveredElement);
+            hoveredElement?.RaiseEvent(
+                UIElement.PointerMovedEvent,
+                new PointerEventArgs(MousePointerId, viewportPoint, buttons, modifiers));
+
+            if (isPressed)
+            {
+                ExtendSelection(viewportPoint);
+            }
+
+            UpdateCursor();
+        }
+        finally
+        {
+            EndFrameBatch();
+        }
+    }
+
+    private void ExtendSelection(Point viewportPoint)
+    {
+        if (!_isDraggingSelection || _activeSelectionText is null || _activeSelectionBox?.TextLayout is not ITextLayout textLayout)
         {
             return;
         }
@@ -300,15 +384,94 @@ public sealed class Window : IDisposable
     }
 
     /// <summary>
-    /// Ends an active pointer drag selection gesture.
+    /// Routes a pointer release and ends any active selection drag.
     /// </summary>
-    public void HandlePointerReleased(Point viewportPoint)
+    public void HandlePointerReleased(Point viewportPoint, PointerModifiers modifiers = PointerModifiers.None)
     {
-        if (_isDraggingSelection)
+        if (_content is null)
         {
-            HandlePointerMoved(viewportPoint, isPressed: true);
-            _isDraggingSelection = false;
+            return;
         }
+
+        BeginFrameBatch();
+        try
+        {
+            StorePointerState(viewportPoint, PointerButtons.None, modifiers);
+            UIElement? hoveredElement = HitTest(viewportPoint);
+            UpdateHoverState(hoveredElement);
+            hoveredElement?.RaiseEvent(
+                UIElement.PointerReleasedEvent,
+                new PointerEventArgs(MousePointerId, viewportPoint, PointerButtons.None, modifiers));
+
+            if (_isDraggingSelection)
+            {
+                ExtendSelection(viewportPoint);
+                _isDraggingSelection = false;
+            }
+
+            UpdateCursor();
+        }
+        finally
+        {
+            EndFrameBatch();
+        }
+    }
+
+    /// <summary>
+    /// Clears hover when the pointer leaves the window. An active selection drag continues until release or cancellation.
+    /// </summary>
+    public void HandlePointerExited()
+    {
+        BeginFrameBatch();
+        try
+        {
+            UpdateHoverState(null);
+            _pointerPosition = null;
+            UpdateCursor();
+        }
+        finally
+        {
+            EndFrameBatch();
+        }
+    }
+
+    /// <summary>
+    /// Clears hover and cancels any selection drag, for example when the window stops being the key window.
+    /// </summary>
+    public void HandlePointerCancelled()
+    {
+        BeginFrameBatch();
+        try
+        {
+            ClearPointerState();
+        }
+        finally
+        {
+            EndFrameBatch();
+        }
+    }
+
+    /// <summary>
+    /// Updates the logical content size after the native window is resized and renders the new layout.
+    /// </summary>
+    public void HandleResized(Size contentSize)
+    {
+        if (Width == contentSize.Width && Height == contentSize.Height)
+        {
+            return;
+        }
+
+        Width = contentSize.Width;
+        Height = contentSize.Height;
+        InvalidateFrame();
+    }
+
+    /// <summary>
+    /// Reapplies the requested cursor when AppKit asks the view to update it.
+    /// </summary>
+    public void HandleCursorUpdate()
+    {
+        UpdateCursor();
     }
 
     /// <summary>
@@ -394,6 +557,7 @@ public sealed class Window : IDisposable
 
         if (_nsImageView != nint.Zero)
         {
+            AppKitInterop.RemovePointerTracking(_nsImageView);
             AppKitInterop.UnregisterWindowView(_nsImageView);
         }
 
@@ -403,28 +567,36 @@ public sealed class Window : IDisposable
             _content = null;
         }
 
+        _pointerRouter.Reset();
+        _pointerPosition = null;
+        _isDraggingSelection = false;
+        _activeSelectionText = null;
+        _activeSelectionBox = null;
+        _renderer.Dispose();
         _nsImageView = nint.Zero;
         _nsWindow = nint.Zero;
     }
 
-    private static LayoutBox? FindSelectableTextBoxAt(LayoutBox box, Point point)
+    /// <summary>
+    /// Finds the topmost visible element at <paramref name="point"/>, searching children in reverse paint order.
+    /// </summary>
+    private static UIElement? HitTest(LayoutBox box, Point point)
     {
+        if (box.Element is not UIElement { IsVisible: true } element)
+        {
+            return null;
+        }
+
         for (int i = box.Children.Count - 1; i >= 0; i--)
         {
-            LayoutBox? childMatch = FindSelectableTextBoxAt(box.Children[i], point);
+            UIElement? childMatch = HitTest(box.Children[i], point);
             if (childMatch is not null)
             {
                 return childMatch;
             }
         }
 
-        if (box.Element is Text { IsVisible: true, IsTextSelectionEnabled: true } &&
-            box.BorderBox.Contains(point))
-        {
-            return box;
-        }
-
-        return null;
+        return box.BorderBox.Contains(point) ? element : null;
     }
 
     private static LayoutBox? FindBoxForElement(LayoutBox box, UIElement target)
@@ -550,6 +722,76 @@ public sealed class Window : IDisposable
         InvalidateFrame();
     }
 
+    private UIElement? HitTest(Point position)
+    {
+        return LastLayout is null ? null : HitTest(LastLayout, position);
+    }
+
+    private void UpdateHoverState(UIElement? hoveredElement)
+    {
+        Point position = _pointerPosition ?? Point.Zero;
+        _pointerRouter.UpdateHover(hoveredElement, MousePointerId, position, _pointerButtons, _pointerModifiers);
+    }
+
+    private void StorePointerState(Point position, PointerButtons buttons, PointerModifiers modifiers)
+    {
+        _pointerPosition = position;
+        _pointerButtons = buttons;
+        _pointerModifiers = modifiers;
+    }
+
+    private void ClearPointerState()
+    {
+        UpdateHoverState(null);
+        _pointerPosition = null;
+        _pointerButtons = PointerButtons.None;
+        _pointerModifiers = PointerModifiers.None;
+        _isDraggingSelection = false;
+        UpdateCursor();
+    }
+
+    private void UpdateCursor()
+    {
+        IsTextCursorActive = _isDraggingSelection || _pointerRouter.HoveredElement is Text { IsTextSelectionEnabled: true };
+        if (_nsImageView != nint.Zero && OperatingSystem.IsMacOS())
+        {
+            AppKitInterop.SetCursor(IsTextCursorActive);
+        }
+    }
+
+    /// <summary>
+    /// Reevaluates the stationary pointer and any selection drag against the most recent layout.
+    /// </summary>
+    private void RefreshPointerState()
+    {
+        if (_isDraggingSelection && _activeSelectionText is not { IsVisible: true, IsTextSelectionEnabled: true })
+        {
+            _isDraggingSelection = false;
+        }
+
+        if (_pointerPosition is Point position)
+        {
+            UpdateHoverState(HitTest(position));
+        }
+
+        UpdateCursor();
+    }
+
+    private void BeginFrameBatch()
+    {
+        _frameBatchDepth++;
+    }
+
+    private void EndFrameBatch()
+    {
+        _frameBatchDepth--;
+        if (_frameBatchDepth == 0 && _isFrameDirty)
+        {
+            _isFrameDirty = false;
+            InvalidateFrame();
+        }
+    }
+
     private void InvalidateFrame()
     {
         if (_content is null)
@@ -557,6 +799,34 @@ public sealed class Window : IDisposable
             return;
         }
 
+        if (_frameBatchDepth > 0)
+        {
+            _isFrameDirty = true;
+            return;
+        }
+
+        RenderInvalidatedFrame();
+
+        // Hover changes caused by the new layout render one further frame; later shifts wait for the next invalidation.
+        _frameBatchDepth++;
+        try
+        {
+            RefreshPointerState();
+        }
+        finally
+        {
+            _frameBatchDepth--;
+        }
+
+        if (_isFrameDirty)
+        {
+            _isFrameDirty = false;
+            RenderInvalidatedFrame();
+        }
+    }
+
+    private void RenderInvalidatedFrame()
+    {
         using SKImage? snapshot = RenderFrame();
     }
 

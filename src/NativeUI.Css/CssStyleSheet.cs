@@ -15,7 +15,7 @@ public sealed class CssStyleSheet
     public string Id { get; }
 
     /// <summary>
-    /// Gets the raw CSS stylesheet text used when injecting native <c>&lt;style&gt;</c> tags on Web.
+    /// Gets the browser CSS text injected on Web, with NativeUI element type selectors translated to HTML elements.
     /// </summary>
     public string RawCss { get; }
 
@@ -82,36 +82,8 @@ public sealed class CssStyleSheet
         CssColorSchemeCondition colorScheme = element.ActualTheme == Theme.Dark
             ? CssColorSchemeCondition.Dark
             : CssColorSchemeCondition.Light;
-        CssVariables effectiveVariables = CreateRootVariables(colorScheme);
-
-        List<(CssRule Rule, int Order)> matching = [];
-        for (int i = 0; i < Rules.Count; i++)
-        {
-            CssRule rule = Rules[i];
-            if (rule.Matches(element.TagName, element.Classes, colorScheme))
-            {
-                matching.Add((rule, i));
-            }
-        }
-
-        matching.Sort(static (a, b) =>
-        {
-            int cmp = a.Rule.Specificity.CompareTo(b.Rule.Specificity);
-            return cmp != 0 ? cmp : a.Order.CompareTo(b.Order);
-        });
-
-        // Collect scoped custom property overrides first.
-        CssVariables scopedVariables = new(effectiveVariables);
-        foreach ((CssRule rule, _) in matching)
-        {
-            foreach (KeyValuePair<string, CssValue> kvp in rule.Declarations)
-            {
-                if (kvp.Key.StartsWith("--", StringComparison.Ordinal))
-                {
-                    scopedVariables.Set(kvp.Key, kvp.Value);
-                }
-            }
-        }
+        List<(CssRule Rule, int Order)> matching = CollectMatchingRules(element, colorScheme, CssPseudoElement.None);
+        CssVariables scopedVariables = CreateScopedVariables(matching, colorScheme);
 
         ComputedStyle inheritedStyle = ComputedStyle.CreateInherited(element.Parent?.ComputedStyle);
         Color? textColor = inheritedStyle.TextColor;
@@ -261,5 +233,97 @@ public sealed class CssStyleSheet
             Height = height
         };
         return cssStyle.ApplyInline(element.Style, scopedVariables.ResolveColor);
+    }
+
+    /// <summary>
+    /// Computes the element's selected-text colors from <c>::selection</c> rules. Unspecified colors inherit from the
+    /// parent's selection style, and variables resolve against the originating element.
+    /// </summary>
+    /// <param name="element">The element whose selection style is being computed.</param>
+    public SelectionStyle ComputeSelectionStyle(IUIElement element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+
+        SelectionStyle inherited = element.Parent?.SelectionStyle ?? SelectionStyle.Default;
+        CssColorSchemeCondition colorScheme = element.ActualTheme == Theme.Dark
+            ? CssColorSchemeCondition.Dark
+            : CssColorSchemeCondition.Light;
+        List<(CssRule Rule, int Order)> selectionRules = CollectMatchingRules(element, colorScheme, CssPseudoElement.Selection);
+        if (selectionRules.Count == 0)
+        {
+            return inherited;
+        }
+
+        List<(CssRule Rule, int Order)> elementRules = CollectMatchingRules(element, colorScheme, CssPseudoElement.None);
+        CssVariables scopedVariables = CreateScopedVariables(elementRules, colorScheme);
+
+        Color? textColor = inherited.TextColor;
+        Color? backgroundColor = inherited.BackgroundColor;
+        foreach ((CssRule rule, _) in selectionRules)
+        {
+            if (rule.Declarations.TryGetValue("color", out CssValue? color)
+                && scopedVariables.Resolve(color) is CssColorValue foreground)
+            {
+                textColor = foreground.Color;
+            }
+
+            if (rule.Declarations.TryGetValue("background-color", out CssValue? background)
+                && scopedVariables.Resolve(background) is CssColorValue selectionBackground)
+            {
+                backgroundColor = selectionBackground.Color;
+            }
+        }
+
+        return new SelectionStyle
+        {
+            TextColor = textColor,
+            BackgroundColor = backgroundColor
+        };
+    }
+
+    /// <summary>
+    /// Returns rules for <paramref name="pseudoElement"/> that match the element, ordered by ascending specificity and then source order.
+    /// </summary>
+    private List<(CssRule Rule, int Order)> CollectMatchingRules(
+        IUIElement element,
+        CssColorSchemeCondition colorScheme,
+        CssPseudoElement pseudoElement)
+    {
+        List<(CssRule Rule, int Order)> matching = [];
+        for (int i = 0; i < Rules.Count; i++)
+        {
+            CssRule rule = Rules[i];
+            if (rule.PseudoElement == pseudoElement && rule.Matches(element, colorScheme))
+            {
+                matching.Add((rule, i));
+            }
+        }
+
+        matching.Sort(static (a, b) =>
+        {
+            int cmp = a.Rule.Specificity.CompareTo(b.Rule.Specificity);
+            return cmp != 0 ? cmp : a.Order.CompareTo(b.Order);
+        });
+
+        return matching;
+    }
+
+    private CssVariables CreateScopedVariables(
+        List<(CssRule Rule, int Order)> matching,
+        CssColorSchemeCondition colorScheme)
+    {
+        CssVariables scopedVariables = new(CreateRootVariables(colorScheme));
+        foreach ((CssRule rule, _) in matching)
+        {
+            foreach (KeyValuePair<string, CssValue> kvp in rule.Declarations)
+            {
+                if (kvp.Key.StartsWith("--", StringComparison.Ordinal))
+                {
+                    scopedVariables.Set(kvp.Key, kvp.Value);
+                }
+            }
+        }
+
+        return scopedVariables;
     }
 }

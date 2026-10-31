@@ -53,6 +53,17 @@ public static class CssDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
+    /// Diagnostic reported when a <c>::selection</c> rule declares a property other than <c>color</c> or <c>background-color</c>.
+    /// </summary>
+    public static readonly DiagnosticDescriptor UnsupportedSelectionProperty = new(
+        id: "NCSS005",
+        title: "Unsupported ::selection property",
+        messageFormat: "The CSS property '{0}' is not supported in a ::selection rule",
+        category: "NativeUI.Css",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
     /// Creates a Roslyn <see cref="Location"/> from a file path and <see cref="CssSourceSpan"/>.
     /// </summary>
     public static Location CreateLocation(string filePath, CssSourceSpan span)

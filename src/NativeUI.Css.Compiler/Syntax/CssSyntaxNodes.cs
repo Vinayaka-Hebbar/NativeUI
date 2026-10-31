@@ -61,12 +61,55 @@ public sealed record CssStylesheetNode(
 }
 
 /// <summary>
-/// Represents a parsed CSS selector (such as <c>:root</c>, <c>text</c>, <c>.title</c>, or <c>text.title</c>).
+/// Identifies the part of an element a parsed selector styles.
 /// </summary>
+public enum CssParsedPseudoElement
+{
+    /// <summary>
+    /// The selector styles the element itself.
+    /// </summary>
+    None,
+
+    /// <summary>
+    /// The selector ends with <c>::selection</c>.
+    /// </summary>
+    Selection
+}
+
+/// <summary>
+/// Represents one compound part of a selector, such as <c>text.title:hover</c>.
+/// </summary>
+/// <param name="ElementType">The required lowercase element type, or <see langword="null"/> if unconstrained.</param>
+/// <param name="Classes">The required class names.</param>
+/// <param name="RequiredStates">The <c>ElementStates</c> member names required by the part's pseudo-classes.</param>
+public sealed record CssCompoundSelectorNode(
+    string? ElementType,
+    IReadOnlyList<string> Classes,
+    IReadOnlyList<string> RequiredStates);
+
+/// <summary>
+/// Represents a parsed CSS selector (such as <c>:root</c>, <c>text</c>, <c>.title:hover</c>, or <c>.card .title::selection</c>).
+/// <see cref="ElementType"/>, <see cref="Classes"/>, and <see cref="RequiredStates"/> describe the selector's rightmost compound part.
+/// </summary>
+/// <param name="RawText">The selector source text.</param>
+/// <param name="ElementType">The required element type of the subject, or <see langword="null"/> if unconstrained.</param>
+/// <param name="Classes">The required class names of the subject.</param>
+/// <param name="RequiredStates">The <c>ElementStates</c> member names required on the subject.</param>
+/// <param name="Ancestors">The compound parts required on ancestors of the subject, outermost first.</param>
+/// <param name="PseudoElement">The part of the element the selector styles.</param>
+/// <param name="TypeSelectorSpans">The source spans of the element type names in the selector.</param>
+/// <param name="IsRoot">Whether the selector is <c>:root</c>.</param>
+/// <param name="IsValid">Whether the selector uses only supported syntax.</param>
+/// <param name="Specificity">The specificity of the complete selector.</param>
+/// <param name="Span">The source span of the selector.</param>
 public sealed record CssSelectorNode(
     string RawText,
     string? ElementType,
     IReadOnlyList<string> Classes,
+    IReadOnlyList<string> RequiredStates,
+    IReadOnlyList<CssCompoundSelectorNode> Ancestors,
+    CssParsedPseudoElement PseudoElement,
+    IReadOnlyList<CssSourceSpan> TypeSelectorSpans,
     bool IsRoot,
     bool IsValid,
     int Specificity,

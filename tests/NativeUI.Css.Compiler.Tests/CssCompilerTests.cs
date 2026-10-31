@@ -6,7 +6,10 @@ int exitCode = TestRunner.RunSuite("NativeUI.Css.Compiler.Tests",
 [
     ("CssTokenizer and CssParser build structured AST with comment trivia and @media rules", TestCssTokenizerAndParserAst),
     ("CssValidator visitor validates rules and reports diagnostics on invalid properties/values", TestCssValidatorVisitorDiagnostics),
-    ("CssEmitter uses Roslyn SyntaxFactory to emit clean C# without global:: clutter", TestCssEmitterCleanSyntaxFactoryOutput)
+    ("CssEmitter uses Roslyn SyntaxFactory to emit clean C# without global:: clutter", TestCssEmitterCleanSyntaxFactoryOutput),
+    ("CssParser compiles hover, descendant, universal, and ::selection selectors with complete specificity", TestStateAndDescendantSelectors),
+    ("CssValidator diagnoses unsupported pseudo-selectors, combinators, and ::selection properties", TestUnsupportedSelectorDiagnostics),
+    ("CssEmitter translates only type selectors for browser CSS and emits selector metadata", TestBrowserCssAndSelectorEmission)
 ]);
 
 return exitCode;
@@ -53,4 +56,72 @@ static void TestCssEmitterCleanSyntaxFactoryOutput()
 
     string internalCSharp = CssEmitter.Emit(validated, "NativeUI.Sample.Shared", Accessibility.Internal);
     Assert.Contains("internal partial class SampleThemeStyleSheet", internalCSharp);
+}
+
+static void TestStateAndDescendantSelectors()
+{
+    ValidatedCssStylesheet validated = CssValidator.Validate(
+        CssParser.Parse("HoverSelectors.css", TestRunner.ReadFixture("HoverSelectors.css")));
+
+    Assert.Equal(0, validated.Diagnostics.Count);
+    Assert.Equal(5, validated.Rules.Count);
+
+    ValidatedCssRule hover = validated.Rules[0];
+    Assert.Equal("text", hover.ElementType);
+    Assert.Equal("Hover", hover.RequiredStates![0]);
+    Assert.Equal(21, hover.Specificity);
+
+    ValidatedCssRule descendant = validated.Rules[1];
+    Assert.Equal(0, descendant.RequiredStates!.Count);
+    Assert.Equal("card", descendant.Ancestors![0].Classes[0]);
+    Assert.Equal("Hover", descendant.Ancestors[0].RequiredStates[0]);
+    Assert.Equal(30, descendant.Specificity);
+
+    ValidatedCssRule selection = validated.Rules[2];
+    Assert.Equal(CssParsedPseudoElement.Selection, selection.PseudoElement);
+    Assert.Equal("view", selection.Ancestors![0].ElementType);
+    Assert.Equal("card", selection.Ancestors[1].Classes[0]);
+    Assert.Equal(1 + 10 + 10 + 1 + 10 + 1, selection.Specificity);
+
+    ValidatedCssRule universal = validated.Rules[3];
+    Assert.Null(universal.ElementType);
+    Assert.Equal(0, universal.Classes.Count);
+    Assert.Equal(0, universal.Specificity);
+}
+
+static void TestUnsupportedSelectorDiagnostics()
+{
+    Assert.True(HasDiagnostic(".a:focus { color: #ffffff; }", "NCSS004"), "Expected unsupported pseudo-class error.");
+    Assert.True(HasDiagnostic(".a::before { color: #ffffff; }", "NCSS004"), "Expected unsupported pseudo-element error.");
+    Assert.True(HasDiagnostic(".a > .b { color: #ffffff; }", "NCSS004"), "Expected unsupported combinator error.");
+    Assert.True(HasDiagnostic(".a::selection .b { color: #ffffff; }", "NCSS004"), "Expected non-terminal ::selection error.");
+    Assert.True(HasDiagnostic(".a::selection { font-size: 12px; }", "NCSS005"), "Expected unsupported ::selection property error.");
+    Assert.True(HasDiagnostic(".a::selection { opacity: 0.5; }", "NCSS005"), "Expected unsupported ::selection property error.");
+    Assert.False(HasDiagnostic(".a::selection { color: #ffffff; background-color: #000000; }", "NCSS005"));
+
+    static bool HasDiagnostic(string css, string id)
+    {
+        ValidatedCssStylesheet validated = CssValidator.Validate(CssParser.Parse("Inline.css", css));
+        return validated.Diagnostics.Any(d => d.Id == id);
+    }
+}
+
+static void TestBrowserCssAndSelectorEmission()
+{
+    ValidatedCssStylesheet validated = CssValidator.Validate(
+        CssParser.Parse("HoverSelectors.css", TestRunner.ReadFixture("HoverSelectors.css")));
+
+    Assert.Contains("span.title:hover", validated.BrowserCss);
+    Assert.Contains("div .card:hover span.title::selection", validated.BrowserCss);
+    Assert.Contains(".text {", validated.BrowserCss);
+    Assert.Contains("text.title:hover", validated.RawCss);
+
+    string emitted = CssEmitter.Emit(validated, "NativeUI.Sample.Shared", Accessibility.Public);
+    Assert.Contains("using NativeUI.Core;", emitted);
+    Assert.Contains("requiredStates: ElementStates.Hover", emitted);
+    Assert.Contains("using System.Collections.Immutable;", emitted);
+    Assert.Contains("ancestors: ImmutableArray.Create(new CssCompoundSelector(", emitted);
+    Assert.Contains("pseudoElement: CssPseudoElement.Selection", emitted);
+    Assert.Contains("span.title:hover", emitted);
+    Assert.False(emitted.Contains("text.title:hover {", StringComparison.Ordinal), "Stylesheet text must use browser type names.");
 }

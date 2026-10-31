@@ -21,7 +21,10 @@ public sealed record ValidatedCssRule(
     bool IsRoot,
     int Specificity,
     CssParsedColorScheme ColorScheme,
-    IReadOnlyList<ValidatedCssDeclaration> Declarations);
+    IReadOnlyList<ValidatedCssDeclaration> Declarations,
+    IReadOnlyList<string>? RequiredStates = null,
+    IReadOnlyList<CssCompoundSelectorNode>? Ancestors = null,
+    CssParsedPseudoElement PseudoElement = CssParsedPseudoElement.None);
 
 /// <summary>
 /// Represents the output of <see cref="CssValidator"/> for a CSS file.
@@ -30,6 +33,7 @@ public sealed record ValidatedCssStylesheet(
     string Id,
     string FilePath,
     string RawCss,
+    string BrowserCss,
     IReadOnlyList<ValidatedCssRule> Rules,
     IReadOnlySet<string> DefinedClasses,
     IReadOnlyList<Diagnostic> Diagnostics);
@@ -62,6 +66,7 @@ public sealed class CssValidator : CssSyntaxVisitor
     private readonly List<Diagnostic> _diagnostics = [];
     private readonly List<ValidatedCssRule> _rules = [];
     private readonly HashSet<string> _definedClasses = new(StringComparer.Ordinal);
+    private readonly List<CssSourceSpan> _typeSelectorSpans = [];
     private CssParsedColorScheme _currentColorScheme = CssParsedColorScheme.Any;
 
     private CssValidator(string filePath)
@@ -84,6 +89,7 @@ public sealed class CssValidator : CssSyntaxVisitor
             id,
             stylesheet.FilePath,
             stylesheet.RawCss,
+            TranslateTypeSelectors(stylesheet.RawCss, validator._typeSelectorSpans),
             validator._rules,
             validator._definedClasses,
             validator._diagnostics);
@@ -160,11 +166,22 @@ public sealed class CssValidator : CssSyntaxVisitor
                 continue;
             }
 
+            if (selector.PseudoElement == CssParsedPseudoElement.Selection)
+            {
+                ValidateSelectionDeclarations(node.Declarations);
+            }
+
             foreach (string cls in selector.Classes)
             {
                 _definedClasses.Add(cls);
             }
 
+            foreach (CssCompoundSelectorNode ancestor in selector.Ancestors)
+            {
+                _definedClasses.UnionWith(ancestor.Classes);
+            }
+
+            _typeSelectorSpans.AddRange(selector.TypeSelectorSpans);
             _rules.Add(new ValidatedCssRule(
                 selector.RawText,
                 selector.ElementType,
@@ -172,7 +189,10 @@ public sealed class CssValidator : CssSyntaxVisitor
                 selector.IsRoot,
                 selector.Specificity,
                 _currentColorScheme,
-                validDecls));
+                validDecls,
+                selector.RequiredStates,
+                selector.Ancestors,
+                selector.PseudoElement));
         }
     }
 
@@ -185,6 +205,46 @@ public sealed class CssValidator : CssSyntaxVisitor
                 CssDiagnostics.InvalidSelector,
                 CssDiagnostics.CreateLocation(_filePath, node.Span),
                 node.RawText));
+        }
+    }
+
+    /// <summary>
+    /// Rewrites NativeUI element type names to the HTML elements created on Web, leaving all other source text unchanged.
+    /// </summary>
+    private static string TranslateTypeSelectors(string rawCss, IReadOnlyList<CssSourceSpan> typeSelectorSpans)
+    {
+        string browserCss = rawCss;
+        foreach (CssSourceSpan span in typeSelectorSpans.OrderByDescending(static s => s.StartPos))
+        {
+            string typeName = rawCss.Substring(span.StartPos, span.Length);
+            string? htmlTag = typeName.ToLowerInvariant() switch
+            {
+                "text" => "span",
+                "view" => "div",
+                _ => null
+            };
+
+            if (htmlTag is not null)
+            {
+                browserCss = browserCss.Remove(span.StartPos, span.Length).Insert(span.StartPos, htmlTag);
+            }
+        }
+
+        return browserCss;
+    }
+
+    private void ValidateSelectionDeclarations(IReadOnlyList<CssDeclarationNode> declarations)
+    {
+        foreach (CssDeclarationNode decl in declarations)
+        {
+            string propName = decl.PropertyName.ToLowerInvariant();
+            if (propName is not ("color" or "background-color"))
+            {
+                _diagnostics.Add(Diagnostic.Create(
+                    CssDiagnostics.UnsupportedSelectionProperty,
+                    CssDiagnostics.CreateLocation(_filePath, decl.PropertySpan),
+                    decl.PropertyName));
+            }
         }
     }
 

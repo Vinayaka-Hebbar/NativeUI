@@ -13,8 +13,12 @@ namespace NativeUI.Controls.Web;
 [SupportedOSPlatform("browser")]
 public class HtmlDomElement : INativePeer
 {
+    private static readonly Dictionary<int, HtmlDomElement> s_attachedElements = [];
+    private static int s_lastNodeId;
+
     private readonly JSObject? _element;
     private HtmlDomElement? _parent;
+    private int _nodeId;
     private Style? _inlineStyle;
     private bool _attached;
     private string _className = string.Empty;
@@ -91,6 +95,19 @@ public class HtmlDomElement : INativePeer
     internal JSObject? Element => _element;
 
     /// <summary>
+    /// Gets the identifier reported for pointer events targeting this element, or zero when it is not attached.
+    /// </summary>
+    internal int NodeId => _nodeId;
+
+    /// <summary>
+    /// Finds an attached element by the identifier reported for a pointer event.
+    /// </summary>
+    internal static HtmlDomElement? FindByNodeId(int nodeId)
+    {
+        return s_attachedElements.GetValueOrDefault(nodeId);
+    }
+
+    /// <summary>
     /// Gets the shared control whose properties this proxy synchronizes.
     /// </summary>
     protected internal UIElement Source { get; }
@@ -132,6 +149,13 @@ public class HtmlDomElement : INativePeer
 
         _parent = parent;
         Source.NativePeer = this;
+        _nodeId = ++s_lastNodeId;
+        s_attachedElements[_nodeId] = this;
+        if (_element is not null)
+        {
+            DomInterop.SetNodeId(_element, _nodeId);
+        }
+
         _attached = true;
 
         Source.PropertyChanged += OnElementPropertyChanged;
@@ -459,6 +483,8 @@ public class HtmlDomElement : INativePeer
         finally
         {
             _element?.Dispose();
+            s_attachedElements.Remove(_nodeId);
+            _nodeId = 0;
 
             if (ReferenceEquals(Source.NativePeer, this))
             {

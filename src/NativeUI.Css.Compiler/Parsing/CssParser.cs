@@ -6,6 +6,11 @@ namespace NativeUI.Css.Compiler;
 /// </summary>
 public sealed class CssParser
 {
+    private static readonly Dictionary<string, string> s_pseudoClassStates = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["hover"] = "Hover"
+    };
+
     private readonly IReadOnlyList<CssToken> _tokens;
     private readonly List<(string Message, CssSourceSpan Span)> _errors;
     private int _position;
@@ -225,7 +230,7 @@ public sealed class CssParser
 
         if (selectorTokens.Count == 0)
         {
-            return new CssSelectorNode(string.Empty, null, [], false, false, 0, startSpan);
+            return new CssSelectorNode(string.Empty, null, [], [], [], CssParsedPseudoElement.None, [], false, false, 0, startSpan);
         }
 
         CssSourceSpan fullSpan = CombineSpans(selectorTokens[0].Span, selectorTokens[^1].Span);
@@ -238,53 +243,128 @@ public sealed class CssParser
             !selectorTokens[1].PrecededByWhitespace &&
             string.Equals(selectorTokens[1].Text, "root", StringComparison.Ordinal))
         {
-            return new CssSelectorNode(":root", null, [], IsRoot: true, IsValid: true, Specificity: 10, fullSpan);
+            return new CssSelectorNode(":root", null, [], [], [], CssParsedPseudoElement.None, [], IsRoot: true, IsValid: true, Specificity: 10, fullSpan);
         }
 
-        string? elementType = null;
-        List<string> classes = [];
+        List<CssCompoundSelectorNode> compounds = [];
+        List<CssSourceSpan> typeSpans = [];
         int specificity = 0;
+        CssParsedPseudoElement pseudoElement = CssParsedPseudoElement.None;
+        bool isValid = true;
         int i = 0;
 
-        if (selectorTokens[0].Kind == CssTokenKind.Identifier)
+        while (i < selectorTokens.Count && isValid)
         {
-            elementType = selectorTokens[0].Text.ToLowerInvariant();
-            specificity += 1;
-            i = 1;
-        }
-
-        bool isValid = true;
-        while (i < selectorTokens.Count)
-        {
-            // Disallow whitespace inside a single compound selector (descendant combinator not supported in Slice 1).
-            if (i > 0 && selectorTokens[i].PrecededByWhitespace)
+            if (pseudoElement != CssParsedPseudoElement.None)
             {
+                // A pseudo-element must terminate the selector.
                 isValid = false;
                 break;
             }
 
-            if (selectorTokens[i].Kind == CssTokenKind.Dot &&
-                i + 1 < selectorTokens.Count &&
-                selectorTokens[i + 1].Kind == CssTokenKind.Identifier &&
-                !selectorTokens[i + 1].PrecededByWhitespace)
+            isValid = TryParseCompoundSelector(
+                selectorTokens,
+                ref i,
+                typeSpans,
+                ref specificity,
+                ref pseudoElement,
+                out CssCompoundSelectorNode compound);
+            compounds.Add(compound);
+        }
+
+        CssCompoundSelectorNode subject = compounds[^1];
+        return new CssSelectorNode(
+            rawText,
+            subject.ElementType,
+            subject.Classes,
+            subject.RequiredStates,
+            compounds.GetRange(0, compounds.Count - 1),
+            pseudoElement,
+            typeSpans,
+            IsRoot: false,
+            isValid,
+            specificity,
+            fullSpan);
+    }
+
+    /// <summary>
+    /// Parses one whitespace-delimited compound part, advancing <paramref name="index"/> past the tokens it consumes.
+    /// Returns false for an empty part or unsupported syntax, such as an unknown pseudo-selector or a combinator.
+    /// </summary>
+    private static bool TryParseCompoundSelector(
+        List<CssToken> tokens,
+        ref int index,
+        List<CssSourceSpan> typeSpans,
+        ref int specificity,
+        ref CssParsedPseudoElement pseudoElement,
+        out CssCompoundSelectorNode compound)
+    {
+        string? elementType = null;
+        List<string> classes = [];
+        List<string> requiredStates = [];
+        bool hasContent = false;
+        int start = index;
+
+        if (tokens[index].Kind == CssTokenKind.Identifier)
+        {
+            elementType = tokens[index].Text.ToLowerInvariant();
+            typeSpans.Add(tokens[index].Span);
+            specificity += 1;
+            hasContent = true;
+            index++;
+        }
+        else if (tokens[index].Kind == CssTokenKind.Star)
+        {
+            hasContent = true;
+            index++;
+        }
+
+        bool isValid = true;
+        while (index < tokens.Count && (index == start || !tokens[index].PrecededByWhitespace))
+        {
+            if (IsAttachedIdentifier(tokens, index + 1) && tokens[index].Kind == CssTokenKind.Dot)
             {
-                classes.Add(selectorTokens[i + 1].Text);
+                classes.Add(tokens[index + 1].Text);
                 specificity += 10;
-                i += 2;
+                hasContent = true;
+                index += 2;
+            }
+            else if (IsAttachedIdentifier(tokens, index + 1) &&
+                tokens[index].Kind == CssTokenKind.Colon &&
+                s_pseudoClassStates.TryGetValue(tokens[index + 1].Text, out string? state))
+            {
+                requiredStates.Add(state);
+                specificity += 10;
+                hasContent = true;
+                index += 2;
+            }
+            else if (IsAttachedIdentifier(tokens, index + 2) &&
+                tokens[index].Kind == CssTokenKind.Colon &&
+                tokens[index + 1].Kind == CssTokenKind.Colon &&
+                !tokens[index + 1].PrecededByWhitespace &&
+                string.Equals(tokens[index + 2].Text, "selection", StringComparison.OrdinalIgnoreCase))
+            {
+                pseudoElement = CssParsedPseudoElement.Selection;
+                specificity += 1;
+                hasContent = true;
+                index += 3;
             }
             else
             {
                 isValid = false;
-                break;
+                index = tokens.Count;
             }
         }
 
-        if (elementType is null && classes.Count == 0)
-        {
-            isValid = false;
-        }
+        compound = new CssCompoundSelectorNode(elementType, classes, requiredStates);
+        return isValid && hasContent;
+    }
 
-        return new CssSelectorNode(rawText, elementType, classes, IsRoot: false, IsValid: isValid, specificity, fullSpan);
+    private static bool IsAttachedIdentifier(List<CssToken> tokens, int index)
+    {
+        return index < tokens.Count &&
+            tokens[index].Kind == CssTokenKind.Identifier &&
+            !tokens[index].PrecededByWhitespace;
     }
 
     private List<CssDeclarationNode> ParseDeclarations()

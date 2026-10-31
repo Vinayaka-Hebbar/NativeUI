@@ -16,6 +16,12 @@ public interface IStyleResolver
     ComputedStyle ResolveStyle(IUIElement element);
 
     /// <summary>
+    /// Resolves the element's selected-text colors, inheriting unspecified colors from its parent's selection style.
+    /// </summary>
+    /// <param name="element">The element whose selection style is being computed.</param>
+    SelectionStyle ResolveSelectionStyle(IUIElement element);
+
+    /// <summary>
     /// Resolves a <see cref="ThemeValue{T}"/> color token against the active theme variables in the given scope and theme.
     /// </summary>
     /// <param name="colorValue">The literal color or theme token to resolve.</param>

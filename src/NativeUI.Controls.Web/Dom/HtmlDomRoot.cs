@@ -2,6 +2,7 @@ using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 using NativeUI.Core;
 using NativeUI.Css;
+using NativeUI.Layout;
 
 namespace NativeUI.Controls.Web;
 
@@ -13,9 +14,11 @@ namespace NativeUI.Controls.Web;
 internal sealed class HtmlDomRoot : IDisposable
 {
     private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly PointerInputRouter _pointerRouter = new();
     private UIElement? _root;
     private HtmlDomElement? _rootDom;
     private JSObject? _container;
+    private JSObject? _rootElement;
     private bool _disposed;
 
     /// <summary>
@@ -52,14 +55,63 @@ internal sealed class HtmlDomRoot : IDisposable
     {
         try
         {
+            // Disconnecting the native-ui element removes its pointer listeners.
+            if (_rootElement is not null)
+            {
+                DomInterop.RemoveElement(_rootElement);
+            }
+
+            _pointerRouter.Reset();
             _rootDom?.Dispose();
         }
         finally
         {
             _rootDom = null;
             _root = null;
+            _rootElement?.Dispose();
+            _rootElement = null;
             _container?.Dispose();
             _container = null;
+        }
+    }
+
+    /// <summary>
+    /// Routes one native pointer event to the shared hover state and routed events.
+    /// Browser selection and other default actions are unaffected by <see cref="RoutedEventArgs.Handled"/>.
+    /// </summary>
+    internal void DispatchPointerEvent(in PointerEventData pointerEvent)
+    {
+        if (_disposed || _rootDom is null)
+        {
+            return;
+        }
+
+        UIElement? hoveredElement = pointerEvent.Kind is PointerEventKind.Leave or PointerEventKind.Cancel
+            ? null
+            : HtmlDomElement.FindByNodeId(pointerEvent.NodeId)?.Source;
+        _pointerRouter.UpdateHover(
+            hoveredElement,
+            pointerEvent.PointerId,
+            pointerEvent.Position,
+            pointerEvent.Buttons,
+            pointerEvent.Modifiers);
+
+        RoutedEvent<PointerEventArgs>? routedEvent = pointerEvent.Kind switch
+        {
+            PointerEventKind.Press => UIElement.PointerPressedEvent,
+            PointerEventKind.Release => UIElement.PointerReleasedEvent,
+            PointerEventKind.Move => UIElement.PointerMovedEvent,
+            _ => null
+        };
+
+        if (routedEvent is not null)
+        {
+            hoveredElement?.RaiseEvent(routedEvent, new PointerEventArgs(
+                pointerEvent.PointerId,
+                pointerEvent.Position,
+                pointerEvent.Buttons,
+                pointerEvent.Modifiers,
+                pointerEvent.ClickCount));
         }
     }
 
@@ -108,13 +160,36 @@ internal sealed class HtmlDomRoot : IDisposable
             _rootDom.Attach();
             if (_container is not null && _rootDom.Element is JSObject element)
             {
-                DomInterop.AppendChild(_container, element);
+                _rootElement = DomInterop.CreateElement("native-ui");
+                DomInterop.SetPointerDispatcher(_rootElement, OnPointerEvent);
+                DomInterop.AppendChild(_rootElement, element);
+                DomInterop.AppendChild(_container, _rootElement);
             }
         }
         catch
         {
             Unmount();
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Reads the <c>PointerEventEntry</c> forwarded by the <c>native-ui</c> element and releases its browser reference.
+    /// </summary>
+    private void OnPointerEvent(JSObject pointerEvent)
+    {
+        using (pointerEvent)
+        {
+            DispatchPointerEvent(new PointerEventData
+            {
+                Kind = (PointerEventKind)pointerEvent.GetPropertyAsInt32("kind"),
+                NodeId = pointerEvent.GetPropertyAsInt32("nodeId"),
+                PointerId = pointerEvent.GetPropertyAsInt32("pointerId"),
+                Position = new Point(pointerEvent.GetPropertyAsDouble("x"), pointerEvent.GetPropertyAsDouble("y")),
+                Buttons = (PointerButtons)pointerEvent.GetPropertyAsInt32("buttons"),
+                Modifiers = (PointerModifiers)pointerEvent.GetPropertyAsInt32("modifiers"),
+                ClickCount = pointerEvent.GetPropertyAsInt32("clickCount")
+            });
         }
     }
 
