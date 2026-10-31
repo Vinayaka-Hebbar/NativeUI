@@ -752,10 +752,19 @@ public sealed class Window : IDisposable
 
     private void UpdateCursor()
     {
-        IsTextCursorActive = _isDraggingSelection || _pointerRouter.HoveredElement is Text { IsTextSelectionEnabled: true };
+        Cursor cursor = _isDraggingSelection
+            ? Cursor.IBeam
+            : (_pointerRouter.HoveredElement?.ComputedStyle.Cursor ?? Cursor.Default);
+
+        if (_pointerRouter.HoveredElement is Text { IsTextSelectionEnabled: true } && cursor == Cursor.Default)
+        {
+            cursor = Cursor.IBeam;
+        }
+
+        IsTextCursorActive = cursor == Cursor.IBeam;
         if (_nsImageView != nint.Zero && OperatingSystem.IsMacOS())
         {
-            AppKitInterop.SetCursor(IsTextCursorActive);
+            AppKitInterop.SetCursor(cursor);
         }
     }
 

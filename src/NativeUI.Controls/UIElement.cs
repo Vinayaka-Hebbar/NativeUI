@@ -76,6 +76,15 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
             propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
 
     /// <summary>
+    /// Identifies the <see cref="IsEnabled"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<bool> IsEnabledProperty =
+        BindableProperty.Create<UIElement, bool>(
+            nameof(IsEnabled),
+            defaultValue: true,
+            propertyChanged: static (owner, _, newValue) => owner.OnIsEnabledPropertyChanged(newValue));
+
+    /// <summary>
     /// Identifies the <see cref="Style"/> bindable property for inline C# styling.
     /// </summary>
     public static readonly BindableProperty<Style?> StyleProperty =
@@ -174,6 +183,20 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         get => GetValue(IsVisibleProperty);
         set => SetValue(IsVisibleProperty, value);
     }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this element can respond to user interaction.
+    /// </summary>
+    public bool IsEnabled
+    {
+        get => GetValue(IsEnabledProperty);
+        set => SetValue(IsEnabledProperty, value);
+    }
+
+    /// <summary>
+    /// Gets the mouse pointer cursor appearance resolved for this element.
+    /// </summary>
+    public virtual Cursor Cursor => ComputedStyle.Cursor;
 
     /// <summary>
     /// Gets or sets the inline C# <see cref="Controls.Style"/> applied to this element.
@@ -528,6 +551,13 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     {
         _classes = [.. styleClass];
         InvalidateStyle();
+    }
+
+    private void OnIsEnabledPropertyChanged(bool isEnabled)
+    {
+        SetState(ElementStates.Disabled, !isEnabled);
+        InvalidateStyle();
+        InvalidateVisual();
     }
 
     /// <summary>

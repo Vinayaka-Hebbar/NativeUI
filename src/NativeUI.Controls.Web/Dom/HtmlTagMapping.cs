@@ -7,13 +7,24 @@ internal static class HtmlTagMapping
 {
     private const string TextTag = "span";
     private const string ContainerTag = "div";
+    private const string ButtonTag = "button";
 
     /// <summary>
     /// Gets the tag created for <paramref name="element"/>.
     /// </summary>
     public static string GetTag(UIElement element)
     {
-        return element is Text ? TextTag : ContainerTag;
+        if (element is Text)
+        {
+            return TextTag;
+        }
+
+        if (element is Button)
+        {
+            return ButtonTag;
+        }
+
+        return ContainerTag;
     }
 
     /// <summary>
@@ -24,6 +35,11 @@ internal static class HtmlTagMapping
         if (typeof(Text).IsAssignableFrom(type))
         {
             return TextTag;
+        }
+
+        if (typeof(Button).IsAssignableFrom(type))
+        {
+            return ButtonTag;
         }
 
         // A base type or interface of Text also covers controls rendered with the container tag.
@@ -40,6 +56,7 @@ internal static class HtmlTagMapping
         {
             "text" => TextTag,
             "view" => ContainerTag,
+            "button" => ButtonTag,
             _ => throw new NotSupportedException($"The element type '{elementType}' has no HTML element mapping.")
         };
     }

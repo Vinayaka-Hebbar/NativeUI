@@ -20,10 +20,34 @@ public readonly record struct Rect(double X, double Y, double Width, double Heig
     public double Bottom => Y + Height;
 
     /// <summary>
+    /// Gets the size dimensions of the rectangle.
+    /// </summary>
+    public Size Size => new(Width, Height);
+
+    /// <summary>
     /// Returns a value indicating whether <paramref name="point"/> lies within or on the edges of this rectangle.
     /// </summary>
     public bool Contains(Point point)
     {
         return point.X >= X && point.X <= Right && point.Y >= Y && point.Y <= Bottom;
+    }
+
+    /// <summary>
+    /// Computes the intersection of this rectangle and <paramref name="other"/>.
+    /// Returns an empty rectangle if there is no intersection.
+    /// </summary>
+    public Rect Intersect(Rect other)
+    {
+        double newX = Math.Max(X, other.X);
+        double newY = Math.Max(Y, other.Y);
+        double newRight = Math.Min(Right, other.Right);
+        double newBottom = Math.Min(Bottom, other.Bottom);
+
+        if (newRight > newX && newBottom > newY)
+        {
+            return new Rect(newX, newY, newRight - newX, newBottom - newY);
+        }
+
+        return new Rect(0, 0, 0, 0);
     }
 }

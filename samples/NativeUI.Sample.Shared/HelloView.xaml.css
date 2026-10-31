@@ -57,3 +57,18 @@
   font-size: 14px;
   font-weight: 600;
 }
+
+.btn-theme {
+  background-color: var(--color-primary);
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 16px 0px 0px 0px;
+  cursor: pointer;
+}
+
+.btn-theme:active {
+  opacity: 0.85;
+}

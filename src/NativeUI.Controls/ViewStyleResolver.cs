@@ -28,10 +28,17 @@ internal static class ViewStyleResolver
 
         sheets.Reverse();
 
+        ComputedStyle computed = baseStyle;
         List<(StyleRule Rule, SelectorSpecificity Specificity, int SheetIndex, int RuleIndex)>? matched = null;
         for (int s = 0; s < sheets.Count; s++)
         {
             (View container, StyleSheet sheet) = sheets[s];
+            if (sheet.Rules.Count == 0)
+            {
+                computed = sheet.ResolveStyle(element);
+                continue;
+            }
+
             for (int r = 0; r < sheet.Rules.Count; r++)
             {
                 StyleRule rule = sheet.Rules[r];
@@ -45,7 +52,7 @@ internal static class ViewStyleResolver
 
         if (matched is null)
         {
-            return baseStyle;
+            return computed;
         }
 
         matched.Sort(static (a, b) =>
@@ -65,7 +72,6 @@ internal static class ViewStyleResolver
             return a.RuleIndex.CompareTo(b.RuleIndex);
         });
 
-        ComputedStyle computed = baseStyle;
         foreach ((StyleRule rule, _, _, _) in matched)
         {
             computed = computed.ApplyInline(rule.Style, resolver, element);

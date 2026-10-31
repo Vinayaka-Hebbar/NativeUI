@@ -225,12 +225,28 @@ internal static class StyleSheetCss
 
     private static string WriteStates(ElementStates states)
     {
-        if ((states & ~ElementStates.Hover) != 0)
+        StringBuilder builder = new();
+        if (states.HasFlag(ElementStates.Hover))
         {
-            throw new NotSupportedException($"The element states '{states}' have no browser CSS translation.");
+            builder.Append(":hover");
         }
 
-        return states.HasFlag(ElementStates.Hover) ? ":hover" : string.Empty;
+        if (states.HasFlag(ElementStates.Pressed))
+        {
+            builder.Append(":active");
+        }
+
+        if (states.HasFlag(ElementStates.Disabled))
+        {
+            builder.Append(":disabled");
+        }
+
+        if (states.HasFlag(ElementStates.Focus))
+        {
+            builder.Append(":focus");
+        }
+
+        return builder.ToString();
     }
 
     private static string EscapeIdentifier(string value)

@@ -23,7 +23,8 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
     ("Only elements matching a custom selector type receive a type token", TestStyleSheetTypeTokens),
     ("Generated selectors use the renderer's tag mapping and reject untranslatable parts", TestStyleSheetTypeMapping),
     ("View-scoped stylesheets generate view-scoped browser CSS rules", TestViewScopedStyleSheetCss),
-    ("View-scoped stylesheets manage view scope attributes on DOM mount and update", TestViewScopedStyleSheetLifecycle)
+    ("View-scoped stylesheets manage view scope attributes on DOM mount and update", TestViewScopedStyleSheetLifecycle),
+    ("Button mounts as HTML button element and synchronizes disabled and text attributes", TestButtonDomProxy)
 ]);
 
 return exitCode;
@@ -340,7 +341,8 @@ static void TestStyleSheetTypeMapping()
 
     Assert.Contains("span.title:hover", WriteRule(new CompoundSelector("text", ["title"], ElementStates.Hover)));
     Assert.Contains(" div {", WriteRule(new CompoundSelector("view", [])));
-    AssertNotSupported(new CompoundSelector("button", []));
+    Assert.Contains(" button {", WriteRule(new CompoundSelector("button", [])));
+    AssertNotSupported(new CompoundSelector("slider", []));
     AssertNotSupported(new CompoundSelector("text", [], clrType: typeof(Text)));
 
     static string WriteRule(CompoundSelector part)
@@ -448,6 +450,27 @@ static void TestViewScopedStyleSheetLifecycle()
     view.StyleSheet = styleSheet;
     string? newScopeId = viewProxy.ViewScopeId;
     Assert.NotNull(newScopeId);
+}
+
+static void TestButtonDomProxy()
+{
+    Button button = new()
+    {
+        Text = "Submit",
+        Class = ["btn", "btn-primary"]
+    };
+
+    using HtmlDomRoot domRoot = new();
+    domRoot.MountHeadless(button);
+
+    HtmlDomElement element = GetElement(button);
+    Assert.Equal("button", element.TagName);
+    Assert.Equal("btn btn-primary", element.ClassName);
+    Assert.Equal("Submit", element.TextContent);
+
+    // Verify text update
+    button.Text = "Save Changes";
+    Assert.Equal("Save Changes", element.TextContent);
 }
 
 static HtmlDomElement GetElement(UIElement element)

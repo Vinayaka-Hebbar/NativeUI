@@ -252,12 +252,9 @@ public static class XamlEmitter
                 : CollectionExpression(SeparatedList<CollectionElementSyntax>(
                     classes.Select(static c => ExpressionElement(StringLiteral(c)))));
         }
-        else if (string.Equals(propertyName, "IsVisible", StringComparison.Ordinal))
+        else if (bool.TryParse(rawLiteral, out bool boolVal))
         {
-            rhsExpr = LiteralExpression(
-                string.Equals(rawLiteral, "false", StringComparison.OrdinalIgnoreCase)
-                    ? SyntaxKind.FalseLiteralExpression
-                    : SyntaxKind.TrueLiteralExpression);
+            rhsExpr = LiteralExpression(boolVal ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression);
         }
         else
         {
@@ -291,11 +288,12 @@ public static class XamlEmitter
         if (!string.IsNullOrWhiteSpace(dataType))
         {
             string shortDataType = SimplifyTypeNameInNamespace(dataType, viewNamespace);
-            string valueTypeName = propertyName == "IsVisible" ? "bool" : "string";
-            TypeSyntax compiledBindingType = ParseTypeName($"CompiledBinding<{shortDataType}, {valueTypeName}>");
 
-            SimpleLambdaExpressionSyntax getterLambda = SimpleLambdaExpression(
-                Parameter(Identifier("source")),
+            ParameterSyntax sourceParam = Parameter(Identifier("source"))
+                .WithType(ParseTypeName(shortDataType));
+
+            LambdaExpressionSyntax getterLambda = ParenthesizedLambdaExpression(
+                ParameterList(SingletonSeparatedList(sourceParam)),
                 ParseExpression($"source.{binding.Path}"))
                 .WithModifiers(TokenList(Token(SyntaxKind.StaticKeyword)));
 
@@ -313,7 +311,11 @@ public static class XamlEmitter
                     .WithModifiers(TokenList(Token(SyntaxKind.StaticKeyword)))
                 : LiteralExpression(SyntaxKind.NullLiteralExpression);
 
-            ObjectCreationExpressionSyntax bindingCreation = ObjectCreationExpression(compiledBindingType)
+            InvocationExpressionSyntax bindingCreation = InvocationExpression(
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    IdentifierName("CompiledBinding"),
+                    IdentifierName("Create")))
                 .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
                 [
                     Argument(StringLiteral(topPropertyName)),

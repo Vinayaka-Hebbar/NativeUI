@@ -10,7 +10,7 @@ namespace NativeUI.Controls.Web;
 /// Synchronizes a view with a div element and owns the DOM elements for its children.
 /// </summary>
 [SupportedOSPlatform("browser")]
-public sealed class HtmlDomView : HtmlDomElement
+public class HtmlDomView : HtmlDomElement
 {
     private static int s_lastViewScopeId;
 
@@ -19,7 +19,7 @@ public sealed class HtmlDomView : HtmlDomElement
     private string? _viewScopeId;
     private string? _injectedSheetId;
 
-    internal HtmlDomView(View view, JSObject? element) : base(view, element, "div")
+    internal HtmlDomView(View view, JSObject? element, string tagName = "div") : base(view, element, tagName)
     {
         _view = view;
     }
@@ -156,13 +156,15 @@ public sealed class HtmlDomView : HtmlDomElement
 
     private void UpdateScopedStyleSheet()
     {
-        if (_view.StyleSheet is StyleSheet sheet && sheet.Rules.Count > 0)
+        if (_view.StyleSheet is StyleSheet sheet && (sheet is NativeUI.Css.CssStyleSheet || sheet.Rules.Count > 0))
         {
             _viewScopeId ??= $"v{Interlocked.Increment(ref s_lastViewScopeId)}";
             SetAttribute(StyleSheetCss.ViewScopeAttribute, _viewScopeId);
 
             _injectedSheetId ??= $"NativeUI.ViewStyleSheet.{_viewScopeId}";
-            string css = StyleSheetCss.WriteScoped(sheet, _viewScopeId);
+            string css = sheet is NativeUI.Css.CssStyleSheet cssSheet
+                ? cssSheet.RawCss
+                : StyleSheetCss.WriteScoped(sheet, _viewScopeId);
             if (OperatingSystem.IsBrowser())
             {
                 DomInterop.InjectStyleSheet(_injectedSheetId, css);

@@ -75,6 +75,11 @@ public sealed record ComputedStyle
     public double? Height { get; init; }
 
     /// <summary>
+    /// Gets the resolved pointer cursor appearance (defaults to <see cref="Cursor.Default"/>).
+    /// </summary>
+    public Cursor Cursor { get; init; } = Cursor.Default;
+
+    /// <summary>
     /// Creates an element's initial style by inheriting text properties from its parent.
     /// Box geometry, background, and opacity start at their initial values.
     /// </summary>
@@ -92,7 +97,8 @@ public sealed record ComputedStyle
             FontSize = parent.FontSize,
             FontWeight = parent.FontWeight,
             FontFamily = parent.FontFamily,
-            TextAlign = parent.TextAlign
+            TextAlign = parent.TextAlign,
+            Cursor = parent.Cursor
         };
     }
 
@@ -122,7 +128,8 @@ public sealed record ComputedStyle
             BorderRadius = inlineStyle.BorderRadius ?? BorderRadius,
             Opacity = inlineStyle.Opacity is double opacity ? Math.Clamp(opacity, 0.0, 1.0) : Opacity,
             Width = inlineStyle.Width ?? Width,
-            Height = inlineStyle.Height ?? Height
+            Height = inlineStyle.Height ?? Height,
+            Cursor = inlineStyle.Cursor ?? Cursor
         };
     }
 

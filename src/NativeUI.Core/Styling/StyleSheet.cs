@@ -48,6 +48,33 @@ public sealed class SelectorBuilder
     }
 
     /// <summary>
+    /// Requires the element to be in a pressed/active state.
+    /// </summary>
+    public SelectorBuilder Pressed()
+    {
+        _states |= ElementStates.Pressed;
+        return this;
+    }
+
+    /// <summary>
+    /// Requires the element to be disabled.
+    /// </summary>
+    public SelectorBuilder Disabled()
+    {
+        _states |= ElementStates.Disabled;
+        return this;
+    }
+
+    /// <summary>
+    /// Requires the element to have keyboard/input focus.
+    /// </summary>
+    public SelectorBuilder Focus()
+    {
+        _states |= ElementStates.Focus;
+        return this;
+    }
+
+    /// <summary>
     /// Makes the selector match a descendant described by <paramref name="descendant"/> of the element described so far.
     /// </summary>
     public SelectorBuilder Descendant(Func<SelectorBuilder, SelectorBuilder> descendant)
@@ -148,7 +175,7 @@ public sealed class StyleRule
 /// rule order, followed by the element's inline style. Assign it to an element's or window's <c>StyleResolver</c>;
 /// changes to <see cref="Rules"/> or to a rule's style apply the next time affected elements recompute their styles.
 /// </summary>
-public sealed class StyleSheet : IStyleResolver
+public class StyleSheet : IStyleResolver
 {
     /// <summary>
     /// Gets the rules in this stylesheet.
@@ -156,7 +183,7 @@ public sealed class StyleSheet : IStyleResolver
     public IList<StyleRule> Rules { get; } = [];
 
     /// <inheritdoc />
-    public ComputedStyle ResolveStyle(IUIElement element)
+    public virtual ComputedStyle ResolveStyle(IUIElement element)
     {
         ArgumentNullException.ThrowIfNull(element);
 
@@ -173,14 +200,14 @@ public sealed class StyleSheet : IStyleResolver
     }
 
     /// <inheritdoc />
-    public SelectionStyle ResolveSelectionStyle(IUIElement element)
+    public virtual SelectionStyle ResolveSelectionStyle(IUIElement element)
     {
         ArgumentNullException.ThrowIfNull(element);
         return element.Parent?.SelectionStyle ?? SelectionStyle.Default;
     }
 
     /// <inheritdoc />
-    public Color? ResolveColor(ThemeValue<Color> colorValue, IUIElement element)
+    public virtual Color? ResolveColor(ThemeValue<Color> colorValue, IUIElement element)
     {
         return colorValue.HasValue ? colorValue.Value : null;
     }

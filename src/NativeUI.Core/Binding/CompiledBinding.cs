@@ -3,6 +3,27 @@ using System.ComponentModel;
 namespace NativeUI.Core;
 
 /// <summary>
+/// Provides static factory methods for creating <see cref="CompiledBinding{TSource, TValue}"/> instances
+/// with automatic compile-time type inference.
+/// </summary>
+public static class CompiledBinding
+{
+    /// <summary>
+    /// Creates a strongly typed <see cref="CompiledBinding{TSource, TValue}"/> with <typeparamref name="TValue"/>
+    /// automatically inferred from the getter delegate return type.
+    /// </summary>
+    public static CompiledBinding<TSource, TValue> Create<TSource, TValue>(
+        string propertyName,
+        Func<TSource, TValue> getter,
+        Action<TSource, TValue>? setter = null,
+        BindingMode mode = BindingMode.OneWay)
+        where TSource : class
+    {
+        return new CompiledBinding<TSource, TValue>(propertyName, getter, setter, mode);
+    }
+}
+
+/// <summary>
 /// Represents a compile-time generated, reflection-free property binding between a <typeparamref name="TSource"/> ViewModel
 /// and a target <see cref="BindableProperty{TValue}"/>.
 /// </summary>
@@ -49,17 +70,17 @@ public sealed class CompiledBinding<TSource, TValue>
         Mode = mode;
     }
 
-    internal IBindingSubscription Subscribe(
+    internal IBindingSubscription Subscribe<TProperty>(
         BindableObject target,
-        BindableProperty<TValue> targetProperty)
+        BindableProperty<TProperty> targetProperty)
     {
-        return new Subscription(target, targetProperty, this);
+        return new Subscription<TProperty>(target, targetProperty, this);
     }
 
-    private sealed class Subscription : IBindingSubscription
+    private sealed class Subscription<TProperty> : IBindingSubscription
     {
         private readonly BindableObject _target;
-        private readonly BindableProperty<TValue> _targetProperty;
+        private readonly BindableProperty<TProperty> _targetProperty;
         private readonly CompiledBinding<TSource, TValue> _binding;
         private TSource? _currentSource;
         private INotifyPropertyChanged? _observableSource;
@@ -68,7 +89,7 @@ public sealed class CompiledBinding<TSource, TValue>
 
         public Subscription(
             BindableObject target,
-            BindableProperty<TValue> targetProperty,
+            BindableProperty<TProperty> targetProperty,
             CompiledBinding<TSource, TValue> binding)
         {
             _target = target;
@@ -169,6 +190,18 @@ public sealed class CompiledBinding<TSource, TValue>
                     _isUpdating = false;
                 }
             }
+            else if (e.NewValue is null && default(TValue) is null)
+            {
+                try
+                {
+                    _isUpdating = true;
+                    _binding.Setter(_currentSource, default!);
+                }
+                finally
+                {
+                    _isUpdating = false;
+                }
+            }
         }
 
         private void PushSourceToTarget(TSource source)
@@ -182,7 +215,18 @@ public sealed class CompiledBinding<TSource, TValue>
             {
                 _isUpdating = true;
                 TValue value = _binding.Getter(source);
-                _target.SetValue(_targetProperty, value);
+                if (value is TProperty typedPropVal)
+                {
+                    _target.SetValue(_targetProperty, typedPropVal);
+                }
+                else if (value is null)
+                {
+                    _target.SetValue(_targetProperty, default!);
+                }
+                else
+                {
+                    _target.SetValue(_targetProperty, (TProperty)(object)value);
+                }
             }
             finally
             {

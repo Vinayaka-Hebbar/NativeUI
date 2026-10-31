@@ -42,7 +42,16 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("View stylesheet rules match ancestor relationships", NativeUI.Controls.Tests.ViewStyleSheetTests.VerifyAncestorSelectorMatching),
     ("Relative CSS lengths resolve against effective font size from View stylesheet", NativeUI.Controls.Tests.ViewStyleSheetTests.VerifyRelativeFontLengthsUseEffectiveFontSize),
     ("Theme variables in View stylesheets resolve via active resolver", NativeUI.Controls.Tests.ViewStyleSheetTests.VerifyThemeVariablesResolution),
-    ("Replacing or removing View stylesheet recomputes subtree and avoids redundant invalidation", NativeUI.Controls.Tests.ViewStyleSheetTests.VerifyStyleSheetReplacementAndRemoval)
+    ("Replacing or removing View stylesheet recomputes subtree and avoids redundant invalidation", NativeUI.Controls.Tests.ViewStyleSheetTests.VerifyStyleSheetReplacementAndRemoval),
+    ("Button pointer pressed and release lifecycle raises Click event", NativeUI.Controls.Tests.ButtonTests.VerifyPointerLifecycleAndClick),
+    ("Button pointer exit cancels pressed state without click", NativeUI.Controls.Tests.ButtonTests.VerifyPointerExitCancelsPressed),
+    ("Button executes command and synchronizes IsEnabled with CanExecute", NativeUI.Controls.Tests.ButtonTests.VerifyCommandExecutionAndCanExecute),
+    ("Button default cursor is Pointer and accepts CSS cursor styling", NativeUI.Controls.Tests.ButtonTests.VerifyCssCursorStyling),
+    ("VisualTreeRenderer layout failure rolls back and preserves retained layouts", NativeUI.Controls.Tests.VisualTreeRendererTests.VerifyLayoutFailureRollbackPreservesRetainedLayouts),
+    ("VisualTreeRenderer reliably balances Save and Restore on drawing exception", NativeUI.Controls.Tests.VisualTreeRendererTests.VerifyReliableContextRestoreOnException),
+    ("VisualTreeRenderer clips children to rounded container when ClipToBounds is true", NativeUI.Controls.Tests.VisualTreeRendererTests.VerifyRoundedContainerClipping),
+    ("VisualTreeRenderer composites group opacity via SaveLayer", NativeUI.Controls.Tests.VisualTreeRendererTests.VerifyGroupOpacityCompositing),
+    ("VisualTreeRenderer throws ObjectDisposedException after disposal", NativeUI.Controls.Tests.VisualTreeRendererTests.VerifyDisposedRendererThrows)
 ]);
 
 return exitCode;

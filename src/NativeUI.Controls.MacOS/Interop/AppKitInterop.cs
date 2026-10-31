@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using NativeUI.Core;
 using NativeUI.Layout;
+using NativeUI.Media;
 
 namespace NativeUI.Controls.MacOS;
 
@@ -267,12 +268,28 @@ internal static partial class AppKitInterop
     }
 
     /// <summary>
+    /// Applies the native cursor appearance matching <paramref name="cursor"/>.
+    /// </summary>
+    public static void SetCursor(Cursor cursor)
+    {
+        string selector = cursor switch
+        {
+            Cursor.Pointer => "pointingHandCursor",
+            Cursor.IBeam => "IBeamCursor",
+            Cursor.NotAllowed => "operationNotAllowedCursor",
+            Cursor.Crosshair => "crosshairCursor",
+            _ => "arrowCursor"
+        };
+        nint nsCursor = SendMessage(GetClass("NSCursor"), GetSelector(selector));
+        _ = SendMessage(nsCursor, GetSelector("set"));
+    }
+
+    /// <summary>
     /// Applies the native I-beam cursor when <paramref name="useTextCursor"/> is set, or the arrow otherwise.
     /// </summary>
     public static void SetCursor(bool useTextCursor)
     {
-        nint cursor = SendMessage(GetClass("NSCursor"), GetSelector(useTextCursor ? "IBeamCursor" : "arrowCursor"));
-        _ = SendMessage(cursor, GetSelector("set"));
+        SetCursor(useTextCursor ? Cursor.IBeam : Cursor.Arrow);
     }
 
     public static void SetPasteboardString(string text)

@@ -17,6 +17,7 @@ public sealed class VisualTreeRenderer : IDisposable
 
     private readonly LayoutEngine _layoutEngine;
     private readonly RetainedTextMeasurer _textMeasurer;
+    private bool _disposed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="VisualTreeRenderer"/> class.
@@ -40,6 +41,7 @@ public sealed class VisualTreeRenderer : IDisposable
         float scaleFactor = 1.0f,
         Color? background = null)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(root);
 
@@ -48,19 +50,27 @@ public sealed class VisualTreeRenderer : IDisposable
         try
         {
             rootBox = _layoutEngine.ComputeLayout(root, logicalViewport);
+            _textMeasurer.CommitPass();
         }
-        finally
+        catch
         {
-            _textMeasurer.EndPass();
+            _textMeasurer.RollbackPass();
+            throw;
         }
 
         context.Save();
-        context.Scale(scaleFactor, scaleFactor);
-        context.Clear(background ?? root.ComputedStyle.BackgroundColor ?? Colors.Transparent);
+        try
+        {
+            context.Scale(scaleFactor, scaleFactor);
+            context.Clear(background ?? root.ComputedStyle.BackgroundColor ?? Colors.Transparent);
 
-        DrawBoxRecursive(context, rootBox, parentOpacity: 1.0);
+            DrawBoxRecursive(context, rootBox);
+        }
+        finally
+        {
+            context.Restore();
+        }
 
-        context.Restore();
         return rootBox;
     }
 
@@ -69,10 +79,16 @@ public sealed class VisualTreeRenderer : IDisposable
     /// </summary>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         _textMeasurer.Dispose();
     }
 
-    private static void DrawBoxRecursive(DrawingContext context, LayoutBox box, double parentOpacity)
+    private void DrawBoxRecursive(DrawingContext context, LayoutBox box)
     {
         if (box.Element is UIElement { IsVisible: false })
         {
@@ -80,45 +96,105 @@ public sealed class VisualTreeRenderer : IDisposable
         }
 
         ComputedStyle style = box.Style;
-        double effectiveOpacity = Math.Clamp(parentOpacity * style.Opacity, 0.0, 1.0);
-
-        if (style.BackgroundColor is Color bgColor && bgColor.Alpha > 0)
+        bool pushedLayer = style.Opacity < 1.0 && box.Children.Count > 0;
+        if (pushedLayer)
         {
-            if (style.BorderRadius > 0)
-            {
-                context.DrawRoundedRectangle(box.BorderBox, style.BorderRadius, bgColor, effectiveOpacity);
-            }
-            else
-            {
-                context.DrawRectangle(box.BorderBox, bgColor, effectiveOpacity);
-            }
+            context.SaveLayer(box.BorderBox, style.Opacity);
         }
 
-        if (box.Element is Text textControl && !string.IsNullOrEmpty(textControl.Value))
+        try
         {
-            if (box.TextLayout is ITextLayout textLayout)
+            double drawOpacity = pushedLayer ? 1.0 : style.Opacity;
+
+            if (style.BackgroundColor is Color bgColor && bgColor.Alpha > 0)
             {
-                DrawSelectableText(context, box, textControl, textLayout, style.TextColor ?? Colors.Black, effectiveOpacity);
+                Paint bgPaint = new(bgColor, drawOpacity);
+                if (style.BorderRadius > 0)
+                {
+                    context.DrawRoundedRectangle(box.BorderBox, style.BorderRadius, bgPaint);
+                }
+                else
+                {
+                    context.DrawRectangle(box.BorderBox, bgPaint);
+                }
             }
-            else
+
+            if (box.Element is Text textControl && !string.IsNullOrEmpty(textControl.Value))
             {
-                Color textColor = style.TextColor ?? Colors.Black;
-                context.DrawText(
+                ITextLayout textLayout = box.TextLayout ?? _textMeasurer.CreateTextLayout(
                     textControl.Value,
-                    box.ContentBox,
-                    textColor,
-                    style.FontSize,
-                    style.FontWeight,
-                    style.FontFamily,
-                    style.TextAlign,
-                    effectiveOpacity);
+                    box.ContentBox.Size,
+                    style);
+
+                DrawSelectableText(
+                    context,
+                    box,
+                    textControl,
+                    textLayout,
+                    new Paint(style.TextColor ?? Colors.Black, drawOpacity));
+            }
+            else if (box.Element is Button button && !string.IsNullOrEmpty(button.Text) && button.Children.Count == 0)
+            {
+                ITextLayout textLayout = box.TextLayout ?? _textMeasurer.CreateTextLayout(
+                    button.Text,
+                    box.ContentBox.Size,
+                    style);
+
+                double offsetX = box.ContentBox.X + (box.ContentBox.Width - textLayout.Size.Width) / 2.0;
+                double offsetY = box.ContentBox.Y + (box.ContentBox.Height - textLayout.Size.Height) / 2.0;
+                Point origin = new(Math.Max(box.ContentBox.X, offsetX), Math.Max(box.ContentBox.Y, offsetY));
+                Paint textPaint = new(style.TextColor ?? Colors.Black, drawOpacity);
+                context.DrawTextLayout(textLayout, origin, textPaint);
+            }
+
+            if (box.Children.Count > 0)
+            {
+                bool clipChildren = ShouldClipChildren(box);
+                if (clipChildren)
+                {
+                    context.Save();
+                    try
+                    {
+                        if (style.BorderRadius > 0)
+                        {
+                            context.ClipRoundedRectangle(box.BorderBox, style.BorderRadius);
+                        }
+                        else
+                        {
+                            context.ClipRect(box.BorderBox);
+                        }
+
+                        foreach (LayoutBox child in box.Children)
+                        {
+                            DrawBoxRecursive(context, child);
+                        }
+                    }
+                    finally
+                    {
+                        context.Restore();
+                    }
+                }
+                else
+                {
+                    foreach (LayoutBox child in box.Children)
+                    {
+                        DrawBoxRecursive(context, child);
+                    }
+                }
             }
         }
-
-        foreach (LayoutBox child in box.Children)
+        finally
         {
-            DrawBoxRecursive(context, child, effectiveOpacity);
+            if (pushedLayer)
+            {
+                context.Restore();
+            }
         }
+    }
+
+    private static bool ShouldClipChildren(LayoutBox box)
+    {
+        return box.Element is View { ClipToBounds: true };
     }
 
     /// <summary>
@@ -130,41 +206,59 @@ public sealed class VisualTreeRenderer : IDisposable
         LayoutBox box,
         Text textControl,
         ITextLayout textLayout,
-        Color textColor,
-        double opacity)
+        Paint textPaint)
     {
         Point origin = new(box.ContentBox.X, box.ContentBox.Y);
         Rect[] region = GetSelectionRegion(box, textControl, textLayout);
         if (region.Length == 0)
         {
-            context.DrawTextLayout(textLayout, origin, textColor, opacity);
+            context.DrawTextLayout(textLayout, origin, textPaint);
             return;
         }
 
         SelectionStyle selectionStyle = textControl.SelectionStyle;
         Color selectionBackground = selectionStyle.BackgroundColor
             ?? (textControl.ActualTheme == Theme.Dark ? s_darkSelectionColor : s_lightSelectionColor);
+        Paint selBgPaint = new(selectionBackground, textPaint.Opacity);
 
         context.Save();
-        context.ClipRegion(region, ClipMode.Intersect);
-        context.DrawRectangle(GetBounds(region), selectionBackground, opacity);
-        context.Restore();
-
-        if (selectionStyle.TextColor is not Color selectedTextColor || selectedTextColor == textColor)
+        try
         {
-            context.DrawTextLayout(textLayout, origin, textColor, opacity);
+            context.ClipRegion(region, ClipMode.Intersect);
+            context.DrawRectangle(GetBounds(region), selBgPaint);
+        }
+        finally
+        {
+            context.Restore();
+        }
+
+        if (selectionStyle.TextColor is not Color selectedTextColor || selectedTextColor == textPaint.Color)
+        {
+            context.DrawTextLayout(textLayout, origin, textPaint);
             return;
         }
 
         context.Save();
-        context.ClipRegion(region, ClipMode.Exclude);
-        context.DrawTextLayout(textLayout, origin, textColor, opacity);
-        context.Restore();
+        try
+        {
+            context.ClipRegion(region, ClipMode.Exclude);
+            context.DrawTextLayout(textLayout, origin, textPaint);
+        }
+        finally
+        {
+            context.Restore();
+        }
 
         context.Save();
-        context.ClipRegion(region, ClipMode.Intersect);
-        context.DrawTextLayout(textLayout, origin, selectedTextColor, opacity);
-        context.Restore();
+        try
+        {
+            context.ClipRegion(region, ClipMode.Intersect);
+            context.DrawTextLayout(textLayout, origin, new Paint(selectedTextColor, textPaint.Opacity));
+        }
+        finally
+        {
+            context.Restore();
+        }
     }
 
     private static Rect[] GetSelectionRegion(LayoutBox box, Text textControl, ITextLayout textLayout)
@@ -177,14 +271,19 @@ public sealed class VisualTreeRenderer : IDisposable
         ImmutableArray<Rect> localRects = textLayout.HitTestTextRange(
             textControl.SelectionStart,
             textControl.SelectionLength);
-        Rect[] region = new Rect[localRects.Length];
-        for (int i = 0; i < region.Length; i++)
+        List<Rect> region = new(localRects.Length);
+        for (int i = 0; i < localRects.Length; i++)
         {
             Rect local = localRects[i];
-            region[i] = new Rect(box.ContentBox.X + local.X, box.ContentBox.Y + local.Y, local.Width, local.Height);
+            Rect globalRect = new(box.ContentBox.X + local.X, box.ContentBox.Y + local.Y, local.Width, local.Height);
+            Rect clipped = globalRect.Intersect(box.ContentBox);
+            if (clipped.Width > 0 && clipped.Height > 0)
+            {
+                region.Add(clipped);
+            }
         }
 
-        return region;
+        return region.ToArray();
     }
 
     private static Rect GetBounds(Rect[] region)
@@ -204,14 +303,19 @@ public sealed class VisualTreeRenderer : IDisposable
     {
         private Dictionary<LayoutKey, ITextLayout> _retained = [];
         private Dictionary<LayoutKey, ITextLayout> _current = [];
+        private readonly List<ITextLayout> _newlyCreated = [];
+        private bool _disposed;
 
         public void BeginPass()
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             _current = [];
+            _newlyCreated.Clear();
         }
 
-        public void EndPass()
+        public void CommitPass()
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             foreach (KeyValuePair<LayoutKey, ITextLayout> entry in _retained)
             {
                 if (!_current.ContainsKey(entry.Key))
@@ -221,15 +325,35 @@ public sealed class VisualTreeRenderer : IDisposable
             }
 
             _retained = _current;
+            _current = [];
+            _newlyCreated.Clear();
+        }
+
+        public void RollbackPass()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            foreach (ITextLayout layout in _newlyCreated)
+            {
+                (layout as IDisposable)?.Dispose();
+            }
+
+            _newlyCreated.Clear();
+            _current.Clear();
         }
 
         public Size MeasureText(string text, Size availableSize, ComputedStyle style)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             return inner.MeasureText(text, availableSize, style);
         }
 
         public ITextLayout CreateTextLayout(string text, Size availableSize, ComputedStyle style)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             LayoutKey key = new(text, availableSize, style.FontSize, style.FontWeight, style.FontFamily, style.TextAlign);
             if (_current.TryGetValue(key, out ITextLayout? current))
             {
@@ -239,6 +363,7 @@ public sealed class VisualTreeRenderer : IDisposable
             if (!_retained.TryGetValue(key, out ITextLayout? layout))
             {
                 layout = inner.CreateTextLayout(text, availableSize, style);
+                _newlyCreated.Add(layout);
             }
 
             _current[key] = layout;
@@ -247,15 +372,42 @@ public sealed class VisualTreeRenderer : IDisposable
 
         public void Dispose()
         {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            HashSet<ITextLayout> toDispose = new(ReferenceEqualityComparer.Instance);
             foreach (ITextLayout layout in _retained.Values)
+            {
+                toDispose.Add(layout);
+            }
+
+            foreach (ITextLayout layout in _current.Values)
+            {
+                toDispose.Add(layout);
+            }
+
+            foreach (ITextLayout layout in _newlyCreated)
+            {
+                toDispose.Add(layout);
+            }
+
+            foreach (ITextLayout layout in toDispose)
             {
                 (layout as IDisposable)?.Dispose();
             }
 
-            _retained = [];
-            _current = [];
+            _retained.Clear();
+            _current.Clear();
+            _newlyCreated.Clear();
         }
 
+        /// <summary>
+        /// Cache key identifying shaped text layout inputs.
+        /// Includes all typographic parameters supported by <see cref="ComputedStyle"/> and <see cref="ITextMeasurer"/>.
+        /// </summary>
         private readonly record struct LayoutKey(
             string Text,
             Size AvailableSize,

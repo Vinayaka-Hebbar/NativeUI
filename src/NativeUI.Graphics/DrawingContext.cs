@@ -25,61 +25,78 @@ public enum ClipMode
 public abstract class DrawingContext
 {
     /// <summary>
-    /// Clips subsequent drawing against the union of <paramref name="region"/> until the matching <see cref="Restore"/>.
-    /// Intersect and Exclude clips of the same region cover each pixel exactly once.
-    /// </summary>
-    public abstract void ClipRegion(IReadOnlyList<Rect> region, ClipMode mode);
-
-    /// <summary>
     /// Saves the current transform and clip state onto the internal stack.
+    /// Every call to <see cref="Save"/> must be balanced by a matching call to <see cref="Restore"/>.
     /// </summary>
     public abstract void Save();
 
     /// <summary>
-    /// Restores the most recently saved transform and clip state.
+    /// Saves an offscreen layer for compositing subsequent drawing commands with group <paramref name="opacity"/>.
+    /// Every call to <see cref="SaveLayer"/> must be balanced by a matching call to <see cref="Restore"/>.
+    /// </summary>
+    /// <param name="bounds">The logical bounds of the offscreen layer.</param>
+    /// <param name="opacity">The compositing group opacity in the range [0.0, 1.0].</param>
+    public abstract void SaveLayer(Rect bounds, double opacity);
+
+    /// <summary>
+    /// Restores the most recently saved transform, clip, or layer state.
     /// </summary>
     public abstract void Restore();
 
     /// <summary>
-    /// Applies a uniform or non-uniform scale factor to subsequent drawing operations.
+    /// Applies horizontal and vertical scaling factors to subsequent drawing operations.
     /// </summary>
+    /// <param name="scaleX">The horizontal scale factor.</param>
+    /// <param name="scaleY">The vertical scale factor.</param>
     public abstract void Scale(float scaleX, float scaleY);
 
     /// <summary>
-    /// Clears the entire drawing surface with the specified <paramref name="color"/>.
+    /// Clears the drawing surface with the specified <paramref name="color"/>.
     /// </summary>
+    /// <param name="color">The background color used to clear the surface.</param>
     public abstract void Clear(Color color);
 
     /// <summary>
-    /// Fills a rectangle at <paramref name="rect"/> with <paramref name="color"/> and <paramref name="opacity"/>.
+    /// Clips subsequent drawing to <paramref name="rect"/> until the matching <see cref="Restore"/>.
     /// </summary>
-    public abstract void DrawRectangle(Rect rect, Color color, double opacity = 1.0);
+    /// <param name="rect">The clipping rectangle in logical coordinates.</param>
+    public abstract void ClipRect(Rect rect);
 
     /// <summary>
-    /// Fills a rounded rectangle at <paramref name="rect"/> with corner <paramref name="borderRadius"/>,
-    /// <paramref name="color"/>, and <paramref name="opacity"/>.
+    /// Clips subsequent drawing to a rounded rectangle with corner <paramref name="radius"/> until the matching <see cref="Restore"/>.
     /// </summary>
-    public abstract void DrawRoundedRectangle(Rect rect, double borderRadius, Color color, double opacity = 1.0);
+    /// <param name="rect">The clipping rectangle in logical coordinates.</param>
+    /// <param name="radius">The corner radius in logical pixels.</param>
+    public abstract void ClipRoundedRectangle(Rect rect, double radius);
 
     /// <summary>
-    /// Draws a shaped <see cref="ITextLayout"/> at <paramref name="origin"/> with <paramref name="color"/> and <paramref name="opacity"/>.
+    /// Clips subsequent drawing against the union of <paramref name="region"/> until the matching <see cref="Restore"/>.
+    /// Intersect and Exclude clips of the same region cover each pixel exactly once.
     /// </summary>
-    public abstract void DrawTextLayout(
-        ITextLayout textLayout,
-        Point origin,
-        Color color,
-        double opacity = 1.0);
+    /// <param name="region">The list of rectangles defining the clip region.</param>
+    /// <param name="mode">Whether to restrict to or exclude the region.</param>
+    public abstract void ClipRegion(IReadOnlyList<Rect> region, ClipMode mode);
 
     /// <summary>
-    /// Draws text inside <paramref name="contentRect"/> using the specified typographic parameters.
+    /// Fills a rectangle at <paramref name="rect"/> using <paramref name="paint"/>.
     /// </summary>
-    public abstract void DrawText(
-        string text,
-        Rect contentRect,
-        Color color,
-        double fontSize,
-        FontWeight fontWeight,
-        string? fontFamily,
-        TextAlign textAlign,
-        double opacity = 1.0);
+    /// <param name="rect">The rectangle geometry to fill.</param>
+    /// <param name="paint">The painting parameters including color and opacity.</param>
+    public abstract void DrawRectangle(Rect rect, Paint paint);
+
+    /// <summary>
+    /// Fills a rounded rectangle at <paramref name="rect"/> with corner <paramref name="radius"/> using <paramref name="paint"/>.
+    /// </summary>
+    /// <param name="rect">The rectangle geometry to fill.</param>
+    /// <param name="radius">The corner radius in logical pixels.</param>
+    /// <param name="paint">The painting parameters including color and opacity.</param>
+    public abstract void DrawRoundedRectangle(Rect rect, double radius, Paint paint);
+
+    /// <summary>
+    /// Draws a shaped <see cref="ITextLayout"/> at <paramref name="origin"/> using <paramref name="paint"/>.
+    /// </summary>
+    /// <param name="layout">The shaped text layout to render.</param>
+    /// <param name="origin">The top-left origin coordinates.</param>
+    /// <param name="paint">The painting parameters including text color and opacity.</param>
+    public abstract void DrawTextLayout(ITextLayout layout, Point origin, Paint paint);
 }

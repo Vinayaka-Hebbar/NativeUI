@@ -8,7 +8,7 @@ namespace NativeUI.Css;
 /// Represents a compiled CSS stylesheet containing <see cref="CssRule"/> definitions,
 /// root custom properties, and the raw CSS source for Web injection.
 /// </summary>
-public sealed class CssStyleSheet
+public sealed class CssStyleSheet : StyleSheet
 {
     /// <summary>
     /// Gets the unique identifier of this compiled stylesheet (typically the view or file name).
@@ -23,7 +23,7 @@ public sealed class CssStyleSheet
     /// <summary>
     /// Gets the ordered list of compiled CSS rules in this stylesheet.
     /// </summary>
-    public IReadOnlyList<CssRule> Rules { get; }
+    public new IReadOnlyList<CssRule> Rules { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CssStyleSheet"/> class.
@@ -37,6 +37,28 @@ public sealed class CssStyleSheet
         Id = id;
         RawCss = rawCss;
         Rules = rules;
+    }
+
+    /// <inheritdoc />
+    public override ComputedStyle ResolveStyle(IUIElement element)
+    {
+        return ComputeStyle(element);
+    }
+
+    /// <inheritdoc />
+    public override SelectionStyle ResolveSelectionStyle(IUIElement element)
+    {
+        return ComputeSelectionStyle(element);
+    }
+
+    /// <inheritdoc />
+    public override Color? ResolveColor(ThemeValue<Color> colorValue, IUIElement element)
+    {
+        CssColorSchemeCondition scheme = element.ActualTheme == Theme.Dark
+            ? CssColorSchemeCondition.Dark
+            : CssColorSchemeCondition.Light;
+        CssVariables variables = CreateScopedVariables(element, scheme);
+        return variables.ResolveColor(colorValue);
     }
 
     /// <summary>
@@ -99,6 +121,7 @@ public sealed class CssStyleSheet
         double opacity = 1.0;
         double? width = null;
         double? height = null;
+        Cursor cursor = inheritedStyle.Cursor;
 
         // Font-relative lengths use the winning font size, regardless of declaration order.
         foreach ((CssRule rule, _) in matching)
@@ -214,6 +237,13 @@ public sealed class CssStyleSheet
                             height = h.ToLogicalPixels(fontSize);
                         }
                         break;
+
+                    case "cursor":
+                        if (resolved is CssCursorValue cur)
+                        {
+                            cursor = cur.Cursor;
+                        }
+                        break;
                 }
             }
         }
@@ -231,7 +261,8 @@ public sealed class CssStyleSheet
             BorderRadius = borderRadius,
             Opacity = opacity,
             Width = width,
-            Height = height
+            Height = height,
+            Cursor = cursor
         };
         return cssStyle;
     }

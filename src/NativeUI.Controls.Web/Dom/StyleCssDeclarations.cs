@@ -27,8 +27,23 @@ internal static class StyleCssDeclarations
             ("border-radius", FormatLength(style?.BorderRadius)),
             ("opacity", style?.Opacity is double opacity ? Math.Clamp(opacity, 0, 1).ToString("R", CultureInfo.InvariantCulture) : null),
             ("width", FormatLength(style?.Width)),
-            ("height", FormatLength(style?.Height))
+            ("height", FormatLength(style?.Height)),
+            ("cursor", FormatCursor(style?.Cursor))
         ];
+    }
+
+    private static string? FormatCursor(Cursor? cursor)
+    {
+        return cursor switch
+        {
+            Cursor.Pointer => "pointer",
+            Cursor.IBeam => "text",
+            Cursor.NotAllowed => "not-allowed",
+            Cursor.Crosshair => "crosshair",
+            Cursor.Wait => "wait",
+            Cursor.Arrow or Cursor.Default => "default",
+            _ => null
+        };
     }
 
     private static string? FormatColor(ThemeValue<Color>? value)

@@ -83,7 +83,7 @@ static void TestXamlEmitterCleanSyntaxFactoryOutput()
     Assert.Contains("AttachStyles();", emittedCSharp);
     Assert.Contains("TitleText.Class = [\"title\"];", emittedCSharp);
     Assert.Contains("public Text TitleText { get; private set; } = null!;", emittedCSharp);
-    Assert.Contains("new CompiledBinding<HelloViewModel, string>(\"Title\", static source => source.Title, null, BindingMode.OneWay)", emittedCSharp);
+    Assert.Contains("CompiledBinding.Create(\"Title\", static (HelloViewModel source) => source.Title, null, BindingMode.OneWay)", emittedCSharp);
     Assert.False(emittedCSharp.Contains("global::", StringComparison.Ordinal), "Generated C# must not contain global:: clutter.");
 }
 

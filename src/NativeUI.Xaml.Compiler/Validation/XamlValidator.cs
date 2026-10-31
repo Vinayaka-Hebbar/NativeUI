@@ -46,15 +46,28 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             {
                 "Id",
                 "Class",
-                "IsVisible"
+                "IsVisible",
+                "IsEnabled",
+                "ClipToBounds"
             },
             ["Text"] = new HashSet<string>(StringComparer.Ordinal)
             {
                 "Id",
                 "Class",
                 "IsVisible",
+                "IsEnabled",
                 "Value",
                 "AriaLabel"
+            },
+            ["Button"] = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "Id",
+                "Class",
+                "IsVisible",
+                "IsEnabled",
+                "Text",
+                "Command",
+                "CommandParameter"
             }
         };
 

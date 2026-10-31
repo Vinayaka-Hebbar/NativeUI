@@ -127,6 +127,7 @@ public class HtmlDomElement : INativePeer
         JSObject? element = useBrowserInterop && OperatingSystem.IsBrowser() ? DomInterop.CreateElement(tagName) : null;
         return source switch
         {
+            Button button => new HtmlDomButton(button, element),
             Text text => new HtmlDomText(text, element),
             View view => new HtmlDomView(view, element),
             _ => new HtmlDomElement(source, element, tagName)

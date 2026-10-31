@@ -42,6 +42,16 @@ public sealed class SkiaDrawingContext : DrawingContext
     /// <inheritdoc />
     public override void Scale(float scaleX, float scaleY)
     {
+        if (float.IsNaN(scaleX) || float.IsInfinity(scaleX))
+        {
+            throw new ArgumentException("Scale X must be a finite number.", nameof(scaleX));
+        }
+
+        if (float.IsNaN(scaleY) || float.IsInfinity(scaleY))
+        {
+            throw new ArgumentException("Scale Y must be a finite number.", nameof(scaleY));
+        }
+
         _canvas.Scale(scaleX, scaleY);
     }
 
@@ -62,84 +72,83 @@ public sealed class SkiaDrawingContext : DrawingContext
     }
 
     /// <inheritdoc />
+    public override void ClipRect(Rect rect)
+    {
+        _canvas.ClipRect(ToSKRect(rect), SKClipOperation.Intersect, antialias: true);
+    }
+
+    /// <inheritdoc />
+    public override void ClipRoundedRectangle(Rect rect, double radius)
+    {
+        float r = (float)radius;
+        using SKRoundRect roundRect = new(ToSKRect(rect), r, r);
+        _canvas.ClipRoundRect(roundRect, SKClipOperation.Intersect, antialias: true);
+    }
+
+    /// <inheritdoc />
+    public override void SaveLayer(Rect bounds, double opacity)
+    {
+        if (double.IsNaN(opacity))
+        {
+            throw new ArgumentException("Opacity must not be NaN.", nameof(opacity));
+        }
+
+        byte alpha = (byte)Math.Clamp((int)Math.Round(opacity * 255.0), 0, 255);
+        using SKPaint paint = new()
+        {
+            Color = new SKColor(255, 255, 255, alpha)
+        };
+        _canvas.SaveLayer(ToSKRect(bounds), paint);
+    }
+
+    /// <inheritdoc />
     public override void Clear(Color color)
     {
         _canvas.Clear(color.ToSKColor());
     }
 
     /// <inheritdoc />
-    public override void DrawRectangle(Rect rect, Color color, double opacity = 1.0)
+    public override void DrawRectangle(Rect rect, Paint paint)
     {
-        using SKPaint paint = new()
+        using SKPaint skPaint = new()
         {
-            Color = color.ToSKColor(opacity),
+            Color = paint.Color.ToSKColor(paint.Opacity),
             IsAntialias = true,
             Style = SKPaintStyle.Fill
         };
 
-        _canvas.DrawRect(ToSKRect(rect), paint);
+        _canvas.DrawRect(ToSKRect(rect), skPaint);
     }
 
     /// <inheritdoc />
-    public override void DrawRoundedRectangle(Rect rect, double borderRadius, Color color, double opacity = 1.0)
+    public override void DrawRoundedRectangle(Rect rect, double radius, Paint paint)
     {
-        using SKPaint paint = new()
+        using SKPaint skPaint = new()
         {
-            Color = color.ToSKColor(opacity),
+            Color = paint.Color.ToSKColor(paint.Opacity),
             IsAntialias = true,
             Style = SKPaintStyle.Fill
         };
 
-        float r = (float)borderRadius;
-        _canvas.DrawRoundRect(ToSKRect(rect), r, r, paint);
+        float r = (float)radius;
+        _canvas.DrawRoundRect(ToSKRect(rect), r, r, skPaint);
     }
 
     /// <inheritdoc />
     public override void DrawTextLayout(
-        ITextLayout textLayout,
+        ITextLayout layout,
         Point origin,
-        Color color,
-        double opacity = 1.0)
+        Paint paint)
     {
-        ArgumentNullException.ThrowIfNull(textLayout);
-        if (textLayout is SkiaTextLayout skiaLayout)
+        ArgumentNullException.ThrowIfNull(layout);
+        if (layout is SkiaTextLayout skiaLayout)
         {
-            skiaLayout.Draw(_canvas, origin, color, opacity);
+            skiaLayout.Draw(_canvas, origin, paint.Color, paint.Opacity);
         }
-    }
-
-    /// <inheritdoc />
-    public override void DrawText(
-        string text,
-        Rect contentRect,
-        Color color,
-        double fontSize,
-        FontWeight fontWeight,
-        string? fontFamily,
-        TextAlign textAlign,
-        double opacity = 1.0)
-    {
-        ComputedStyle style = new()
-        {
-            FontSize = fontSize,
-            FontWeight = fontWeight,
-            FontFamily = fontFamily,
-            TextAlign = textAlign
-        };
-
-        using SkiaTextLayout layout = _textShaper.ShapeText(
-            text,
-            new Size(contentRect.Width, contentRect.Height),
-            style);
-        layout.Draw(_canvas, new Point(contentRect.X, contentRect.Y), color, opacity);
     }
 
     private static SKRect ToSKRect(Rect rect)
     {
-        return new SKRect(
-            (float)rect.X,
-            (float)rect.Y,
-            (float)rect.Right,
-            (float)rect.Bottom);
+        return new SKRect((float)rect.X, (float)rect.Y, (float)rect.Right, (float)rect.Bottom);
     }
 }

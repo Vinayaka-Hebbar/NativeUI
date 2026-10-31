@@ -333,6 +333,18 @@ public sealed record StyleSelector
                     {
                         states |= ElementStates.Hover;
                     }
+                    else if (string.Equals(pseudo, "active", StringComparison.OrdinalIgnoreCase))
+                    {
+                        states |= ElementStates.Pressed;
+                    }
+                    else if (string.Equals(pseudo, "disabled", StringComparison.OrdinalIgnoreCase))
+                    {
+                        states |= ElementStates.Disabled;
+                    }
+                    else if (string.Equals(pseudo, "focus", StringComparison.OrdinalIgnoreCase))
+                    {
+                        states |= ElementStates.Focus;
+                    }
                 }
             }
             else

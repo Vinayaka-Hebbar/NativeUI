@@ -159,12 +159,12 @@ internal static class SelectionStyleTests
 
         context.Save();
         context.ClipRegion(overlapping, ClipMode.Intersect);
-        context.DrawRectangle(new Rect(0, 0, 15, 10), Color.FromRgbBytes(0, 0, 0, 128));
+        context.DrawRectangle(new Rect(0, 0, 15, 10), new Paint(Color.FromRgbBytes(0, 0, 0, 128)));
         context.Restore();
 
         context.Save();
         context.ClipRegion(overlapping, ClipMode.Exclude);
-        context.DrawRectangle(new Rect(0, 0, 20, 20), Colors.Black);
+        context.DrawRectangle(new Rect(0, 0, 20, 20), new Paint(Colors.Black));
         context.Restore();
 
         using SKImage image = surface.Snapshot();
@@ -203,6 +203,21 @@ internal static class SelectionStyleTests
             Commands.Add($"Clip:{mode}");
         }
 
+        public override void ClipRect(Rect rect)
+        {
+            Commands.Add("ClipRect");
+        }
+
+        public override void ClipRoundedRectangle(Rect rect, double radius)
+        {
+            Commands.Add("ClipRoundedRectangle");
+        }
+
+        public override void SaveLayer(Rect bounds, double opacity)
+        {
+            Commands.Add("SaveLayer");
+        }
+
         public override void Save()
         {
             Commands.Add("Save");
@@ -223,33 +238,20 @@ internal static class SelectionStyleTests
             Commands.Add("Clear");
         }
 
-        public override void DrawRectangle(Rect rect, Color color, double opacity = 1.0)
+        public override void DrawRectangle(Rect rect, Paint paint)
         {
             Commands.Add("Rect");
         }
 
-        public override void DrawRoundedRectangle(Rect rect, double borderRadius, Color color, double opacity = 1.0)
+        public override void DrawRoundedRectangle(Rect rect, double radius, Paint paint)
         {
             Commands.Add("RoundedRect");
         }
 
-        public override void DrawTextLayout(ITextLayout textLayout, Point origin, Color color, double opacity = 1.0)
+        public override void DrawTextLayout(ITextLayout layout, Point origin, Paint paint)
         {
             Commands.Add("Text");
-            TextDraws.Add((textLayout, origin, color));
-        }
-
-        public override void DrawText(
-            string text,
-            Rect contentRect,
-            Color color,
-            double fontSize,
-            FontWeight fontWeight,
-            string? fontFamily,
-            TextAlign textAlign,
-            double opacity = 1.0)
-        {
-            Commands.Add("DrawText");
+            TextDraws.Add((layout, origin, paint.Color));
         }
     }
 }

@@ -19,4 +19,9 @@
     <Text x:Name="StatusText"
           Class="status"
           Value="{Binding LiveStatus}" />
+
+    <Button x:Name="ThemeButton"
+            Class="btn-theme"
+            Text="{Binding ThemeButtonText}"
+            Command="{Binding ToggleThemeCommand}" />
 </View>

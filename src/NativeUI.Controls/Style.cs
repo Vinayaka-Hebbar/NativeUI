@@ -22,6 +22,7 @@ public sealed class Style : IStyle
     private double? _opacity;
     private double? _width;
     private double? _height;
+    private Cursor? _cursor;
 
     /// <summary>
     /// Occurs whenever any property on this <see cref="Style"/> instance is modified.
@@ -184,4 +185,16 @@ public sealed class Style : IStyle
         }
     }
 
+    /// <summary>
+    /// Gets or sets the mouse pointer cursor appearance.
+    /// </summary>
+    public Cursor? Cursor
+    {
+        get => _cursor;
+        set
+        {
+            _cursor = value;
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
 }

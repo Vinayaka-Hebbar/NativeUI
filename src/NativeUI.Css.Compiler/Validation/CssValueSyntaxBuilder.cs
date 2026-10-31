@@ -65,6 +65,7 @@ internal static class CssValueSyntaxBuilder
             "text-align" => TryBuildTextAlignSyntax(valueNode, out expression),
             "opacity" => TryBuildOpacitySyntax(valueNode, out expression),
             "font-family" => TryBuildFontFamilySyntax(valueNode, out expression),
+            "cursor" => TryBuildCursorSyntax(valueNode, out expression),
             _ => false
         };
     }
@@ -317,6 +318,34 @@ internal static class CssValueSyntaxBuilder
                 expression = BuildNewCssValue(
                     "CssTextAlignValue",
                     BuildEnumMember("TextAlign", align));
+                return true;
+            }
+        }
+
+        expression = null;
+        return false;
+    }
+
+    private static bool TryBuildCursorSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        if (node is CssKeywordValueNode kw)
+        {
+            string? cursor = kw.Keyword.ToLowerInvariant() switch
+            {
+                "pointer" or "hand" => "Pointer",
+                "default" or "arrow" => "Default",
+                "text" => "IBeam",
+                "not-allowed" => "NotAllowed",
+                "crosshair" => "Crosshair",
+                "wait" => "Wait",
+                _ => null
+            };
+
+            if (cursor is not null)
+            {
+                expression = BuildNewCssValue(
+                    "CssCursorValue",
+                    BuildEnumMember("Cursor", cursor));
                 return true;
             }
         }

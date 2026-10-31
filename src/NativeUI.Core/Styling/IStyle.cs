@@ -42,4 +42,7 @@ public interface IStyle
 
     /// <summary>Gets the specified height in logical pixels.</summary>
     double? Height { get; }
+
+    /// <summary>Gets the specified pointer cursor appearance.</summary>
+    Cursor? Cursor { get; }
 }

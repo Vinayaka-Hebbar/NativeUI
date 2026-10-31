@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace NativeUI.Sample;
 
@@ -19,4 +20,26 @@ public partial class HelloViewModel : ObservableObject
 
     [ObservableProperty]
     private string _liveStatus = "Theme variable --color-primary resolved via oklch(0.55 0.22 255)";
+
+    [ObservableProperty]
+    private string _themeButtonText = "Switch to Dark Mode";
+
+    [ObservableProperty]
+    private bool _isDarkMode;
+
+    /// <summary>
+    /// Occurs when the user requests a theme toggle.
+    /// </summary>
+    public event EventHandler? ThemeToggled;
+
+    [RelayCommand]
+    private void ToggleTheme()
+    {
+        IsDarkMode = !IsDarkMode;
+        ThemeButtonText = IsDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode";
+        LiveStatus = IsDarkMode
+            ? "Dark theme active: --color-surface resolved to #0f172a"
+            : "Light theme active: --color-surface resolved to #f8fafc";
+        ThemeToggled?.Invoke(this, EventArgs.Empty);
+    }
 }

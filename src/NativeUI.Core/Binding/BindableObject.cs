@@ -89,8 +89,8 @@ public abstract class BindableObject : IDisposable
     /// <summary>
     /// Attaches a compiled binding to the specified <paramref name="property"/>, replacing any existing binding on that property.
     /// </summary>
-    public IDisposable SetBinding<TValue, TSource>(
-        BindableProperty<TValue> property,
+    public IDisposable SetBinding<TProperty, TSource, TValue>(
+        BindableProperty<TProperty> property,
         CompiledBinding<TSource, TValue> binding)
         where TSource : class
     {

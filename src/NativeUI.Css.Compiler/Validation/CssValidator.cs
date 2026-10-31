@@ -58,7 +58,8 @@ public sealed class CssValidator : CssSyntaxVisitor
         "border-radius",
         "opacity",
         "width",
-        "height"
+        "height",
+        "cursor"
     };
 
     private readonly string _filePath;

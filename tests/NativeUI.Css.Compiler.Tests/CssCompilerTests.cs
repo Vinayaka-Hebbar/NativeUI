@@ -9,7 +9,8 @@ int exitCode = TestRunner.RunSuite("NativeUI.Css.Compiler.Tests",
     ("CssEmitter uses Roslyn SyntaxFactory to emit clean C# without global:: clutter", TestCssEmitterCleanSyntaxFactoryOutput),
     ("CssParser compiles hover, descendant, universal, and ::selection selectors", TestStateAndDescendantSelectors),
     ("CssValidator diagnoses unsupported pseudo-selectors, combinators, and ::selection properties", TestUnsupportedSelectorDiagnostics),
-    ("CssEmitter translates only type selectors for browser CSS and emits selector metadata", TestBrowserCssAndSelectorEmission)
+    ("CssEmitter translates only type selectors for browser CSS and emits selector metadata", TestBrowserCssAndSelectorEmission),
+    ("CssEmitter compiles cursor property and active/disabled pseudo-classes", TestButtonAndCursorCssEmission)
 ]);
 
 return exitCode;
@@ -50,6 +51,9 @@ static void TestCssEmitterCleanSyntaxFactoryOutput()
     Assert.Contains("using NativeUI.Media;", emittedCSharp);
     Assert.Contains("namespace NativeUI.Sample.Shared;", emittedCSharp);
     Assert.Contains("public partial class SampleThemeStyleSheet", emittedCSharp);
+    Assert.Contains("public partial class SampleTheme", emittedCSharp);
+    Assert.Contains("partial void AttachStyles()", emittedCSharp);
+    Assert.Contains("StyleSheet = SampleThemeStyleSheet.Instance;", emittedCSharp);
     Assert.Contains("Color.FromOklch(", emittedCSharp);
     Assert.Contains("Color.FromHsl(", emittedCSharp);
     Assert.False(emittedCSharp.Contains("global::", StringComparison.Ordinal), "Generated C# must not contain global:: clutter.");
@@ -123,4 +127,18 @@ static void TestBrowserCssAndSelectorEmission()
     Assert.Contains("pseudoElement: CssPseudoElement.Selection", emitted);
     Assert.Contains("span.title:hover", emitted);
     Assert.False(emitted.Contains("text.title:hover {", StringComparison.Ordinal), "Stylesheet text must use browser type names.");
+}
+
+static void TestButtonAndCursorCssEmission()
+{
+    ValidatedCssStylesheet validated = CssValidator.Validate(
+        CssParser.Parse("ButtonTheme.css", TestRunner.ReadFixture("ButtonTheme.css")));
+
+    Assert.Equal(0, validated.Diagnostics.Count);
+    string emitted = CssEmitter.Emit(validated, "NativeUI.Sample.Shared", Accessibility.Public);
+
+    Assert.Contains("new CssCursorValue(Cursor.Pointer)", emitted);
+    Assert.Contains("new CssCursorValue(Cursor.NotAllowed)", emitted);
+    Assert.Contains("requiredStates: ElementStates.Pressed", emitted);
+    Assert.Contains("requiredStates: ElementStates.Disabled", emitted);
 }

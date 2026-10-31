@@ -8,7 +8,9 @@ public sealed class CssParser
 {
     private static readonly Dictionary<string, string> s_pseudoClassStates = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["hover"] = "Hover"
+        ["hover"] = "Hover",
+        ["active"] = "Pressed",
+        ["disabled"] = "Disabled"
     };
 
     private readonly IReadOnlyList<CssToken> _tokens;

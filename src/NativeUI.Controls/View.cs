@@ -21,6 +21,15 @@ public class View : UIElement
             defaultValue: null,
             propertyChanged: static (owner, _, _) => owner.InvalidateStyle());
 
+    /// <summary>
+    /// Identifies the <see cref="ClipToBounds"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<bool> ClipToBoundsProperty =
+        BindableProperty.Create<View, bool>(
+            nameof(ClipToBounds),
+            defaultValue: false,
+            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+
     private readonly ObservableCollection<UIElement> _children = [];
     private readonly HashSet<UIElement> _attachedChildren = new(ReferenceEqualityComparer.Instance);
 
@@ -30,6 +39,16 @@ public class View : UIElement
     public View()
     {
         _children.CollectionChanged += OnChildrenCollectionChanged;
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether child elements are clipped to this view's bounds.
+    /// Defaults to <see langword="false"/>.
+    /// </summary>
+    public bool ClipToBounds
+    {
+        get => GetValue(ClipToBoundsProperty);
+        set => SetValue(ClipToBoundsProperty, value);
     }
 
     /// <summary>
