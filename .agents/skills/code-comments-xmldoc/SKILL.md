@@ -45,6 +45,7 @@ public partial class Input : UIElement
 ## 3. Inline Comments (`//`)
 
 - Do **not** narrate obvious code (`// Increment counter`, `// Set text property`).
+- **Never** use numbered step comments (`// 1. ...`, `// 2. ...`, `// Step 1: ...`).
 - Use concise single-line `//` comments **only** to explain:
   - **Why** a non-obvious algorithm or order of operations is required.
   - Native platform quirks or browser DOM synchronization invariants (e.g., avoiding caret reset during two-way `input` events).

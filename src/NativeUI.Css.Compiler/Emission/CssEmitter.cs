@@ -42,7 +42,7 @@ public static class CssEmitter
         string safeClassName = SanitizeIdentifier(stylesheet.Id) + "StyleSheet";
         List<MemberDeclarationSyntax> members = [];
 
-        // 1. Emit static readonly ThemeValue<Color> fields for :root color custom properties.
+        // Emit static readonly ThemeValue<Color> fields for :root color custom properties.
         HashSet<string> emittedTokens = new(StringComparer.Ordinal);
         foreach (ValidatedCssRule rule in stylesheet.Rules)
         {
@@ -63,13 +63,8 @@ public static class CssEmitter
             }
         }
 
-        // 2. Emit public static CssStyleSheet Instance { get; } = Create();
         members.Add(BuildInstanceProperty());
-
-        // 3. Emit [ModuleInitializer] internal static void Register()
         members.Add(BuildRegisterMethod());
-
-        // 4. Emit private static CssStyleSheet Create()
         members.Add(BuildCreateMethod(stylesheet));
 
         SyntaxKind accessKeyword = accessibility == Accessibility.Internal
@@ -179,7 +174,7 @@ public static class CssEmitter
                 SeparatedList(ruleCreations)));
 
         LocalDeclarationStatementSyntax rulesLocal = LocalDeclarationStatement(
-            VariableDeclaration(IdentifierName("var"))
+            VariableDeclaration(listType)
                 .WithVariables(SingletonSeparatedList(
                     VariableDeclarator(Identifier("rules"))
                         .WithInitializer(EqualsValueClause(rulesListCreation)))));

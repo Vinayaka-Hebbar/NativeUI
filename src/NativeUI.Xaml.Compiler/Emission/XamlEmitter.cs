@@ -38,7 +38,7 @@ public static class XamlEmitter
 
         List<MemberDeclarationSyntax> classMembers = [];
 
-        // 1. Emit auto-properties for x:Name elements: public Text TitleText { get; private set; } = null!;
+        // Emit auto-properties for x:Name elements
         List<(string Name, string ControlType)> namedElements = [];
         CollectNamedElements(document.RootElement, isRoot: true, namedElements);
         foreach ((string propName, string controlType) in namedElements)
@@ -46,7 +46,6 @@ public static class XamlEmitter
             classMembers.Add(BuildNamedElementProperty(propName, controlType));
         }
 
-        // 2. Emit public void InitializeComponent()
         classMembers.Add(BuildInitializeComponentMethod(document));
 
         AttributeListSyntax xamlCompilationAttr = AttributeList(SingletonSeparatedList(

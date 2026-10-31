@@ -27,16 +27,14 @@ Use this guide whenever designing or modifying components, projects, or platform
 
 Maintain a strict directed acyclic dependency graph (no circular project references):
 
-- `NativeUI.Core`: Observable primitives, `BindableObject`, `BindableProperty`, binding engine (`OneWay`, `TwoWay`, `OneTime`, `ICommand`), and `IDispatcher`. Zero platform or graphics dependencies.
-- `NativeUI.Css`: CSS style runtime, `CssStyleSheet`, `CssVariables`, and `ComputedStyle`. References `NativeUI.Core`.
+- `NativeUI.Core`: Observable primitives, `BindableObject`, `BindableProperty`, binding engine (`OneWay`, `TwoWay`, `OneTime`, `ICommand`), `IDispatcher`, `IClipboard`, CSS runtime (`NativeUI.Css`), XAML runtime metadata (`NativeUI.Xaml`), shared desktop layout engine (`NativeUI.Layout`), and Unicode text segmentation/BiDi/line-breaking (`NativeUI.Text`). Zero platform or graphics dependencies.
 - `NativeUI.Css.Compiler`: Compile-time CSS parser and Roslyn `CssGenerator` (`IIncrementalGenerator`).
-- `NativeUI.Xaml`: XAML runtime attributes and markup contracts. References `NativeUI.Core`.
 - `NativeUI.Xaml.Compiler`: Compile-time XAML parser and Roslyn `XamlGenerator` (`IIncrementalGenerator`).
-- `NativeUI.Layout`: Shared desktop CSS box model, Flexbox, CSS Grid, media query, and container query layout engine. References `NativeUI.Core` and `NativeUI.Css`.
-- `NativeUI.Controls`: Shared `UIElement` and control definitions (`View`, `Page`, `Text`, `Input`, `Button`, `Flex`, `Grid`, `Canvas`, `Border`, `ScrollView`, `Image`, `CheckBox`, `Select`). References `NativeUI.Core`, `NativeUI.Css`, `NativeUI.Xaml`, and `NativeUI.Layout`.
-- `NativeUI.Graphics.Skia`: Shared SkiaSharp desktop drawing engine (`SkiaCanvasRenderer` / element painting, backgrounds, borders, typography measurement and rendering). References `NativeUI.Core`, `NativeUI.Css`, `NativeUI.Layout`, and `NativeUI.Controls`.
-- `NativeUI.Controls.Windows` / `NativeUI.Controls.MacOS` / `NativeUI.Controls.Linux`: Desktop OS integration (`Window`, `*Host`, Skia surface blitting, DPI/appearance events, and native text input overlay). Reference `NativeUI.Core`, `NativeUI.Controls`, `NativeUI.Layout`, and `NativeUI.Graphics.Skia`.
-- `NativeUI.Controls.Web`: WebAssembly `WebHost`, C# Virtual DOM / reconciler, event dispatcher, and `[JSImport]` DOM bridge. References `NativeUI.Core`, `NativeUI.Css`, and `NativeUI.Controls` (does **not** reference `NativeUI.Graphics.Skia`).
+- `NativeUI.Controls`: Shared `UIElement` and control definitions (`View`, `Page`, `Text`, `Input`, `Button`, `Flex`, `Grid`, `Canvas`, `Border`, `ScrollView`, `Image`, `CheckBox`, `Select`). References `NativeUI.Core`.
+- `NativeUI.Graphics`: Platform-agnostic drawing contracts (`DrawingContext`, `VisualTreeRenderer`). References `NativeUI.Core` and `NativeUI.Controls`.
+- `NativeUI.Graphics.Skia`: Shared SkiaSharp + HarfBuzzSharp desktop drawing and text shaping engine (`SkiaSurface`, `SkiaDrawingContext`, `SkiaTextShaper`, `SkiaTextLayout`, `SkiaResourceCache`). References `NativeUI.Core` and `NativeUI.Graphics`.
+- `NativeUI.Controls.Windows` / `NativeUI.Controls.MacOS` / `NativeUI.Controls.Linux`: Desktop OS integration (`Window`, `*Host`, Skia surface blitting, DPI/appearance events, clipboard, and native text input overlay). Reference `NativeUI.Core`, `NativeUI.Controls`, `NativeUI.Graphics`, and `NativeUI.Graphics.Skia`.
+- `NativeUI.Controls.Web`: WebAssembly `WebHost`, C# Virtual DOM / reconciler, event dispatcher, and `[JSImport]` DOM bridge. References `NativeUI.Core` and `NativeUI.Controls` (does **not** reference `NativeUI.Graphics.Skia`).
 - `NativeUI.Build`: Shared MSBuild `.props` and `.targets` wiring `.xaml` and `.css` files into `AdditionalFiles` for `CssGenerator` and `XamlGenerator`.
 
 ## 3. WebAssembly DOM Interop Boundary (`NativeUI.Controls.Web`)

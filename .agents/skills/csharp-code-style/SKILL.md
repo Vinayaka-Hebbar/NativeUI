@@ -47,6 +47,7 @@ Follow these rules when writing or refactoring C# code in the NativeUI repositor
 
 ## 4. Type Safety & Performance
 
+- **Explicit Types (Never Use `var`)**: Always write explicit type declarations for local variables and loop variables. Never use `var`.
 - **Strict Nullability**: Never suppress nullable warnings with the null-forgiving operator (`!`) unless the invariant is proven and documented with a brief inline comment.
 - **Avoid Reflection in Hot Paths**: Use strongly typed delegates or compile-time generated property accessors for observable bindings and style updates.
 - **Resource Cleanup**: Implement `IDisposable` deterministically whenever a type holds event subscriptions, native handles, or `JSObject` references.

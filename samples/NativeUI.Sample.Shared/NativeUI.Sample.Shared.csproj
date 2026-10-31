@@ -16,7 +16,6 @@
     <ProjectReference Include="..\..\src\NativeUI.Core\NativeUI.Core.csproj" />
     <ProjectReference Include="..\..\src\NativeUI.Css\NativeUI.Css.csproj" />
     <ProjectReference Include="..\..\src\NativeUI.Xaml\NativeUI.Xaml.csproj" />
-    <ProjectReference Include="..\..\src\NativeUI.Layout\NativeUI.Layout.csproj" />
     <ProjectReference Include="..\..\src\NativeUI.Controls\NativeUI.Controls.csproj" />
     <ProjectReference Include="..\..\src\NativeUI.Css.Compiler\NativeUI.Css.Compiler.csproj"
                       OutputItemType="Analyzer"

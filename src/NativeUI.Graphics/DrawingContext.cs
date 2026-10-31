@@ -40,7 +40,16 @@ public abstract class DrawingContext
     public abstract void DrawRoundedRectangle(Rect rect, double borderRadius, Color color, double opacity = 1.0);
 
     /// <summary>
-    /// Draws a line of text inside <paramref name="contentRect"/> using the specified typographic parameters.
+    /// Draws a shaped <see cref="ITextLayout"/> at <paramref name="origin"/> with <paramref name="color"/> and <paramref name="opacity"/>.
+    /// </summary>
+    public abstract void DrawTextLayout(
+        ITextLayout textLayout,
+        Point origin,
+        Color color,
+        double opacity = 1.0);
+
+    /// <summary>
+    /// Draws text inside <paramref name="contentRect"/> using the specified typographic parameters.
     /// </summary>
     public abstract void DrawText(
         string text,

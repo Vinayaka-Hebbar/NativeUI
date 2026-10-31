@@ -28,14 +28,12 @@ NativeUI supports declarative XAML, C# components, observable ViewModels (MVVM),
 ```text
 NativeUI.slnx
 ├── src/
-│   ├── NativeUI.Core/               # Shared contracts, observables, bindings, IDispatcher
-│   ├── NativeUI.Css/                # CSS runtime style, CssVariables & ComputedStyle primitives
+│   ├── NativeUI.Core/               # Shared contracts, observables, bindings, CSS, XAML, Layout & Text
 │   ├── NativeUI.Css.Compiler/       # Compile-time CSS parser and CssGenerator
-│   ├── NativeUI.Xaml/               # XAML runtime metadata and markup primitives
 │   ├── NativeUI.Xaml.Compiler/      # Compile-time XAML parser and XamlGenerator
-│   ├── NativeUI.Layout/             # Shared desktop CSS Flexbox, Grid & box-model layout engine
 │   ├── NativeUI.Controls/           # Shared UIElement and control definitions (View, Text, Input, etc.)
-│   ├── NativeUI.Graphics.Skia/      # Shared SkiaSharp desktop drawing, text shaping & painting engine
+│   ├── NativeUI.Graphics/           # Platform-agnostic drawing & visual tree rendering abstractions
+│   ├── NativeUI.Graphics.Skia/      # Shared SkiaSharp + HarfBuzz desktop drawing & text shaping engine
 │   ├── NativeUI.Controls.Windows/   # Windows native window hosting, OS services & native text input
 │   ├── NativeUI.Controls.MacOS/     # macOS (AppKit) native Window, MacOSHost & native text input
 │   ├── NativeUI.Controls.Linux/     # Linux (GTK 4) native window hosting, OS services & native text input
@@ -55,9 +53,9 @@ Future mobile targets follow the same platform naming pattern: `NativeUI.Control
 ## Core Coding & Workflow Conventions
 
 - **Target Framework**: `.NET 10` (`net10.0`), `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>`.
-- **Code Style**: Use file-scoped namespaces, Allman braces, `PascalCase` for public members/types, `camelCase` for locals/parameters, and `_camelCase` for private instance fields.
+- **Code Style**: Use file-scoped namespaces, Allman braces, explicit types (never use `var`), `PascalCase` for public members/types, `camelCase` for locals/parameters, and `_camelCase` for private instance fields.
 - **Type Naming**: Avoid redundant prefixes or implementation details in type names (e.g., use `IDispatcher` instead of `IUIDispatcher`, `WebHost` instead of `WebUIHost`, `MacOSHost` instead of `MacOSUIHost`, `Window` instead of `MacOSWindow`, `CssVariables` instead of `CssVariableMap`, `CssGenerator` and `XamlGenerator` instead of `*IncrementalGenerator`).
-- **Comments**: Document all public APIs with XML documentation (`/// <summary>`). Never use decorative banner comments (e.g., `// ====` or `// ----`). Use concise inline `//` comments only for non-obvious logic or interop invariants.
+- **Comments**: Document all public APIs with XML documentation (`/// <summary>`). Never use decorative banner comments (e.g., `// ====` or `// ----`) or numbered step comments (e.g., `// 1.`, `// 2.`). Use concise inline `//` comments only for non-obvious logic or interop invariants.
 - **Build & Test Commands**:
   - Build solution: `dotnet build NativeUI.slnx`
   - Run tests: `dotnet test NativeUI.slnx`

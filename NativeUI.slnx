@@ -9,7 +9,6 @@
     <Project Path="src/NativeUI.Css/NativeUI.Css.csproj" />
     <Project Path="src/NativeUI.Graphics.Skia/NativeUI.Graphics.Skia.csproj" />
     <Project Path="src/NativeUI.Graphics/NativeUI.Graphics.csproj" />
-    <Project Path="src/NativeUI.Layout/NativeUI.Layout.csproj" />
     <Project Path="src/NativeUI.Xaml.Compiler/NativeUI.Xaml.Compiler.csproj" />
     <Project Path="src/NativeUI.Xaml/NativeUI.Xaml.csproj" />
   </Folder>
@@ -23,5 +22,8 @@
     <Project Path="tests/NativeUI.Core.Tests/NativeUI.Core.Tests.csproj" />
     <Project Path="tests/NativeUI.Css.Compiler.Tests/NativeUI.Css.Compiler.Tests.csproj" />
     <Project Path="tests/NativeUI.Xaml.Compiler.Tests/NativeUI.Xaml.Compiler.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/NativeUI.UnicodeGenerator/NativeUI.UnicodeGenerator.csproj" />
   </Folder>
 </Solution>

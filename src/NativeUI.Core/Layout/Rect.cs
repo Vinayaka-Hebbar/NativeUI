@@ -18,4 +18,12 @@ public readonly record struct Rect(double X, double Y, double Width, double Heig
     /// Gets the bottom edge coordinate (<see cref="Y"/> + <see cref="Height"/>).
     /// </summary>
     public double Bottom => Y + Height;
+
+    /// <summary>
+    /// Returns a value indicating whether <paramref name="point"/> lies within or on the edges of this rectangle.
+    /// </summary>
+    public bool Contains(Point point)
+    {
+        return point.X >= X && point.X <= Right && point.Y >= Y && point.Y <= Bottom;
+    }
 }

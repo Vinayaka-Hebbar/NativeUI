@@ -73,12 +73,9 @@ public sealed class LayoutEngine
 
         if (node.TextContent is string text)
         {
-            Size measured = _textMeasurer.MeasureText(
-                text,
-                style.FontSize,
-                style.FontWeight,
-                style.FontFamily,
-                contentMaxWidth);
+            Size availableTextSize = new(contentMaxWidth, style.Height ?? double.PositiveInfinity);
+            ITextLayout textLayout = _textMeasurer.CreateTextLayout(text, availableTextSize, style);
+            Size measured = textLayout.Size;
 
             double textWidth = style.Width.HasValue ? contentMaxWidth : Math.Min(contentMaxWidth, measured.Width);
             double textHeight = measured.Height;
@@ -90,7 +87,8 @@ public sealed class LayoutEngine
                 style,
                 new Rect(borderX, borderY, finalBorderWidth, finalBorderHeight),
                 new Rect(contentX, contentY, Math.Max(0, finalBorderWidth - padding.Horizontal), textHeight),
-                childBoxes);
+                childBoxes,
+                textLayout);
         }
 
         foreach (ILayoutNode child in node.LayoutChildren)

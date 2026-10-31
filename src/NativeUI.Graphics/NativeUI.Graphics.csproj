@@ -6,7 +6,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NativeUI.Core\NativeUI.Core.csproj" />
-    <ProjectReference Include="..\NativeUI.Layout\NativeUI.Layout.csproj" />
     <ProjectReference Include="..\NativeUI.Controls\NativeUI.Controls.csproj" />
   </ItemGroup>
 

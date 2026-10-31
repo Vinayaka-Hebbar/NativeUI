@@ -2,10 +2,20 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
   </PropertyGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="NativeUI.Controls" />
+    <InternalsVisibleTo Include="NativeUI.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../tools/NativeUI.UnicodeGenerator/NativeUI.UnicodeGenerator.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <AdditionalFiles Include="../../tools/Unicode/17.0.0/*.txt" />
+    <AdditionalFiles Include="../../tools/Unicode/LICENSE.txt" />
+    <None Include="../../tools/Unicode/LICENSE.txt" Pack="true" PackagePath="licenses/Unicode.txt" />
   </ItemGroup>
 
 </Project>

@@ -1,5 +1,7 @@
+using System.Collections.Immutable;
 using NativeUI.Core;
 using NativeUI.Css;
+using NativeUI.Layout;
 using NativeUI.Media;
 using NativeUI.Tests;
 
@@ -8,7 +10,12 @@ int exitCode = TestRunner.RunSuite("NativeUI.Core.Tests",
     ("Color spaces convert accurately across sRGB, HSL, Oklab, and Oklch", TestColorSpacesAndConversions),
     ("ThemeValue<T> supports literal values and CSS variable references", TestThemeValueAndCssVariables),
     ("BindableProperty<T> is primary type and BindableObject raises PropertyChanged", TestBindablePropertyAndPropertyChanged),
-    ("CompiledBinding updates target incrementally on OneWay and TwoWay changes", TestCompiledBindingOneWayAndTwoWay)
+    ("CompiledBinding updates target incrementally on OneWay and TwoWay changes", TestCompiledBindingOneWayAndTwoWay),
+    ("UnicodeTextSegmentation computes grapheme clusters and UAX #29 word boundaries", TestUnicodeTextSegmentation),
+    ("BidiAlgorithm resolves mixed LTR/RTL, paired brackets, and directional isolates", TestBidiAlgorithm),
+    ("LineBreakEnumerator computes UAX #14 optional and mandatory break opportunities", TestLineBreakEnumerator),
+    ("Unicode tables preserve private-use defaults and range boundaries", NativeUI.Core.Tests.UnicodeDataTablesTests.VerifyPrivateUseDefaults),
+    ("Unicode bracket lookups match the pinned official data", NativeUI.Core.Tests.UnicodeDataTablesTests.VerifyBracketMappings)
 ]);
 
 return exitCode;
@@ -100,6 +107,79 @@ static void TestCompiledBindingOneWayAndTwoWay()
 
     target.SetValue(SampleBindable.TextProperty, "FromControl");
     Assert.Equal("FromControl", vm.Title);
+}
+
+static void TestUnicodeTextSegmentation()
+{
+    string emojiText = "A👩‍💻B";
+    ImmutableArray<TextRange> clusters = UnicodeTextSegmentation.GetGraphemeClusters(emojiText, 0, emojiText.Length);
+    Assert.Equal(3, clusters.Length);
+    Assert.Equal(new TextRange(0, 1), clusters[0]);
+    Assert.Equal(new TextRange(1, emojiText.Length - 2), clusters[1]);
+    Assert.Equal(new TextRange(emojiText.Length - 1, 1), clusters[2]);
+
+    string sample = "We don't pay 1,234.56 today";
+    TextRange contraction = UnicodeTextSegmentation.GetWordRangeAt(sample, 4);
+    Assert.Equal("don't", sample.Substring(contraction.Start, contraction.Length));
+
+    TextRange numeric = UnicodeTextSegmentation.GetWordRangeAt(sample, 15);
+    Assert.Equal("1,234.56", sample.Substring(numeric.Start, numeric.Length));
+}
+
+static void TestBidiAlgorithm()
+{
+    // Mixed English, Arabic, and numbers: Arabic letters get odd (RTL) level 1, numbers after Arabic get level 2
+    string mixedArabicNumbers = "English العربية 123";
+    ImmutableArray<BiDiTextRun> runs1 = UnicodeTextSegmentation.AnalyzeParagraphBiDi(
+        mixedArabicNumbers,
+        0,
+        mixedArabicNumbers.Length,
+        out bool baseIsRtl1);
+    Assert.False(baseIsRtl1);
+    Assert.Equal((byte)0, runs1[0].EmbeddingLevel);
+    Assert.True(runs1.Any(static r => r.EmbeddingLevel == 1), "Expected Arabic run to have level 1.");
+    Assert.Equal((byte)2, runs1[^1].EmbeddingLevel);
+
+    // Paired brackets enclosing Hebrew inside LTR paragraph
+    string bracketHebrew = "Hello (שלום) world";
+    ImmutableArray<BiDiTextRun> runs2 = UnicodeTextSegmentation.AnalyzeParagraphBiDi(
+        bracketHebrew,
+        0,
+        bracketHebrew.Length,
+        out bool baseIsRtl2);
+    Assert.False(baseIsRtl2);
+    Assert.True(runs2.Any(static r => r.IsRightToLeft), "Expected Hebrew run inside paired brackets to resolve to RTL.");
+
+    // Directional isolate RLI ... PDI
+    string isolated = "ABC \u2067مرحبا\u2069 XYZ";
+    ImmutableArray<BiDiTextRun> runs3 = UnicodeTextSegmentation.AnalyzeParagraphBiDi(
+        isolated,
+        0,
+        isolated.Length,
+        out bool baseIsRtl3);
+    Assert.False(baseIsRtl3);
+    Assert.True(runs3.Any(static r => r.IsRightToLeft), "Expected isolated Arabic content to resolve to an odd RTL embedding level.");
+    Assert.Equal((byte)0, runs3[^1].EmbeddingLevel);
+}
+
+static void TestLineBreakEnumerator()
+{
+    string text = "Hello (world)\r\nNext\u00A0Word";
+    ImmutableArray<TextRange> clusters = UnicodeTextSegmentation.GetGraphemeClusters(text, 0, text.Length);
+    ImmutableArray<LineBreakOpportunity> breaks = LineBreakEnumerator.GetBreakOpportunities(text, clusters);
+
+    // Must allow breaking after space before '(' ("Hello | (world)"), but not immediately after '('
+    int openParenPos = text.IndexOf('(');
+    Assert.True(breaks.Any(b => b.TextPosition == openParenPos && !b.IsRequired), "Expected optional break opportunity before opening parenthesis after space.");
+    Assert.False(breaks.Any(b => b.TextPosition == openParenPos + 1), "Must not break immediately after opening parenthesis.");
+
+    // CRLF must produce a single mandatory break at the end of the CRLF sequence
+    int afterCrLf = text.IndexOf("Next", StringComparison.Ordinal);
+    Assert.True(breaks.Any(b => b.TextPosition == afterCrLf && b.IsRequired), "Expected mandatory break after CRLF.");
+
+    // Non-breaking space U+00A0 must not allow a break before or after it
+    int nbspIndex = text.IndexOf('\u00A0');
+    Assert.False(breaks.Any(b => b.TextPosition == nbspIndex || b.TextPosition == nbspIndex + 1), "Must not break around non-breaking space.");
 }
 
 file sealed class SampleBindable : BindableObject

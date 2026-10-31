@@ -33,6 +33,11 @@ public sealed class LayoutBox
     public IReadOnlyList<LayoutBox> Children { get; }
 
     /// <summary>
+    /// Gets the shaped <see cref="ITextLayout"/> if this box represents a leaf text element, or <see langword="null"/> otherwise.
+    /// </summary>
+    public ITextLayout? TextLayout { get; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="LayoutBox"/> class.
     /// </summary>
     public LayoutBox(
@@ -40,7 +45,8 @@ public sealed class LayoutBox
         ComputedStyle style,
         Rect borderBox,
         Rect contentBox,
-        IReadOnlyList<LayoutBox> children)
+        IReadOnlyList<LayoutBox> children,
+        ITextLayout? textLayout = null)
     {
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(style);
@@ -51,5 +57,6 @@ public sealed class LayoutBox
         BorderBox = borderBox;
         ContentBox = contentBox;
         Children = children;
+        TextLayout = textLayout;
     }
 }

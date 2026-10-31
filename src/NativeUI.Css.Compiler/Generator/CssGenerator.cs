@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
 
 namespace NativeUI.Css.Compiler;
@@ -40,7 +41,7 @@ public sealed class CssGenerator : IIncrementalGenerator
             .Select(static (tuple, cancellationToken) =>
             {
                 AdditionalText file = tuple.Left.Left;
-                var options = tuple.Left.Right.GetOptions(file);
+                AnalyzerConfigOptions options = tuple.Left.Right.GetOptions(file);
                 Compilation compilation = tuple.Right;
 
                 string fallbackNs = tuple.Left.Right.GlobalOptions.TryGetValue("build_property.RootNamespace", out string? rootNs) &&

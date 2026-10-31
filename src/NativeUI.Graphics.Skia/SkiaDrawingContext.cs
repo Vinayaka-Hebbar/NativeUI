@@ -5,21 +5,21 @@ using SkiaSharp;
 namespace NativeUI.Graphics.Skia;
 
 /// <summary>
-/// Implements <see cref="DrawingContext"/> backed by a SkiaSharp <see cref="SKCanvas"/> and <see cref="SkiaTextLayout"/>.
+/// Implements <see cref="DrawingContext"/> backed by a SkiaSharp <see cref="SKCanvas"/> and <see cref="SkiaTextShaper"/>.
 /// </summary>
 public sealed class SkiaDrawingContext : DrawingContext
 {
     private readonly SKCanvas _canvas;
-    private readonly SkiaTextLayout _textLayout;
+    private readonly SkiaTextShaper _textShaper;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SkiaDrawingContext"/> class.
     /// </summary>
-    public SkiaDrawingContext(SKCanvas canvas, SkiaTextLayout? textLayout = null)
+    public SkiaDrawingContext(SKCanvas canvas, SkiaTextShaper? textShaper = null)
     {
         ArgumentNullException.ThrowIfNull(canvas);
         _canvas = canvas;
-        _textLayout = textLayout ?? SkiaTextLayout.Shared;
+        _textShaper = textShaper ?? SkiaTextShaper.Shared;
     }
 
     /// <summary>
@@ -79,6 +79,20 @@ public sealed class SkiaDrawingContext : DrawingContext
     }
 
     /// <inheritdoc />
+    public override void DrawTextLayout(
+        ITextLayout textLayout,
+        Point origin,
+        Color color,
+        double opacity = 1.0)
+    {
+        ArgumentNullException.ThrowIfNull(textLayout);
+        if (textLayout is SkiaTextLayout skiaLayout)
+        {
+            skiaLayout.Draw(_canvas, origin, color, opacity);
+        }
+    }
+
+    /// <inheritdoc />
     public override void DrawText(
         string text,
         Rect contentRect,
@@ -89,7 +103,19 @@ public sealed class SkiaDrawingContext : DrawingContext
         TextAlign textAlign,
         double opacity = 1.0)
     {
-        _textLayout.DrawText(_canvas, text, contentRect, color, fontSize, fontWeight, fontFamily, textAlign, opacity);
+        ComputedStyle style = new()
+        {
+            FontSize = fontSize,
+            FontWeight = fontWeight,
+            FontFamily = fontFamily,
+            TextAlign = textAlign
+        };
+
+        using SkiaTextLayout layout = _textShaper.ShapeText(
+            text,
+            new Size(contentRect.Width, contentRect.Height),
+            style);
+        layout.Draw(_canvas, new Point(contentRect.X, contentRect.Y), color, opacity);
     }
 
     private static SKRect ToSKRect(Rect rect)

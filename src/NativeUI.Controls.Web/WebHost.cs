@@ -205,6 +205,7 @@ public sealed class WebHost : IDisposable
         if (element is Text textControl)
         {
             SetAttribute(domNode, nodeId, htmlTag, "role", "text");
+            SetStyleProperty(domNode, nodeId, htmlTag, "user-select", textControl.IsTextSelectionEnabled ? "text" : "none");
             if (!string.IsNullOrEmpty(textControl.AriaLabel))
             {
                 SetAttribute(domNode, nodeId, htmlTag, "aria-label", textControl.AriaLabel);
@@ -269,6 +270,10 @@ public sealed class WebHost : IDisposable
         else if (ReferenceEquals(e.Property, Text.AriaLabelProperty) && element is Text ariaText && ariaText.AriaLabel is not null)
         {
             SetAttribute(domNode, nodeId, htmlTag, "aria-label", ariaText.AriaLabel);
+        }
+        else if (ReferenceEquals(e.Property, Text.IsTextSelectionEnabledProperty) && element is Text selectableText)
+        {
+            SetStyleProperty(domNode, nodeId, htmlTag, "user-select", selectableText.IsTextSelectionEnabled ? "text" : "none");
         }
     }
 

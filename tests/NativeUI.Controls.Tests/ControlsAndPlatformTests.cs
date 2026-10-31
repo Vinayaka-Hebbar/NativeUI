@@ -1,7 +1,9 @@
+using System.Collections.Immutable;
 using NativeUI.Controls;
 using NativeUI.Controls.MacOS;
 using NativeUI.Controls.Web;
 using NativeUI.Core;
+using NativeUI.Graphics.Skia;
 using NativeUI.Layout;
 using NativeUI.Media;
 using NativeUI.Sample;
@@ -11,7 +13,10 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
 [
     ("Control supports CSS Class styling, inline C# Style overrides, and Theme/ActualTheme inheritance", TestClassAndInlineStyleSystem),
     ("Desktop LayoutEngine and SkiaSurface render HelloView and re-render on ViewModel change", TestDesktopSkiaRenderingAndBindingUpdate),
-    ("WebHost mounts real DOM hierarchy and performs targeted incremental updates", TestWebHostIncrementalDomUpdates)
+    ("HarfBuzz SkiaTextShaper and SkiaTextLayout support hit-testing, word boundaries, wrapped selection rects, and disposal", TestHarfBuzzTextShapingAndHitTesting),
+    ("Selection follows font bounds with balanced line spacing and accurate cluster hit-testing", NativeUI.Controls.Tests.SelectionGeometryTests.Verify),
+    ("Desktop Window supports pointer drag selection, double-click word selection, and async clipboard copy", TestDesktopWindowTextSelectionAndClipboard),
+    ("WebHost mounts real DOM hierarchy, enables text selection by default, and performs targeted incremental updates", TestWebHostIncrementalDomUpdates)
 ]);
 
 return exitCode;
@@ -20,13 +25,13 @@ static void TestClassAndInlineStyleSystem()
 {
     HelloView view = new();
 
-    // 1. Verify CSS class styling from HelloView.xaml.css via optional StyleResolver
+    // Verify CSS class styling from HelloView.xaml.css via optional StyleResolver
     Assert.Equal("card", view.Class);
     Assert.Equal("title", view.TitleText.Class);
-    Assert.Equal(28.0, view.TitleText.ComputedStyle.FontSize);
+    Assert.Equal(26.0, view.TitleText.ComputedStyle.FontSize);
     Assert.Equal(FontWeight.Bold, view.TitleText.ComputedStyle.FontWeight);
 
-    // 2. Verify inline Style = new() { ... } works standalone and overrides CSS class properties
+    // Verify inline Style = new() { ... } works standalone and overrides CSS class properties
     Text styledBadge = new()
     {
         Class = "subtitle",
@@ -48,11 +53,11 @@ static void TestClassAndInlineStyleSystem()
     // Retains FontSize from .subtitle class because inline Style did not override FontSize
     Assert.Equal(16.0, styledBadge.ComputedStyle.FontSize);
 
-    // 3. Mutating inline Style triggers immediate recomputation
+    // Mutating inline Style triggers immediate recomputation
     styledBadge.Style.BorderRadius = 10;
     Assert.Equal(10.0, styledBadge.ComputedStyle.BorderRadius);
 
-    // 4. Setting Theme on parent View propagates ActualTheme to children and re-evaluates @media (prefers-color-scheme: dark)
+    // Setting Theme on parent View propagates ActualTheme to children and re-evaluates @media (prefers-color-scheme: dark)
     view.Theme = Theme.Light;
     Assert.Equal(Theme.Light, view.TitleText.ActualTheme);
     Color? lightTitleColor = view.TitleText.ComputedStyle.TextColor;
@@ -97,6 +102,82 @@ static void TestDesktopSkiaRenderingAndBindingUpdate()
     Assert.True(window.RenderCount > countBeforeUpdate, "Expected desktop window to repaint on bound property change.");
 }
 
+static void TestHarfBuzzTextShapingAndHitTesting()
+{
+    ComputedStyle style = new()
+    {
+        FontSize = 16.0,
+        FontWeight = FontWeight.Normal
+    };
+
+    Size measured = SkiaTextShaper.Shared.MeasureText("Hello NativeUI World", new Size(400, 100), style);
+    Assert.True(measured.Width > 50);
+    Assert.True(measured.Height > 10);
+
+    ITextLayout layout = SkiaTextShaper.Shared.CreateTextLayout(
+        "Hello NativeUI World\nSecond Line Text",
+        new Size(400, 200),
+        style);
+
+    Assert.Equal(2, layout.Lines.Length);
+
+    TextHitTestResult hitStart = layout.HitTestPoint(new Point(1, 4));
+    Assert.Equal(0, hitStart.Range.Start);
+    Assert.True(hitStart.IsInside);
+
+    TextRange word = layout.GetWordRangeAt(7);
+    Assert.Equal("NativeUI", layout.Text.Substring(word.Start, word.Length));
+
+    ImmutableArray<Rect> multiLineRects = layout.HitTestTextRange(6, layout.Text.Length - 6);
+    Assert.Equal(2, multiLineRects.Length);
+
+    if (layout is IDisposable disposableLayout)
+    {
+        disposableLayout.Dispose();
+    }
+}
+
+static void TestDesktopWindowTextSelectionAndClipboard()
+{
+    InMemoryClipboard clipboard = new();
+    HelloViewModel viewModel = new();
+    HelloView view = new()
+    {
+        DataContext = viewModel
+    };
+
+    Assert.True(view.TitleText.IsTextSelectionEnabled);
+
+    using Window window = new(clipboard: clipboard)
+    {
+        Width = 640,
+        Height = 360,
+        ScaleFactor = 2.0f,
+        Content = view
+    };
+
+    LayoutBox titleBox = window.LastLayout!.Children[1];
+    Point doubleClickPoint = new(titleBox.ContentBox.X + 10, titleBox.ContentBox.Y + (titleBox.ContentBox.Height * 0.5));
+
+    // Double-click selects the first word of TitleText ("Cross")
+    window.HandlePointerPressed(doubleClickPoint, clickCount: 2);
+    Assert.True(view.TitleText.HasSelection);
+    Assert.Equal("Cross", view.TitleText.SelectedText);
+
+    // Cmd+C / Ctrl+C copies the selected text to the window's IClipboard
+    bool copied = window.HandleKeyDownAsync("c", commandOrControl: true).GetAwaiter().GetResult();
+    Assert.True(copied);
+    Assert.Equal("Cross", clipboard.GetTextAsync().GetAwaiter().GetResult());
+
+    // Drag selection across TitleText
+    Point dragStart = new(titleBox.ContentBox.X + 2, titleBox.ContentBox.Y + (titleBox.ContentBox.Height * 0.5));
+    Point dragEnd = new(titleBox.ContentBox.X + titleBox.ContentBox.Width - 2, titleBox.ContentBox.Y + (titleBox.ContentBox.Height * 0.5));
+    window.HandlePointerPressed(dragStart, clickCount: 1);
+    window.HandlePointerMoved(dragEnd, isPressed: true);
+    window.HandlePointerReleased(dragEnd);
+    Assert.True(view.TitleText.SelectionLength > 5);
+}
+
 static void TestWebHostIncrementalDomUpdates()
 {
     HelloViewModel viewModel = new();
@@ -121,10 +202,11 @@ static void TestWebHostIncrementalDomUpdates()
     using WebHost webHost = new(useBrowserInterop: false);
     webHost.MountHeadless(view);
 
-    // Verify initial mount created stylesheet, <div> for View, and <span> for Text controls, plus inline styles
+    // Verify initial mount created stylesheet, <div> for View, <span> for Text controls with user-select:text, plus inline styles
     Assert.True(webHost.MutationLog.Any(static m => m.Operation == "InjectStyleSheet" && m.Detail == "HelloView"));
     Assert.True(webHost.MutationLog.Any(static m => m.Operation == "CreateElement" && m.TargetTag == "div" && m.Detail == "card"));
     Assert.True(webHost.MutationLog.Any(static m => m.Operation == "CreateElement" && m.TargetTag == "span" && m.Detail == "title"));
+    Assert.True(webHost.MutationLog.Any(static m => m.Operation == "SetStyleProperty" && m.TargetTag == "span" && m.Detail == "user-select:text"));
     Assert.True(webHost.MutationLog.Any(static m => m.Operation == "SetStyleProperty" && m.TargetTag == "span" && m.Detail == $"background-color:{Colors.Blue.ToCssString()}"));
     Assert.True(webHost.MutationLog.Any(static m => m.Operation == "SetStyleProperty" && m.TargetTag == "span" && m.Detail == "padding:8px 12px 8px 12px"));
     Assert.True(webHost.MutationLog.Any(static m => m.Operation == "SetStyleProperty" && m.TargetTag == "span" && m.Detail == "border-radius:6px"));
@@ -139,4 +221,25 @@ static void TestWebHostIncrementalDomUpdates()
     Assert.Equal("SetTextContent", mutation.Operation);
     Assert.Equal("span", mutation.TargetTag);
     Assert.Equal("Incremental Web Update!", mutation.Detail);
+
+    webHost.ClearMutationLog();
+    inlineStyledText.IsTextSelectionEnabled = false;
+    Assert.Equal(1, webHost.MutationLog.Count);
+    Assert.Equal("user-select:none", webHost.MutationLog[0].Detail);
+}
+
+file sealed class InMemoryClipboard : IClipboard
+{
+    private string? _text;
+
+    public ValueTask SetTextAsync(string text)
+    {
+        _text = text;
+        return ValueTask.CompletedTask;
+    }
+
+    public ValueTask<string?> GetTextAsync()
+    {
+        return ValueTask.FromResult(_text);
+    }
 }

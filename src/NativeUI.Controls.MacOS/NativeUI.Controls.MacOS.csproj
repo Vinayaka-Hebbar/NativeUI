@@ -6,6 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="HarfBuzzSharp" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.macOS" />
   </ItemGroup>
@@ -13,7 +15,6 @@
   <ItemGroup>
     <ProjectReference Include="..\NativeUI.Core\NativeUI.Core.csproj" />
     <ProjectReference Include="..\NativeUI.Css\NativeUI.Css.csproj" />
-    <ProjectReference Include="..\NativeUI.Layout\NativeUI.Layout.csproj" />
     <ProjectReference Include="..\NativeUI.Controls\NativeUI.Controls.csproj" />
     <ProjectReference Include="..\NativeUI.Graphics\NativeUI.Graphics.csproj" />
     <ProjectReference Include="..\NativeUI.Graphics.Skia\NativeUI.Graphics.Skia.csproj" />

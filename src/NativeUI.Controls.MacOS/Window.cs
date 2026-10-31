@@ -1,3 +1,4 @@
+using System.Text;
 using NativeUI.Controls;
 using NativeUI.Core;
 using NativeUI.Graphics;
@@ -10,8 +11,8 @@ namespace NativeUI.Controls.MacOS;
 
 /// <summary>
 /// Represents a native macOS desktop window that hosts a <see cref="UIElement"/> hierarchy,
-/// propagates <see cref="ActualTheme"/> and <see cref="StyleResolver"/>, and renders its visual tree
-/// using <see cref="VisualTreeRenderer"/> and <see cref="SkiaSurface"/>.
+/// propagates <see cref="ActualTheme"/> and <see cref="StyleResolver"/>, routes mouse/keyboard text selection
+/// and clipboard operations, and renders its visual tree using <see cref="VisualTreeRenderer"/> and <see cref="SkiaSurface"/>.
 /// </summary>
 public sealed class Window : IDisposable
 {
@@ -21,8 +22,9 @@ public sealed class Window : IDisposable
     private const ulong StyleMaskResizable = 1UL << 3;
     private const ulong BackingStoreBuffered = 2UL;
 
-    private readonly VisualTreeRenderer _renderer = new(SkiaTextLayout.Shared);
+    private readonly VisualTreeRenderer _renderer = new(SkiaTextShaper.Shared);
     private readonly IPlatformSettings _platformSettings;
+    private readonly IClipboard _clipboard;
     private UIElement? _content;
     private Theme _theme = Theme.Default;
     private IStyleResolver? _styleResolver;
@@ -30,18 +32,29 @@ public sealed class Window : IDisposable
     private nint _nsWindow;
     private nint _nsImageView;
     private string _title = "NativeUI";
+    private Text? _activeSelectionText;
+    private LayoutBox? _activeSelectionBox;
+    private int _selectionAnchorPosition;
+    private bool _isDraggingSelection;
     private bool _disposed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Window"/> class.
     /// </summary>
     /// <param name="platformSettings">Optional platform settings service; defaults to <see cref="MacOSPlatformSettings.Instance"/>.</param>
-    public Window(IPlatformSettings? platformSettings = null)
+    /// <param name="clipboard">Optional clipboard service; defaults to <see cref="MacOSClipboard.Instance"/>.</param>
+    public Window(IPlatformSettings? platformSettings = null, IClipboard? clipboard = null)
     {
         _platformSettings = platformSettings ?? MacOSPlatformSettings.Instance;
+        _clipboard = clipboard ?? MacOSClipboard.Instance;
         _platformSettings.ThemeChanged += OnPlatformThemeChanged;
         HotReloadManager.HotReloaded += OnHotReloaded;
     }
+
+    /// <summary>
+    /// Gets the <see cref="IClipboard"/> associated with this window.
+    /// </summary>
+    public IClipboard Clipboard => _clipboard;
 
     /// <summary>
     /// Gets or sets the window title displayed in the native macOS title bar.
@@ -201,19 +214,136 @@ public sealed class Window : IDisposable
             nint nsTitle = AppKitInterop.CreateNSString(_title);
             AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setTitle:"), nsTitle);
 
-            nint imageViewClass = AppKitInterop.GetClass("NSImageView");
+            nint imageViewClass = AppKitInterop.GetInteractiveImageViewClass();
             nint allocImgView = AppKitInterop.SendMessage(imageViewClass, AppKitInterop.GetSelector("alloc"));
             _nsImageView = AppKitInterop.SendMessageViewInit(
                 allocImgView,
                 AppKitInterop.GetSelector("initWithFrame:"),
                 new AppKitInterop.CGRect(0, 0, Width, Height));
 
+            AppKitInterop.RegisterWindowView(_nsImageView, this);
             AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setContentView:"), _nsImageView);
+            _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
             _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("center"));
             AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("makeKeyAndOrderFront:"), nint.Zero);
         }
 
         InvalidateFrame();
+    }
+
+    /// <summary>
+    /// Handles a pointer press at <paramref name="viewportPoint"/> (in logical window coordinates)
+    /// to begin character selection or perform double-click word selection.
+    /// </summary>
+    public void HandlePointerPressed(Point viewportPoint, int clickCount = 1)
+    {
+        if (_content is null || LastLayout is null)
+        {
+            return;
+        }
+
+        ClearAllTextSelections(_content);
+        _activeSelectionText = null;
+        _activeSelectionBox = null;
+        _isDraggingSelection = false;
+
+        LayoutBox? hitBox = FindSelectableTextBoxAt(LastLayout, viewportPoint);
+        if (hitBox is null || hitBox.Element is not Text textControl || hitBox.TextLayout is not ITextLayout textLayout)
+        {
+            return;
+        }
+
+        Point localPoint = new(
+            viewportPoint.X - hitBox.ContentBox.X,
+            viewportPoint.Y - hitBox.ContentBox.Y);
+
+        TextHitTestResult hit = textLayout.HitTestPoint(localPoint);
+        _activeSelectionText = textControl;
+        _activeSelectionBox = hitBox;
+
+        if (clickCount >= 3)
+        {
+            textControl.SelectAll();
+            return;
+        }
+
+        if (clickCount == 2)
+        {
+            TextRange wordRange = textLayout.GetWordRangeAt(hit.Range.Start);
+            textControl.Select(wordRange.Start, wordRange.Length);
+            return;
+        }
+
+        _selectionAnchorPosition = hit.TextPosition;
+        _isDraggingSelection = true;
+    }
+
+    /// <summary>
+    /// Handles pointer movement at <paramref name="viewportPoint"/> (in logical window coordinates)
+    /// to update active drag text selection.
+    /// </summary>
+    public void HandlePointerMoved(Point viewportPoint, bool isPressed = true)
+    {
+        if (!_isDraggingSelection || !isPressed || _activeSelectionText is null || _activeSelectionBox?.TextLayout is not ITextLayout textLayout)
+        {
+            return;
+        }
+
+        Point localPoint = new(
+            viewportPoint.X - _activeSelectionBox.ContentBox.X,
+            viewportPoint.Y - _activeSelectionBox.ContentBox.Y);
+
+        TextHitTestResult hit = textLayout.HitTestPoint(localPoint);
+        int start = Math.Min(_selectionAnchorPosition, hit.TextPosition);
+        int end = Math.Max(_selectionAnchorPosition, hit.TextPosition);
+        _activeSelectionText.Select(start, end - start);
+    }
+
+    /// <summary>
+    /// Ends an active pointer drag selection gesture.
+    /// </summary>
+    public void HandlePointerReleased(Point viewportPoint)
+    {
+        if (_isDraggingSelection)
+        {
+            HandlePointerMoved(viewportPoint, isPressed: true);
+            _isDraggingSelection = false;
+        }
+    }
+
+    /// <summary>
+    /// Processes keyboard shortcuts such as <c>Cmd+C</c> / <c>Ctrl+C</c> (copy selected text to <see cref="Clipboard"/>)
+    /// and <c>Cmd+A</c> / <c>Ctrl+A</c> (select all).
+    /// </summary>
+    public async ValueTask<bool> HandleKeyDownAsync(string key, bool commandOrControl)
+    {
+        if (_content is null || string.IsNullOrEmpty(key))
+        {
+            return false;
+        }
+
+        if (commandOrControl && string.Equals(key, "c", StringComparison.OrdinalIgnoreCase))
+        {
+            string selected = CollectSelectedText(_content);
+            if (!string.IsNullOrEmpty(selected))
+            {
+                await _clipboard.SetTextAsync(selected).ConfigureAwait(false);
+                return true;
+            }
+        }
+        else if (commandOrControl && string.Equals(key, "a", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_activeSelectionText is { IsTextSelectionEnabled: true })
+            {
+                _activeSelectionText.SelectAll();
+                return true;
+            }
+
+            SelectAllSelectableText(_content);
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -230,8 +360,15 @@ public sealed class Window : IDisposable
         int pixelWidth = Math.Max(1, (int)Math.Round(Width * ScaleFactor));
         int pixelHeight = Math.Max(1, (int)Math.Round(Height * ScaleFactor));
 
-        using SkiaSurface surface = new(pixelWidth, pixelHeight, SkiaTextLayout.Shared);
-        LastLayout = _renderer.Render(surface.DrawingContext, _content, new Size(Width, Height), ScaleFactor, _background);
+        using SkiaSurface surface = new(pixelWidth, pixelHeight);
+        SkiaDrawingContext drawingContext = new(surface.Canvas, SkiaTextShaper.Shared);
+        LastLayout = _renderer.Render(drawingContext, _content, new Size(Width, Height), ScaleFactor, _background);
+
+        if (_activeSelectionText is not null && LastLayout is not null)
+        {
+            _activeSelectionBox = FindBoxForElement(LastLayout, _activeSelectionText);
+        }
+
         RenderCount++;
 
         SKImage snapshot = surface.Snapshot();
@@ -255,6 +392,11 @@ public sealed class Window : IDisposable
         _platformSettings.ThemeChanged -= OnPlatformThemeChanged;
         HotReloadManager.HotReloaded -= OnHotReloaded;
 
+        if (_nsImageView != nint.Zero)
+        {
+            AppKitInterop.UnregisterWindowView(_nsImageView);
+        }
+
         if (_content is not null)
         {
             _content.VisualInvalidated -= OnContentVisualInvalidated;
@@ -263,6 +405,107 @@ public sealed class Window : IDisposable
 
         _nsImageView = nint.Zero;
         _nsWindow = nint.Zero;
+    }
+
+    private static LayoutBox? FindSelectableTextBoxAt(LayoutBox box, Point point)
+    {
+        for (int i = box.Children.Count - 1; i >= 0; i--)
+        {
+            LayoutBox? childMatch = FindSelectableTextBoxAt(box.Children[i], point);
+            if (childMatch is not null)
+            {
+                return childMatch;
+            }
+        }
+
+        if (box.Element is Text { IsVisible: true, IsTextSelectionEnabled: true } &&
+            box.BorderBox.Contains(point))
+        {
+            return box;
+        }
+
+        return null;
+    }
+
+    private static LayoutBox? FindBoxForElement(LayoutBox box, UIElement target)
+    {
+        if (ReferenceEquals(box.Element, target))
+        {
+            return box;
+        }
+
+        foreach (LayoutBox child in box.Children)
+        {
+            LayoutBox? found = FindBoxForElement(child, target);
+            if (found is not null)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    private static void ClearAllTextSelections(UIElement element)
+    {
+        if (element is Text textControl)
+        {
+            textControl.ClearSelection();
+        }
+        else if (element is View view)
+        {
+            foreach (UIElement child in view.Children)
+            {
+                ClearAllTextSelections(child);
+            }
+        }
+    }
+
+    private static void SelectAllSelectableText(UIElement element)
+    {
+        if (element is Text { IsVisible: true, IsTextSelectionEnabled: true } textControl)
+        {
+            textControl.SelectAll();
+        }
+        else if (element is View view)
+        {
+            foreach (UIElement child in view.Children)
+            {
+                SelectAllSelectableText(child);
+            }
+        }
+    }
+
+    private static string CollectSelectedText(UIElement root)
+    {
+        StringBuilder sb = new();
+        AppendSelectedTextRecursive(root, sb);
+        return sb.ToString();
+    }
+
+    private static void AppendSelectedTextRecursive(UIElement element, StringBuilder sb)
+    {
+        if (!element.IsVisible)
+        {
+            return;
+        }
+
+        if (element is Text { HasSelection: true } textControl)
+        {
+            if (sb.Length > 0)
+            {
+                sb.Append('\n');
+            }
+
+            sb.Append(textControl.SelectedText);
+        }
+        else if (element is View view)
+        {
+            foreach (UIElement child in view.Children)
+            {
+                AppendSelectedTextRecursive(child, sb);
+            }
+        }
     }
 
     private void SyncContentThemeAndStyle()

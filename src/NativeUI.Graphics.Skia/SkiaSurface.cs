@@ -3,12 +3,11 @@ using SkiaSharp;
 namespace NativeUI.Graphics.Skia;
 
 /// <summary>
-/// Manages an offscreen or window-backed SkiaSharp <see cref="SKSurface"/> and its <see cref="SkiaDrawingContext"/>.
+/// Manages an offscreen or window-backed SkiaSharp <see cref="SKSurface"/>.
 /// </summary>
 public sealed class SkiaSurface : IDisposable
 {
     private readonly SKSurface _surface;
-    private readonly SkiaDrawingContext _drawingContext;
     private bool _disposed;
 
     /// <summary>
@@ -22,21 +21,29 @@ public sealed class SkiaSurface : IDisposable
     public int PixelHeight { get; }
 
     /// <summary>
-    /// Gets the <see cref="SkiaDrawingContext"/> used to issue drawing commands onto this surface.
+    /// Gets the underlying <see cref="SKCanvas"/> used to draw onto this surface.
     /// </summary>
-    public SkiaDrawingContext DrawingContext => _drawingContext;
+    public SKCanvas Canvas => _surface.Canvas;
 
     /// <summary>
     /// Initializes a new raster <see cref="SkiaSurface"/> with the specified pixel dimensions.
     /// </summary>
-    public SkiaSurface(int pixelWidth, int pixelHeight, SkiaTextLayout? textLayout = null)
+    public SkiaSurface(int pixelWidth, int pixelHeight)
     {
-        PixelWidth = Math.Max(1, pixelWidth);
-        PixelHeight = Math.Max(1, pixelHeight);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pixelWidth);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pixelHeight);
 
-        SKImageInfo info = new(PixelWidth, PixelHeight, SKColorType.Rgba8888, SKAlphaType.Premul);
-        _surface = SKSurface.Create(info);
-        _drawingContext = new SkiaDrawingContext(_surface.Canvas, textLayout);
+        PixelWidth = pixelWidth;
+        PixelHeight = pixelHeight;
+
+        SKImageInfo info = new(
+            pixelWidth,
+            pixelHeight,
+            SKColorType.Rgba8888,
+            SKAlphaType.Premul);
+
+        _surface = SKSurface.Create(info)
+            ?? throw new InvalidOperationException("Failed to create the Skia surface.");
     }
 
     /// <summary>
@@ -44,6 +51,8 @@ public sealed class SkiaSurface : IDisposable
     /// </summary>
     public SKImage Snapshot()
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         return _surface.Snapshot();
     }
 

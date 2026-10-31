@@ -1,4 +1,6 @@
+using System.Collections.Immutable;
 using NativeUI.Controls;
+using NativeUI.Core;
 using NativeUI.Layout;
 using NativeUI.Media;
 
@@ -6,16 +8,19 @@ namespace NativeUI.Graphics;
 
 /// <summary>
 /// Traverses a <see cref="UIElement"/> hierarchy, computes its <see cref="LayoutBox"/> geometry via <see cref="LayoutEngine"/>,
-/// and issues drawing commands to a <see cref="DrawingContext"/>.
+/// and issues drawing commands (including text selection highlights and shaped text layouts) to a <see cref="DrawingContext"/>.
 /// </summary>
 public sealed class VisualTreeRenderer
 {
+    private static readonly Color s_lightSelectionColor = Color.FromRgbBytes(37, 99, 235, 76);
+    private static readonly Color s_darkSelectionColor = Color.FromRgbBytes(96, 165, 250, 96);
+
     private readonly LayoutEngine _layoutEngine;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="VisualTreeRenderer"/> class.
     /// </summary>
-    /// <param name="textMeasurer">The <see cref="ITextMeasurer"/> used to measure text runs during layout.</param>
+    /// <param name="textMeasurer">The <see cref="ITextMeasurer"/> used to shape and measure text runs during layout.</param>
     public VisualTreeRenderer(ITextMeasurer textMeasurer)
     {
         ArgumentNullException.ThrowIfNull(textMeasurer);
@@ -72,16 +77,49 @@ public sealed class VisualTreeRenderer
 
         if (box.Element is Text textControl && !string.IsNullOrEmpty(textControl.Value))
         {
-            Color textColor = style.TextColor ?? Colors.Black;
-            context.DrawText(
-                textControl.Value,
-                box.ContentBox,
-                textColor,
-                style.FontSize,
-                style.FontWeight,
-                style.FontFamily,
-                style.TextAlign,
-                effectiveOpacity);
+            if (box.TextLayout is ITextLayout textLayout)
+            {
+                if (textControl.IsTextSelectionEnabled && textControl.HasSelection)
+                {
+                    Color selectionColor = textControl.ActualTheme == Theme.Dark
+                        ? s_darkSelectionColor
+                        : s_lightSelectionColor;
+
+                    ImmutableArray<Rect> selectionRects = textLayout.HitTestTextRange(
+                        textControl.SelectionStart,
+                        textControl.SelectionLength);
+
+                    foreach (Rect localRect in selectionRects)
+                    {
+                        Rect viewportRect = new(
+                            box.ContentBox.X + localRect.X,
+                            box.ContentBox.Y + localRect.Y,
+                            localRect.Width,
+                            localRect.Height);
+                        context.DrawRectangle(viewportRect, selectionColor, effectiveOpacity);
+                    }
+                }
+
+                Color textColor = style.TextColor ?? Colors.Black;
+                context.DrawTextLayout(
+                    textLayout,
+                    new Point(box.ContentBox.X, box.ContentBox.Y),
+                    textColor,
+                    effectiveOpacity);
+            }
+            else
+            {
+                Color textColor = style.TextColor ?? Colors.Black;
+                context.DrawText(
+                    textControl.Value,
+                    box.ContentBox,
+                    textColor,
+                    style.FontSize,
+                    style.FontWeight,
+                    style.FontFamily,
+                    style.TextAlign,
+                    effectiveOpacity);
+            }
         }
 
         foreach (LayoutBox child in box.Children)
