@@ -1,0 +1,4 @@
+.broken {
+    unknown-property: 12px;
+    color: not-a-color;
+}

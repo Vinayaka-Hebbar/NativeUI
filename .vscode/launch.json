@@ -1,0 +1,71 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Sample: macOS (SkiaSharp)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/samples/NativeUI.Sample.MacOS/bin/Debug/net10.0/NativeUI.Sample.MacOS.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/samples/NativeUI.Sample.MacOS",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Launch Sample: Web",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/samples/NativeUI.Sample.Web/bin/Debug/net10.0/NativeUI.Sample.Web.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/samples/NativeUI.Sample.Web",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Run Tests: NativeUI.Core.Tests",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/tests/NativeUI.Core.Tests/bin/Debug/net10.0/NativeUI.Core.Tests.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/tests/NativeUI.Core.Tests/bin/Debug/net10.0",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Run Tests: NativeUI.Css.Compiler.Tests",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/tests/NativeUI.Css.Compiler.Tests/bin/Debug/net10.0/NativeUI.Css.Compiler.Tests.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/tests/NativeUI.Css.Compiler.Tests/bin/Debug/net10.0",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Run Tests: NativeUI.Xaml.Compiler.Tests",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/tests/NativeUI.Xaml.Compiler.Tests/bin/Debug/net10.0/NativeUI.Xaml.Compiler.Tests.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/tests/NativeUI.Xaml.Compiler.Tests/bin/Debug/net10.0",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Run Tests: NativeUI.Controls.Tests",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/tests/NativeUI.Controls.Tests/bin/Debug/net10.0/NativeUI.Controls.Tests.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/tests/NativeUI.Controls.Tests/bin/Debug/net10.0",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    }
+  ]
+}

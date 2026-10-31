@@ -1,0 +1,13 @@
+<View xmlns="http://schemas.nativeui.dev/2026/xaml"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.Shared.HelloView"
+      x:DataType="NativeUI.Sample.Shared.HelloViewModel"
+      Class="card">
+    <Text x:Name="TitleText"
+          Class="title"
+          Value="{Binding Title}"
+          AriaLabel="Greeting title" />
+    <Text x:Name="SubtitleText"
+          Class="subtitle"
+          Value="{Binding Subtitle, Mode=OneWay}" />
+</View>

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="wwwroot\**\*.js" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NativeUI.Core\NativeUI.Core.csproj" />
+    <ProjectReference Include="..\NativeUI.Css\NativeUI.Css.csproj" />
+    <ProjectReference Include="..\NativeUI.Controls\NativeUI.Controls.csproj" />
+  </ItemGroup>
+
+</Project>

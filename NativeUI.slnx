@@ -1,5 +1,27 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/NativeUI.Build/NativeUI.Build.csproj" />
+    <Project Path="src/NativeUI.Controls.MacOS/NativeUI.Controls.MacOS.csproj" />
+    <Project Path="src/NativeUI.Controls.Web/NativeUI.Controls.Web.csproj" />
     <Project Path="src/NativeUI.Controls/NativeUI.Controls.csproj" />
+    <Project Path="src/NativeUI.Core/NativeUI.Core.csproj" />
+    <Project Path="src/NativeUI.Css.Compiler/NativeUI.Css.Compiler.csproj" />
+    <Project Path="src/NativeUI.Css/NativeUI.Css.csproj" />
+    <Project Path="src/NativeUI.Graphics.Skia/NativeUI.Graphics.Skia.csproj" />
+    <Project Path="src/NativeUI.Graphics/NativeUI.Graphics.csproj" />
+    <Project Path="src/NativeUI.Layout/NativeUI.Layout.csproj" />
+    <Project Path="src/NativeUI.Xaml.Compiler/NativeUI.Xaml.Compiler.csproj" />
+    <Project Path="src/NativeUI.Xaml/NativeUI.Xaml.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/NativeUI.Sample.MacOS/NativeUI.Sample.MacOS.csproj" />
+    <Project Path="samples/NativeUI.Sample.Shared/NativeUI.Sample.Shared.csproj" />
+    <Project Path="samples/NativeUI.Sample.Web/NativeUI.Sample.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NativeUI.Controls.Tests/NativeUI.Controls.Tests.csproj" />
+    <Project Path="tests/NativeUI.Core.Tests/NativeUI.Core.Tests.csproj" />
+    <Project Path="tests/NativeUI.Css.Compiler.Tests/NativeUI.Css.Compiler.Tests.csproj" />
+    <Project Path="tests/NativeUI.Xaml.Compiler.Tests/NativeUI.Xaml.Compiler.Tests.csproj" />
   </Folder>
 </Solution>

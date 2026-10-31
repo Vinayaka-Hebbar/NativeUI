@@ -1,0 +1,8 @@
+<View xmlns="http://schemas.nativeui.dev/2026/xaml"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="MyApp.Views.MainView"
+      x:DataType="MyApp.ViewModels.MainViewModel"
+      Class="card">
+    <Text x:Name="TitleText" Class="title" Value="{Binding Title}" />
+    <Text Class="subtitle">Inner Text Content</Text>
+</View>

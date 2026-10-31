@@ -1,0 +1,89 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/NativeUI.slnx"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "test: core",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/tests/NativeUI.Core.Tests/NativeUI.Core.Tests.csproj"
+      ],
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "test: css-compiler",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/tests/NativeUI.Css.Compiler.Tests/NativeUI.Css.Compiler.Tests.csproj"
+      ],
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "test: xaml-compiler",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/tests/NativeUI.Xaml.Compiler.Tests/NativeUI.Xaml.Compiler.Tests.csproj"
+      ],
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "test: controls",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/tests/NativeUI.Controls.Tests/NativeUI.Controls.Tests.csproj"
+      ],
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "sample: macos",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/samples/NativeUI.Sample.MacOS/NativeUI.Sample.MacOS.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "sample: web",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/samples/NativeUI.Sample.Web/NativeUI.Sample.Web.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

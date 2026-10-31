@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NativeUI.Controls.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\TestHarness.cs" Link="TestHarness.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NativeUI.Core\NativeUI.Core.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Css\NativeUI.Css.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Layout\NativeUI.Layout.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Controls\NativeUI.Controls.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Graphics\NativeUI.Graphics.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Graphics.Skia\NativeUI.Graphics.Skia.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Controls.MacOS\NativeUI.Controls.MacOS.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Controls.Web\NativeUI.Controls.Web.csproj" />
+    <ProjectReference Include="..\..\samples\NativeUI.Sample.Shared\NativeUI.Sample.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

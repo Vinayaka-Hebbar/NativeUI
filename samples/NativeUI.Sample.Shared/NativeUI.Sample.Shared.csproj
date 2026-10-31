@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\..\src\NativeUI.Build\build\NativeUI.Build.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NativeUI.Sample</RootNamespace>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NativeUI.Core\NativeUI.Core.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Css\NativeUI.Css.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Xaml\NativeUI.Xaml.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Layout\NativeUI.Layout.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Controls\NativeUI.Controls.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Css.Compiler\NativeUI.Css.Compiler.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\src\NativeUI.Xaml.Compiler\NativeUI.Xaml.Compiler.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <Import Project="..\..\src\NativeUI.Build\build\NativeUI.Build.targets" />
+
+</Project>

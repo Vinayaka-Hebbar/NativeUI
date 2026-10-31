@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NativeUI.Sample.MacOS</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NativeUI.Core\NativeUI.Core.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Css\NativeUI.Css.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Xaml\NativeUI.Xaml.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Layout\NativeUI.Layout.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Controls\NativeUI.Controls.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Graphics\NativeUI.Graphics.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Graphics.Skia\NativeUI.Graphics.Skia.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Controls.MacOS\NativeUI.Controls.MacOS.csproj" />
+    <ProjectReference Include="..\NativeUI.Sample.Shared\NativeUI.Sample.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

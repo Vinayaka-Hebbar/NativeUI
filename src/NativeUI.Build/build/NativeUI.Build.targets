@@ -1,0 +1,13 @@
+<Project>
+  <ItemGroup>
+    <AdditionalFiles Include="**\*.xaml" Exclude="bin\**;obj\**" />
+    <AdditionalFiles Include="**\*.xaml.css" Exclude="bin\**;obj\**;wwwroot\**" />
+  </ItemGroup>
+
+  <Target Name="FilterNativeUIPairedCssFiles" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <AdditionalFiles Remove="@(AdditionalFiles)"
+                       Condition="'%(Extension)' == '.css' and !Exists('%(RootDir)%(Directory)%(Filename)')" />
+    </ItemGroup>
+  </Target>
+</Project>

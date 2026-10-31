@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.macOS" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NativeUI.Core\NativeUI.Core.csproj" />
+    <ProjectReference Include="..\NativeUI.Css\NativeUI.Css.csproj" />
+    <ProjectReference Include="..\NativeUI.Layout\NativeUI.Layout.csproj" />
+    <ProjectReference Include="..\NativeUI.Controls\NativeUI.Controls.csproj" />
+    <ProjectReference Include="..\NativeUI.Graphics\NativeUI.Graphics.csproj" />
+    <ProjectReference Include="..\NativeUI.Graphics.Skia\NativeUI.Graphics.Skia.csproj" />
+  </ItemGroup>
+
+</Project>

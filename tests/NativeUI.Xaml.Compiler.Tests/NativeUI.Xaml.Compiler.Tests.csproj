@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NativeUI.Xaml.Compiler.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <RoslynBinCoreDir>$([System.IO.Path]::Combine('$(NetCoreRoot)', 'sdk', '$(NETCoreSdkVersion)', 'Roslyn', 'bincore'))</RoslynBinCoreDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\TestHarness.cs" Link="TestHarness.cs" />
+    <None Include="Fixtures\**\*.xaml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.CodeAnalysis">
+      <HintPath>$(RoslynBinCoreDir)/Microsoft.CodeAnalysis.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.CSharp">
+      <HintPath>$(RoslynBinCoreDir)/Microsoft.CodeAnalysis.CSharp.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NativeUI.Core\NativeUI.Core.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Xaml\NativeUI.Xaml.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Xaml.Compiler\NativeUI.Xaml.Compiler.csproj" />
+  </ItemGroup>
+
+</Project>

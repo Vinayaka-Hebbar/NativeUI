@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NativeUI.Css.Compiler.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <RoslynBinCoreDir>$([System.IO.Path]::Combine('$(NetCoreRoot)', 'sdk', '$(NETCoreSdkVersion)', 'Roslyn', 'bincore'))</RoslynBinCoreDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\TestHarness.cs" Link="TestHarness.cs" />
+    <None Include="Fixtures\**\*.css" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.CodeAnalysis">
+      <HintPath>$(RoslynBinCoreDir)/Microsoft.CodeAnalysis.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.CSharp">
+      <HintPath>$(RoslynBinCoreDir)/Microsoft.CodeAnalysis.CSharp.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NativeUI.Core\NativeUI.Core.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Css\NativeUI.Css.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Css.Compiler\NativeUI.Css.Compiler.csproj" />
+  </ItemGroup>
+
+</Project>

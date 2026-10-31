@@ -1,0 +1,7 @@
+<View xmlns="http://schemas.nativeui.dev/2026/xaml"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="MyApp.Views.BrokenView"
+      Class="missing-class">
+    <Text UnknownAttr="123" Value="{Binding}" />
+    <UnknownControl />
+</View>

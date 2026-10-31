@@ -1,0 +1,25 @@
+/* Theme variables and component rules */
+:root {
+    --surface-bg: #f8fafc;
+    --title-fg: oklch(62% 0.19 255);
+    --subtitle-fg: hsl(215 16% 47%);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --surface-bg: #0f172a;
+        --title-fg: #f8fafc;
+    }
+}
+
+.card {
+    background-color: var(--surface-bg, #ffffff);
+    padding: 24px 32px;
+    border-radius: 16px;
+}
+
+.title {
+    color: var(--title-fg);
+    font-size: 26px;
+    font-weight: bold;
+}

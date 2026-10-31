@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NativeUI.Sample.Web</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NativeUI.Core\NativeUI.Core.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Css\NativeUI.Css.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Xaml\NativeUI.Xaml.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Controls\NativeUI.Controls.csproj" />
+    <ProjectReference Include="..\..\src\NativeUI.Controls.Web\NativeUI.Controls.Web.csproj" />
+    <ProjectReference Include="..\NativeUI.Sample.Shared\NativeUI.Sample.Shared.csproj" />
+  </ItemGroup>
+
+</Project>
