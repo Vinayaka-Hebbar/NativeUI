@@ -23,6 +23,30 @@ public static partial class DomInterop
     public static partial JSObject CreateElement(string tagName);
 
     /// <summary>
+    /// Gets an attribute value, or null when the attribute is absent.
+    /// </summary>
+    [JSImport("nativeui.getAttribute", "nativeui-dom")]
+    public static partial string? GetAttribute(JSObject element, string name);
+
+    /// <summary>
+    /// Gets an inline CSS declaration, or an empty string when it is absent.
+    /// </summary>
+    [JSImport("nativeui.getStyleProperty", "nativeui-dom")]
+    public static partial string GetStyleProperty(JSObject element, string propertyName);
+
+    /// <summary>
+    /// Gets the current text content.
+    /// </summary>
+    [JSImport("nativeui.getTextContent", "nativeui-dom")]
+    public static partial string GetTextContent(JSObject element);
+
+    /// <summary>
+    /// Gets the current CSS class names.
+    /// </summary>
+    [JSImport("nativeui.getClassName", "nativeui-dom")]
+    public static partial string GetClassName(JSObject element);
+
+    /// <summary>
     /// Sets the <c>textContent</c> property of a DOM element.
     /// </summary>
     [JSImport("nativeui.setTextContent", "nativeui-dom")]
@@ -41,10 +65,22 @@ public static partial class DomInterop
     public static partial void SetAttribute(JSObject element, string name, string value);
 
     /// <summary>
+    /// Removes an attribute so browser defaults and CSS can apply again.
+    /// </summary>
+    [JSImport("nativeui.removeAttribute", "nativeui-dom")]
+    public static partial void RemoveAttribute(JSObject element, string name);
+
+    /// <summary>
     /// Sets an inline CSS style property on a DOM element.
     /// </summary>
     [JSImport("nativeui.setStyleProperty", "nativeui-dom")]
     public static partial void SetStyleProperty(JSObject element, string propertyName, string value);
+
+    /// <summary>
+    /// Removes an inline CSS declaration.
+    /// </summary>
+    [JSImport("nativeui.removeStyleProperty", "nativeui-dom")]
+    public static partial void RemoveStyleProperty(JSObject element, string propertyName);
 
     /// <summary>
     /// Appends a child DOM element to a parent DOM element.
@@ -53,10 +89,22 @@ public static partial class DomInterop
     public static partial void AppendChild(JSObject parent, JSObject child);
 
     /// <summary>
+    /// Inserts or moves a child before a reference node, or appends when the reference is null.
+    /// </summary>
+    [JSImport("nativeui.insertBefore", "nativeui-dom")]
+    public static partial void InsertBefore(JSObject parent, JSObject child, JSObject? reference);
+
+    /// <summary>
     /// Removes a child DOM element from a parent DOM element.
     /// </summary>
     [JSImport("nativeui.removeChild", "nativeui-dom")]
     public static partial void RemoveChild(JSObject parent, JSObject child);
+
+    /// <summary>
+    /// Detaches an element from its DOM parent.
+    /// </summary>
+    [JSImport("nativeui.removeElement", "nativeui-dom")]
+    public static partial void RemoveElement(JSObject element);
 
     /// <summary>
     /// Injects or updates a <c>&lt;style&gt;</c> tag in <c>document.head</c> for a compiled <c>CssStyleSheet</c>.

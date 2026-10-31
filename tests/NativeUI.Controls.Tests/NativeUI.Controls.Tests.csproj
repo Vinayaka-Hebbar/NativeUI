@@ -18,7 +18,6 @@
     <ProjectReference Include="..\..\src\NativeUI.Graphics\NativeUI.Graphics.csproj" />
     <ProjectReference Include="..\..\src\NativeUI.Graphics.Skia\NativeUI.Graphics.Skia.csproj" />
     <ProjectReference Include="..\..\src\NativeUI.Controls.MacOS\NativeUI.Controls.MacOS.csproj" />
-    <ProjectReference Include="..\..\src\NativeUI.Controls.Web\NativeUI.Controls.Web.csproj" />
     <ProjectReference Include="..\..\samples\NativeUI.Sample.Shared\NativeUI.Sample.Shared.csproj" />
   </ItemGroup>
 

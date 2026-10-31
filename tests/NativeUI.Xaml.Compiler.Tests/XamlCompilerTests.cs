@@ -52,10 +52,10 @@ static void TestXamlValidatorDiagnostics()
     XamlDocumentNode ast = XamlParser.Parse("BrokenView.xaml", invalidXaml);
     ValidatedXamlDocument validated = XamlValidator.Validate(ast, knownClasses, "MyApp.Views");
 
-    Assert.True(validated.Diagnostics.Any(static d => d.Id == "NUIXAML005"), "Expected unknown CSS class warning NUIXAML005.");
-    Assert.True(validated.Diagnostics.Any(static d => d.Id == "NUIXAML003"), "Expected unknown property error NUIXAML003.");
-    Assert.True(validated.Diagnostics.Any(static d => d.Id == "NUIXAML004"), "Expected invalid binding error NUIXAML004.");
-    Assert.True(validated.Diagnostics.Any(static d => d.Id == "NUIXAML002"), "Expected unknown element error NUIXAML002.");
+    Assert.True(validated.Diagnostics.Any(static d => d.Id == "NXAML006"), "Expected unknown CSS class warning NXAML006.");
+    Assert.True(validated.Diagnostics.Any(static d => d.Id == "NXAML003"), "Expected unknown property error NXAML003.");
+    Assert.True(validated.Diagnostics.Any(static d => d.Id == "NXAML004"), "Expected invalid binding error NXAML004.");
+    Assert.True(validated.Diagnostics.Any(static d => d.Id == "NXAML002"), "Expected unknown element error NXAML002.");
 }
 
 static void TestXamlEmitterCleanSyntaxFactoryOutput()

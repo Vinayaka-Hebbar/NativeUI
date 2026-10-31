@@ -1,0 +1,11 @@
+{
+  "wasmHostProperties": {
+    "mainAssembly": "NativeUI.Sample.Web.dll",
+    "perHostConfig": [
+      {
+        "name": "browser",
+        "host": "browser"
+      }
+    ]
+  }
+}

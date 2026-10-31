@@ -79,7 +79,7 @@ internal static class CssValueSyntaxBuilder
             _ => "FromSrgb"
         };
 
-        ExpressionSyntax colorType = ParseTypeName("global::NativeUI.Media.Color");
+        ExpressionSyntax colorType = ParseTypeName("Color");
         MemberAccessExpressionSyntax memberAccess = MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
             colorType,
@@ -176,14 +176,14 @@ internal static class CssValueSyntaxBuilder
                 expression = BuildNewCssValue(
                     "CssLengthValue",
                     DoubleLiteral(0),
-                    BuildEnumMember("global::NativeUI.Css.CssLengthUnit", "Px"));
+                    BuildEnumMember("CssLengthUnit", "Px"));
                 return true;
 
             case CssPercentageValueNode pct:
                 expression = BuildNewCssValue(
                     "CssLengthValue",
                     DoubleLiteral(pct.Value),
-                    BuildEnumMember("global::NativeUI.Css.CssLengthUnit", "Percent"));
+                    BuildEnumMember("CssLengthUnit", "Percent"));
                 return true;
 
             case CssDimensionValueNode dim:
@@ -202,7 +202,7 @@ internal static class CssValueSyntaxBuilder
                 expression = BuildNewCssValue(
                     "CssLengthValue",
                     DoubleLiteral(dim.Value),
-                    BuildEnumMember("global::NativeUI.Css.CssLengthUnit", unitEnum));
+                    BuildEnumMember("CssLengthUnit", unitEnum));
                 return true;
 
             default:
@@ -245,7 +245,7 @@ internal static class CssValueSyntaxBuilder
         };
 
         ObjectCreationExpressionSyntax thicknessCreation = ObjectCreationExpression(
-            ParseTypeName("global::NativeUI.Media.Thickness"))
+            ParseTypeName("Thickness"))
             .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
             [
                 Argument(DoubleLiteral(top)),
@@ -297,7 +297,7 @@ internal static class CssValueSyntaxBuilder
 
         expression = BuildNewCssValue(
             "CssFontWeightValue",
-            BuildEnumMember("global::NativeUI.Media.FontWeight", weightMember));
+            BuildEnumMember("FontWeight", weightMember));
         return true;
     }
 
@@ -316,7 +316,7 @@ internal static class CssValueSyntaxBuilder
             {
                 expression = BuildNewCssValue(
                     "CssTextAlignValue",
-                    BuildEnumMember("global::NativeUI.Media.TextAlign", align));
+                    BuildEnumMember("TextAlign", align));
                 return true;
             }
         }
@@ -369,16 +369,16 @@ internal static class CssValueSyntaxBuilder
         string cssValueTypeName,
         params ExpressionSyntax[] arguments)
     {
-        TypeSyntax typeSyntax = ParseTypeName($"global::NativeUI.Css.{cssValueTypeName}");
+        TypeSyntax typeSyntax = ParseTypeName(cssValueTypeName);
         return ObjectCreationExpression(typeSyntax)
             .WithArgumentList(ArgumentList(SeparatedList(arguments.Select(Argument))));
     }
 
-    private static MemberAccessExpressionSyntax BuildEnumMember(string enumFullTypeName, string memberName)
+    private static MemberAccessExpressionSyntax BuildEnumMember(string enumTypeName, string memberName)
     {
         return MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
-            ParseTypeName(enumFullTypeName),
+            ParseTypeName(enumTypeName),
             IdentifierName(memberName));
     }
 

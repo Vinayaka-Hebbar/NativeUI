@@ -7,5 +7,5 @@ HelloView view = new()
     DataContext = viewModel
 };
 
-using WebHost host = new();
-host.Run(view);
+
+await WebHost.RunAsync(view);

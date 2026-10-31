@@ -19,6 +19,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/NativeUI.Controls.Tests/NativeUI.Controls.Tests.csproj" />
+    <Project Path="tests/NativeUI.Controls.Web.Tests/NativeUI.Controls.Web.Tests.csproj" />
     <Project Path="tests/NativeUI.Core.Tests/NativeUI.Core.Tests.csproj" />
     <Project Path="tests/NativeUI.Css.Compiler.Tests/NativeUI.Css.Compiler.Tests.csproj" />
     <Project Path="tests/NativeUI.Xaml.Compiler.Tests/NativeUI.Xaml.Compiler.Tests.csproj" />

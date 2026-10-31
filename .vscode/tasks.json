@@ -64,6 +64,18 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "test: web",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/tests/NativeUI.Controls.Web.Tests/NativeUI.Controls.Web.Tests.csproj"
+      ],
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "sample: macos",
       "command": "dotnet",
       "type": "process",
@@ -83,7 +95,20 @@
         "--project",
         "${workspaceFolder}/samples/NativeUI.Sample.Web/NativeUI.Sample.Web.csproj"
       ],
-      "problemMatcher": "$msCompile"
+      "options": {
+        "env": {
+          "ASPNETCORE_URLS": "http://127.0.0.1:5173"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "base": "$msCompile",
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*$",
+          "endsPattern": "^App url: http://127\\.0\\.0\\.1:5173/?"
+        }
+      }
     }
   ]
 }

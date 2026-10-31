@@ -11,6 +11,7 @@ namespace NativeUI.Controls;
 public class View : UIElement
 {
     private readonly ObservableCollection<UIElement> _children = [];
+    private readonly HashSet<UIElement> _attachedChildren = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="View"/> class.
@@ -70,12 +71,41 @@ public class View : UIElement
 
     private void OnChildrenCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        if (e.Action == NotifyCollectionChangedAction.Move)
+        {
+            InvalidateVisual();
+            return;
+        }
+
+        // Reset notifications omit the old items, so retain the attached children for detachment.
+        if (e.Action == NotifyCollectionChangedAction.Reset)
+        {
+            foreach (UIElement child in _attachedChildren)
+            {
+                if (ReferenceEquals(child.Parent, this))
+                {
+                    child.Parent = null;
+                }
+            }
+
+            _attachedChildren.Clear();
+            foreach (UIElement child in _children)
+            {
+                _attachedChildren.Add(child);
+                child.Parent = this;
+            }
+
+            InvalidateVisual();
+            return;
+        }
+
         if (e.OldItems is not null)
         {
             foreach (object item in e.OldItems)
             {
                 if (item is UIElement oldChild && ReferenceEquals(oldChild.Parent, this))
                 {
+                    _attachedChildren.Remove(oldChild);
                     oldChild.Parent = null;
                 }
             }
@@ -87,6 +117,7 @@ public class View : UIElement
             {
                 if (item is UIElement newChild)
                 {
+                    _attachedChildren.Add(newChild);
                     newChild.Parent = this;
                 }
             }

@@ -29,8 +29,8 @@ static void TestCssValidatorVisitorDiagnostics()
     CssStylesheetNode ast = CssParser.Parse("InvalidTheme.css", invalidCss);
     ValidatedCssStylesheet validated = CssValidator.Validate(ast);
 
-    Assert.True(validated.Diagnostics.Any(static d => d.Id == "NUICSS002"), "Expected unknown CSS property warning NUICSS002.");
-    Assert.True(validated.Diagnostics.Any(static d => d.Id == "NUICSS003"), "Expected invalid CSS value error NUICSS003.");
+    Assert.True(validated.Diagnostics.Any(static d => d.Id == "NCSS002"), "Expected unsupported CSS property error NCSS002.");
+    Assert.True(validated.Diagnostics.Any(static d => d.Id == "NCSS003"), "Expected invalid CSS value error NCSS003.");
 }
 
 static void TestCssEmitterCleanSyntaxFactoryOutput()

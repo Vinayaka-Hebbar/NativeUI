@@ -1,4 +1,4 @@
-<View xmlns="http://schemas.nativeui.dev/2026/xaml"
+<View xmlns="urn:nativeui"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       x:Class="NativeUI.Sample.Shared.HelloView"
       x:DataType="NativeUI.Sample.Shared.HelloViewModel"

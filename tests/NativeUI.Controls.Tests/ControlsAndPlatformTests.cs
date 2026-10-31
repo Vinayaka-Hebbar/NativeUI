@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 using NativeUI.Controls;
 using NativeUI.Controls.MacOS;
-using NativeUI.Controls.Web;
 using NativeUI.Core;
 using NativeUI.Css;
 using NativeUI.Graphics.Skia;
@@ -20,8 +19,7 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("Style resolution inherits text properties and respects explicit CSS and inline overrides", NativeUI.Controls.Tests.StyleResolutionTests.VerifyInheritanceAndOverrides),
     ("Relative CSS lengths use inherited and final font sizes", NativeUI.Controls.Tests.StyleResolutionTests.VerifyRelativeLengths),
     ("Unchanged styles skip repaint while inherited and theme changes invalidate affected elements", NativeUI.Controls.Tests.StyleResolutionTests.VerifyInvalidation),
-    ("Desktop Window supports pointer drag selection, double-click word selection, and async clipboard copy", TestDesktopWindowTextSelectionAndClipboard),
-    ("WebHost mounts real DOM hierarchy, enables text selection by default, and performs targeted incremental updates", TestWebHostIncrementalDomUpdates)
+    ("Desktop Window supports pointer drag selection, double-click word selection, and async clipboard copy", TestDesktopWindowTextSelectionAndClipboard)
 ]);
 
 return exitCode;
@@ -189,56 +187,6 @@ static void TestDesktopWindowTextSelectionAndClipboard()
     window.HandlePointerMoved(dragEnd, isPressed: true);
     window.HandlePointerReleased(dragEnd);
     Assert.True(view.TitleText.SelectionLength > 5);
-}
-
-static void TestWebHostIncrementalDomUpdates()
-{
-    HelloViewModel viewModel = new();
-    HelloView view = new()
-    {
-        DataContext = viewModel
-    };
-
-    Text inlineStyledText = new()
-    {
-        Value = "Submit",
-        Style = new()
-        {
-            BackgroundColor = Colors.Blue,
-            Color = Colors.White,
-            Padding = new(12, 8),
-            BorderRadius = 6
-        }
-    };
-    view.Children.Add(inlineStyledText);
-
-    using WebHost webHost = new(useBrowserInterop: false);
-    webHost.MountHeadless(view);
-
-    // Verify initial mount created stylesheet, <div> for View, <span> for Text controls with user-select:text, plus inline styles
-    Assert.True(webHost.MutationLog.Any(static m => m.Operation == "InjectStyleSheet" && m.Detail == "HelloView"));
-    Assert.True(webHost.MutationLog.Any(static m => m.Operation == "CreateElement" && m.TargetTag == "div" && m.Detail == "card"));
-    Assert.True(webHost.MutationLog.Any(static m => m.Operation == "CreateElement" && m.TargetTag == "span" && m.Detail == "title"));
-    Assert.True(webHost.MutationLog.Any(static m => m.Operation == "SetStyleProperty" && m.TargetTag == "span" && m.Detail == "user-select:text"));
-    Assert.True(webHost.MutationLog.Any(static m => m.Operation == "SetStyleProperty" && m.TargetTag == "span" && m.Detail == $"background-color:{Colors.Blue.ToCssString()}"));
-    Assert.True(webHost.MutationLog.Any(static m => m.Operation == "SetStyleProperty" && m.TargetTag == "span" && m.Detail == "padding:12px 8px 12px 8px"));
-    Assert.True(webHost.MutationLog.Any(static m => m.Operation == "SetStyleProperty" && m.TargetTag == "span" && m.Detail == "border-radius:6px"));
-
-    webHost.ClearMutationLog();
-
-    // Update observable ViewModel property -> must ONLY emit a single targeted SetTextContent mutation
-    viewModel.Title = "Incremental Web Update!";
-
-    Assert.Equal(1, webHost.MutationLog.Count);
-    DomMutationRecord mutation = webHost.MutationLog[0];
-    Assert.Equal("SetTextContent", mutation.Operation);
-    Assert.Equal("span", mutation.TargetTag);
-    Assert.Equal("Incremental Web Update!", mutation.Detail);
-
-    webHost.ClearMutationLog();
-    inlineStyledText.IsTextSelectionEnabled = false;
-    Assert.Equal(1, webHost.MutationLog.Count);
-    Assert.Equal("user-select:none", webHost.MutationLog[0].Detail);
 }
 
 file sealed class InMemoryClipboard : IClipboard

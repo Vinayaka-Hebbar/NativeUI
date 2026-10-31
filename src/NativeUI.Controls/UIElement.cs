@@ -171,9 +171,9 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
-    /// Gets or sets the platform-owned native handle or browser DOM <c>JSObject</c> associated with this element.
+    /// Gets the platform-owned native handle or browser DOM proxy associated with this element.
     /// </summary>
-    public object? NativePeer { get; set; }
+    public INativePeer? NativePeer { get; internal set; }
 
     /// <summary>
     /// Gets the canonical NativeUI tag name used by CSS type selectors, such as <c>view</c> or <c>text</c>.
@@ -255,6 +255,18 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     protected virtual IReadOnlyList<ILayoutNode> GetLayoutChildren()
     {
         return [];
+    }
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            NativePeer?.Dispose();
+            NativePeer = null;
+        }
+
+        base.Dispose(disposing);
     }
 
     private ComputedStyle ResolveComputedStyle()
