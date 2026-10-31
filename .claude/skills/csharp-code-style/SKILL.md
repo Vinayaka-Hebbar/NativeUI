@@ -1,0 +1,1 @@
+../../../.agents/skills/csharp-code-style/SKILL.md
