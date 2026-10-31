@@ -96,7 +96,8 @@ public static class CssEmitter
                 UsingDirective(ParseName("System.Runtime.CompilerServices")),
                 UsingDirective(ParseName("NativeUI.Core")),
                 UsingDirective(ParseName("NativeUI.Css")),
-                UsingDirective(ParseName("NativeUI.Media"))
+                UsingDirective(ParseName("NativeUI.Media")),
+                UsingDirective(ParseName("NativeUI.Styling"))
             ]))
             .WithMembers(SingletonList<MemberDeclarationSyntax>(namespaceDecl))
             .WithLeadingTrivia(leadingTrivia);
@@ -236,7 +237,6 @@ public static class CssEmitter
             Argument(elementTypeExpr),
             Argument(classesExpr),
             Argument(isRootExpr),
-            Argument(CssValueSyntaxBuilder.IntLiteral(rule.Specificity)),
             Argument(declarationsDict),
             Argument(colorSchemeExpr)
         ];
@@ -301,7 +301,7 @@ public static class CssEmitter
 
     private static ExpressionSyntax BuildAncestorsExpression(IReadOnlyList<CssCompoundSelectorNode> ancestors)
     {
-        TypeSyntax compoundType = IdentifierName("CssCompoundSelector");
+        TypeSyntax compoundType = IdentifierName("CompoundSelector");
         IEnumerable<ExpressionSyntax> parts = ancestors.Select(ancestor =>
         {
             ExpressionSyntax elementType = ancestor.ElementType is null

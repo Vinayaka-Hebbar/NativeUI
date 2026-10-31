@@ -1,4 +1,6 @@
-namespace NativeUI.Media;
+using NativeUI.Media;
+
+namespace NativeUI.Styling;
 
 /// <summary>
 /// Provides specified style values to the cascade. A null property leaves the lower-priority value in effect.

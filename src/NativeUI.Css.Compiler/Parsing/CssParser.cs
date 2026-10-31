@@ -230,7 +230,7 @@ public sealed class CssParser
 
         if (selectorTokens.Count == 0)
         {
-            return new CssSelectorNode(string.Empty, null, [], [], [], CssParsedPseudoElement.None, [], false, false, 0, startSpan);
+            return new CssSelectorNode(string.Empty, null, [], [], [], CssParsedPseudoElement.None, [], false, false, startSpan);
         }
 
         CssSourceSpan fullSpan = CombineSpans(selectorTokens[0].Span, selectorTokens[^1].Span);
@@ -243,12 +243,11 @@ public sealed class CssParser
             !selectorTokens[1].PrecededByWhitespace &&
             string.Equals(selectorTokens[1].Text, "root", StringComparison.Ordinal))
         {
-            return new CssSelectorNode(":root", null, [], [], [], CssParsedPseudoElement.None, [], IsRoot: true, IsValid: true, Specificity: 10, fullSpan);
+            return new CssSelectorNode(":root", null, [], [], [], CssParsedPseudoElement.None, [], IsRoot: true, IsValid: true, fullSpan);
         }
 
         List<CssCompoundSelectorNode> compounds = [];
         List<CssSourceSpan> typeSpans = [];
-        int specificity = 0;
         CssParsedPseudoElement pseudoElement = CssParsedPseudoElement.None;
         bool isValid = true;
         int i = 0;
@@ -266,7 +265,6 @@ public sealed class CssParser
                 selectorTokens,
                 ref i,
                 typeSpans,
-                ref specificity,
                 ref pseudoElement,
                 out CssCompoundSelectorNode compound);
             compounds.Add(compound);
@@ -283,7 +281,6 @@ public sealed class CssParser
             typeSpans,
             IsRoot: false,
             isValid,
-            specificity,
             fullSpan);
     }
 
@@ -295,7 +292,6 @@ public sealed class CssParser
         List<CssToken> tokens,
         ref int index,
         List<CssSourceSpan> typeSpans,
-        ref int specificity,
         ref CssParsedPseudoElement pseudoElement,
         out CssCompoundSelectorNode compound)
     {
@@ -309,7 +305,6 @@ public sealed class CssParser
         {
             elementType = tokens[index].Text.ToLowerInvariant();
             typeSpans.Add(tokens[index].Span);
-            specificity += 1;
             hasContent = true;
             index++;
         }
@@ -325,7 +320,6 @@ public sealed class CssParser
             if (IsAttachedIdentifier(tokens, index + 1) && tokens[index].Kind == CssTokenKind.Dot)
             {
                 classes.Add(tokens[index + 1].Text);
-                specificity += 10;
                 hasContent = true;
                 index += 2;
             }
@@ -334,7 +328,6 @@ public sealed class CssParser
                 s_pseudoClassStates.TryGetValue(tokens[index + 1].Text, out string? state))
             {
                 requiredStates.Add(state);
-                specificity += 10;
                 hasContent = true;
                 index += 2;
             }
@@ -345,7 +338,6 @@ public sealed class CssParser
                 string.Equals(tokens[index + 2].Text, "selection", StringComparison.OrdinalIgnoreCase))
             {
                 pseudoElement = CssParsedPseudoElement.Selection;
-                specificity += 1;
                 hasContent = true;
                 index += 3;
             }

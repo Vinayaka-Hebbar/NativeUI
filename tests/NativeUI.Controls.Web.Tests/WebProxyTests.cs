@@ -5,6 +5,7 @@ using NativeUI.Core;
 using NativeUI.Layout;
 using NativeUI.Media;
 using NativeUI.Sample;
+using NativeUI.Styling;
 using NativeUI.Tests;
 
 // Verifies proxy state and ownership on the .NET host without creating browser DOM elements.
@@ -17,7 +18,10 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
     ("WebHost rejects elements mounted by another host without disposing their proxies", TestHostOwnership),
     ("Disposing a control disposes its proxy and the proxies of its children", TestControlDisposal),
     ("Each browser pointer event routes once and updates hover in C#", TestPointerEventRouting),
-    ("Unmounting clears hover state and pointer node mappings", TestPointerCleanup)
+    ("Unmounting clears hover state and pointer node mappings", TestPointerCleanup),
+    ("C# stylesheets translate to scoped browser CSS with matching specificity", TestStyleSheetCss),
+    ("Only elements matching a custom selector type receive a type token", TestStyleSheetTypeTokens),
+    ("Generated selectors use the renderer's tag mapping and reject untranslatable parts", TestStyleSheetTypeMapping)
 ]);
 
 return exitCode;
@@ -282,6 +286,107 @@ static void TestPointerCleanup()
     Assert.Equal(0, moves);
 }
 
+static void TestStyleSheetCss()
+{
+    StyleSheet styleSheet = new()
+    {
+        Rules =
+        {
+            StyleRule.Selector(s => s.Type<Text>().Class("title"))
+                .Style(new Style { FontSize = 26, Padding = new Thickness(12, 8), Opacity = 0.5 }),
+            StyleRule.Selector(s => s.Type<Text>().Class("title").Hover())
+                .Style(new Style { Color = Colors.Blue }),
+            StyleRule.Selector(s => s.Class("card").Hover().Descendant(d => d.Type<Text>()))
+                .Style(new Style { FontFamily = "Arial" }),
+            StyleRule.Selector(s => s.Type<View>())
+                .Style(new Style { Width = 100 }),
+            StyleRule.Selector(s => s.Type<UIElement>())
+                .Style(new Style { Height = 10 }),
+            StyleRule.Selector(s => s)
+                .Style(new Style { BorderRadius = 2 }),
+            StyleRule.Selector(s => s.Class("a:b").Class("1x"))
+                .Style(new Style { Margin = new Thickness(1) }),
+            StyleRule.Selector(s => s.Class("empty"))
+                .Style(new Style())
+        }
+    };
+
+    string[] lines = StyleSheetCss.Write(styleSheet, 7).TrimEnd().Split('\n');
+    const string Scope = ":where(native-ui[data-nui-scope=\"7\"])";
+
+    Assert.Equal($"{Scope} span.title {{ font-size: 26px; padding: 12px 8px 12px 8px; opacity: 0.5; }}", lines[0]);
+    Assert.Equal($"{Scope} span.title:hover {{ color: {Colors.Blue.ToCssString()}; }}", lines[1]);
+    Assert.Equal($"{Scope} .card:hover span {{ font-family: Arial; }}", lines[2]);
+    Assert.Equal($"{Scope} div:where([data-nui-type~=\"t0\"]) {{ width: 100px; }}", lines[3]);
+    Assert.Equal($"{Scope} :is(span, div):where([data-nui-type~=\"t1\"]) {{ height: 10px; }}", lines[4]);
+    Assert.Equal($"{Scope} * {{ border-radius: 2px; }}", lines[5]);
+    Assert.Equal($"{Scope} .a\\3a b.\\31 x {{ margin: 1px 1px 1px 1px; }}", lines[6]);
+    Assert.Equal($"{Scope} .empty {{ }}", lines[7]);
+}
+
+static void TestStyleSheetTypeMapping()
+{
+    Assert.Equal("span", HtmlTagMapping.GetTagSelector(typeof(Text)));
+    Assert.Equal("span", HtmlTagMapping.GetTagSelector(typeof(CustomText)));
+    Assert.Equal("div", HtmlTagMapping.GetTagSelector(typeof(View)));
+    Assert.Equal("div", HtmlTagMapping.GetTagSelector(typeof(CustomElement)));
+    Assert.Equal(":is(span, div)", HtmlTagMapping.GetTagSelector(typeof(UIElement)));
+    Assert.Equal(":is(span, div)", HtmlTagMapping.GetTagSelector(typeof(IUIElement)));
+
+    using CustomElement customElement = new();
+    Assert.Equal("div", HtmlTagMapping.GetTag(customElement));
+
+    Assert.Contains("span.title:hover", WriteRule(new CompoundSelector("text", ["title"], ElementStates.Hover)));
+    Assert.Contains(" div {", WriteRule(new CompoundSelector("view", [])));
+    AssertNotSupported(new CompoundSelector("button", []));
+    AssertNotSupported(new CompoundSelector("text", [], clrType: typeof(Text)));
+
+    static string WriteRule(CompoundSelector part)
+    {
+        StyleSheet styleSheet = new()
+        {
+            Rules = { new StyleRule(new StyleSelector(part, []), new Style()) }
+        };
+        return StyleSheetCss.Write(styleSheet, 1);
+    }
+
+    static void AssertNotSupported(CompoundSelector part)
+    {
+        bool rejected = false;
+        try
+        {
+            WriteRule(part);
+        }
+        catch (NotSupportedException)
+        {
+            rejected = true;
+        }
+
+        Assert.True(rejected, "Expected the selector part to be rejected.");
+    }
+}
+
+static void TestStyleSheetTypeTokens()
+{
+    StyleSheet styleSheet = new()
+    {
+        Rules =
+        {
+            StyleRule.Selector(s => s.Type<Text>()).Style(new Style()),
+            StyleRule.Selector(s => s.Type<View>().Descendant(d => d.Type<CustomText>())).Style(new Style()),
+            StyleRule.Selector(s => s.Type<View>()).Style(new Style())
+        }
+    };
+
+    using View view = new();
+    using Text text = new();
+    using CustomText custom = new();
+
+    Assert.Equal("t0", StyleSheetCss.GetTypeTokens(styleSheet, view));
+    Assert.Null(StyleSheetCss.GetTypeTokens(styleSheet, text));
+    Assert.Equal("t1", StyleSheetCss.GetTypeTokens(styleSheet, custom));
+}
+
 static HtmlDomElement GetElement(UIElement element)
 {
     return element.NativePeer as HtmlDomElement
@@ -301,4 +406,11 @@ static void AssertDisposed(Action action)
     }
 
     Assert.True(rejected, "Expected disposed objects to reject updates.");
+}
+
+file sealed class CustomText : Text;
+
+file sealed class CustomElement : UIElement
+{
+    public override string TagName => "custom";
 }

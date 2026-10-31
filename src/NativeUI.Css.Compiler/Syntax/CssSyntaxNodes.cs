@@ -100,7 +100,6 @@ public sealed record CssCompoundSelectorNode(
 /// <param name="TypeSelectorSpans">The source spans of the element type names in the selector.</param>
 /// <param name="IsRoot">Whether the selector is <c>:root</c>.</param>
 /// <param name="IsValid">Whether the selector uses only supported syntax.</param>
-/// <param name="Specificity">The specificity of the complete selector.</param>
 /// <param name="Span">The source span of the selector.</param>
 public sealed record CssSelectorNode(
     string RawText,
@@ -112,7 +111,6 @@ public sealed record CssSelectorNode(
     IReadOnlyList<CssSourceSpan> TypeSelectorSpans,
     bool IsRoot,
     bool IsValid,
-    int Specificity,
     CssSourceSpan Span) : CssSyntaxNode(Span)
 {
     /// <inheritdoc />

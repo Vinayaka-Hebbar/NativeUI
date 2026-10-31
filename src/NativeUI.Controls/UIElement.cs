@@ -1,6 +1,7 @@
 using NativeUI.Core;
 using NativeUI.Layout;
 using NativeUI.Media;
+using NativeUI.Styling;
 
 namespace NativeUI.Controls;
 

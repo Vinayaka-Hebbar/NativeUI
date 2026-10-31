@@ -1,59 +1,8 @@
 using System.Collections.Immutable;
 using NativeUI.Core;
+using NativeUI.Styling;
 
 namespace NativeUI.Css;
-
-/// <summary>
-/// Represents one compound part of a compiled selector, such as <c>text.title:hover</c>.
-/// </summary>
-/// <param name="ElementType">The required lowercase element type, or <see langword="null"/> if unconstrained.</param>
-/// <param name="Classes">The required class names.</param>
-/// <param name="RequiredStates">The states the element must have.</param>
-public sealed record CssCompoundSelector(
-    string? ElementType,
-    ImmutableArray<string> Classes,
-    ElementStates RequiredStates = ElementStates.None)
-{
-    /// <summary>
-    /// Determines whether <paramref name="element"/> satisfies this compound part.
-    /// </summary>
-    public bool Matches(IUIElement element)
-    {
-        ArgumentNullException.ThrowIfNull(element);
-
-        if ((element.States & RequiredStates) != RequiredStates)
-        {
-            return false;
-        }
-
-        if (ElementType is not null &&
-            !string.Equals(ElementType, element.TagName, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        IReadOnlyList<string> elementClasses = element.Classes;
-        for (int i = 0; i < Classes.Length; i++)
-        {
-            bool found = false;
-            for (int j = 0; j < elementClasses.Count; j++)
-            {
-                if (string.Equals(Classes[i], elementClasses[j], StringComparison.Ordinal))
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-}
 
 /// <summary>
 /// Identifies the part of an element styled by a <see cref="CssRule"/>.
@@ -104,9 +53,9 @@ public sealed class CssRule
     public string Selector { get; }
 
     /// <summary>
-    /// Gets the compound part that the matched element itself must satisfy.
+    /// Gets the compiled selector that determines which elements this rule matches.
     /// </summary>
-    public CssCompoundSelector Subject { get; }
+    public StyleSelector Target { get; }
 
     /// <summary>
     /// Gets a value indicating whether this rule targets the <c>:root</c> scope.
@@ -120,19 +69,17 @@ public sealed class CssRule
     public CssColorSchemeCondition ColorScheme { get; }
 
     /// <summary>
-    /// Gets the CSS specificity score used to order matching rules.
+    /// Gets the specificity used to order matching rules. <c>:root</c> counts as a pseudo-class and a pseudo-element as a type.
     /// </summary>
-    public int Specificity { get; }
+    public SelectorSpecificity Specificity =>
+        Target.Specificity + new SelectorSpecificity(
+            IsRoot ? 1 : 0,
+            PseudoElement != CssPseudoElement.None ? 1 : 0);
 
     /// <summary>
     /// Gets the compiled property and custom-variable declarations inside this rule block.
     /// </summary>
     public IReadOnlyDictionary<string, CssValue> Declarations { get; }
-
-    /// <summary>
-    /// Gets the compound parts that must match ancestors of the element, outermost first.
-    /// </summary>
-    public ImmutableArray<CssCompoundSelector> Ancestors { get; }
 
     /// <summary>
     /// Gets the part of the matched element styled by this rule.
@@ -147,10 +94,9 @@ public sealed class CssRule
         string? elementType,
         ImmutableArray<string> classes,
         bool isRoot,
-        int specificity,
         IReadOnlyDictionary<string, CssValue> declarations,
         CssColorSchemeCondition colorScheme = CssColorSchemeCondition.Any,
-        ImmutableArray<CssCompoundSelector> ancestors = default,
+        ImmutableArray<CompoundSelector> ancestors = default,
         ElementStates requiredStates = ElementStates.None,
         CssPseudoElement pseudoElement = CssPseudoElement.None)
     {
@@ -158,12 +104,12 @@ public sealed class CssRule
         ArgumentNullException.ThrowIfNull(declarations);
 
         Selector = selector;
-        Subject = new CssCompoundSelector(elementType, classes.IsDefault ? [] : classes, requiredStates);
+        Target = new StyleSelector(
+            new CompoundSelector(elementType, classes.IsDefault ? [] : classes, requiredStates),
+            ancestors.IsDefault ? [] : ancestors);
         IsRoot = isRoot;
-        Specificity = specificity;
         Declarations = declarations;
         ColorScheme = colorScheme;
-        Ancestors = ancestors.IsDefault ? [] : ancestors;
         PseudoElement = pseudoElement;
     }
 
@@ -184,27 +130,6 @@ public sealed class CssRule
             return false;
         }
 
-        if (!Subject.Matches(element))
-        {
-            return false;
-        }
-
-        IUIElement? current = element.Parent;
-        for (int i = Ancestors.Length - 1; i >= 0; i--)
-        {
-            while (current is not null && !Ancestors[i].Matches(current))
-            {
-                current = current.Parent;
-            }
-
-            if (current is null)
-            {
-                return false;
-            }
-
-            current = current.Parent;
-        }
-
-        return true;
+        return Target.Matches(element);
     }
 }

@@ -126,4 +126,10 @@ public static partial class DomInterop
     /// </summary>
     [JSImport("nativeui.injectStyleSheet", "nativeui-dom")]
     public static partial void InjectStyleSheet(string id, string cssText);
+
+    /// <summary>
+    /// Removes a stylesheet added by <see cref="InjectStyleSheet"/>.
+    /// </summary>
+    [JSImport("nativeui.removeStyleSheet", "nativeui-dom")]
+    public static partial void RemoveStyleSheet(string id);
 }

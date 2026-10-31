@@ -3,6 +3,7 @@ using NativeUI.Core;
 using NativeUI.Css;
 using NativeUI.Layout;
 using NativeUI.Media;
+using NativeUI.Styling;
 using NativeUI.Tests;
 
 namespace NativeUI.Controls.Tests;
@@ -126,15 +127,15 @@ internal static class PointerRoutingTests
     {
         CssStyleRegistry.Register(new CssStyleSheet(nameof(HoverView), string.Empty,
         [
-            new CssRule(".card", null, ["card"], false, 10, new Dictionary<string, CssValue>
+            new CssRule(".card", null, ["card"], false, new Dictionary<string, CssValue>
             {
                 ["color"] = new CssColorValue(Colors.Green)
             }),
-            new CssRule(".card:hover .title", null, ["title"], false, 30, new Dictionary<string, CssValue>
+            new CssRule(".card:hover .title", null, ["title"], false, new Dictionary<string, CssValue>
             {
                 ["color"] = new CssColorValue(Colors.Blue)
-            }, ancestors: [new CssCompoundSelector(null, ["card"], ElementStates.Hover)]),
-            new CssRule(".title:hover", null, ["title"], false, 20, new Dictionary<string, CssValue>
+            }, ancestors: [new CompoundSelector(null, ["card"], ElementStates.Hover)]),
+            new CssRule(".title:hover", null, ["title"], false, new Dictionary<string, CssValue>
             {
                 ["font-size"] = new CssLengthValue(20)
             }, requiredStates: ElementStates.Hover)

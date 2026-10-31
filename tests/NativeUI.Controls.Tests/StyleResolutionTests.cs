@@ -161,13 +161,13 @@ internal static class StyleResolutionTests
     {
         CssStyleRegistry.Register(new CssStyleSheet(nameof(RootRuleView), string.Empty,
         [
-            new CssRule(":root", null, [], true, 10, new Dictionary<string, CssValue>
+            new CssRule(":root", null, [], true, new Dictionary<string, CssValue>
             {
                 ["--accent"] = new CssColorValue(Colors.Green),
                 ["background-color"] = new CssVariableReference("--accent"),
                 ["color"] = new CssColorValue(Colors.Blue)
             }),
-            new CssRule(":root", null, [], true, 10, new Dictionary<string, CssValue>
+            new CssRule(":root", null, [], true, new Dictionary<string, CssValue>
             {
                 ["color"] = new CssColorValue(Colors.White)
             }, CssColorSchemeCondition.Dark),
@@ -196,7 +196,7 @@ internal static class StyleResolutionTests
 
     private static CssRule Rule(string className, IReadOnlyDictionary<string, CssValue> declarations)
     {
-        return new CssRule("." + className, null, [className], false, 10, declarations);
+        return new CssRule("." + className, null, [className], false, declarations);
     }
 
     private sealed class StyleResolutionView : View

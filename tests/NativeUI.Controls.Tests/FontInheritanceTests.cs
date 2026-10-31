@@ -21,9 +21,9 @@ internal static class FontInheritanceTests
 
         CssStyleRegistry.Register(new CssStyleSheet(nameof(FontInheritanceView), string.Empty,
         [
-            new CssRule(".parent-font", null, ["parent-font"], false, 10,
+            new CssRule(".parent-font", null, ["parent-font"], false,
                 new Dictionary<string, CssValue> { ["font-family"] = new CssStringValue("Arial") }),
-            new CssRule(".local-font", null, ["local-font"], false, 10,
+            new CssRule(".local-font", null, ["local-font"], false,
                 new Dictionary<string, CssValue> { ["font-family"] = new CssStringValue("Courier New") })
         ]));
 

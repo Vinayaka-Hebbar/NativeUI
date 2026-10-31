@@ -1,8 +1,7 @@
-using System.Globalization;
 using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 using NativeUI.Core;
-using NativeUI.Media;
+using NativeUI.Styling;
 
 namespace NativeUI.Controls.Web;
 
@@ -112,11 +111,6 @@ public class HtmlDomElement : INativePeer
     /// </summary>
     protected internal UIElement Source { get; }
 
-    /// <summary>
-    /// Gets the control's default DOM display value, or null to use CSS defaults.
-    /// </summary>
-    protected virtual string? DefaultDisplay => null;
-
     internal static HtmlDomElement Create(UIElement source, bool useBrowserInterop)
     {
         if (source.NativePeer is not null)
@@ -124,7 +118,7 @@ public class HtmlDomElement : INativePeer
             throw new InvalidOperationException("The control already owns a native peer.");
         }
 
-        string tagName = source is Text ? "span" : "div";
+        string tagName = HtmlTagMapping.GetTag(source);
         JSObject? element = useBrowserInterop && OperatingSystem.IsBrowser() ? DomInterop.CreateElement(tagName) : null;
         return source switch
         {
@@ -351,6 +345,11 @@ public class HtmlDomElement : INativePeer
     {
         SetAttribute("id", Source.Id);
         SetClassName(Source.Class);
+        if (Source.StyleResolver is StyleSheet styleSheet)
+        {
+            SetAttribute(StyleSheetCss.TypeAttribute, StyleSheetCss.GetTypeTokens(styleSheet, Source));
+        }
+
         UpdateVisibility();
     }
 
@@ -387,7 +386,7 @@ public class HtmlDomElement : INativePeer
 
     private void UpdateVisibility()
     {
-        SetStyleProperty("display", Source.IsVisible ? DefaultDisplay : "none");
+        SetStyleProperty("display", Source.IsVisible ? null : "none");
     }
 
     private void ReplaceInlineStyle()
@@ -416,58 +415,10 @@ public class HtmlDomElement : INativePeer
 
     private void UpdateInlineStyle()
     {
-        Style? style = _inlineStyle;
-        SetStyleProperty("color", FormatColor(style?.Color));
-        SetStyleProperty("background-color", FormatColor(style?.BackgroundColor));
-        SetStyleProperty("font-size", FormatLength(style?.FontSize));
-        SetStyleProperty("font-weight", style?.FontWeight is FontWeight weight ? ((int)weight).ToString(CultureInfo.InvariantCulture) : null);
-        SetStyleProperty("font-family", style?.FontFamily);
-        SetStyleProperty("text-align", style?.TextAlign switch
+        foreach ((string property, string? value) in StyleCssDeclarations.Get(_inlineStyle))
         {
-            TextAlign.Left => "left",
-            TextAlign.Center => "center",
-            TextAlign.Right => "right",
-            _ => null
-        });
-        SetStyleProperty("padding", FormatThickness(style?.Padding));
-        SetStyleProperty("margin", FormatThickness(style?.Margin));
-        SetStyleProperty("border-radius", FormatLength(style?.BorderRadius));
-        SetStyleProperty("opacity", style?.Opacity is double opacity ? Math.Clamp(opacity, 0, 1).ToString("R", CultureInfo.InvariantCulture) : null);
-        SetStyleProperty("width", FormatLength(style?.Width));
-        SetStyleProperty("height", FormatLength(style?.Height));
-    }
-
-    private static string? FormatColor(ThemeValue<Color>? value)
-    {
-        if (value is not ThemeValue<Color> color)
-        {
-            return null;
+            SetStyleProperty(property, value);
         }
-
-        if (color.IsThemeKey)
-        {
-            return color.HasValue
-                ? $"var({color.Key}, {color.Value.ToCssString()})"
-                : $"var({color.Key})";
-        }
-
-        return color.Value.ToCssString();
-    }
-
-    private static string? FormatLength(double? value)
-    {
-        return value is double length ? length.ToString("R", CultureInfo.InvariantCulture) + "px" : null;
-    }
-
-    private static string? FormatThickness(Thickness? value)
-    {
-        if (value is not Thickness thickness)
-        {
-            return null;
-        }
-
-        return string.Create(CultureInfo.InvariantCulture,
-            $"{thickness.Top:R}px {thickness.Right:R}px {thickness.Bottom:R}px {thickness.Left:R}px");
     }
 
     private void ReleaseElement()

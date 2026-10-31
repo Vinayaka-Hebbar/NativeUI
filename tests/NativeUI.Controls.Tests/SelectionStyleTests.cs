@@ -20,11 +20,11 @@ internal static class SelectionStyleTests
     {
         CssStyleRegistry.Register(new CssStyleSheet(nameof(SelectionView), string.Empty,
         [
-            new CssRule(":root", null, [], true, 10, new Dictionary<string, CssValue>
+            new CssRule(":root", null, [], true, new Dictionary<string, CssValue>
             {
                 ["--selection"] = new CssColorValue(Colors.Indigo)
             }),
-            new CssRule(".scoped", null, ["scoped"], false, 10, new Dictionary<string, CssValue>
+            new CssRule(".scoped", null, ["scoped"], false, new Dictionary<string, CssValue>
             {
                 ["--selection"] = new CssColorValue(Colors.Green)
             }),
@@ -41,7 +41,7 @@ internal static class SelectionStyleTests
             {
                 ["background-color"] = new CssVariableReference("--selection")
             }),
-            new CssRule(".strong.weak::selection", null, ["strong", "weak"], false, 21, new Dictionary<string, CssValue>
+            new CssRule(".strong.weak::selection", null, ["strong", "weak"], false, new Dictionary<string, CssValue>
             {
                 ["color"] = new CssColorValue(Colors.Green)
             }, pseudoElement: CssPseudoElement.Selection),
@@ -53,7 +53,7 @@ internal static class SelectionStyleTests
             {
                 ["color"] = new CssColorValue(Colors.Black)
             }),
-            new CssRule(".themed::selection", null, ["themed"], false, 11, new Dictionary<string, CssValue>
+            new CssRule(".themed::selection", null, ["themed"], false, new Dictionary<string, CssValue>
             {
                 ["color"] = new CssColorValue(Colors.White)
             }, CssColorSchemeCondition.Dark, pseudoElement: CssPseudoElement.Selection)
@@ -184,7 +184,6 @@ internal static class SelectionStyleTests
             null,
             [className],
             false,
-            11,
             declarations,
             pseudoElement: CssPseudoElement.Selection);
     }

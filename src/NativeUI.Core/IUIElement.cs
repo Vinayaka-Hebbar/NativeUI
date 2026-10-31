@@ -1,4 +1,5 @@
 using NativeUI.Media;
+using NativeUI.Styling;
 
 namespace NativeUI.Core;
 

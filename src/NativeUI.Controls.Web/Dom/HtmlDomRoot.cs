@@ -1,8 +1,10 @@
+using System.Globalization;
 using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 using NativeUI.Core;
 using NativeUI.Css;
 using NativeUI.Layout;
+using NativeUI.Styling;
 
 namespace NativeUI.Controls.Web;
 
@@ -13,12 +15,16 @@ namespace NativeUI.Controls.Web;
 [SupportedOSPlatform("browser")]
 internal sealed class HtmlDomRoot : IDisposable
 {
+    private static int s_lastScopeId;
+
     private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly PointerInputRouter _pointerRouter = new();
+    private readonly int _scopeId = ++s_lastScopeId;
     private UIElement? _root;
     private HtmlDomElement? _rootDom;
     private JSObject? _container;
     private JSObject? _rootElement;
+    private string? _scopedStyleSheetId;
     private bool _disposed;
 
     /// <summary>
@@ -59,6 +65,12 @@ internal sealed class HtmlDomRoot : IDisposable
             if (_rootElement is not null)
             {
                 DomInterop.RemoveElement(_rootElement);
+            }
+
+            if (_scopedStyleSheetId is not null)
+            {
+                DomInterop.RemoveStyleSheet(_scopedStyleSheetId);
+                _scopedStyleSheetId = null;
             }
 
             _pointerRouter.Reset();
@@ -161,6 +173,7 @@ internal sealed class HtmlDomRoot : IDisposable
             if (_container is not null && _rootDom.Element is JSObject element)
             {
                 _rootElement = DomInterop.CreateElement("native-ui");
+                DomInterop.SetAttribute(_rootElement, StyleSheetCss.ScopeAttribute, _scopeId.ToString(CultureInfo.InvariantCulture));
                 DomInterop.SetPointerDispatcher(_rootElement, OnPointerEvent);
                 DomInterop.AppendChild(_rootElement, element);
                 DomInterop.AppendChild(_container, _rootElement);
@@ -209,6 +222,13 @@ internal sealed class HtmlDomRoot : IDisposable
 
     private void UpdateStyleSheet()
     {
+        if (_root?.StyleResolver is StyleSheet styleSheet)
+        {
+            _scopedStyleSheetId = $"NativeUI.StyleSheet.{_scopeId}";
+            DomInterop.InjectStyleSheet(_scopedStyleSheetId, StyleSheetCss.Write(styleSheet, _scopeId));
+            return;
+        }
+
         if (_root is not null && CssStyleRegistry.TryGet(_root.StyleSheetId, out CssStyleSheet? sheet) && sheet is not null)
         {
             DomInterop.InjectStyleSheet(sheet.Id, sheet.RawCss);

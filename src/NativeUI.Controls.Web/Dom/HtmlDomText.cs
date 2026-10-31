@@ -18,9 +18,6 @@ public sealed class HtmlDomText : HtmlDomElement
     }
 
     /// <inheritdoc />
-    protected override string DefaultDisplay => "block";
-
-    /// <inheritdoc />
     protected override void Initialize()
     {
         base.Initialize();
@@ -50,6 +47,6 @@ public sealed class HtmlDomText : HtmlDomElement
 
     private void UpdateSelection()
     {
-        SetStyleProperty("user-select", _text.IsTextSelectionEnabled ? "text" : "none");
+        SetStyleProperty("user-select", _text.IsTextSelectionEnabled ? null : "none");
     }
 }

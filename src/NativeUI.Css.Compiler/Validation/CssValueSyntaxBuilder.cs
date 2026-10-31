@@ -391,9 +391,4 @@ internal static class CssValueSyntaxBuilder
     {
         return LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(value));
     }
-
-    internal static LiteralExpressionSyntax IntLiteral(int value)
-    {
-        return LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(value));
-    }
 }

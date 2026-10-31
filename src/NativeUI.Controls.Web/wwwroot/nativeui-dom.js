@@ -109,6 +109,16 @@ function getModifiers(event) {
  * to C#. Only consecutive moves of one pointer are coalesced, per animation frame. Routing and hover remain in C#.
  */
 class NativeUIRoot extends HTMLElement {
+  /**
+   * Adopts the base layout shared by all `native-ui` elements. Custom elements and `span` default to inline, but
+   * NativeUI lays out the root and each `Text` as blocks. `:where` adds no specificity, so any rule can override it.
+   */
+  static {
+    const baseStyleSheet = new CSSStyleSheet();
+    baseStyleSheet.replaceSync(":where(native-ui, native-ui span) { display: block; }");
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, baseStyleSheet];
+  }
+
   /** @type {EventListener | undefined} */
   #pointerHandler;
 
@@ -129,11 +139,6 @@ class NativeUIRoot extends HTMLElement {
   connectedCallback() {
     if (this.#pointerHandler) {
       return;
-    }
-
-    // Custom elements default to inline, which would misreport the bounds used for root-relative positions.
-    if (!this.style.display) {
-      this.style.display = "block";
     }
 
     this.#pointerHandler = (event) =>
@@ -460,5 +465,21 @@ export const nativeui = {
       document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
     }
     sheet.replaceSync(cssText ?? "");
+  },
+
+  /**
+   * Removes a stylesheet added by {@link nativeui.injectStyleSheet}.
+   *
+   * @param {string} id The stylesheet identifier.
+   * @returns {void}
+   */
+  removeStyleSheet(id) {
+    const sheet = adoptedSheetMap.get(id);
+    if (sheet) {
+      adoptedSheetMap.delete(id);
+      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+        (adopted) => adopted !== sheet,
+      );
+    }
   },
 };
