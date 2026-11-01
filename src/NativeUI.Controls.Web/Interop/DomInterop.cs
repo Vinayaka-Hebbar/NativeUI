@@ -207,6 +207,25 @@ public static partial class DomInterop
     public static partial JSObject GetViewportSize();
 
     /// <summary>
+    /// Plays a <c>@keyframes</c> rule on an element and invokes <paramref name="dispatch"/> when it ends or is cancelled.
+    /// Returns a handle for <see cref="CancelAnimation"/>, or null when the browser found no such rule, after invoking the callback.
+    /// </summary>
+    [JSImport("animate", "nativeui-dom")]
+    public static partial JSObject? Animate(
+        JSObject element,
+        string name,
+        double durationMilliseconds,
+        string easing,
+        double iterations,
+        [JSMarshalAs<JSType.Function>] Action dispatch);
+
+    /// <summary>
+    /// Cancels an animation returned by <see cref="Animate"/>.
+    /// </summary>
+    [JSImport("cancelAnimation", "nativeui-dom")]
+    public static partial void CancelAnimation(JSObject animation);
+
+    /// <summary>
     /// Gets the current value of an input element.
     /// </summary>
     [JSImport("getValue", "nativeui-dom")]

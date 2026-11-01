@@ -163,6 +163,12 @@ public sealed class Style : BindableObject, IStyle
         BindableProperty.Create<Style, double?>(nameof(Left));
 
     /// <summary>
+    /// Identifies the <see cref="Transform"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<StyleTransform?> TransformProperty =
+        BindableProperty.Create<Style, StyleTransform?>(nameof(Transform));
+
+    /// <summary>
     /// Gets or sets the foreground text color or theme color token.
     /// </summary>
     public ThemeValue<Color>? Color
@@ -271,7 +277,7 @@ public sealed class Style : BindableObject, IStyle
     }
 
     /// <summary>
-    /// Gets or sets the width, as a length in logical pixels or <see cref="WidthValue.FitContent"/>.
+    /// Gets or sets the width, as a length in logical pixels, <see cref="WidthValue.Percent"/>, or <see cref="WidthValue.FitContent"/>.
     /// </summary>
     public WidthValue? Width
     {
@@ -385,5 +391,14 @@ public sealed class Style : BindableObject, IStyle
     {
         get => GetValue(LeftProperty);
         set => SetValue(LeftProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the transform, which moves and scales the element without affecting layout.
+    /// </summary>
+    public StyleTransform? Transform
+    {
+        get => GetValue(TransformProperty);
+        set => SetValue(TransformProperty, value);
     }
 }

@@ -206,6 +206,47 @@
   border-radius: 8px;
 }
 
+.upload {
+  background-color: var(--color-muted-surface);
+  border-radius: 4px;
+}
+
+.upload .progress-fill {
+  background-color: var(--color-primary);
+  transition: width 200ms ease-out;
+}
+
+.upload .progress-indeterminate {
+  background-color: var(--color-primary);
+  animation: slide 1200ms ease-in-out infinite;
+}
+
+@keyframes slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+
+@keyframes pulse {
+  50% { transform: scale(1.05); opacity: 0.6; }
+}
+
+.animation-actions {
+  margin: 8px 0 0 0;
+}
+
+.transition-box {
+  background-color: var(--color-muted-surface);
+  color: var(--color-text);
+  padding: 16px;
+  border-radius: 8px;
+  transition: background-color 200ms ease, transform 200ms ease-out;
+}
+
+.transition-box:hover {
+  background-color: var(--color-primary);
+  transform: translateY(-2px);
+}
+
 .canvas-box {
   border-radius: 8px;
   background-color: var(--color-muted-surface);

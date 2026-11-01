@@ -82,4 +82,7 @@ public interface IStyle
 
     /// <summary>Gets the specified left offset in logical pixels.</summary>
     double? Left { get; }
+
+    /// <summary>Gets the specified transform.</summary>
+    StyleTransform? Transform { get; }
 }

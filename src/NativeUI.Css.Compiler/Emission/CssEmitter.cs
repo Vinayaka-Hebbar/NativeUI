@@ -202,19 +202,71 @@ public static class CssEmitter
                     VariableDeclarator(Identifier("rules"))
                         .WithInitializer(EqualsValueClause(rulesListCreation)))));
 
+        List<ArgumentSyntax> sheetArguments =
+        [
+            Argument(CssValueSyntaxBuilder.StringLiteral(stylesheet.Id)),
+            Argument(CssValueSyntaxBuilder.StringLiteral(stylesheet.BrowserCss)),
+            Argument(IdentifierName("rules"))
+        ];
+
+        if (stylesheet.Keyframes is { Count: > 0 } keyframes)
+        {
+            sheetArguments.Add(Argument(BuildImmutableArrayCreation(keyframes.Select(BuildKeyframesCreation))));
+        }
+
         ObjectCreationExpressionSyntax sheetCreation = ObjectCreationExpression(IdentifierName("CssStyleSheet"))
-            .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
-            [
-                Argument(CssValueSyntaxBuilder.StringLiteral(stylesheet.Id)),
-                Argument(CssValueSyntaxBuilder.StringLiteral(stylesheet.BrowserCss)),
-                Argument(IdentifierName("rules"))
-            ])));
+            .WithArgumentList(ArgumentList(SeparatedList(sheetArguments)));
 
         ReturnStatementSyntax returnStmt = ReturnStatement(sheetCreation);
 
         return MethodDeclaration(IdentifierName("CssStyleSheet"), Identifier("Create"))
             .WithModifiers(TokenList(Token(SyntaxKind.PrivateKeyword), Token(SyntaxKind.StaticKeyword)))
             .WithBody(Block(rulesLocal, returnStmt));
+    }
+
+    private static ExpressionSyntax BuildKeyframesCreation(ValidatedCssKeyframes keyframes)
+    {
+        IEnumerable<ExpressionSyntax> frames = keyframes.Frames.Select(static frame =>
+            (ExpressionSyntax)ObjectCreationExpression(IdentifierName("CssKeyframe"))
+                .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
+                [
+                    Argument(CssValueSyntaxBuilder.DoubleLiteral(frame.Offset)),
+                    Argument(BuildDeclarationsDictionary(frame.Declarations))
+                ]))));
+
+        ExpressionSyntax frameArray = keyframes.Frames.Count == 0
+            ? MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                ParseTypeName("ImmutableArray<CssKeyframe>"),
+                IdentifierName("Empty"))
+            : BuildImmutableArrayCreation(frames);
+
+        return ObjectCreationExpression(IdentifierName("CssKeyframes"))
+            .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
+            [
+                Argument(CssValueSyntaxBuilder.StringLiteral(keyframes.Name)),
+                Argument(frameArray)
+            ])));
+    }
+
+    private static ObjectCreationExpressionSyntax BuildDeclarationsDictionary(IReadOnlyList<ValidatedCssDeclaration> declarations)
+    {
+        List<ExpressionSyntax> dictAssigns = [];
+        foreach (ValidatedCssDeclaration decl in declarations)
+        {
+            AssignmentExpressionSyntax indexerAssign = AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                ImplicitElementAccess()
+                    .WithArgumentList(BracketedArgumentList(SingletonSeparatedList(
+                        Argument(CssValueSyntaxBuilder.StringLiteral(decl.PropertyName))))),
+                decl.ValueExpression);
+            dictAssigns.Add(indexerAssign);
+        }
+
+        return ObjectCreationExpression(ParseTypeName("Dictionary<string, CssValue>"))
+            .WithInitializer(InitializerExpression(
+                SyntaxKind.ObjectInitializerExpression,
+                SeparatedList(dictAssigns)));
     }
 
     private static ObjectCreationExpressionSyntax BuildRuleCreation(ValidatedCssRule rule, TypeSyntax ruleType)
@@ -228,23 +280,7 @@ public static class CssEmitter
         ExpressionSyntax isRootExpr = LiteralExpression(
             rule.IsRoot ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression);
 
-        List<ExpressionSyntax> dictAssigns = [];
-        foreach (ValidatedCssDeclaration decl in rule.Declarations)
-        {
-            AssignmentExpressionSyntax indexerAssign = AssignmentExpression(
-                SyntaxKind.SimpleAssignmentExpression,
-                ImplicitElementAccess()
-                    .WithArgumentList(BracketedArgumentList(SingletonSeparatedList(
-                        Argument(CssValueSyntaxBuilder.StringLiteral(decl.PropertyName))))),
-                decl.ValueExpression);
-            dictAssigns.Add(indexerAssign);
-        }
-
-        ObjectCreationExpressionSyntax declarationsDict = ObjectCreationExpression(
-            ParseTypeName("Dictionary<string, CssValue>"))
-            .WithInitializer(InitializerExpression(
-                SyntaxKind.ObjectInitializerExpression,
-                SeparatedList(dictAssigns)));
+        ObjectCreationExpressionSyntax declarationsDict = BuildDeclarationsDictionary(rule.Declarations);
 
         MemberAccessExpressionSyntax colorSchemeExpr = MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,

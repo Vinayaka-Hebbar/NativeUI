@@ -27,6 +27,14 @@ public interface IStyleResolver
     /// <param name="colorValue">The literal color or theme token to resolve.</param>
     /// <param name="element">The element supplying the stylesheet scope and effective theme.</param>
     Color? ResolveColor(ThemeValue<Color> colorValue, IUIElement element);
+
+    /// <summary>
+    /// Resolves the <c>@keyframes</c> rule called <paramref name="name"/>, in offset order, or returns
+    /// <see langword="null"/> when no such rule exists.
+    /// </summary>
+    /// <param name="name">The keyframes name.</param>
+    /// <param name="element">The element supplying the stylesheet scope and variables.</param>
+    IReadOnlyList<AnimationKeyframe>? ResolveKeyframes(string name, IUIElement element);
 }
 
 /// <summary>

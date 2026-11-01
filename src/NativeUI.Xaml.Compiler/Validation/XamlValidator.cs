@@ -231,6 +231,16 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["Placeholder"] = XamlPropertyKind.String,
                 ["IsReadOnly"] = XamlPropertyKind.Boolean
             },
+            ["ProgressBar"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["Value"] = XamlPropertyKind.Double,
+                ["Maximum"] = XamlPropertyKind.Double,
+                ["IsIndeterminate"] = XamlPropertyKind.Boolean
+            },
             ["Portal"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
                 ["Id"] = XamlPropertyKind.String,

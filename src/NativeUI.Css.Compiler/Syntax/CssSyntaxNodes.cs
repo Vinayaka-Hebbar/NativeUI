@@ -168,6 +168,33 @@ public sealed record CssMediaRuleNode(
 }
 
 /// <summary>
+/// Represents one block of a <c>@keyframes</c> rule, such as <c>from { ... }</c> or <c>0%, 100% { ... }</c>.
+/// </summary>
+/// <param name="Offsets">The positions within an iteration, in the range [0, 1].</param>
+/// <param name="Declarations">The declarations in the block.</param>
+public sealed record CssKeyframeNode(
+    IReadOnlyList<double> Offsets,
+    IReadOnlyList<CssDeclarationNode> Declarations);
+
+/// <summary>
+/// Represents a parsed <c>@keyframes</c> rule.
+/// </summary>
+/// <param name="Name">The keyframes name.</param>
+/// <param name="Frames">The keyframe blocks, in source order.</param>
+/// <param name="Span">The source span of the rule.</param>
+public sealed record CssKeyframesRuleNode(
+    string Name,
+    IReadOnlyList<CssKeyframeNode> Frames,
+    CssSourceSpan Span) : CssStatementNode(Span)
+{
+    /// <inheritdoc />
+    public override void Accept(ICssSyntaxVisitor visitor) => visitor.VisitKeyframesRule(this);
+
+    /// <inheritdoc />
+    public override TResult Accept<TResult>(ICssSyntaxVisitor<TResult> visitor) => visitor.VisitKeyframesRule(this);
+}
+
+/// <summary>
 /// Represents a parsed CSS property or custom variable declaration (<c>property: value;</c>).
 /// </summary>
 public sealed record CssDeclarationNode(

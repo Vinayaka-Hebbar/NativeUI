@@ -196,6 +196,15 @@ public class View : UIElement, IView, IScrollContainer
     }
 
     /// <inheritdoc />
+    internal override void OnInheritedStyleChanged()
+    {
+        foreach (UIElement child in _children)
+        {
+            child.InvalidateStyle();
+        }
+    }
+
+    /// <inheritdoc />
     protected override IReadOnlyList<ILayoutNode> GetLayoutChildren()
     {
         return _children;

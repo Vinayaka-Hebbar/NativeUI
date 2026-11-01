@@ -37,6 +37,7 @@ public sealed class Window : IDisposable, IRenderHost
     private SkiaSurface? _surface;
     private nint _displayLink;
     private bool _isFrameScheduled;
+    private bool _isAnimationDriver;
     private Dialog? _hostedDialog;
     private nint _inputBlocker;
     private UIElement? _content;
@@ -232,6 +233,15 @@ public sealed class Window : IDisposable, IRenderHost
     private void CreateNativeWindow(ulong styleMask)
     {
         AppKitInterop.EnsureFrameworksLoaded();
+
+        // Attaching first lets the style sync below start the animations of elements styled before the window existed.
+        if (AppKitInterop.IsDisplayLinkSupported())
+        {
+            _isAnimationDriver = true;
+            AnimationClock.AttachDriver(AppKitInterop.IsReduceMotionEnabled());
+            AnimationClock.AnimationStarted += OnAnimationStarted;
+        }
+
         SyncContentStyle();
 
         AppKitInterop.CGRect rect = new(120, 120, Width, Height);
@@ -262,6 +272,10 @@ public sealed class Window : IDisposable, IRenderHost
         AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setAutorecalculatesKeyViewLoop:"), true);
         _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
         _displayLink = AppKitInterop.CreateDisplayLink(_nsImageView);
+        if (AnimationClock.HasActiveAnimations)
+        {
+            OnAnimationStarted();
+        }
     }
 
     /// <summary>
@@ -269,14 +283,26 @@ public sealed class Window : IDisposable, IRenderHost
     /// </summary>
     internal void HandleDisplayRefresh()
     {
-        if (!_isFrameScheduled)
+        // A tick invalidates only the windows whose content changed, so other windows draw nothing.
+        AnimationClock.Tick();
+        if (_isFrameScheduled)
         {
-            return;
+            _isFrameScheduled = false;
+            UpdateFrame();
         }
 
-        _isFrameScheduled = false;
-        AppKitInterop.SendMessageVoid(_displayLink, AppKitInterop.GetSelector("setPaused:"), true);
-        UpdateFrame();
+        if (!_isFrameScheduled && !AnimationClock.HasActiveAnimations && _displayLink != nint.Zero)
+        {
+            AppKitInterop.SendMessageVoid(_displayLink, AppKitInterop.GetSelector("setPaused:"), true);
+        }
+    }
+
+    private void OnAnimationStarted()
+    {
+        if (_displayLink != nint.Zero)
+        {
+            AppKitInterop.SendMessageVoid(_displayLink, AppKitInterop.GetSelector("setPaused:"), false);
+        }
     }
 
     /// <summary>
@@ -708,6 +734,13 @@ public sealed class Window : IDisposable, IRenderHost
         Application.Current.CurrentThemeChanged -= OnCurrentThemeChanged;
         HotReloadManager.HotReloaded -= OnHotReloaded;
 
+        if (_isAnimationDriver)
+        {
+            _isAnimationDriver = false;
+            AnimationClock.AnimationStarted -= OnAnimationStarted;
+            AnimationClock.DetachDriver();
+        }
+
         if (_displayLink != nint.Zero)
         {
             _ = AppKitInterop.SendMessage(_displayLink, AppKitInterop.GetSelector("invalidate"));
@@ -755,6 +788,11 @@ public sealed class Window : IDisposable, IRenderHost
         if (box.Element is not UIElement { IsVisible: true } element)
         {
             return null;
+        }
+
+        if (box.Style.Transform is { IsIdentity: false } transform)
+        {
+            point = transform.ToUntransformed(point, box.BorderBox);
         }
 
         bool clipsChildren = box.Style.ClipsOverflow || element is View { ClipToBounds: true };
@@ -895,6 +933,12 @@ public sealed class Window : IDisposable, IRenderHost
         if (element is IWindowHostedElement { HasOwnWindow: true } && !ReferenceEquals(element, _content))
         {
             return;
+        }
+
+        // A native field cannot follow a transform, so it stays hidden while one applies.
+        if (box.Style.Transform is { IsIdentity: false })
+        {
+            clip = default;
         }
 
         double boxOpacity = opacity * box.Style.Opacity;
@@ -1240,6 +1284,21 @@ public sealed class Window : IDisposable, IRenderHost
     }
 
     /// <summary>
+    /// Returns the element under a pointer that has not moved. The hovered element keeps the hover while its layout box
+    /// contains the pointer, so a hover style's transform cannot move it away, end the hover, and restart it on every frame.
+    /// </summary>
+    private UIElement? ResolveHoverTarget(Point position)
+    {
+        UIElement? hovered = _pointerRouter.HoveredElement;
+        if (hovered is not null && FindBoxInFrame(hovered)?.BorderBox.Contains(position) == true)
+        {
+            return hovered;
+        }
+
+        return HitTest(position);
+    }
+
+    /// <summary>
     /// Offers pointer input to overlays from the topmost down, and returns whether one accepted it.
     /// </summary>
     private bool DispatchOverlayPointer(OverlayPointerAction action, Point position)
@@ -1306,7 +1365,7 @@ public sealed class Window : IDisposable, IRenderHost
 
         if (_pointerPosition is Point position)
         {
-            UpdateHoverState(HitTest(position));
+            UpdateHoverState(ResolveHoverTarget(position));
         }
 
         UpdateCursor();

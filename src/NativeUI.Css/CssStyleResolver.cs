@@ -54,6 +54,21 @@ public sealed class CssStyleResolver : IStyleResolver
         return colorValue.HasValue ? colorValue.Value : null;
     }
 
+    /// <inheritdoc />
+    public IReadOnlyList<AnimationKeyframe>? ResolveKeyframes(string name, IUIElement element)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(element);
+
+        CssStyleSheet? sheet = ResolveSheet(element.StyleSheetId);
+        if (sheet is null)
+        {
+            return null;
+        }
+
+        return sheet.ResolveKeyframes(name, element);
+    }
+
     private static CssColorSchemeCondition ToColorSchemeCondition(Theme theme)
     {
         return theme == Theme.Dark

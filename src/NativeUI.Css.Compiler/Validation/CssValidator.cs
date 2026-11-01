@@ -28,6 +28,16 @@ public sealed record ValidatedCssRule(
     IReadOnlyList<CssAttributeSelectorNode>? Attributes = null);
 
 /// <summary>
+/// Represents one validated keyframe of a <c>@keyframes</c> rule.
+/// </summary>
+public sealed record ValidatedCssKeyframe(double Offset, IReadOnlyList<ValidatedCssDeclaration> Declarations);
+
+/// <summary>
+/// Represents a validated <c>@keyframes</c> rule ready for Roslyn syntax emission.
+/// </summary>
+public sealed record ValidatedCssKeyframes(string Name, IReadOnlyList<ValidatedCssKeyframe> Frames);
+
+/// <summary>
 /// Represents the output of <see cref="CssValidator"/> for a CSS file.
 /// </summary>
 public sealed record ValidatedCssStylesheet(
@@ -37,7 +47,8 @@ public sealed record ValidatedCssStylesheet(
     string BrowserCss,
     IReadOnlyList<ValidatedCssRule> Rules,
     IReadOnlySet<string> DefinedClasses,
-    IReadOnlyList<Diagnostic> Diagnostics);
+    IReadOnlyList<Diagnostic> Diagnostics,
+    IReadOnlyList<ValidatedCssKeyframes>? Keyframes = null);
 
 /// <summary>
 /// AST visitor (<see cref="CssSyntaxVisitor"/>) that traverses a <see cref="CssStylesheetNode"/>,
@@ -73,13 +84,17 @@ public sealed class CssValidator : CssSyntaxVisitor
         "top",
         "right",
         "bottom",
-        "left"
+        "left",
+        "transform",
+        "transition",
+        "animation"
     };
 
     private readonly string _filePath;
     private readonly string _rawCss;
     private readonly List<Diagnostic> _diagnostics = [];
     private readonly List<ValidatedCssRule> _rules = [];
+    private readonly List<ValidatedCssKeyframes> _keyframes = [];
     private readonly HashSet<string> _definedClasses = new(StringComparer.Ordinal);
     private readonly List<BrowserCssEdit> _browserCssEdits = [];
     private CssParsedColorScheme _currentColorScheme = CssParsedColorScheme.Any;
@@ -108,7 +123,8 @@ public sealed class CssValidator : CssSyntaxVisitor
             ApplyBrowserCssEdits(stylesheet.RawCss, validator._browserCssEdits),
             validator._rules,
             validator._definedClasses,
-            validator._diagnostics);
+            validator._diagnostics,
+            validator._keyframes);
     }
 
     /// <summary>
@@ -165,6 +181,37 @@ public sealed class CssValidator : CssSyntaxVisitor
         _currentColorScheme = node.ColorScheme;
         base.VisitMediaRule(node);
         _currentColorScheme = previous;
+    }
+
+    /// <inheritdoc />
+    public override void VisitKeyframesRule(CssKeyframesRuleNode node)
+    {
+        List<ValidatedCssKeyframe> frames = [];
+        foreach (CssKeyframeNode frame in node.Frames)
+        {
+            List<ValidatedCssDeclaration> declarations = [];
+            foreach (CssDeclarationNode declaration in frame.Declarations)
+            {
+                if (!CssValueSyntaxBuilder.IsAnimatableProperty(declaration.PropertyName.ToLowerInvariant()))
+                {
+                    _diagnostics.Add(Diagnostic.Create(
+                        CssDiagnostics.SyntaxError,
+                        CssDiagnostics.CreateLocation(_filePath, declaration.PropertySpan),
+                        $"The CSS property '{declaration.PropertyName}' cannot be animated in @keyframes."));
+                }
+                else if (TryValidateDeclaration(declaration, out ValidatedCssDeclaration? validated) && validated is not null)
+                {
+                    declarations.Add(validated);
+                }
+            }
+
+            foreach (double offset in frame.Offsets)
+            {
+                frames.Add(new ValidatedCssKeyframe(offset, declarations));
+            }
+        }
+
+        _keyframes.Add(new ValidatedCssKeyframes(node.Name, frames));
     }
 
     /// <inheritdoc />

@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using NativeUI.Core;
 using NativeUI.Layout;
 using NativeUI.Styling;
@@ -85,9 +86,9 @@ public sealed record ComputedStyle
     public double Opacity { get; init; } = 1.0;
 
     /// <summary>
-    /// Gets the specified width, or <see langword="null"/> to fill the available width.
+    /// Gets the resolved width, which is <see cref="WidthValue.Auto"/> when nothing specifies one.
     /// </summary>
-    public WidthValue? Width { get; init; }
+    public WidthValue Width { get; init; } = WidthValue.Auto;
 
     /// <summary>
     /// Gets the explicit height in logical pixels, or <see langword="null"/> for auto sizing.
@@ -150,6 +151,21 @@ public sealed record ComputedStyle
     public double? Left { get; init; }
 
     /// <summary>
+    /// Gets the resolved transform, or <see langword="null"/> for none. A transform does not affect layout.
+    /// </summary>
+    public StyleTransform? Transform { get; init; }
+
+    /// <summary>
+    /// Gets how changes to this element's properties transition.
+    /// </summary>
+    public ImmutableArray<TransitionSpec> Transitions { get; init; } = [];
+
+    /// <summary>
+    /// Gets the keyframe animation this element plays, or <see langword="null"/> for none.
+    /// </summary>
+    public AnimationSpec? Animation { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether this element establishes a positioned context (<c>relative</c>, <c>absolute</c>, or <c>fixed</c>).
     /// </summary>
     public bool IsPositioned => Position is not Position.Static;
@@ -197,7 +213,7 @@ public sealed record ComputedStyle
             Cursor = parent is null ? Default.Cursor : parent.Cursor,
             ScrollbarThumbColor = parent is null ? Default.ScrollbarThumbColor : parent.ScrollbarThumbColor,
             ScrollbarTrackColor = parent is null ? Default.ScrollbarTrackColor : parent.ScrollbarTrackColor,
-            Width = element.Width,
+            Width = element.Width ?? WidthValue.Auto,
             Height = element.Height,
             OverflowX = element.OverflowX,
             OverflowY = element.OverflowY,
@@ -248,7 +264,8 @@ public sealed record ComputedStyle
             Top = inlineStyle.Top ?? Top,
             Right = inlineStyle.Right ?? Right,
             Bottom = inlineStyle.Bottom ?? Bottom,
-            Left = inlineStyle.Left ?? Left
+            Left = inlineStyle.Left ?? Left,
+            Transform = inlineStyle.Transform ?? Transform
         };
     }
 

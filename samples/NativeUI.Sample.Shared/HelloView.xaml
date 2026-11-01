@@ -34,6 +34,7 @@
             <Button x:Name="NavCanvas" Class="nav-item" Text="Canvas" />
             <Button x:Name="NavInput" Class="nav-item" Text="Input" />
             <Button x:Name="NavDialog" Class="nav-item" Text="Dialog" />
+            <Button x:Name="NavAnimation" Class="nav-item" Text="Animation" />
         </StackPanel>
 
         <ScrollView x:Name="ExamplesScroll" Grid.Column="1" Class="examples">
@@ -137,6 +138,8 @@
             </View>
 
             <DialogSampleView x:Name="DialogPage" />
+
+            <AnimationSampleView x:Name="AnimationPage" />
         </ScrollView>
     </Grid>
 </View>

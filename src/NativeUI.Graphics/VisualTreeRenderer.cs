@@ -212,6 +212,34 @@ public sealed class VisualTreeRenderer : IDisposable
             return;
         }
 
+        (box.Element as UIElement)?.MarkRendered();
+
+        if (box.Style.Transform is not { IsIdentity: false } transform)
+        {
+            DrawBoxContents(context, box);
+            return;
+        }
+
+        Rect bounds = box.BorderBox;
+        Point translation = transform.GetTranslation(bounds.Size);
+        double centerX = bounds.X + (bounds.Width / 2.0);
+        double centerY = bounds.Y + (bounds.Height / 2.0);
+        context.Save();
+        try
+        {
+            context.Translate(centerX + translation.X, centerY + translation.Y);
+            context.Scale((float)transform.ScaleX, (float)transform.ScaleY);
+            context.Translate(-centerX, -centerY);
+            DrawBoxContents(context, box);
+        }
+        finally
+        {
+            context.Restore();
+        }
+    }
+
+    private void DrawBoxContents(DrawingContext context, LayoutBox box)
+    {
         ComputedStyle style = box.Style;
         bool pushedLayer = style.Opacity < 1.0 && box.Children.Count > 0;
         if (pushedLayer)

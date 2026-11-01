@@ -88,7 +88,7 @@ internal static class HtmlTagMapping
         return elementType.ToLowerInvariant() switch
         {
             "text" => TextTag,
-            "view" or "portal" => ContainerTag,
+            "view" or "portal" or "progressbar" => ContainerTag,
             "dialog" => DialogTag,
             "button" => ButtonTag,
             "canvas" or "canvasview" => CanvasTag,

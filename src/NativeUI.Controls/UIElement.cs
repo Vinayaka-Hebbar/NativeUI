@@ -19,6 +19,8 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     private UIElement? _parent;
     private IStyleResolver? _styleResolver;
     private Dictionary<RoutedEvent, RoutedHandler[]>? _routedHandlers;
+    private ElementAnimator? _animator;
+    private static readonly TimeSpan s_defaultAnimationDuration = TimeSpan.FromMilliseconds(300);
 
     /// <summary>
     /// Identifies the <see cref="PointerPressed"/> routed event.
@@ -421,6 +423,78 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     public ElementStates States { get; private set; }
 
     /// <summary>
+    /// Plays the <c>@keyframes</c> rule called <paramref name="name"/> on top of this element's style.
+    /// </summary>
+    /// <param name="name">The keyframes name.</param>
+    /// <param name="duration">The duration of one iteration. Defaults to 300 milliseconds.</param>
+    /// <param name="easing">The timing function. Defaults to <see cref="Easing.Ease"/>.</param>
+    /// <param name="iterations">The number of iterations, or <see cref="double.PositiveInfinity"/> to repeat until cancelled.</param>
+    public Animation Animate(string name, TimeSpan? duration = null, Easing? easing = null, double iterations = 1)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(iterations);
+
+        AnimationSpec spec = new(
+            name,
+            (duration ?? s_defaultAnimationDuration).TotalMilliseconds,
+            0,
+            easing ?? Easing.Ease,
+            iterations,
+            AnimationDirection.Normal,
+            AnimationFillMode.None);
+
+        Animation animation = new();
+        if (NativePeer is IAnimationPeer peer)
+        {
+            peer.Animate(spec, animation);
+        }
+        else if (AnimationClock.IsEnabled && StyleResolver?.ResolveKeyframes(name, this) is { } frames)
+        {
+            _animator ??= new ElementAnimator(this);
+            _animator.Start(spec, frames, animation);
+        }
+        else
+        {
+            animation.Complete();
+        }
+
+        return animation;
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether a host has drawn this element, after which style changes can transition.
+    /// </summary>
+    internal bool HasRendered { get; private set; }
+
+    /// <summary>
+    /// Shows a style that <see cref="ElementAnimator"/> produced. Descendants recompute only when an inherited value changed.
+    /// </summary>
+    internal void ApplyAnimatedStyle(ComputedStyle style)
+    {
+        bool inheritedChanged = style.TextColor != _computedStyle.TextColor;
+        UpdateComputedStyle(style, _selectionStyle, _computedTheme);
+        if (inheritedChanged)
+        {
+            OnInheritedStyleChanged();
+        }
+    }
+
+    /// <summary>
+    /// Recomputes the styles that inherit from this element.
+    /// </summary>
+    internal virtual void OnInheritedStyleChanged()
+    {
+    }
+
+    /// <summary>
+    /// Records that a host drew this element.
+    /// </summary>
+    internal void MarkRendered()
+    {
+        HasRendered = true;
+    }
+
+    /// <summary>
     /// Sets or clears <paramref name="state"/> without recomputing styles, so a host can update a complete path first.
     /// </summary>
     internal void SetState(ElementStates state, bool enabled)
@@ -448,7 +522,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// </summary>
     public virtual void RecomputeStyle()
     {
-        ComputedStyle computedStyle = ResolveComputedStyle();
+        ComputedStyle computedStyle = ApplyAnimations(ResolveComputedStyle());
         SelectionStyle selectionStyle = ResolveSelectionStyle();
         UpdateComputedStyle(computedStyle, selectionStyle, Application.Current.CurrentTheme);
     }
@@ -529,6 +603,11 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     protected virtual void OnParentChanged()
     {
         SetInheritedDataContext(_parent?.DataContext);
+        if (_parent is null)
+        {
+            _animator?.Cancel();
+        }
+
         InvalidateStyle();
     }
 
@@ -562,6 +641,8 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     {
         if (disposing)
         {
+            _animator?.Cancel();
+            _animator = null;
             NativePeer?.Dispose();
             NativePeer = null;
             _routedHandlers = null;
@@ -606,7 +687,48 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         IStyleResolver? resolver = StyleResolver;
         ComputedStyle resolvedStyle = resolver?.ResolveStyle(this) ?? ComputedStyle.CreateInitial(this);
         ComputedStyle cascadedStyle = ViewStyleResolver.Resolve(this, resolvedStyle, resolver);
-        return cascadedStyle.ApplyInline(Style, resolver, this);
+        return ResolveAutoSizes(cascadedStyle.ApplyInline(Style, resolver, this));
+    }
+
+    /// <summary>
+    /// Replaces an automatic size with the default of this control type, which is its natural size.
+    /// </summary>
+    private ComputedStyle ResolveAutoSizes(ComputedStyle style)
+    {
+        ComputedStyle resolved = style;
+        if (resolved.Width.IsAuto && WidthProperty.GetDefaultValue(this) is WidthValue defaultWidth)
+        {
+            resolved = resolved with { Width = defaultWidth };
+        }
+
+        if (resolved.Height is null && HeightProperty.GetDefaultValue(this) is double defaultHeight)
+        {
+            resolved = resolved with { Height = defaultHeight };
+        }
+
+        return resolved;
+    }
+
+    private ComputedStyle ApplyAnimations(ComputedStyle target)
+    {
+        if (!AnimationClock.IsEnabled)
+        {
+            _animator?.Cancel();
+            _animator = null;
+            return target;
+        }
+
+        if (_animator is null)
+        {
+            if (target.Transitions.IsEmpty && target.Animation is null)
+            {
+                return target;
+            }
+
+            _animator = new ElementAnimator(this);
+        }
+
+        return _animator.Update(target);
     }
 
     private void UpdateComputedStyle(ComputedStyle computedStyle, SelectionStyle selectionStyle, Theme theme)

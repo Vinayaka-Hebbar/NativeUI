@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using NativeUI.Core;
 using NativeUI.Layout;
 using NativeUI.Media;
@@ -11,6 +12,11 @@ namespace NativeUI.Css;
 /// </summary>
 public sealed class CssStyleSheet : StyleSheet
 {
+    // Rules declaring custom properties, in cascade order, which is the only part of the stylesheet that inheritance reads.
+    private readonly CssRule[] _variableRules;
+    private readonly CssVariables _lightRootVariables;
+    private readonly CssVariables _darkRootVariables;
+
     /// <summary>
     /// Gets the unique identifier of this compiled stylesheet (typically the view or file name).
     /// </summary>
@@ -22,14 +28,20 @@ public sealed class CssStyleSheet : StyleSheet
     public string RawCss { get; }
 
     /// <summary>
-    /// Gets the ordered list of compiled CSS rules in this stylesheet.
+    /// Gets the compiled CSS rules in source order. <see cref="StyleSheet.Rules"/> holds only rules added from C# and is
+    /// empty for a compiled stylesheet.
     /// </summary>
-    public new IReadOnlyList<CssRule> Rules { get; }
+    public IReadOnlyList<CssRule> CssRules { get; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="CssStyleSheet"/> class.
+    /// Gets the compiled <c>@keyframes</c> rules in this stylesheet.
     /// </summary>
-    public CssStyleSheet(string id, string rawCss, IReadOnlyList<CssRule> rules)
+    public ImmutableArray<CssKeyframes> Keyframes { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CssStyleSheet"/> class with a copy of <paramref name="rules"/>.
+    /// </summary>
+    public CssStyleSheet(string id, string rawCss, IReadOnlyList<CssRule> rules, ImmutableArray<CssKeyframes> keyframes = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentNullException.ThrowIfNull(rawCss);
@@ -37,7 +49,11 @@ public sealed class CssStyleSheet : StyleSheet
 
         Id = id;
         RawCss = rawCss;
-        Rules = rules;
+        CssRules = [.. rules];
+        Keyframes = keyframes.IsDefault ? [] : keyframes;
+        _variableRules = CreateVariableRules(CssRules);
+        _lightRootVariables = CreateRootVariables(CssColorSchemeCondition.Light);
+        _darkRootVariables = CreateRootVariables(CssColorSchemeCondition.Dark);
     }
 
     /// <inheritdoc />
@@ -55,11 +71,39 @@ public sealed class CssStyleSheet : StyleSheet
     /// <inheritdoc />
     public override Color? ResolveColor(ThemeValue<Color> colorValue, IUIElement element)
     {
-        CssColorSchemeCondition scheme = Application.Current.CurrentTheme == Theme.Dark
-            ? CssColorSchemeCondition.Dark
-            : CssColorSchemeCondition.Light;
-        CssVariables variables = CreateScopedVariables(element, scheme);
-        return variables.ResolveColor(colorValue);
+        return CreateScopedVariables(element, GetActiveColorScheme()).ResolveColor(colorValue);
+    }
+
+    /// <inheritdoc />
+    public override IReadOnlyList<AnimationKeyframe>? ResolveKeyframes(string name, IUIElement element)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(element);
+
+        // As in CSS, the last rule with a name replaces earlier ones.
+        CssKeyframes? keyframes = null;
+        foreach (CssKeyframes candidate in Keyframes)
+        {
+            if (string.Equals(candidate.Name, name, StringComparison.Ordinal))
+            {
+                keyframes = candidate;
+            }
+        }
+
+        if (keyframes is null)
+        {
+            return null;
+        }
+
+        CssVariables variables = CreateScopedVariables(element, GetActiveColorScheme());
+        List<AnimationKeyframe> frames = [];
+        foreach (CssKeyframe frame in keyframes.Frames)
+        {
+            frames.Add(ResolveKeyframe(frame, variables, element.ComputedStyle.FontSize));
+        }
+
+        frames.Sort(static (first, second) => first.Offset.CompareTo(second.Offset));
+        return frames;
     }
 
     /// <summary>
@@ -70,26 +114,29 @@ public sealed class CssStyleSheet : StyleSheet
         CssVariables? parent = null)
     {
         CssVariables variables = new(parent);
-        for (int i = 0; i < Rules.Count; i++)
+        foreach (CssRule rule in CssRules)
         {
-            CssRule rule = Rules[i];
-            if (!rule.IsRoot)
+            if (rule.IsRoot && (rule.ColorScheme == CssColorSchemeCondition.Any || rule.ColorScheme == colorScheme))
             {
-                continue;
+                SetVariables(rule, variables);
             }
+        }
 
-            if (rule.ColorScheme != CssColorSchemeCondition.Any && rule.ColorScheme != colorScheme)
-            {
-                continue;
-            }
+        return variables;
+    }
 
-            foreach (KeyValuePair<string, CssValue> kvp in rule.Declarations)
-            {
-                if (kvp.Key.StartsWith("--", StringComparison.Ordinal))
-                {
-                    variables.Set(kvp.Key, kvp.Value);
-                }
-            }
+    /// <summary>
+    /// Creates the custom properties in effect on <paramref name="element"/> for <paramref name="colorScheme"/>: the
+    /// <c>:root</c> properties, overridden by those matching each ancestor from the outermost in, then by its own.
+    /// </summary>
+    public CssVariables CreateScopedVariables(IUIElement element, CssColorSchemeCondition colorScheme)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+
+        CssVariables variables = new(colorScheme == CssColorSchemeCondition.Dark ? _darkRootVariables : _lightRootVariables);
+        if (_variableRules.Length > 0)
+        {
+            ApplyVariableRules(element, colorScheme, variables);
         }
 
         return variables;
@@ -103,283 +150,27 @@ public sealed class CssStyleSheet : StyleSheet
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        CssColorSchemeCondition colorScheme = Application.Current.CurrentTheme == Theme.Dark
-            ? CssColorSchemeCondition.Dark
-            : CssColorSchemeCondition.Light;
+        CssColorSchemeCondition colorScheme = GetActiveColorScheme();
         List<(CssRule Rule, int Order)> matching = CollectMatchingRules(element, colorScheme, CssPseudoElement.None);
-        CssVariables scopedVariables = CreateScopedVariables(matching, colorScheme);
+        CssVariables variables = CreateScopedVariables(element, colorScheme);
 
-        ComputedStyle inheritedStyle = ComputedStyle.CreateInitial(element);
-        Color? textColor = inheritedStyle.TextColor;
-        Color? backgroundColor = null;
-        double fontSize = inheritedStyle.FontSize;
-        FontWeight fontWeight = inheritedStyle.FontWeight;
-        string? fontFamily = inheritedStyle.FontFamily;
-        TextAlign textAlign = inheritedStyle.TextAlign;
-        Thickness padding = Thickness.Zero;
-        Thickness margin = Thickness.Zero;
-        double borderRadius = 0.0;
-        double borderWidth = 0.0;
-        Color? borderColor = null;
-        double opacity = 1.0;
-        WidthValue? width = inheritedStyle.Width;
-        double? height = inheritedStyle.Height;
-        Cursor cursor = inheritedStyle.Cursor;
-        Overflow? overflowX = inheritedStyle.OverflowX;
-        Overflow? overflowY = inheritedStyle.OverflowY;
-        Color? scrollbarThumbColor = inheritedStyle.ScrollbarThumbColor;
-        Color? scrollbarTrackColor = inheritedStyle.ScrollbarTrackColor;
-        ScrollbarWidth scrollbarWidth = ScrollbarWidth.Auto;
-        Position position = inheritedStyle.Position;
-        double? top = inheritedStyle.Top;
-        double? right = inheritedStyle.Right;
-        double? bottom = inheritedStyle.Bottom;
-        double? left = inheritedStyle.Left;
-
-        // Font-relative lengths use the winning font size, regardless of declaration order.
-        foreach ((CssRule rule, _) in matching)
-        {
-            if (rule.Declarations.TryGetValue("font-size", out CssValue? fontSizeValue)
-                && scopedVariables.Resolve(fontSizeValue) is CssLengthValue fontSizeLength)
-            {
-                fontSize = fontSizeLength.ToLogicalPixels(inheritedStyle.FontSize, inheritedStyle.FontSize);
-            }
-        }
-
-        fontSize = element.Style?.FontSize ?? fontSize;
+        ComputedStyle style = ComputedStyle.CreateInitial(element);
+        double fontSize = ResolveFontSize(element, matching, variables, style.FontSize);
+        style = style with { FontSize = fontSize };
 
         foreach ((CssRule rule, _) in matching)
         {
-            foreach (KeyValuePair<string, CssValue> kvp in rule.Declarations)
+            foreach (KeyValuePair<string, CssValue> declaration in rule.Declarations)
             {
-                if (kvp.Key.StartsWith("--", StringComparison.Ordinal))
+                if (!declaration.Key.StartsWith("--", StringComparison.Ordinal) &&
+                    variables.Resolve(declaration.Value) is CssValue resolved)
                 {
-                    continue;
-                }
-
-                CssValue? resolved = scopedVariables.Resolve(kvp.Value);
-                if (resolved is null)
-                {
-                    continue;
-                }
-
-                switch (kvp.Key)
-                {
-                    case "color":
-                        if (resolved is CssColorValue fg)
-                        {
-                            textColor = fg.Color;
-                        }
-                        break;
-
-                    case "background-color":
-                    case "background":
-                        if (resolved is CssColorValue bg)
-                        {
-                            backgroundColor = bg.Color;
-                        }
-                        break;
-
-                    case "font-weight":
-                        if (resolved is CssFontWeightValue fw)
-                        {
-                            fontWeight = fw.Weight;
-                        }
-                        break;
-
-                    case "font-family":
-                        if (resolved is CssStringValue ff)
-                        {
-                            fontFamily = ff.Value;
-                        }
-                        break;
-
-                    case "text-align":
-                        if (resolved is CssTextAlignValue ta)
-                        {
-                            textAlign = ta.Align;
-                        }
-                        break;
-
-                    case "padding":
-                        if (resolved is CssThicknessValue pad)
-                        {
-                            padding = pad.Thickness;
-                        }
-                        else if (resolved is CssLengthValue padLen)
-                        {
-                            padding = new Thickness(padLen.ToLogicalPixels(fontSize));
-                        }
-                        break;
-
-                    case "margin":
-                        if (resolved is CssThicknessValue mar)
-                        {
-                            margin = mar.Thickness;
-                        }
-                        else if (resolved is CssLengthValue marLen)
-                        {
-                            margin = new Thickness(marLen.ToLogicalPixels(fontSize));
-                        }
-                        break;
-
-                    case "border-radius":
-                        if (resolved is CssLengthValue br)
-                        {
-                            borderRadius = br.ToLogicalPixels(fontSize);
-                        }
-                        break;
-
-                    case "border-width":
-                        if (resolved is CssLengthValue bw)
-                        {
-                            borderWidth = bw.ToLogicalPixels(fontSize);
-                        }
-                        break;
-
-                    case "border-color":
-                        if (resolved is CssColorValue bc)
-                        {
-                            borderColor = bc.Color;
-                        }
-                        break;
-
-                    case "opacity":
-                        if (resolved is CssNumberValue op)
-                        {
-                            opacity = Math.Clamp(op.Value, 0.0, 1.0);
-                        }
-                        break;
-
-                    case "scrollbar-color":
-                        if (resolved is CssScrollbarColorValue scrollbarColor)
-                        {
-                            scrollbarThumbColor = (scopedVariables.Resolve(scrollbarColor.Thumb) as CssColorValue)?.Color;
-                            scrollbarTrackColor = (scopedVariables.Resolve(scrollbarColor.Track) as CssColorValue)?.Color;
-                        }
-                        break;
-
-                    case "scrollbar-width":
-                        if (resolved is CssScrollbarWidthValue scrollbarWidthValue)
-                        {
-                            scrollbarWidth = scrollbarWidthValue.Width;
-                        }
-                        break;
-
-                    case "overflow":
-                        if (resolved is CssOverflowValue both)
-                        {
-                            overflowX = both.Overflow;
-                            overflowY = both.Overflow;
-                        }
-                        break;
-
-                    case "overflow-x":
-                        if (resolved is CssOverflowValue x)
-                        {
-                            overflowX = x.Overflow;
-                        }
-                        break;
-
-                    case "overflow-y":
-                        if (resolved is CssOverflowValue y)
-                        {
-                            overflowY = y.Overflow;
-                        }
-                        break;
-
-                    case "width":
-                        if (resolved is CssLengthValue w)
-                        {
-                            width = w.ToLogicalPixels(fontSize);
-                        }
-                        else if (resolved is CssFitContentValue)
-                        {
-                            width = WidthValue.FitContent;
-                        }
-                        break;
-
-                    case "height":
-                        if (resolved is CssLengthValue h)
-                        {
-                            height = h.ToLogicalPixels(fontSize);
-                        }
-                        break;
-
-                    case "cursor":
-                        if (resolved is CssCursorValue cur)
-                        {
-                            cursor = cur.Cursor;
-                        }
-                        break;
-
-                    case "position":
-                        if (resolved is CssPositionValue pos)
-                        {
-                            position = pos.Position;
-                        }
-                        break;
-
-                    case "top":
-                        if (resolved is CssLengthValue t)
-                        {
-                            top = t.ToLogicalPixels(fontSize);
-                        }
-                        break;
-
-                    case "right":
-                        if (resolved is CssLengthValue r)
-                        {
-                            right = r.ToLogicalPixels(fontSize);
-                        }
-                        break;
-
-                    case "bottom":
-                        if (resolved is CssLengthValue b)
-                        {
-                            bottom = b.ToLogicalPixels(fontSize);
-                        }
-                        break;
-
-                    case "left":
-                        if (resolved is CssLengthValue l)
-                        {
-                            left = l.ToLogicalPixels(fontSize);
-                        }
-                        break;
+                    style = ApplyDeclaration(style, declaration.Key, resolved, fontSize, variables);
                 }
             }
         }
 
-        ComputedStyle cssStyle = new()
-        {
-            TextColor = textColor,
-            BackgroundColor = backgroundColor,
-            FontSize = fontSize,
-            FontWeight = fontWeight,
-            FontFamily = fontFamily,
-            TextAlign = textAlign,
-            Padding = padding,
-            Margin = margin,
-            BorderRadius = borderRadius,
-            BorderWidth = borderWidth,
-            BorderColor = borderColor,
-            Opacity = opacity,
-            Width = width,
-            Height = height,
-            Cursor = cursor,
-            OverflowX = overflowX,
-            OverflowY = overflowY,
-            ScrollbarThumbColor = scrollbarThumbColor,
-            ScrollbarTrackColor = scrollbarTrackColor,
-            ScrollbarWidth = scrollbarWidth,
-            Position = position,
-            Top = top,
-            Right = right,
-            Bottom = bottom,
-            Left = left
-        };
-        return cssStyle;
+        return style;
     }
 
     /// <summary>
@@ -392,30 +183,26 @@ public sealed class CssStyleSheet : StyleSheet
         ArgumentNullException.ThrowIfNull(element);
 
         SelectionStyle inherited = element.Parent?.SelectionStyle ?? SelectionStyle.Default;
-        CssColorSchemeCondition colorScheme = Application.Current.CurrentTheme == Theme.Dark
-            ? CssColorSchemeCondition.Dark
-            : CssColorSchemeCondition.Light;
+        CssColorSchemeCondition colorScheme = GetActiveColorScheme();
         List<(CssRule Rule, int Order)> selectionRules = CollectMatchingRules(element, colorScheme, CssPseudoElement.Selection);
         if (selectionRules.Count == 0)
         {
             return inherited;
         }
 
-        List<(CssRule Rule, int Order)> elementRules = CollectMatchingRules(element, colorScheme, CssPseudoElement.None);
-        CssVariables scopedVariables = CreateScopedVariables(elementRules, colorScheme);
-
+        CssVariables variables = CreateScopedVariables(element, colorScheme);
         Color? textColor = inherited.TextColor;
         Color? backgroundColor = inherited.BackgroundColor;
         foreach ((CssRule rule, _) in selectionRules)
         {
             if (rule.Declarations.TryGetValue("color", out CssValue? color)
-                && scopedVariables.Resolve(color) is CssColorValue foreground)
+                && variables.Resolve(color) is CssColorValue foreground)
             {
                 textColor = foreground.Color;
             }
 
             if (rule.Declarations.TryGetValue("background-color", out CssValue? background)
-                && scopedVariables.Resolve(background) is CssColorValue selectionBackground)
+                && variables.Resolve(background) is CssColorValue selectionBackground)
             {
                 backgroundColor = selectionBackground.Color;
             }
@@ -428,6 +215,242 @@ public sealed class CssStyleSheet : StyleSheet
         };
     }
 
+    private static CssColorSchemeCondition GetActiveColorScheme()
+    {
+        return Application.Current.CurrentTheme == Theme.Dark
+            ? CssColorSchemeCondition.Dark
+            : CssColorSchemeCondition.Light;
+    }
+
+    private static CssRule[] CreateVariableRules(IReadOnlyList<CssRule> rules)
+    {
+        List<(CssRule Rule, int Order)> variableRules = [];
+        for (int i = 0; i < rules.Count; i++)
+        {
+            CssRule rule = rules[i];
+            if (!rule.IsRoot && rule.PseudoElement == CssPseudoElement.None && DeclaresVariables(rule))
+            {
+                variableRules.Add((rule, i));
+            }
+        }
+
+        variableRules.Sort(CompareCascadeOrder);
+
+        CssRule[] ordered = new CssRule[variableRules.Count];
+        for (int i = 0; i < ordered.Length; i++)
+        {
+            ordered[i] = variableRules[i].Rule;
+        }
+
+        return ordered;
+    }
+
+    private static bool DeclaresVariables(CssRule rule)
+    {
+        foreach (string property in rule.Declarations.Keys)
+        {
+            if (property.StartsWith("--", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Orders rules by ascending specificity and then source order, so a later rule overrides an earlier one.
+    /// </summary>
+    private static int CompareCascadeOrder((CssRule Rule, int Order) first, (CssRule Rule, int Order) second)
+    {
+        int specificity = first.Rule.Specificity.CompareTo(second.Rule.Specificity);
+        return specificity != 0 ? specificity : first.Order.CompareTo(second.Order);
+    }
+
+    private static void SetVariables(CssRule rule, CssVariables variables)
+    {
+        foreach (KeyValuePair<string, CssValue> declaration in rule.Declarations)
+        {
+            if (declaration.Key.StartsWith("--", StringComparison.Ordinal))
+            {
+                variables.Set(declaration.Key, declaration.Value);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Resolves the font size that font-relative lengths use, which is the winning one regardless of declaration order.
+    /// </summary>
+    private static double ResolveFontSize(
+        IUIElement element,
+        List<(CssRule Rule, int Order)> matching,
+        CssVariables variables,
+        double inheritedFontSize)
+    {
+        double fontSize = inheritedFontSize;
+        foreach ((CssRule rule, _) in matching)
+        {
+            if (rule.Declarations.TryGetValue("font-size", out CssValue? value)
+                && variables.Resolve(value) is CssLengthValue length)
+            {
+                fontSize = length.ToLogicalPixels(inheritedFontSize, inheritedFontSize);
+            }
+        }
+
+        return element.Style?.FontSize ?? fontSize;
+    }
+
+    private static AnimationKeyframe ResolveKeyframe(CssKeyframe frame, CssVariables variables, double fontSize)
+    {
+        ComputedStyle style = ComputedStyle.Default;
+        AnimatableProperty properties = AnimatableProperty.None;
+        foreach (KeyValuePair<string, CssValue> declaration in frame.Declarations)
+        {
+            if (variables.Resolve(declaration.Value) is CssValue resolved)
+            {
+                ComputedStyle applied = ApplyDeclaration(style, declaration.Key, resolved, fontSize, variables);
+                if (!ReferenceEquals(applied, style))
+                {
+                    style = applied;
+                    properties |= GetAnimatableProperty(declaration.Key);
+                }
+            }
+        }
+
+        return new AnimationKeyframe(frame.Offset, properties, style);
+    }
+
+    private static AnimatableProperty GetAnimatableProperty(string property)
+    {
+        return property switch
+        {
+            "opacity" => AnimatableProperty.Opacity,
+            "transform" => AnimatableProperty.Transform,
+            "color" => AnimatableProperty.Color,
+            "background-color" or "background" => AnimatableProperty.BackgroundColor,
+            "border-color" => AnimatableProperty.BorderColor,
+            "width" => AnimatableProperty.Width,
+            "height" => AnimatableProperty.Height,
+            "top" => AnimatableProperty.Top,
+            "right" => AnimatableProperty.Right,
+            "bottom" => AnimatableProperty.Bottom,
+            "left" => AnimatableProperty.Left,
+            _ => AnimatableProperty.None
+        };
+    }
+
+    /// <summary>
+    /// Returns <paramref name="style"/> with one resolved declaration applied, or the same instance when the property is
+    /// unknown or the value has the wrong type, which a variable can cause. <c>font-size</c> is resolved separately.
+    /// </summary>
+    private static ComputedStyle ApplyDeclaration(
+        ComputedStyle style,
+        string property,
+        CssValue value,
+        double fontSize,
+        CssVariables variables)
+    {
+        switch (property, value)
+        {
+            case ("color", CssColorValue color):
+                return style with { TextColor = color.Color };
+            case ("background-color" or "background", CssColorValue background):
+                return style with { BackgroundColor = background.Color };
+            case ("font-weight", CssFontWeightValue fontWeight):
+                return style with { FontWeight = fontWeight.Weight };
+            case ("font-family", CssStringValue fontFamily):
+                return style with { FontFamily = fontFamily.Value };
+            case ("text-align", CssTextAlignValue textAlign):
+                return style with { TextAlign = textAlign.Align };
+            case ("padding", CssThicknessValue padding):
+                return style with { Padding = padding.Thickness };
+            case ("padding", CssLengthValue padding):
+                return style with { Padding = new Thickness(padding.ToLogicalPixels(fontSize)) };
+            case ("margin", CssThicknessValue margin):
+                return style with { Margin = margin.Thickness };
+            case ("margin", CssLengthValue margin):
+                return style with { Margin = new Thickness(margin.ToLogicalPixels(fontSize)) };
+            case ("border-radius", CssLengthValue borderRadius):
+                return style with { BorderRadius = borderRadius.ToLogicalPixels(fontSize) };
+            case ("border-width", CssLengthValue borderWidth):
+                return style with { BorderWidth = borderWidth.ToLogicalPixels(fontSize) };
+            case ("border-color", CssColorValue borderColor):
+                return style with { BorderColor = borderColor.Color };
+            case ("opacity", CssNumberValue opacity):
+                return style with { Opacity = Math.Clamp(opacity.Value, 0.0, 1.0) };
+            case ("scrollbar-color", CssScrollbarColorValue scrollbarColor):
+                return style with
+                {
+                    ScrollbarThumbColor = (variables.Resolve(scrollbarColor.Thumb) as CssColorValue)?.Color,
+                    ScrollbarTrackColor = (variables.Resolve(scrollbarColor.Track) as CssColorValue)?.Color
+                };
+            case ("scrollbar-width", CssScrollbarWidthValue scrollbarWidth):
+                return style with { ScrollbarWidth = scrollbarWidth.Width };
+            case ("overflow", CssOverflowValue overflow):
+                return style with { OverflowX = overflow.Overflow, OverflowY = overflow.Overflow };
+            case ("overflow-x", CssOverflowValue overflowX):
+                return style with { OverflowX = overflowX.Overflow };
+            case ("overflow-y", CssOverflowValue overflowY):
+                return style with { OverflowY = overflowY.Overflow };
+            case ("width", CssLengthValue width):
+                return style with { Width = ToWidth(width, fontSize) };
+            case ("width", CssFitContentValue):
+                return style with { Width = WidthValue.FitContent };
+            case ("width", CssAutoValue):
+                return style with { Width = WidthValue.Auto };
+            case ("height", CssLengthValue height):
+                return style with { Height = height.ToLogicalPixels(fontSize) };
+            case ("height", CssAutoValue):
+                return style with { Height = null };
+            case ("cursor", CssCursorValue cursor):
+                return style with { Cursor = cursor.Cursor };
+            case ("position", CssPositionValue position):
+                return style with { Position = position.Position };
+            case ("top", CssLengthValue top):
+                return style with { Top = top.ToLogicalPixels(fontSize) };
+            case ("right", CssLengthValue right):
+                return style with { Right = right.ToLogicalPixels(fontSize) };
+            case ("bottom", CssLengthValue bottom):
+                return style with { Bottom = bottom.ToLogicalPixels(fontSize) };
+            case ("left", CssLengthValue left):
+                return style with { Left = left.ToLogicalPixels(fontSize) };
+            case ("transform", CssTransformValue transform):
+                return style with { Transform = transform.Transform };
+            case ("transition", CssTransitionValue transition):
+                return style with { Transitions = transition.Transitions };
+            case ("animation", CssAnimationValue animation):
+                return style with { Animation = animation.Animation };
+            default:
+                return style;
+        }
+    }
+
+    private static WidthValue ToWidth(CssLengthValue length, double fontSize)
+    {
+        return length.Unit == CssLengthUnit.Percent
+            ? WidthValue.Percent(length.Value)
+            : WidthValue.Pixels(length.ToLogicalPixels(fontSize));
+    }
+
+    /// <summary>
+    /// Sets the custom properties of <paramref name="element"/>'s ancestors, outermost first, and then its own.
+    /// </summary>
+    private void ApplyVariableRules(IUIElement element, CssColorSchemeCondition colorScheme, CssVariables variables)
+    {
+        if (element.Parent is IUIElement parent)
+        {
+            ApplyVariableRules(parent, colorScheme, variables);
+        }
+
+        foreach (CssRule rule in _variableRules)
+        {
+            if (rule.Matches(element, colorScheme))
+            {
+                SetVariables(rule, variables);
+            }
+        }
+    }
+
     /// <summary>
     /// Returns rules for <paramref name="pseudoElement"/> that match the element, ordered by ascending specificity and then source order.
     /// </summary>
@@ -437,52 +460,16 @@ public sealed class CssStyleSheet : StyleSheet
         CssPseudoElement pseudoElement)
     {
         List<(CssRule Rule, int Order)> matching = [];
-        for (int i = 0; i < Rules.Count; i++)
+        for (int i = 0; i < CssRules.Count; i++)
         {
-            CssRule rule = Rules[i];
+            CssRule rule = CssRules[i];
             if (rule.PseudoElement == pseudoElement && rule.Matches(element, colorScheme))
             {
                 matching.Add((rule, i));
             }
         }
 
-        matching.Sort(static (a, b) =>
-        {
-            int cmp = a.Rule.Specificity.CompareTo(b.Rule.Specificity);
-            return cmp != 0 ? cmp : a.Order.CompareTo(b.Order);
-        });
-
+        matching.Sort(CompareCascadeOrder);
         return matching;
-    }
-
-    /// <summary>
-    /// Populates a <see cref="CssVariables"/> instance with all variables active for <paramref name="element"/> in <paramref name="colorScheme"/>.
-    /// </summary>
-    public CssVariables CreateScopedVariables(
-        IUIElement element,
-        CssColorSchemeCondition colorScheme)
-    {
-        ArgumentNullException.ThrowIfNull(element);
-        List<(CssRule Rule, int Order)> matching = CollectMatchingRules(element, colorScheme, CssPseudoElement.None);
-        return CreateScopedVariables(matching, colorScheme);
-    }
-
-    private CssVariables CreateScopedVariables(
-        List<(CssRule Rule, int Order)> matching,
-        CssColorSchemeCondition colorScheme)
-    {
-        CssVariables scopedVariables = new(CreateRootVariables(colorScheme));
-        foreach ((CssRule rule, _) in matching)
-        {
-            foreach (KeyValuePair<string, CssValue> kvp in rule.Declarations)
-            {
-                if (kvp.Key.StartsWith("--", StringComparison.Ordinal))
-                {
-                    scopedVariables.Set(kvp.Key, kvp.Value);
-                }
-            }
-        }
-
-        return scopedVariables;
     }
 }

@@ -449,6 +449,49 @@ export const dom = {
   },
 
   /**
+   * Plays a `@keyframes` rule on an element, through its inline `animation` property, and clears the property when it ends.
+   *
+   * @param {HTMLElement} element The element.
+   * @param {string} name The keyframes name.
+   * @param {number} durationMilliseconds The duration of one iteration.
+   * @param {string} easing The CSS timing function.
+   * @param {number} iterations The number of iterations, which may be `Infinity`.
+   * @param {() => void} dispatch The callback invoked when the animation ends or is cancelled.
+   * @returns {Animation | null} The running animation, or null when no such rule exists.
+   */
+  animate(element, name, durationMilliseconds, easing, iterations, dispatch) {
+    const count = iterations === Infinity ? "infinite" : iterations;
+    element.style.animation = `${name} ${durationMilliseconds}ms ${easing} ${count}`;
+
+    const running = element
+      .getAnimations()
+      .find((animation) => animation instanceof CSSAnimation && animation.animationName === name);
+
+    const finish = () => {
+      element.style.removeProperty("animation");
+      dispatch();
+    };
+
+    if (!running) {
+      finish();
+      return null;
+    }
+
+    running.finished.then(finish, finish);
+    return running;
+  },
+
+  /**
+   * Cancels an animation returned by {@link dom.animate}.
+   *
+   * @param {Animation} animation The animation.
+   * @returns {void}
+   */
+  cancelAnimation(animation) {
+    animation.cancel();
+  },
+
+  /**
    * Gets the current value of an input element.
    *
    * @param {HTMLInputElement} element The input element.

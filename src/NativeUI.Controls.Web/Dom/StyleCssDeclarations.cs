@@ -36,6 +36,7 @@ internal static class StyleCssDeclarations
             ("overflow-y", FormatOverflow(style?.OverflowY)),
             ("scrollbar-color", FormatScrollbarColor(style)),
             ("scrollbar-width", FormatScrollbarWidth(style?.ScrollbarWidth)),
+            ("transform", FormatTransform(style?.Transform)),
             ("position", FormatPosition(style?.Position)),
             ("top", FormatLength(style?.Top)),
             ("right", FormatLength(style?.Right)),
@@ -121,7 +122,26 @@ internal static class StyleCssDeclarations
 
     private static string? FormatWidth(WidthValue? value)
     {
-        return value is { IsFitContent: true } ? "fit-content" : FormatLength(value?.Pixels);
+        return value switch
+        {
+            null => null,
+            { IsAuto: true } => "auto",
+            { IsFitContent: true } => "fit-content",
+            { IsPercent: true } percent => percent.Value.ToString("R", CultureInfo.InvariantCulture) + "%",
+            { } pixels => FormatLength(pixels.Value)
+        };
+    }
+
+    private static string? FormatTransform(StyleTransform? value)
+    {
+        if (value is not StyleTransform transform)
+        {
+            return null;
+        }
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"translate(calc({transform.TranslateX:R}px + {transform.TranslateXPercent:R}%), calc({transform.TranslateY:R}px + {transform.TranslateYPercent:R}%)) scale({transform.ScaleX:R}, {transform.ScaleY:R})");
     }
 
     private static string? FormatLength(double? value)

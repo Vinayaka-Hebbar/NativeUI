@@ -272,6 +272,24 @@ internal static partial class AppKitInterop
     }
 
     /// <summary>
+    /// Returns whether views can create a display link, which requires macOS 14.
+    /// </summary>
+    public static bool IsDisplayLinkSupported()
+    {
+        nint selector = GetSelector("displayLinkWithTarget:selector:");
+        return (SendMessage(GetClass("NSView"), GetSelector("instancesRespondToSelector:"), selector) & 0xFF) != 0;
+    }
+
+    /// <summary>
+    /// Returns whether the system's accessibility settings ask applications to avoid animation.
+    /// </summary>
+    public static bool IsReduceMotionEnabled()
+    {
+        nint workspace = SendMessage(GetClass("NSWorkspace"), GetSelector("sharedWorkspace"));
+        return (SendMessage(workspace, GetSelector("accessibilityDisplayShouldReduceMotion")) & 0xFF) != 0;
+    }
+
+    /// <summary>
     /// Returns a retained, paused display link that calls <paramref name="nsView"/> on the main run loop at the refresh
     /// rate of its screen, or <see cref="nint.Zero"/> before macOS 14, which has no view display link. The view must be in a window.
     /// </summary>

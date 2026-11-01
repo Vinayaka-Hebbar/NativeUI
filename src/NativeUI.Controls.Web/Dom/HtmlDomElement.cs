@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 using NativeUI.Core;
+using NativeUI.Media;
 using NativeUI.Styling;
 
 namespace NativeUI.Controls.Web;
@@ -10,7 +11,7 @@ namespace NativeUI.Controls.Web;
 /// Operations must run on the browser's UI thread.
 /// </summary>
 [SupportedOSPlatform("browser")]
-public class HtmlDomElement : INativePeer
+public class HtmlDomElement : INativePeer, IAnimationPeer
 {
     private static readonly Dictionary<int, HtmlDomElement> s_attachedElements = [];
     private static int s_lastNodeId;
@@ -140,6 +141,7 @@ public class HtmlDomElement : INativePeer
             CanvasView canvasView => new HtmlDomCanvas(canvasView, element),
             Button button => new HtmlDomButton(button, element),
             Input input => new HtmlDomInput(input, element),
+            ProgressBar progressBar => new HtmlDomProgressBar(progressBar, element),
             Dialog dialog => new HtmlDomDialog(dialog, element, tagName),
             Portal portal => new HtmlDomPortal(portal, element, tagName),
             StackPanel stackPanel => new HtmlDomStackPanel(stackPanel, element),
@@ -186,6 +188,34 @@ public class HtmlDomElement : INativePeer
     internal virtual void UpdateTypeTokens()
     {
         SetAttribute(StyleSheetCss.TypeAttribute, StyleSheetCss.GetTypeTokens(Source));
+    }
+
+    /// <inheritdoc />
+    void IAnimationPeer.Animate(AnimationSpec spec, Animation animation)
+    {
+        if (_element is null)
+        {
+            animation.Complete();
+            return;
+        }
+
+        JSObject? handle = null;
+        handle = DomInterop.Animate(
+            _element,
+            spec.Name,
+            spec.DurationMilliseconds,
+            spec.Easing.ToCssString(),
+            spec.Iterations,
+            () =>
+            {
+                handle?.Dispose();
+                animation.Complete();
+            });
+
+        if (handle is not null)
+        {
+            animation.SetCancelHandler(() => DomInterop.CancelAnimation(handle));
+        }
     }
 
     /// <summary>

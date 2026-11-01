@@ -60,7 +60,7 @@ internal static class StyleResolutionTests
         Assert.Equal(Thickness.Zero, inherited.ComputedStyle.Padding);
         Assert.Equal(Thickness.Zero, inherited.ComputedStyle.Margin);
         Assert.Equal(1.0, inherited.ComputedStyle.Opacity);
-        Assert.Equal<WidthValue?>(null, inherited.ComputedStyle.Width);
+        Assert.True(inherited.ComputedStyle.Width.IsAuto);
         Assert.Equal<double?>(null, inherited.ComputedStyle.Height);
 
         Assert.Equal(16.0, overridden.ComputedStyle.FontSize);
@@ -162,7 +162,7 @@ internal static class StyleResolutionTests
     {
         Button button = new();
         button.InvalidateStyle();
-        Assert.True(button.ComputedStyle.Width?.IsFitContent == true);
+        Assert.True(button.ComputedStyle.Width.IsFitContent);
 
         ScrollView scrollView = new();
         scrollView.InvalidateStyle();
@@ -170,11 +170,11 @@ internal static class StyleResolutionTests
 
         Text text = new();
         text.InvalidateStyle();
-        Assert.Equal<WidthValue?>(null, text.ComputedStyle.Width);
+        Assert.True(text.ComputedStyle.Width.IsAuto);
         Assert.Equal<Overflow?>(null, text.ComputedStyle.OverflowY);
 
         button.Width = 300;
-        Assert.Equal(300.0, button.ComputedStyle.Width?.Pixels);
+        Assert.Equal(300.0, button.ComputedStyle.Width.Value);
 
         scrollView.Style = new Style { OverflowY = Overflow.Hidden };
         Assert.Equal<Overflow?>(Overflow.Hidden, scrollView.ComputedStyle.OverflowY);
@@ -189,7 +189,7 @@ internal static class StyleResolutionTests
         };
         Button styled = new();
         parent.Children.Add(styled);
-        Assert.Equal(150.0, styled.ComputedStyle.Width?.Pixels);
+        Assert.Equal(150.0, styled.ComputedStyle.Width.Value);
     }
 
     internal static void VerifyForwardedSizeProperties()
@@ -202,11 +202,11 @@ internal static class StyleResolutionTests
         element.Width = 100;
         Assert.NotNull(element.Style);
         Assert.Equal<WidthValue?>(100.0, element.Style!.Width);
-        Assert.Equal(100.0, element.ComputedStyle.Width?.Pixels);
+        Assert.Equal(100.0, element.ComputedStyle.Width.Value);
 
         element.Style.Width = 200;
         Assert.Equal<WidthValue?>(200.0, element.Width);
-        Assert.Equal(200.0, element.ComputedStyle.Width?.Pixels);
+        Assert.Equal(200.0, element.ComputedStyle.Width.Value);
 
         Assert.Same(Style.WidthProperty, UIElement.WidthProperty);
         element.SetValue(UIElement.WidthProperty, 300.0);

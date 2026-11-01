@@ -47,7 +47,16 @@ public sealed class CssParser
 
         while (Current.Kind != CssTokenKind.EndOfFile)
         {
-            if (Current.Kind == CssTokenKind.AtKeyword)
+            if (Current.Kind == CssTokenKind.AtKeyword &&
+                string.Equals(Current.Text, "@keyframes", StringComparison.OrdinalIgnoreCase))
+            {
+                CssKeyframesRuleNode? keyframesRule = ParseKeyframesRule();
+                if (keyframesRule is not null)
+                {
+                    statements.Add(keyframesRule);
+                }
+            }
+            else if (Current.Kind == CssTokenKind.AtKeyword)
             {
                 CssMediaRuleNode? mediaRule = ParseMediaRule();
                 if (mediaRule is not null)
@@ -67,6 +76,98 @@ public sealed class CssParser
 
         CssSourceSpan fullSpan = CombineSpans(startSpan, Current.Span);
         return new CssStylesheetNode(filePath, rawCss, statements, _errors, fullSpan);
+    }
+
+    private CssKeyframesRuleNode? ParseKeyframesRule()
+    {
+        CssToken atToken = Advance();
+        if (Current.Kind != CssTokenKind.Identifier)
+        {
+            _errors.Add(("Expected a name after @keyframes.", Current.Span));
+            SkipToNextRuleOrBlockEnd();
+            return null;
+        }
+
+        string name = Advance().Text;
+        if (Current.Kind != CssTokenKind.OpenBrace)
+        {
+            _errors.Add(("Expected '{' after the @keyframes name.", Current.Span));
+            SkipToNextRuleOrBlockEnd();
+            return null;
+        }
+
+        Advance();
+        List<CssKeyframeNode> frames = [];
+        while (Current.Kind is not (CssTokenKind.CloseBrace or CssTokenKind.EndOfFile))
+        {
+            List<double>? offsets = ParseKeyframeOffsets();
+            if (offsets is null || Current.Kind != CssTokenKind.OpenBrace)
+            {
+                _errors.Add(("Expected a keyframe selector of 'from', 'to', or a percentage from 0% to 100%.", Current.Span));
+                SkipToNextRuleOrBlockEnd();
+                continue;
+            }
+
+            CssToken openBrace = Advance();
+            List<CssDeclarationNode> declarations = ParseDeclarations();
+            if (Current.Kind == CssTokenKind.CloseBrace)
+            {
+                Advance();
+            }
+            else
+            {
+                _errors.Add(("Unclosed '{' in keyframe block.", openBrace.Span));
+            }
+
+            frames.Add(new CssKeyframeNode(offsets, declarations));
+        }
+
+        if (Current.Kind == CssTokenKind.CloseBrace)
+        {
+            Advance();
+        }
+        else
+        {
+            _errors.Add(("Missing closing '}' for @keyframes block.", atToken.Span));
+        }
+
+        return new CssKeyframesRuleNode(name, frames, CombineSpans(atToken.Span, PrevTokenSpan()));
+    }
+
+    /// <summary>
+    /// Parses the comma-separated selectors of a keyframe block, or returns null when one is invalid.
+    /// </summary>
+    private List<double>? ParseKeyframeOffsets()
+    {
+        List<double> offsets = [];
+        while (true)
+        {
+            CssToken token = Current;
+            if (token.Kind == CssTokenKind.Percentage && token.NumericValue is >= 0 and <= 100)
+            {
+                offsets.Add(token.NumericValue / 100.0);
+            }
+            else if (token.Kind == CssTokenKind.Identifier && string.Equals(token.Text, "from", StringComparison.OrdinalIgnoreCase))
+            {
+                offsets.Add(0);
+            }
+            else if (token.Kind == CssTokenKind.Identifier && string.Equals(token.Text, "to", StringComparison.OrdinalIgnoreCase))
+            {
+                offsets.Add(1);
+            }
+            else
+            {
+                return null;
+            }
+
+            Advance();
+            if (Current.Kind != CssTokenKind.Comma)
+            {
+                return offsets;
+            }
+
+            Advance();
+        }
     }
 
     private CssMediaRuleNode? ParseMediaRule()

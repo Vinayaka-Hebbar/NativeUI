@@ -14,6 +14,9 @@ public interface ICssSyntaxVisitor
     /// <summary>Visits a <see cref="CssMediaRuleNode"/>.</summary>
     void VisitMediaRule(CssMediaRuleNode node);
 
+    /// <summary>Visits a <see cref="CssKeyframesRuleNode"/>.</summary>
+    void VisitKeyframesRule(CssKeyframesRuleNode node);
+
     /// <summary>Visits a <see cref="CssSelectorNode"/>.</summary>
     void VisitSelector(CssSelectorNode node);
 
@@ -59,6 +62,9 @@ public interface ICssSyntaxVisitor<out TResult>
 
     /// <summary>Visits a <see cref="CssMediaRuleNode"/>.</summary>
     TResult VisitMediaRule(CssMediaRuleNode node);
+
+    /// <summary>Visits a <see cref="CssKeyframesRuleNode"/>.</summary>
+    TResult VisitKeyframesRule(CssKeyframesRuleNode node);
 
     /// <summary>Visits a <see cref="CssSelectorNode"/>.</summary>
     TResult VisitSelector(CssSelectorNode node);
@@ -125,6 +131,18 @@ public abstract class CssSyntaxVisitor : ICssSyntaxVisitor
         foreach (CssStyleRuleNode rule in node.Rules)
         {
             rule.Accept(this);
+        }
+    }
+
+    /// <inheritdoc />
+    public virtual void VisitKeyframesRule(CssKeyframesRuleNode node)
+    {
+        foreach (CssKeyframeNode frame in node.Frames)
+        {
+            foreach (CssDeclarationNode declaration in frame.Declarations)
+            {
+                declaration.Accept(this);
+            }
         }
     }
 

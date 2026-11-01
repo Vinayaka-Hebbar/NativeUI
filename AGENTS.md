@@ -56,7 +56,7 @@ Future mobile targets follow the same platform naming pattern: `NativeUI.Control
 - **Target Framework**: `.NET 10` (`net10.0`), `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>`.
 - **Code Style**: Use file-scoped namespaces, Allman braces, explicit types (never use `var`), `PascalCase` for public members/types, `camelCase` for locals/parameters, and `_camelCase` for private instance fields.
 - **Type Naming**: Avoid redundant prefixes or implementation details in type names (e.g., use `IDispatcher` instead of `IUIDispatcher`, `WebHost` instead of `WebUIHost`, `MacOSHost` instead of `MacOSUIHost`, `Window` instead of `MacOSWindow`, `CssVariables` instead of `CssVariableMap`, `CssGenerator` and `XamlGenerator` instead of `*IncrementalGenerator`).
-- **Comments**: Document all public APIs with XML documentation (`/// <summary>`). Never use decorative banner comments (e.g., `// ====` or `// ----`) or numbered step comments (e.g., `// 1.`, `// 2.`). Use concise inline `//` comments only for non-obvious logic or interop invariants.
+- **Comments & Explanations**: Document all public APIs with XML documentation (`/// <summary>`). Never use decorative banner comments (e.g., `// ====` or `// ----`) or numbered step comments (e.g., `// 1.`, `// 2.`, `// Step 1:`) in source code, tests, or conversational code examples and answers. Use concise inline `//` comments only for non-obvious logic or interop invariants.
 - **Build & Test Commands**:
   - Build solution: `dotnet build NativeUI.slnx`
   - Run tests: `dotnet test NativeUI.slnx`

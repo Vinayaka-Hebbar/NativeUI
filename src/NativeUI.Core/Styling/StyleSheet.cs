@@ -211,4 +211,10 @@ public class StyleSheet : IStyleResolver
     {
         return colorValue.HasValue ? colorValue.Value : null;
     }
+
+    /// <inheritdoc />
+    public virtual IReadOnlyList<AnimationKeyframe>? ResolveKeyframes(string name, IUIElement element)
+    {
+        return null;
+    }
 }

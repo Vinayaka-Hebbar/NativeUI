@@ -69,12 +69,27 @@ public sealed class LayoutEngine
         double fillWidth = Math.Max(0, availableWidth - style.Margin.Horizontal);
         return style.Width switch
         {
-            { Pixels: double pixels } => pixels,
+            { IsPixels: true } pixels => pixels.Value,
+            { IsPercent: true } percent => Math.Max(0, availableWidth * percent.Value / 100.0),
             { IsFitContent: true } => Math.Min(knownMaxContentWidth ?? MeasureMaxContentWidth(node), fillWidth),
             _ => (style.IsOutOfFlow && !(style.Left.HasValue && style.Right.HasValue))
                 ? Math.Min(knownMaxContentWidth ?? MeasureMaxContentWidth(node), fillWidth)
                 : fillWidth
         };
+    }
+
+    /// <summary>
+    /// Returns the border-box height that does not depend on content, or null when content determines it. As in CSS, an
+    /// out-of-flow element with both vertical offsets and no height fills <paramref name="availableHeight"/> between them.
+    /// </summary>
+    private static double? ResolveSpecifiedHeight(ComputedStyle style, double availableHeight)
+    {
+        if (style.Height is double height)
+        {
+            return height;
+        }
+
+        return style.IsOutOfFlow && style.Top.HasValue && style.Bottom.HasValue ? availableHeight : null;
     }
 
     /// <summary>
@@ -88,9 +103,9 @@ public sealed class LayoutEngine
         }
 
         ComputedStyle style = node.ComputedStyle;
-        if (style.Width?.Pixels is double pixels)
+        if (style.Width is { IsPixels: true } fixedWidth)
         {
-            return pixels;
+            return fixedWidth.Value;
         }
 
         if (node.TextContent is string text)
@@ -603,14 +618,16 @@ public sealed class LayoutEngine
         double contentY = borderY + padding.Top;
         double contentMaxWidth = Math.Max(0, borderWidth - padding.Horizontal);
 
+        double? specifiedHeight = ResolveSpecifiedHeight(style, availableSize.Height);
+
         if (node.TextContent is string text)
         {
             double finalBorderWidth = borderWidth;
-            Size availableTextSize = new(contentMaxWidth, style.Height ?? double.PositiveInfinity);
+            Size availableTextSize = new(contentMaxWidth, specifiedHeight ?? double.PositiveInfinity);
             ITextLayout textLayout = _textMeasurer.CreateTextLayout(text, availableTextSize, style);
             Size measured = textLayout.Size;
 
-            double finalBorderHeight = style.Height ?? (measured.Height + padding.Vertical);
+            double finalBorderHeight = specifiedHeight ?? (measured.Height + padding.Vertical);
 
             return new LayoutBox(
                 node,
@@ -621,7 +638,7 @@ public sealed class LayoutEngine
                 textLayout);
         }
 
-        double? contentDefiniteHeight = style.Height is double borderHeight ? Math.Max(0, borderHeight - padding.Vertical) : null;
+        double? contentDefiniteHeight = specifiedHeight is double borderHeight ?Math.Max(0, borderHeight - padding.Vertical) : null;
 
         double padX = borderX + style.BorderWidth;
         double padY = borderY + style.BorderWidth;
@@ -641,7 +658,7 @@ public sealed class LayoutEngine
         List<LayoutBox> childBoxes = content.Boxes;
         double maxChildWidth = content.Width;
         double contentHeight = content.Height;
-        double resolvedBorderHeight = style.Height ?? (contentHeight + padding.Vertical);
+        double resolvedBorderHeight = specifiedHeight ?? (contentHeight + padding.Vertical);
 
         double padHeight = Math.Max(0, resolvedBorderHeight - (style.BorderWidth * 2));
         Rect outOfFlowContainingBlock = style.IsPositioned
@@ -668,7 +685,13 @@ public sealed class LayoutEngine
                 : outOfFlowContainingBlock;
 
             Thickness childMargin = childStyle.Margin;
-            double? explicitW = childStyle.Width?.Pixels;
+            bool isPercentWidth = childStyle.Width is { IsPercent: true };
+            double? explicitW = childStyle.Width switch
+            {
+                { IsPixels: true } pixels => pixels.Value,
+                { IsPercent: true } percent => Math.Max(0, targetCb.Width * percent.Value / 100.0),
+                _ => null
+            };
             double childW;
             double knownContentW = 0;
             bool hasKnownContentW = false;
@@ -717,7 +740,8 @@ public sealed class LayoutEngine
                 ? Math.Max(0, targetCb.Height - childStyle.Top.Value - childStyle.Bottom.Value - childMargin.Vertical)
                 : double.PositiveInfinity);
 
-            Size childAvail = new(childW + childMargin.Horizontal, availHeight);
+            // A percentage resolves against the available width, so it needs the containing block and not its own result.
+            Size childAvail = new(isPercentWidth ? targetCb.Width : childW + childMargin.Horizontal, availHeight);
             LayoutBox childBox = LayoutNodeRecursive(
                 child,
                 new Point(originX, originY),

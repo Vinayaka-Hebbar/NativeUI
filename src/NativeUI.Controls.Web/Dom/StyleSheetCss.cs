@@ -32,6 +32,16 @@ internal static class StyleSheetCss
     public const string ScrollViewAttribute = "data-nui-scroll-view";
 
     /// <summary>
+    /// The attribute marking the element of a <see cref="ProgressBar"/>, whose default box the base stylesheet sets.
+    /// </summary>
+    public const string ProgressBarAttribute = "data-nui-progress";
+
+    // Importance is what lets this zero-specificity rule override the animations authors declare, as desktop does when the system asks.
+    private const string ReducedMotionCss =
+        "@media (prefers-reduced-motion: reduce) { :where(native-ui, native-ui *) { " +
+        "transition-duration: 0s !important; animation-duration: 0s !important; animation-iteration-count: 1 !important; } }";
+
+    /// <summary>
     /// The attribute marking the element of a <see cref="Portal"/>, which the base stylesheet takes out of the page flow.
     /// </summary>
     public const string PortalAttribute = "data-nui-portal";
@@ -222,6 +232,12 @@ internal static class StyleSheetCss
                 ["color"] = new CssStringValue("inherit"),
                 ["z-index"] = new CssStringValue("1000")
             }),
+            new($":where([{ProgressBarAttribute}])", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["position"] = new CssStringValue("relative"),
+                ["overflow"] = new CssStringValue("hidden"),
+                ["height"] = new CssStringValue("8px")
+            }),
             new(":where(native-ui dialog)::backdrop", null, [], false, new Dictionary<string, CssValue>
             {
                 ["background"] = new CssStringValue("rgb(0 0 0 / 0.5)")
@@ -267,7 +283,8 @@ internal static class StyleSheetCss
             })
         ];
 
-        return new CssStyleSheet("NativeUI.Base", string.Join('\n', rules.Select(WriteBaseRule)), rules);
+        string css = string.Join('\n', rules.Select(WriteBaseRule)) + "\n" + ReducedMotionCss;
+        return new CssStyleSheet("NativeUI.Base", css, rules);
     }
 
     /// <summary>

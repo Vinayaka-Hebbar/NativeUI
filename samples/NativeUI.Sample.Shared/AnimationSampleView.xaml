@@ -1,0 +1,28 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.AnimationSampleView"
+      x:DataType="NativeUI.Sample.HelloViewModel">
+
+    <Text Class="section" Value="ProgressBar" />
+    <ProgressBar x:Name="UploadProgress" Class="upload" Value="20" />
+    <StackPanel Class="animation-actions" Orientation="Horizontal" Spacing="8">
+        <Button x:Name="AddProgressButton" Class="btn-action" Text="Add 20" />
+        <Button x:Name="ResetProgressButton" Class="btn-action" Text="Reset" />
+    </StackPanel>
+
+    <Text Class="section" Value="Indeterminate" />
+    <ProgressBar Class="upload" IsIndeterminate="true" />
+
+    <Text Class="section" Value="Transition on hover" />
+    <View Class="transition-box">
+        <Text Value="Hover over this box" />
+    </View>
+
+    <Text Class="section" Value="Animate from C#" />
+    <View x:Name="PulseBox" Class="transition-box">
+        <Text x:Name="PulseStatus" Value="Not played yet" />
+    </View>
+    <StackPanel Class="animation-actions" Orientation="Horizontal" Spacing="8">
+        <Button x:Name="PulseButton" Class="btn-action" Text="Play pulse" />
+    </StackPanel>
+</View>
