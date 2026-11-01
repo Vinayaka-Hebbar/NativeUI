@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NativeUI.Core\NativeUI.Core.csproj" />
+    <ProjectReference Include="..\NativeUI.Controls\NativeUI.Controls.csproj" />
+    <ProjectReference Include="..\NativeUI.Graphics\NativeUI.Graphics.csproj" />
+  </ItemGroup>
+
+</Project>

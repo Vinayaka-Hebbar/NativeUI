@@ -14,7 +14,7 @@ namespace NativeUI.Controls.MacOS;
 /// follows <see cref="Application.CurrentTheme"/>, propagates <see cref="StyleResolver"/>, routes mouse/keyboard text selection
 /// and clipboard operations, and renders its visual tree using <see cref="VisualTreeRenderer"/> and <see cref="SkiaSurface"/>.
 /// </summary>
-public sealed class Window : IDisposable
+public sealed class Window : IDisposable, IRenderHost
 {
     private const ulong StyleMaskTitled = 1UL << 0;
     private const ulong StyleMaskClosable = 1UL << 1;
@@ -36,6 +36,7 @@ public sealed class Window : IDisposable
     private LayoutBox? _activeSelectionBox;
     private int _selectionAnchorPosition;
     private bool _isDraggingSelection;
+    private bool _overlayCapturesPointer;
     private Point? _pointerPosition;
     private PointerButtons _pointerButtons;
     private PointerModifiers _pointerModifiers;
@@ -132,6 +133,15 @@ public sealed class Window : IDisposable
     /// Gets the most recently computed <see cref="LayoutBox"/> tree from the last render pass.
     /// </summary>
     public LayoutBox? LastLayout { get; private set; }
+
+    /// <inheritdoc />
+    public IList<IRenderOverlay> Overlays => _renderer.Overlays;
+
+    /// <inheritdoc />
+    public void InvalidateRender()
+    {
+        InvalidateFrame();
+    }
 
     /// <summary>
     /// Gets the native Objective-C <c>NSWindow*</c> pointer when shown on macOS, or <see cref="nint.Zero"/> in headless mode.
@@ -247,6 +257,14 @@ public sealed class Window : IDisposable
         try
         {
             StorePointerState(viewportPoint, PointerButtons.Primary, modifiers);
+            if (DispatchOverlayPointer(OverlayPointerAction.Pressed, viewportPoint))
+            {
+                _overlayCapturesPointer = true;
+                UpdateHoverState(null);
+                UpdateCursor();
+                return;
+            }
+
             UIElement? hoveredElement = HitTest(viewportPoint);
             UpdateHoverState(hoveredElement);
             hoveredElement?.RaiseEvent(
@@ -319,6 +337,18 @@ public sealed class Window : IDisposable
         {
             PointerButtons buttons = isPressed ? PointerButtons.Primary : PointerButtons.None;
             StorePointerState(viewportPoint, buttons, modifiers);
+
+            // A drag that started in the visual tree stays there, even over an overlay.
+            if (!isPressed || _overlayCapturesPointer)
+            {
+                DispatchOverlayPointer(OverlayPointerAction.Moved, viewportPoint);
+            }
+
+            if (_overlayCapturesPointer)
+            {
+                return;
+            }
+
             UIElement? hoveredElement = HitTest(viewportPoint);
             UpdateHoverState(hoveredElement);
             hoveredElement?.RaiseEvent(
@@ -369,6 +399,14 @@ public sealed class Window : IDisposable
         try
         {
             StorePointerState(viewportPoint, PointerButtons.None, modifiers);
+            if (_overlayCapturesPointer)
+            {
+                _overlayCapturesPointer = false;
+                DispatchOverlayPointer(OverlayPointerAction.Released, viewportPoint);
+                UpdateCursor();
+                return;
+            }
+
             UIElement? hoveredElement = HitTest(viewportPoint);
             UpdateHoverState(hoveredElement);
             hoveredElement?.RaiseEvent(
@@ -424,6 +462,7 @@ public sealed class Window : IDisposable
         BeginFrameBatch();
         try
         {
+            DispatchOverlayPointer(OverlayPointerAction.Exited, default);
             UpdateHoverState(null);
             _pointerPosition = null;
             UpdateCursor();
@@ -439,6 +478,7 @@ public sealed class Window : IDisposable
     /// </summary>
     public void HandlePointerCancelled()
     {
+        _overlayCapturesPointer = false;
         BeginFrameBatch();
         try
         {
@@ -477,11 +517,22 @@ public sealed class Window : IDisposable
     /// Processes keyboard shortcuts such as <c>Cmd+C</c> / <c>Ctrl+C</c> (copy selected text to <see cref="Clipboard"/>)
     /// and <c>Cmd+A</c> / <c>Ctrl+A</c> (select all).
     /// </summary>
-    public async ValueTask<bool> HandleKeyDownAsync(string key, bool commandOrControl)
+    public async ValueTask<bool> HandleKeyDownAsync(
+        string key,
+        bool commandOrControl,
+        PointerModifiers modifiers = PointerModifiers.None)
     {
         if (_content is null || string.IsNullOrEmpty(key))
         {
             return false;
+        }
+
+        foreach (IRenderOverlay overlay in Overlays)
+        {
+            if (overlay.HandleKey(key, modifiers))
+            {
+                return true;
+            }
         }
 
         if (commandOrControl && string.Equals(key, "c", StringComparison.OrdinalIgnoreCase))
@@ -727,7 +778,26 @@ public sealed class Window : IDisposable
 
     private UIElement? HitTest(Point position)
     {
-        return LastLayout is null ? null : HitTest(LastLayout, position);
+        if (LastLayout is null || Overlays.Any(overlay => overlay.ContainsPoint(position)))
+        {
+            return null;
+        }
+
+        return HitTest(LastLayout, position);
+    }
+
+    /// <summary>
+    /// Offers pointer input to overlays from the topmost down, and returns whether one accepted it.
+    /// </summary>
+    private bool DispatchOverlayPointer(OverlayPointerAction action, Point position)
+    {
+        bool accepted = false;
+        for (int i = Overlays.Count - 1; i >= 0; i--)
+        {
+            accepted |= Overlays[i].HandlePointer(action, position);
+        }
+
+        return accepted;
     }
 
     private void UpdateHoverState(UIElement? hoveredElement)

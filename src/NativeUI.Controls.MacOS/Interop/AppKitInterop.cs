@@ -584,6 +584,6 @@ internal static partial class AppKitInterop
             return false;
         }
 
-        return window.HandleKeyDownAsync(key, hasCommandOrControl).GetAwaiter().GetResult();
+        return window.HandleKeyDownAsync(key, hasCommandOrControl, GetModifiers(nsEvent)).GetAwaiter().GetResult();
     }
 }

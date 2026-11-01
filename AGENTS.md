@@ -34,6 +34,7 @@ NativeUI.slnx
 │   ├── NativeUI.Controls/           # Shared UIElement and control definitions (View, Text, Input, etc.)
 │   ├── NativeUI.Graphics/           # Platform-agnostic drawing & visual tree rendering abstractions
 │   ├── NativeUI.Graphics.Skia/      # Shared SkiaSharp + HarfBuzz desktop drawing & text shaping engine
+│   ├── NativeUI.DevTools/           # Skia overlay tools (FPS, layout bounds); browser dev tools cover Web
 │   ├── NativeUI.Controls.Windows/   # Windows native window hosting, OS services & native text input
 │   ├── NativeUI.Controls.MacOS/     # macOS (AppKit) native Window, MacOSHost & native text input
 │   ├── NativeUI.Controls.Linux/     # Linux (GTK 4) native window hosting, OS services & native text input

@@ -17,4 +17,8 @@
     <ProjectReference Include="..\NativeUI.Sample.Shared\NativeUI.Sample.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <ProjectReference Include="..\..\src\NativeUI.DevTools\NativeUI.DevTools.csproj" />
+  </ItemGroup>
+
 </Project>

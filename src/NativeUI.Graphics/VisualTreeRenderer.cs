@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Collections.Immutable;
 using NativeUI.Controls;
 using NativeUI.Core;
@@ -23,6 +24,7 @@ public sealed class VisualTreeRenderer : IDisposable
 
     private readonly LayoutEngine _layoutEngine;
     private readonly RetainedTextMeasurer _textMeasurer;
+    private readonly ITextMeasurer _overlayTextMeasurer;
     private bool _disposed;
 
     /// <summary>
@@ -33,8 +35,14 @@ public sealed class VisualTreeRenderer : IDisposable
     {
         ArgumentNullException.ThrowIfNull(textMeasurer);
         _textMeasurer = new RetainedTextMeasurer(textMeasurer);
+        _overlayTextMeasurer = textMeasurer;
         _layoutEngine = new LayoutEngine(_textMeasurer);
     }
+
+    /// <summary>
+    /// Gets the overlays drawn after the visual tree, in order.
+    /// </summary>
+    public IList<IRenderOverlay> Overlays { get; } = [];
 
     /// <summary>
     /// Computes layout for <paramref name="root"/> within <paramref name="logicalViewport"/> and draws the visual tree
@@ -51,6 +59,7 @@ public sealed class VisualTreeRenderer : IDisposable
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(root);
 
+        long layoutStart = Stopwatch.GetTimestamp();
         _textMeasurer.BeginPass();
         LayoutBox rootBox;
         try
@@ -64,6 +73,8 @@ public sealed class VisualTreeRenderer : IDisposable
             throw;
         }
 
+        TimeSpan layoutDuration = Stopwatch.GetElapsedTime(layoutStart);
+
         context.Save();
         try
         {
@@ -71,6 +82,12 @@ public sealed class VisualTreeRenderer : IDisposable
             context.Clear(background ?? root.ComputedStyle.BackgroundColor ?? Colors.Transparent);
 
             DrawBoxRecursive(context, rootBox);
+
+            RenderPass pass = new(rootBox, logicalViewport, layoutDuration, _overlayTextMeasurer);
+            foreach (IRenderOverlay overlay in Overlays)
+            {
+                overlay.Draw(context, pass);
+            }
         }
         finally
         {
