@@ -374,6 +374,10 @@ public static class XamlEmitter
                 SyntaxKind.SimpleMemberAccessExpression,
                 IdentifierName("Alignment"),
                 IdentifierName(rawLiteral)),
+            XamlPropertyKind.Position => MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                IdentifierName("Position"),
+                IdentifierName(rawLiteral)),
             XamlPropertyKind.GridLengthList => CollectionExpression(SeparatedList<CollectionElementSyntax>(
                 XamlValidator.SplitList(rawLiteral).Select(static token => ExpressionElement(StringLiteral(token))))),
             XamlPropertyKind.ClassList => CollectionExpression(SeparatedList<CollectionElementSyntax>(

@@ -42,6 +42,7 @@ public class Portal : View
     static Portal()
     {
         WidthProperty.OverrideMetadata<Portal>(WidthValue.FitContent);
+        PositionProperty.OverrideMetadata<Portal>(NativeUI.Layout.Position.Fixed);
     }
 
     /// <summary>
@@ -102,6 +103,9 @@ public class Portal : View
     /// <inheritdoc />
     public override string TagName => "portal";
 
+    /// <inheritdoc />
+    public override bool IsVisible => base.IsVisible && IsOpen;
+
     /// <summary>
     /// Gets a value indicating whether this portal is open.
     /// </summary>
@@ -152,12 +156,6 @@ public class Portal : View
         get => GetValue(AlignOffsetProperty);
         set => SetValue(AlignOffsetProperty, value);
     }
-
-    /// <summary>
-    /// Gets a value indicating whether the platform presents this portal in its own window instead of drawing it in the
-    /// window of its parent.
-    /// </summary>
-    internal virtual bool UsesOwnWindow => false;
 
     /// <summary>
     /// Gets a value indicating whether a press outside this portal and its anchor closes it.

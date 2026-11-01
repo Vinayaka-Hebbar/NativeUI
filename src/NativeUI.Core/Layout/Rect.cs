@@ -10,6 +10,11 @@ namespace NativeUI.Layout;
 public readonly record struct Rect(double X, double Y, double Width, double Height)
 {
     /// <summary>
+    /// Gets an empty rectangle with coordinates and dimensions set to zero.
+    /// </summary>
+    public static Rect Empty => new(0, 0, 0, 0);
+
+    /// <summary>
     /// Gets the right edge coordinate (<see cref="X"/> + <see cref="Width"/>).
     /// </summary>
     public double Right => X + Width;

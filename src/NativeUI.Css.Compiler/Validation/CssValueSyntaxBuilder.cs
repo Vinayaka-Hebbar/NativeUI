@@ -60,7 +60,7 @@ internal static class CssValueSyntaxBuilder
         {
             "color" or "background-color" or "background" or "border-color" => TryBuildColorSyntax(valueNode, out expression, out colorLiteral),
             "width" => TryBuildWidthSyntax(valueNode, out expression),
-            "font-size" or "border-radius" or "border-width" or "height" => TryBuildLengthSyntax(valueNode, out expression),
+            "font-size" or "border-radius" or "border-width" or "height" or "top" or "right" or "bottom" or "left" => TryBuildLengthSyntax(valueNode, out expression),
             "padding" or "margin" => TryBuildThicknessSyntax(valueNode, out expression),
             "font-weight" => TryBuildFontWeightSyntax(valueNode, out expression),
             "text-align" => TryBuildTextAlignSyntax(valueNode, out expression),
@@ -70,6 +70,7 @@ internal static class CssValueSyntaxBuilder
             "overflow" or "overflow-x" or "overflow-y" => TryBuildOverflowSyntax(valueNode, out expression),
             "scrollbar-color" => TryBuildScrollbarColorSyntax(valueNode, out expression),
             "scrollbar-width" => TryBuildScrollbarWidthSyntax(valueNode, out expression),
+            "position" => TryBuildPositionSyntax(valueNode, out expression),
             _ => false
         };
     }
@@ -386,6 +387,32 @@ internal static class CssValueSyntaxBuilder
         }
 
         expression = BuildNewCssValue("CssScrollbarWidthValue", BuildEnumMember("ScrollbarWidth", width));
+        return true;
+    }
+
+    private static bool TryBuildPositionSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        expression = null;
+        if (node is not CssKeywordValueNode keyword)
+        {
+            return false;
+        }
+
+        string? position = keyword.Keyword.ToLowerInvariant() switch
+        {
+            "static" => "Static",
+            "relative" => "Relative",
+            "absolute" => "Absolute",
+            "fixed" => "Fixed",
+            _ => null
+        };
+
+        if (position is null)
+        {
+            return false;
+        }
+
+        expression = BuildNewCssValue("CssPositionValue", BuildEnumMember("Position", position));
         return true;
     }
 

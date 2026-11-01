@@ -227,36 +227,36 @@ public sealed class Window : IDisposable, IRenderHost
     /// </summary>
     private void CreateNativeWindow(ulong styleMask)
     {
-            AppKitInterop.EnsureFrameworksLoaded();
-            SyncContentStyle();
+        AppKitInterop.EnsureFrameworksLoaded();
+        SyncContentStyle();
 
-            AppKitInterop.CGRect rect = new(120, 120, Width, Height);
+        AppKitInterop.CGRect rect = new(120, 120, Width, Height);
 
-            nint windowClass = AppKitInterop.GetClass("NSWindow");
-            nint allocWin = AppKitInterop.SendMessage(windowClass, AppKitInterop.GetSelector("alloc"));
-            _nsWindow = AppKitInterop.SendMessageWindowInit(
-                allocWin,
-                AppKitInterop.GetSelector("initWithContentRect:styleMask:backing:defer:"),
-                rect,
-                styleMask,
-                BackingStoreBuffered,
-                false);
+        nint windowClass = AppKitInterop.GetClass("NSWindow");
+        nint allocWin = AppKitInterop.SendMessage(windowClass, AppKitInterop.GetSelector("alloc"));
+        _nsWindow = AppKitInterop.SendMessageWindowInit(
+            allocWin,
+            AppKitInterop.GetSelector("initWithContentRect:styleMask:backing:defer:"),
+            rect,
+            styleMask,
+            BackingStoreBuffered,
+            false);
 
-            nint nsTitle = AppKitInterop.CreateNSString(_title);
-            AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setTitle:"), nsTitle);
+        nint nsTitle = AppKitInterop.CreateNSString(_title);
+        AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setTitle:"), nsTitle);
 
-            nint imageViewClass = AppKitInterop.GetInteractiveImageViewClass();
-            nint allocImgView = AppKitInterop.SendMessage(imageViewClass, AppKitInterop.GetSelector("alloc"));
-            _nsImageView = AppKitInterop.SendMessageViewInit(
-                allocImgView,
-                AppKitInterop.GetSelector("initWithFrame:"),
-                new AppKitInterop.CGRect(0, 0, Width, Height));
+        nint imageViewClass = AppKitInterop.GetInteractiveImageViewClass();
+        nint allocImgView = AppKitInterop.SendMessage(imageViewClass, AppKitInterop.GetSelector("alloc"));
+        _nsImageView = AppKitInterop.SendMessageViewInit(
+            allocImgView,
+            AppKitInterop.GetSelector("initWithFrame:"),
+            new AppKitInterop.CGRect(0, 0, Width, Height));
 
-            AppKitInterop.RegisterWindowView(_nsImageView, this);
-            AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setContentView:"), _nsImageView);
-            AppKitInterop.InstallPointerTracking(_nsWindow, _nsImageView);
-            AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setAutorecalculatesKeyViewLoop:"), true);
-            _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
+        AppKitInterop.RegisterWindowView(_nsImageView, this);
+        AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setContentView:"), _nsImageView);
+        AppKitInterop.InstallPointerTracking(_nsWindow, _nsImageView);
+        AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setAutorecalculatesKeyViewLoop:"), true);
+        _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
     }
 
     /// <summary>
@@ -825,11 +825,9 @@ public sealed class Window : IDisposable, IRenderHost
     {
         HashSet<Input> placed = [];
         Rect windowArea = new(0, 0, Width, Height);
-        PlaceTextFields(root, windowArea, 1.0, placed, _renderer.PortalBoxes);
-        foreach (LayoutBox portalBox in _renderer.PortalBoxes)
-        {
-            PlaceTextFields(portalBox, windowArea, 1.0, placed, []);
-        }
+        List<LayoutBox> layouts = [.. _renderer.PortalBoxes];
+        CollectPositionedElements(root, layouts);
+        PlaceTextFields(root, windowArea, 1.0, placed, layouts);
 
         if (_inputBlocker != nint.Zero)
         {
@@ -854,6 +852,11 @@ public sealed class Window : IDisposable, IRenderHost
     private void PlaceTextFields(LayoutBox box, Rect clip, double opacity, HashSet<Input> placed, IReadOnlyList<LayoutBox> covers)
     {
         if (box.Element is not UIElement { IsVisible: true } element)
+        {
+            return;
+        }
+
+        if (element is IWindowHostedElement { HasOwnWindow: true } && !ReferenceEquals(element, _content))
         {
             return;
         }
@@ -883,6 +886,24 @@ public sealed class Window : IDisposable, IRenderHost
         foreach (LayoutBox child in box.Children)
         {
             PlaceTextFields(child, childClip, boxOpacity, placed, covers);
+        }
+    }
+
+    private static void CollectPositionedElements(LayoutBox box, List<LayoutBox> layouts)
+    {
+        if (box.Element is not UIElement { IsVisible: true })
+        {
+            return;
+        }
+
+        if (box.Style.Position is Position.Absolute or Position.Fixed && box.Style.BackgroundColor is not null)
+        {
+            layouts.Add(box);
+        }
+
+        foreach (LayoutBox child in box.Children)
+        {
+            CollectPositionedElements(child, layouts);
         }
     }
 

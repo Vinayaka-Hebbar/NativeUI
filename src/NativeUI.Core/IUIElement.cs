@@ -1,3 +1,4 @@
+using NativeUI.Layout;
 using NativeUI.Media;
 using NativeUI.Styling;
 
@@ -52,6 +53,31 @@ public interface IUIElement
     /// Gets the element's vertical overflow: its inline value, or the default for its control type. Stylesheets override a default.
     /// </summary>
     Overflow? OverflowY { get; }
+
+    /// <summary>
+    /// Gets the element's CSS positioning scheme: its inline value, or the default for its control type. Stylesheets override a default.
+    /// </summary>
+    Position? Position { get; }
+
+    /// <summary>
+    /// Gets the offset from the top edge of the containing block in logical pixels.
+    /// </summary>
+    double? Top { get; }
+
+    /// <summary>
+    /// Gets the offset from the right edge of the containing block in logical pixels.
+    /// </summary>
+    double? Right { get; }
+
+    /// <summary>
+    /// Gets the offset from the bottom edge of the containing block in logical pixels.
+    /// </summary>
+    double? Bottom { get; }
+
+    /// <summary>
+    /// Gets the offset from the left edge of the containing block in logical pixels.
+    /// </summary>
+    double? Left { get; }
 
     /// <summary>
     /// Gets the most recently computed style snapshot.

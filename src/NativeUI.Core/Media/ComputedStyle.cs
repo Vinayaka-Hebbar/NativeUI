@@ -1,4 +1,5 @@
 using NativeUI.Core;
+using NativeUI.Layout;
 using NativeUI.Styling;
 
 namespace NativeUI.Media;
@@ -124,6 +125,41 @@ public sealed record ComputedStyle
     public ScrollbarWidth ScrollbarWidth { get; init; } = ScrollbarWidth.Auto;
 
     /// <summary>
+    /// Gets the positioning scheme for the element (defaults to <see cref="Position.Static"/>).
+    /// </summary>
+    public Position Position { get; init; } = Position.Static;
+
+    /// <summary>
+    /// Gets the explicit top offset in logical pixels, or <see langword="null"/> when auto/unspecified.
+    /// </summary>
+    public double? Top { get; init; }
+
+    /// <summary>
+    /// Gets the explicit right offset in logical pixels, or <see langword="null"/> when auto/unspecified.
+    /// </summary>
+    public double? Right { get; init; }
+
+    /// <summary>
+    /// Gets the explicit bottom offset in logical pixels, or <see langword="null"/> when auto/unspecified.
+    /// </summary>
+    public double? Bottom { get; init; }
+
+    /// <summary>
+    /// Gets the explicit left offset in logical pixels, or <see langword="null"/> when auto/unspecified.
+    /// </summary>
+    public double? Left { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether this element establishes a positioned context (<c>relative</c>, <c>absolute</c>, or <c>fixed</c>).
+    /// </summary>
+    public bool IsPositioned => Position is not Position.Static;
+
+    /// <summary>
+    /// Gets a value indicating whether this element is taken out of normal layout flow (<c>absolute</c> or <c>fixed</c>).
+    /// </summary>
+    public bool IsOutOfFlow => Position is Position.Absolute or Position.Fixed;
+
+    /// <summary>
     /// Gets a value indicating whether content is clipped to the element's bounds.
     /// As in CSS, a non-visible overflow on either axis clips both.
     /// </summary>
@@ -164,7 +200,12 @@ public sealed record ComputedStyle
             Width = element.Width,
             Height = element.Height,
             OverflowX = element.OverflowX,
-            OverflowY = element.OverflowY
+            OverflowY = element.OverflowY,
+            Position = element.Position ?? Default.Position,
+            Top = element.Top,
+            Right = element.Right,
+            Bottom = element.Bottom,
+            Left = element.Left
         };
     }
 
@@ -202,7 +243,12 @@ public sealed record ComputedStyle
             OverflowY = inlineStyle.OverflowY ?? OverflowY,
             ScrollbarThumbColor = ResolveColor(inlineStyle.ScrollbarThumbColor, ScrollbarThumbColor, resolver, element),
             ScrollbarTrackColor = ResolveColor(inlineStyle.ScrollbarTrackColor, ScrollbarTrackColor, resolver, element),
-            ScrollbarWidth = inlineStyle.ScrollbarWidth ?? ScrollbarWidth
+            ScrollbarWidth = inlineStyle.ScrollbarWidth ?? ScrollbarWidth,
+            Position = inlineStyle.Position ?? Position,
+            Top = inlineStyle.Top ?? Top,
+            Right = inlineStyle.Right ?? Right,
+            Bottom = inlineStyle.Bottom ?? Bottom,
+            Left = inlineStyle.Left ?? Left
         };
     }
 

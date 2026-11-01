@@ -13,7 +13,7 @@ namespace NativeUI.Controls.Web;
 /// portal opens or its placement changes; it does not follow a later scroll or resize.
 /// </summary>
 [SupportedOSPlatform("browser")]
-public sealed class HtmlDomPortal : HtmlDomView
+public class HtmlDomPortal : HtmlDomView
 {
     private readonly Portal _portal;
     private bool _isMounted;
@@ -23,6 +23,11 @@ public sealed class HtmlDomPortal : HtmlDomView
     {
         _portal = portal;
     }
+
+    /// <summary>
+    /// Gets the underlying <see cref="Portal"/> element.
+    /// </summary>
+    internal Portal Portal => _portal;
 
     /// <summary>
     /// Applies a close that the browser performed, such as on Escape.
@@ -37,7 +42,6 @@ public sealed class HtmlDomPortal : HtmlDomView
     {
         base.Initialize();
         SetAttribute(StyleSheetCss.PortalAttribute, string.Empty);
-        UpdateAriaReferences();
         UpdateMounted();
     }
 
@@ -55,13 +59,6 @@ public sealed class HtmlDomPortal : HtmlDomView
             ReferenceEquals(args.Property, Portal.AlignOffsetProperty))
         {
             UpdatePosition();
-        }
-        else if (ReferenceEquals(args.Property, Dialog.TitleProperty) ||
-            ReferenceEquals(args.Property, Dialog.TitleContentProperty) ||
-            ReferenceEquals(args.Property, Dialog.DescriptionProperty) ||
-            ReferenceEquals(args.Property, Dialog.DescriptionContentProperty))
-        {
-            UpdateAriaReferences();
         }
     }
 
@@ -122,15 +119,6 @@ public sealed class HtmlDomPortal : HtmlDomView
         Point position = PortalPlacement.Compute(_portal, anchor, bounds.Size, viewport, viewport);
         SetStyleProperty("left", position.X.ToString("R", CultureInfo.InvariantCulture) + "px");
         SetStyleProperty("top", position.Y.ToString("R", CultureInfo.InvariantCulture) + "px");
-    }
-
-    private void UpdateAriaReferences()
-    {
-        if (_portal is Dialog dialog)
-        {
-            SetAttribute("aria-labelledby", dialog.TitlePartId);
-            SetAttribute("aria-describedby", dialog.DescriptionPartId);
-        }
     }
 
     private static Rect ReadBounds(JSObject element)

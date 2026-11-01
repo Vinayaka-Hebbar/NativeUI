@@ -10,11 +10,18 @@ namespace NativeUI.Controls;
 /// The parts carry the classes <c>dialog-title</c>, <c>dialog-description</c>, <c>dialog-content</c>, and <c>dialog-footer</c>.
 /// Do not change <see cref="View.Children"/> directly; use <see cref="Content"/>.
 /// </summary>
-public class Dialog : Portal
+public class Dialog : Portal, IWindowHostedElement
 {
     private const double FooterSpacing = 8;
 
-    private static int s_lastPartId;
+    /// <summary>
+    /// Identifies the <see cref="HasOwnWindow"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<bool> HasOwnWindowProperty =
+        BindableProperty.Create<Dialog, bool>(
+            nameof(HasOwnWindow),
+            defaultValue: true,
+            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
 
     /// <summary>
     /// Identifies the <see cref="IsModal"/> bindable property.
@@ -78,14 +85,20 @@ public class Dialog : Portal
     private object? _closeResult;
 
     /// <summary>
+    /// Gets the element representing the title part of the dialog.
+    /// </summary>
+    public View TitlePart => _titlePart;
+
+    /// <summary>
+    /// Gets the element representing the description part of the dialog.
+    /// </summary>
+    public View DescriptionPart => _descriptionPart;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="Dialog"/> class.
     /// </summary>
     public Dialog()
     {
-        int partId = ++s_lastPartId;
-        _titlePart.Id = $"nui-dialog-title-{partId}";
-        _descriptionPart.Id = $"nui-dialog-description-{partId}";
-
         Children.Add(_titlePart);
         Children.Add(_descriptionPart);
         Children.Add(_contentPart);
@@ -209,18 +222,12 @@ public class Dialog : Portal
         }
     }
 
-    /// <summary>
-    /// Gets the element identifier of the title part, or <see langword="null"/> when the dialog has no title.
-    /// </summary>
-    internal string? TitlePartId => _titlePart.IsVisible ? _titlePart.Id : null;
-
-    /// <summary>
-    /// Gets the element identifier of the description part, or <see langword="null"/> when the dialog has no description.
-    /// </summary>
-    internal string? DescriptionPartId => _descriptionPart.IsVisible ? _descriptionPart.Id : null;
-
     /// <inheritdoc />
-    internal override bool UsesOwnWindow => true;
+    public bool HasOwnWindow
+    {
+        get => GetValue(HasOwnWindowProperty);
+        set => SetValue(HasOwnWindowProperty, value);
+    }
 
     /// <inheritdoc />
     internal override bool ClosesOnOutsidePress => !IsModal;

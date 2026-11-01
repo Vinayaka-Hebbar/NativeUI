@@ -46,7 +46,7 @@ public sealed class VisualTreeRenderer : IDisposable
 
     /// <summary>
     /// Gets the layout boxes of the open portals drawn in the last pass, in drawing order. A portal that
-    /// <see cref="Portal.UsesOwnWindow"/> is not among them.
+    /// <see cref="IWindowHostedElement.HasOwnWindow"/> is not among them.
     /// </summary>
     public IReadOnlyList<LayoutBox> PortalBoxes { get; private set; } = [];
 
@@ -83,6 +83,7 @@ public sealed class VisualTreeRenderer : IDisposable
         TimeSpan layoutDuration = Stopwatch.GetElapsedTime(layoutStart);
 
         context.Save();
+        _currentRoot = root;
         try
         {
             context.Scale(scaleFactor, scaleFactor);
@@ -154,7 +155,7 @@ public sealed class VisualTreeRenderer : IDisposable
         {
             if (child is Portal portal)
             {
-                if (portal.IsOpen && !portal.UsesOwnWindow)
+                if (portal.IsOpen && portal is not IWindowHostedElement { HasOwnWindow: true })
                 {
                     portals.Add(portal);
                     CollectOpenPortals(portal, portals);
@@ -197,9 +198,16 @@ public sealed class VisualTreeRenderer : IDisposable
         return null;
     }
 
+    private UIElement? _currentRoot;
+
     private void DrawBoxRecursive(DrawingContext context, LayoutBox box)
     {
         if (box.Element is UIElement { IsVisible: false })
+        {
+            return;
+        }
+
+        if (box.Element is IWindowHostedElement { HasOwnWindow: true } && !ReferenceEquals(box.Element, _currentRoot))
         {
             return;
         }

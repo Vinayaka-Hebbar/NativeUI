@@ -67,7 +67,12 @@ public sealed class CssValidator : CssSyntaxVisitor
         "overflow-x",
         "overflow-y",
         "scrollbar-color",
-        "scrollbar-width"
+        "scrollbar-width",
+        "position",
+        "top",
+        "right",
+        "bottom",
+        "left"
     };
 
     private readonly string _filePath;

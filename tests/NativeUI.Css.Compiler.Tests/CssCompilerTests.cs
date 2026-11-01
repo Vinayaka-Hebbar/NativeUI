@@ -12,7 +12,8 @@ int exitCode = TestRunner.RunSuite("NativeUI.Css.Compiler.Tests",
     ("CssEmitter translates only type selectors for browser CSS and emits selector metadata", TestBrowserCssAndSelectorEmission),
     ("CssEmitter compiles cursor property and active/disabled pseudo-classes", TestButtonAndCursorCssEmission),
     ("Browser CSS gates color-scheme rules on the root's theme instead of the OS preference", TestBrowserCssThemeRules),
-    ("CssEmitter compiles width: fit-content and rejects it on other properties", TestFitContentWidthEmission)
+    ("CssEmitter compiles width: fit-content and rejects it on other properties", TestFitContentWidthEmission),
+    ("CssEmitter compiles position relative, absolute, fixed, and offset lengths", TestPositionAndOffsetsCssEmission)
 ]);
 
 return exitCode;
@@ -178,3 +179,33 @@ static void TestButtonAndCursorCssEmission()
     Assert.Contains("requiredStates: ElementStates.Pressed", emitted);
     Assert.Contains("requiredStates: ElementStates.Disabled", emitted);
 }
+
+static void TestPositionAndOffsetsCssEmission()
+{
+    const string css = """
+        .badge {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+        }
+        .overlay {
+            position: fixed;
+            bottom: 0px;
+            left: 20px;
+        }
+        """;
+
+    ValidatedCssStylesheet validated = CssValidator.Validate(
+        CssParser.Parse("PositionTheme.css", css));
+
+    Assert.Equal(0, validated.Diagnostics.Count);
+    string emitted = CssEmitter.Emit(validated, "NativeUI.Sample.Shared", Accessibility.Public);
+
+    Assert.Contains("new CssPositionValue(Position.Absolute)", emitted);
+    Assert.Contains("new CssPositionValue(Position.Fixed)", emitted);
+    Assert.Contains("new CssLengthValue(10)", emitted);
+    Assert.Contains("new CssLengthValue(15)", emitted);
+    Assert.Contains("new CssLengthValue(0)", emitted);
+    Assert.Contains("new CssLengthValue(20)", emitted);
+}
+

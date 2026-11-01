@@ -64,7 +64,18 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("CanvasView runs OnDraw before the Draw event", NativeUI.Controls.Tests.CanvasViewTests.VerifyOnDrawRunsBeforeDrawEvent),
     ("CanvasView fills the width and does not draw without a height", NativeUI.Controls.Tests.CanvasViewTests.VerifyFillsWidthAndSkipsDrawingWithoutHeight),
     ("CanvasView InvalidateCanvas raises VisualInvalidated", NativeUI.Controls.Tests.CanvasViewTests.VerifyInvalidateVisual),
-    ("VisualTreeRenderer translates, clips, and renders CanvasView", NativeUI.Controls.Tests.CanvasViewTests.VerifyVisualTreeRendererDrawsCanvas)
+    ("VisualTreeRenderer translates, clips, and renders CanvasView", NativeUI.Controls.Tests.CanvasViewTests.VerifyVisualTreeRendererDrawsCanvas),
+    ("Relative positioning offsets element without shifting sibling flow", NativeUI.Controls.Tests.PositioningTests.VerifyRelativePositioningDoesNotShiftSiblings),
+    ("Absolute positioning resolves top and right offsets relative to card", NativeUI.Controls.Tests.PositioningTests.VerifyAbsolutePositioningOffsets),
+    ("Absolute positioning pins width when both left and right are set", NativeUI.Controls.Tests.PositioningTests.VerifyAbsolutePositioningPinsWidthWithLeftAndRight),
+    ("Absolute positioning sizes to content when width is unset", NativeUI.Controls.Tests.PositioningTests.VerifyAbsolutePositioningSizesToContentWhenWidthUnset),
+    ("Positioned elements are ordered after in-flow siblings for drawing and hit testing", NativeUI.Controls.Tests.PositioningTests.VerifyPositionedElementsOrderedAfterInFlowSiblings),
+    ("Portal defaults to Fixed position and skips normal layout flow", NativeUI.Controls.Tests.PositioningTests.VerifyPortalDefaultsToFixedPositionAndSkipsFlow),
+    ("Absolute child extends scroll container extent and moves with scroll offset", NativeUI.Controls.Tests.PositioningTests.VerifyAbsoluteChildExtendsScrollExtentAndScrolls),
+    ("Absolute positioning applies margin once without double offset", NativeUI.Controls.Tests.PositioningTests.VerifyAbsolutePositioningAppliesMarginOnce),
+    ("Absolute positioning resolves against nearest positioned ancestor", NativeUI.Controls.Tests.PositioningTests.VerifyAbsolutePositioningUsesNearestPositionedAncestor),
+    ("Fixed positioning against viewport and immunity from scroll translation", NativeUI.Controls.Tests.PositioningTests.VerifyFixedPositioningAgainstViewportAndScrollImmunity),
+    ("Text measurement obeys fit-content rather than stretching", NativeUI.Controls.Tests.PositioningTests.VerifyTextMeasurementObeysFitContent)
 ]);
 
 return exitCode;

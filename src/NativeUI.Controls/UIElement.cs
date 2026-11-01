@@ -113,6 +113,31 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     public static readonly BindableProperty<Overflow?> OverflowYProperty = Style.OverflowYProperty.AddOwner<UIElement>();
 
     /// <summary>
+    /// Identifies the <see cref="Position"/> property, which is <see cref="Style.PositionProperty"/>.
+    /// </summary>
+    public static readonly BindableProperty<Position?> PositionProperty = Style.PositionProperty.AddOwner<UIElement>();
+
+    /// <summary>
+    /// Identifies the <see cref="Top"/> property, which is <see cref="Style.TopProperty"/>.
+    /// </summary>
+    public static readonly BindableProperty<double?> TopProperty = Style.TopProperty.AddOwner<UIElement>();
+
+    /// <summary>
+    /// Identifies the <see cref="Right"/> property, which is <see cref="Style.RightProperty"/>.
+    /// </summary>
+    public static readonly BindableProperty<double?> RightProperty = Style.RightProperty.AddOwner<UIElement>();
+
+    /// <summary>
+    /// Identifies the <see cref="Bottom"/> property, which is <see cref="Style.BottomProperty"/>.
+    /// </summary>
+    public static readonly BindableProperty<double?> BottomProperty = Style.BottomProperty.AddOwner<UIElement>();
+
+    /// <summary>
+    /// Identifies the <see cref="Left"/> property, which is <see cref="Style.LeftProperty"/>.
+    /// </summary>
+    public static readonly BindableProperty<double?> LeftProperty = Style.LeftProperty.AddOwner<UIElement>();
+
+    /// <summary>
     /// Occurs whenever a visual property or computed style on this element changes.
     /// </summary>
     public event EventHandler? VisualInvalidated;
@@ -188,7 +213,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// <summary>
     /// Gets or sets a value indicating whether this element is visible.
     /// </summary>
-    public bool IsVisible
+    public virtual bool IsVisible
     {
         get => GetValue(IsVisibleProperty);
         set => SetValue(IsVisibleProperty, value);
@@ -257,6 +282,56 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         set => SetValue(OverflowYProperty, value);
     }
 
+    /// <summary>
+    /// Gets or sets the inline positioning scheme, the same value as <see cref="Controls.Style.Position"/> on <see cref="Style"/>.
+    /// Setting it creates <see cref="Style"/> when none exists.
+    /// </summary>
+    public Position? Position
+    {
+        get => GetValue(PositionProperty);
+        set => SetValue(PositionProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the inline top offset, the same value as <see cref="Controls.Style.Top"/> on <see cref="Style"/>.
+    /// Setting it creates <see cref="Style"/> when none exists.
+    /// </summary>
+    public double? Top
+    {
+        get => GetValue(TopProperty);
+        set => SetValue(TopProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the inline right offset, the same value as <see cref="Controls.Style.Right"/> on <see cref="Style"/>.
+    /// Setting it creates <see cref="Style"/> when none exists.
+    /// </summary>
+    public double? Right
+    {
+        get => GetValue(RightProperty);
+        set => SetValue(RightProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the inline bottom offset, the same value as <see cref="Controls.Style.Bottom"/> on <see cref="Style"/>.
+    /// Setting it creates <see cref="Style"/> when none exists.
+    /// </summary>
+    public double? Bottom
+    {
+        get => GetValue(BottomProperty);
+        set => SetValue(BottomProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the inline left offset, the same value as <see cref="Controls.Style.Left"/> on <see cref="Style"/>.
+    /// Setting it creates <see cref="Style"/> when none exists.
+    /// </summary>
+    public double? Left
+    {
+        get => GetValue(LeftProperty);
+        set => SetValue(LeftProperty, value);
+    }
+
     /// <inheritdoc />
     public virtual double? FontSize => ComputedStyle.FontSize;
 
@@ -319,6 +394,28 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     IUIElement? IUIElement.Parent => Parent;
 
     IStyle? IUIElement.Style => Style;
+
+    WidthValue? IUIElement.Width => Width;
+
+    double? IUIElement.Height => Height;
+
+    Overflow? IUIElement.OverflowX => OverflowX;
+
+    Overflow? IUIElement.OverflowY => OverflowY;
+
+    Position? IUIElement.Position => Position;
+
+    double? IUIElement.Top => Top;
+
+    double? IUIElement.Right => Right;
+
+    double? IUIElement.Bottom => Bottom;
+
+    double? IUIElement.Left => Left;
+
+    ComputedStyle IUIElement.ComputedStyle => ComputedStyle;
+
+    SelectionStyle IUIElement.SelectionStyle => SelectionStyle;
 
     /// <inheritdoc />
     public ElementStates States { get; private set; }

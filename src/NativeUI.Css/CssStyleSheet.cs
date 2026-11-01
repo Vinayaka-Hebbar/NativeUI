@@ -1,4 +1,5 @@
 using NativeUI.Core;
+using NativeUI.Layout;
 using NativeUI.Media;
 using NativeUI.Styling;
 
@@ -129,6 +130,11 @@ public sealed class CssStyleSheet : StyleSheet
         Color? scrollbarThumbColor = inheritedStyle.ScrollbarThumbColor;
         Color? scrollbarTrackColor = inheritedStyle.ScrollbarTrackColor;
         ScrollbarWidth scrollbarWidth = ScrollbarWidth.Auto;
+        Position position = Position.Static;
+        double? top = null;
+        double? right = null;
+        double? bottom = null;
+        double? left = null;
 
         // Font-relative lengths use the winning font size, regardless of declaration order.
         foreach ((CssRule rule, _) in matching)
@@ -306,6 +312,41 @@ public sealed class CssStyleSheet : StyleSheet
                             cursor = cur.Cursor;
                         }
                         break;
+
+                    case "position":
+                        if (resolved is CssPositionValue pos)
+                        {
+                            position = pos.Position;
+                        }
+                        break;
+
+                    case "top":
+                        if (resolved is CssLengthValue t)
+                        {
+                            top = t.ToLogicalPixels(fontSize);
+                        }
+                        break;
+
+                    case "right":
+                        if (resolved is CssLengthValue r)
+                        {
+                            right = r.ToLogicalPixels(fontSize);
+                        }
+                        break;
+
+                    case "bottom":
+                        if (resolved is CssLengthValue b)
+                        {
+                            bottom = b.ToLogicalPixels(fontSize);
+                        }
+                        break;
+
+                    case "left":
+                        if (resolved is CssLengthValue l)
+                        {
+                            left = l.ToLogicalPixels(fontSize);
+                        }
+                        break;
                 }
             }
         }
@@ -331,7 +372,12 @@ public sealed class CssStyleSheet : StyleSheet
             OverflowY = overflowY,
             ScrollbarThumbColor = scrollbarThumbColor,
             ScrollbarTrackColor = scrollbarTrackColor,
-            ScrollbarWidth = scrollbarWidth
+            ScrollbarWidth = scrollbarWidth,
+            Position = position,
+            Top = top,
+            Right = right,
+            Bottom = bottom,
+            Left = left
         };
         return cssStyle;
     }

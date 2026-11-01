@@ -51,18 +51,29 @@ public sealed class LayoutEngine
     public LayoutBox ComputeLayout(ILayoutNode root, Size viewport)
     {
         ArgumentNullException.ThrowIfNull(root);
-        return LayoutNodeRecursive(root, 0, 0, viewport.Width);
+        if (!root.IsVisible)
+        {
+            return new LayoutBox(root, root.ComputedStyle, Rect.Empty, Rect.Empty, []);
+        }
+
+        double width = Math.Max(0, viewport.Width);
+        double height = Math.Max(0, viewport.Height);
+        Size clampedViewport = new(width, height);
+        Rect viewportRect = new(0, 0, width, height);
+        return LayoutNodeRecursive(root, Point.Zero, clampedViewport, viewportRect, clampedViewport);
     }
 
-    private double ResolveBorderWidth(ILayoutNode node, double availableWidth)
+    private double ResolveBorderWidth(ILayoutNode node, double availableWidth, double? knownMaxContentWidth = null)
     {
         ComputedStyle style = node.ComputedStyle;
         double fillWidth = Math.Max(0, availableWidth - style.Margin.Horizontal);
         return style.Width switch
         {
             { Pixels: double pixels } => pixels,
-            { IsFitContent: true } => Math.Min(MeasureMaxContentWidth(node), fillWidth),
-            _ => fillWidth
+            { IsFitContent: true } => Math.Min(knownMaxContentWidth ?? MeasureMaxContentWidth(node), fillWidth),
+            _ => (style.IsOutOfFlow && !(style.Left.HasValue && style.Right.HasValue))
+                ? Math.Min(knownMaxContentWidth ?? MeasureMaxContentWidth(node), fillWidth)
+                : fillWidth
         };
     }
 
@@ -71,6 +82,11 @@ public sealed class LayoutEngine
     /// </summary>
     private double MeasureMaxContentWidth(ILayoutNode node)
     {
+        if (!node.IsVisible)
+        {
+            return 0;
+        }
+
         ComputedStyle style = node.ComputedStyle;
         if (style.Width?.Pixels is double pixels)
         {
@@ -93,17 +109,36 @@ public sealed class LayoutEngine
             return MeasureMaxContentOfGrid(grid);
         }
 
-        double[] widths = VisibleChildren(node)
-            .Select(child => MeasureMaxContentWidth(child) + child.ComputedStyle.Margin.Horizontal)
-            .ToArray();
-        if (widths.Length == 0)
+        bool horizontal = node is IStackLayoutNode { Orientation: Orientation.Horizontal };
+        double width = 0;
+        int count = 0;
+        IReadOnlyList<ILayoutNode> children = node.LayoutChildren;
+        for (int i = 0; i < children.Count; i++)
         {
-            return 0;
+            ILayoutNode child = children[i];
+            if (!child.IsVisible)
+            {
+                continue;
+            }
+
+            ComputedStyle style = child.ComputedStyle;
+            if (style.Position is not (Position.Static or Position.Relative))
+            {
+                continue;
+            }
+
+            double childWidth = MeasureMaxContentWidth(child) + style.Margin.Horizontal;
+            width = horizontal ? width + childWidth : Math.Max(width, childWidth);
+            count++;
         }
 
-        return node is IStackLayoutNode { Orientation: Orientation.Horizontal } stack
-            ? widths.Sum() + (stack.Spacing * (widths.Length - 1))
-            : widths.Max();
+        if (horizontal && count > 1 && node is IStackLayoutNode stack)
+        {
+            double spacing = double.IsFinite(stack.Spacing) ? Math.Max(0, stack.Spacing) : 0;
+            width += spacing * (count - 1);
+        }
+
+        return width;
     }
 
     /// <summary>
@@ -115,12 +150,14 @@ public sealed class LayoutEngine
         double[] sizes = new double[columns.Count];
         for (int i = 0; i < columns.Count; i++)
         {
-            sizes[i] = columns[i].IsPixels ? columns[i].Value : 0;
+            sizes[i] = columns[i].IsPixels ? Math.Max(0, columns[i].Value) : 0;
         }
 
         int rowCount = Math.Max(1, grid.Rows.Count);
-        foreach ((ILayoutNode node, GridPlacement placement) in GetGridChildren(grid, rowCount, columns.Count))
+        List<(ILayoutNode Node, GridPlacement Placement)> children = GetGridChildren(grid, rowCount, columns.Count);
+        for (int i = 0; i < children.Count; i++)
         {
+            (ILayoutNode node, GridPlacement placement) = children[i];
             if (placement.ColumnSpan == 1 && !columns[placement.Column].IsPixels)
             {
                 double size = MeasureMaxContentWidth(node) + node.ComputedStyle.Margin.Horizontal;
@@ -128,46 +165,129 @@ public sealed class LayoutEngine
             }
         }
 
-        return MeasureSpan(sizes, 0, sizes.Length, grid.ColumnSpacing);
+        double spacing = double.IsFinite(grid.ColumnSpacing) ? Math.Max(0, grid.ColumnSpacing) : 0;
+        for (int i = 0; i < children.Count; i++)
+        {
+            (ILayoutNode node, GridPlacement placement) = children[i];
+            if (placement.ColumnSpan > 1)
+            {
+                double childWidth = MeasureMaxContentWidth(node) + node.ComputedStyle.Margin.Horizontal;
+                double currentSpan = MeasureSpan(sizes, placement.Column, placement.ColumnSpan, spacing);
+                double missing = childWidth - currentSpan;
+                if (missing > 0)
+                {
+                    int growable = 0;
+                    for (int c = placement.Column; c < placement.Column + placement.ColumnSpan; c++)
+                    {
+                        if (!columns[c].IsPixels)
+                        {
+                            growable++;
+                        }
+                    }
+
+                    if (growable > 0)
+                    {
+                        double add = missing / growable;
+                        for (int c = placement.Column; c < placement.Column + placement.ColumnSpan; c++)
+                        {
+                            if (!columns[c].IsPixels)
+                            {
+                                sizes[c] += add;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return MeasureSpan(sizes, 0, sizes.Length, spacing);
     }
 
-    private ContentLayout LayoutVerticalChildren(ILayoutNode node, double spacing, double x, double y, double width)
+    private ContentLayout LayoutVerticalChildren(
+        ILayoutNode node,
+        double spacing,
+        double x,
+        double y,
+        double width,
+        Rect containingBlock,
+        Size viewport)
     {
         List<LayoutBox> boxes = [];
         double currentY = y;
         double maxWidth = 0;
-        foreach (ILayoutNode child in VisibleChildren(node))
+        double effectiveSpacing = double.IsFinite(spacing) ? Math.Max(0, spacing) : 0;
+        IReadOnlyList<ILayoutNode> children = node.LayoutChildren;
+        for (int i = 0; i < children.Count; i++)
         {
-            if (boxes.Count > 0)
+            ILayoutNode child = children[i];
+            if (!child.IsVisible)
             {
-                currentY += spacing;
+                continue;
             }
 
-            LayoutBox box = LayoutNodeRecursive(child, x, currentY, width);
-            boxes.Add(box);
-            currentY += box.BorderBox.Height + child.ComputedStyle.Margin.Vertical;
-            maxWidth = Math.Max(maxWidth, box.BorderBox.Width + child.ComputedStyle.Margin.Horizontal);
+            ComputedStyle style = child.ComputedStyle;
+            if (style.Position is not (Position.Static or Position.Relative))
+            {
+                continue;
+            }
+
+            if (boxes.Count > 0)
+            {
+                currentY += effectiveSpacing;
+            }
+
+            Point origin = new(x, currentY);
+            Size available = new(width, double.PositiveInfinity);
+            LayoutBox box = LayoutNodeRecursive(child, origin, available, containingBlock, viewport);
+            boxes.Add(ApplyRelativeOffset(box));
+            currentY += box.BorderBox.Height + style.Margin.Vertical;
+            maxWidth = Math.Max(maxWidth, box.BorderBox.Width + style.Margin.Horizontal);
         }
 
         return new ContentLayout(boxes, maxWidth, Math.Max(0, currentY - y));
     }
 
-    private ContentLayout LayoutHorizontalStack(IStackLayoutNode stack, double x, double y, double width)
+    private ContentLayout LayoutHorizontalStack(
+        IStackLayoutNode stack,
+        double x,
+        double y,
+        double width,
+        Rect containingBlock,
+        Size viewport)
     {
         List<LayoutBox> boxes = [];
         double currentX = x;
         double maxHeight = 0;
-        foreach (ILayoutNode child in VisibleChildren(stack))
+        double spacing = double.IsFinite(stack.Spacing) ? Math.Max(0, stack.Spacing) : 0;
+        IReadOnlyList<ILayoutNode> children = stack.LayoutChildren;
+        for (int i = 0; i < children.Count; i++)
         {
-            if (boxes.Count > 0)
+            ILayoutNode child = children[i];
+            if (!child.IsVisible)
             {
-                currentX += stack.Spacing;
+                continue;
             }
 
-            Thickness margin = child.ComputedStyle.Margin;
+            ComputedStyle style = child.ComputedStyle;
+            if (style.Position is not (Position.Static or Position.Relative))
+            {
+                continue;
+            }
+
+            if (boxes.Count > 0)
+            {
+                currentX += spacing;
+            }
+
+            Thickness margin = style.Margin;
             double remaining = Math.Max(0, x + width - currentX);
-            LayoutBox box = LayoutNodeRecursive(child, currentX, y, Math.Min(MeasureMaxContentWidth(child) + margin.Horizontal, remaining));
-            boxes.Add(box);
+            double desiredWidth = MeasureMaxContentWidth(child);
+            double availableWidth = Math.Min(desiredWidth + margin.Horizontal, remaining);
+
+            Point origin = new(currentX, y);
+            Size available = new(availableWidth, double.PositiveInfinity);
+            LayoutBox box = LayoutNodeRecursive(child, origin, available, containingBlock, viewport, desiredWidth);
+            boxes.Add(ApplyRelativeOffset(box));
             currentX += box.BorderBox.Width + margin.Horizontal;
             maxHeight = Math.Max(maxHeight, box.BorderBox.Height + margin.Vertical);
         }
@@ -182,7 +302,10 @@ public sealed class LayoutEngine
 
         if (shift > 0)
         {
-            boxes = boxes.ConvertAll(box => box.Translated(shift, 0));
+            for (int i = 0; i < boxes.Count; i++)
+            {
+                boxes[i] = boxes[i].Translated(shift, 0);
+            }
         }
 
         return new ContentLayout(boxes, usedWidth, maxHeight);
@@ -192,41 +315,59 @@ public sealed class LayoutEngine
     /// Resolves columns, lays out each child in its column width to learn its height, resolves rows, then moves each
     /// child to its cell. Children keep their own height, so a child does not stretch to fill its row.
     /// </summary>
-    private ContentLayout LayoutGrid(IGridLayoutNode grid, double x, double y, double width, double? definiteHeight)
+    private ContentLayout LayoutGrid(
+        IGridLayoutNode grid,
+        double x,
+        double y,
+        double width,
+        double? definiteHeight,
+        Rect containingBlock,
+        Size viewport)
     {
         List<GridLength> rows = grid.Rows.Count > 0 ? [.. grid.Rows] : [GridLength.Star()];
         List<GridLength> columns = grid.Columns.Count > 0 ? [.. grid.Columns] : [GridLength.Star()];
         List<(ILayoutNode Node, GridPlacement Placement)> children = GetGridChildren(grid, rows.Count, columns.Count);
 
-        double[] columnWidths = ResolveTracks(
-            columns,
-            grid.ColumnSpacing,
-            width,
-            children.Where(static c => c.Placement.ColumnSpan == 1)
-                .Select(c => (c.Placement.Column, MeasureMaxContentWidth(c.Node) + c.Node.ComputedStyle.Margin.Horizontal)));
+        List<(int Track, double ContentSize)> singleColContent = [];
+        for (int i = 0; i < children.Count; i++)
+        {
+            if (children[i].Placement.ColumnSpan == 1)
+            {
+                singleColContent.Add((children[i].Placement.Column, MeasureMaxContentWidth(children[i].Node) + children[i].Node.ComputedStyle.Margin.Horizontal));
+            }
+        }
+
+        double colSpacing = double.IsFinite(grid.ColumnSpacing) ? Math.Max(0, grid.ColumnSpacing) : 0;
+        double rowSpacing = double.IsFinite(grid.RowSpacing) ? Math.Max(0, grid.RowSpacing) : 0;
+        double[] columnWidths = ResolveTracks(columns, colSpacing, width, singleColContent);
 
         List<LayoutBox> placedAtOrigin = [];
-        foreach ((ILayoutNode node, GridPlacement placement) in children)
+        for (int i = 0; i < children.Count; i++)
         {
-            double cellWidth = MeasureSpan(columnWidths, placement.Column, placement.ColumnSpan, grid.ColumnSpacing);
-            placedAtOrigin.Add(LayoutNodeRecursive(node, 0, 0, cellWidth));
+            (ILayoutNode node, GridPlacement placement) = children[i];
+            double cellWidth = MeasureSpan(columnWidths, placement.Column, placement.ColumnSpan, colSpacing);
+            Point origin = Point.Zero;
+            Size available = new(cellWidth, double.PositiveInfinity);
+            placedAtOrigin.Add(LayoutNodeRecursive(node, origin, available, containingBlock, viewport));
         }
 
         double[] rowHeights = ResolveRowHeights(grid, rows, children, placedAtOrigin, definiteHeight);
-        double[] columnOffsets = GetTrackOffsets(columnWidths, grid.ColumnSpacing);
-        double[] rowOffsets = GetTrackOffsets(rowHeights, grid.RowSpacing);
+        double[] columnOffsets = GetTrackOffsets(columnWidths, colSpacing);
+        double[] rowOffsets = GetTrackOffsets(rowHeights, rowSpacing);
 
         List<LayoutBox> boxes = [];
         for (int i = 0; i < children.Count; i++)
         {
             GridPlacement placement = children[i].Placement;
-            boxes.Add(placedAtOrigin[i].Translated(x + columnOffsets[placement.Column], y + rowOffsets[placement.Row]));
+            double cellX = x + columnOffsets[placement.Column];
+            double cellY = y + rowOffsets[placement.Row];
+            boxes.Add(ApplyRelativeOffset(placedAtOrigin[i].Translated(cellX, cellY)));
         }
 
         return new ContentLayout(
             boxes,
-            MeasureSpan(columnWidths, 0, columnWidths.Length, grid.ColumnSpacing),
-            MeasureSpan(rowHeights, 0, rowHeights.Length, grid.RowSpacing));
+            MeasureSpan(columnWidths, 0, columnWidths.Length, colSpacing),
+            MeasureSpan(rowHeights, 0, rowHeights.Length, rowSpacing));
     }
 
     private double[] ResolveRowHeights(
@@ -239,7 +380,7 @@ public sealed class LayoutEngine
         double[] heights = new double[rows.Count];
         for (int i = 0; i < rows.Count; i++)
         {
-            heights[i] = rows[i].IsPixels ? rows[i].Value : 0;
+            heights[i] = rows[i].IsPixels ? Math.Max(0, rows[i].Value) : 0;
         }
 
         for (int i = 0; i < children.Count; i++)
@@ -251,6 +392,7 @@ public sealed class LayoutEngine
             }
         }
 
+        double rowSpacing = double.IsFinite(grid.RowSpacing) ? Math.Max(0, grid.RowSpacing) : 0;
         // A child spanning rows gives any height the rows lack to the last spanned row that can grow.
         for (int i = 0; i < children.Count; i++)
         {
@@ -260,7 +402,7 @@ public sealed class LayoutEngine
                 continue;
             }
 
-            double missing = GetOuterHeight(children[i].Node, boxes[i]) - MeasureSpan(heights, placement.Row, placement.RowSpan, grid.RowSpacing);
+            double missing = GetOuterHeight(children[i].Node, boxes[i]) - MeasureSpan(heights, placement.Row, placement.RowSpan, rowSpacing);
             int growRow = Enumerable.Range(placement.Row, placement.RowSpan).LastOrDefault(row => !rows[row].IsPixels, -1);
             if (missing > 0 && growRow >= 0)
             {
@@ -270,7 +412,7 @@ public sealed class LayoutEngine
 
         if (definiteHeight is double available)
         {
-            DistributeToStarRows(rows, heights, available - MeasureSpan(heights, 0, heights.Length, grid.RowSpacing));
+            DistributeToStarRows(rows, heights, available - MeasureSpan(heights, 0, heights.Length, rowSpacing));
         }
 
         return heights;
@@ -288,7 +430,7 @@ public sealed class LayoutEngine
             if (rows[i].IsStar)
             {
                 totalHeight += heights[i];
-                totalWeight += rows[i].Value;
+                totalWeight += Math.Max(0, rows[i].Value);
             }
         }
 
@@ -310,29 +452,49 @@ public sealed class LayoutEngine
         List<GridLength> tracks,
         double spacing,
         double available,
-        IEnumerable<(int Track, double ContentSize)> items)
+        List<(int Track, double ContentSize)> items)
     {
         double[] sizes = new double[tracks.Count];
+        double[] contentSizes = new double[tracks.Count];
+
         for (int i = 0; i < tracks.Count; i++)
         {
-            sizes[i] = tracks[i].IsPixels ? tracks[i].Value : 0;
+            sizes[i] = tracks[i].IsPixels ? Math.Max(0, tracks[i].Value) : 0;
         }
 
-        foreach ((int track, double contentSize) in items)
+        for (int i = 0; i < items.Count; i++)
         {
+            (int track, double contentSize) = items[i];
+            contentSizes[track] = Math.Max(contentSizes[track], contentSize);
             if (tracks[track].IsAuto)
             {
                 sizes[track] = Math.Max(sizes[track], contentSize);
             }
         }
 
-        double free = Math.Max(0, available - MeasureSpan(sizes, 0, sizes.Length, spacing));
-        double totalWeight = tracks.Where(static t => t.IsStar).Sum(static t => t.Value);
+        double fixedAndAuto = MeasureSpan(sizes, 0, sizes.Length, spacing);
+        double free = Math.Max(0, available - fixedAndAuto);
+        double totalWeight = 0;
         for (int i = 0; i < tracks.Count; i++)
         {
-            if (tracks[i].IsStar && totalWeight > 0)
+            if (tracks[i].IsStar)
             {
-                sizes[i] = free * tracks[i].Value / totalWeight;
+                totalWeight += Math.Max(0, tracks[i].Value);
+            }
+        }
+
+        for (int i = 0; i < tracks.Count; i++)
+        {
+            if (tracks[i].IsStar)
+            {
+                if (double.IsPositiveInfinity(available))
+                {
+                    sizes[i] = contentSizes[i];
+                }
+                else if (totalWeight > 0)
+                {
+                    sizes[i] = free * tracks[i].Value / totalWeight;
+                }
             }
         }
 
@@ -342,8 +504,20 @@ public sealed class LayoutEngine
     private static List<(ILayoutNode Node, GridPlacement Placement)> GetGridChildren(IGridLayoutNode grid, int rowCount, int columnCount)
     {
         List<(ILayoutNode Node, GridPlacement Placement)> children = [];
-        foreach (ILayoutNode child in VisibleChildren(grid))
+        IReadOnlyList<ILayoutNode> allChildren = grid.LayoutChildren;
+        for (int i = 0; i < allChildren.Count; i++)
         {
+            ILayoutNode child = allChildren[i];
+            if (!child.IsVisible)
+            {
+                continue;
+            }
+
+            if (child.ComputedStyle.Position is not (Position.Static or Position.Relative))
+            {
+                continue;
+            }
+
             children.Add((child, ClampPlacement(grid.GetPlacement(child), rowCount, columnCount)));
         }
 
@@ -390,54 +564,78 @@ public sealed class LayoutEngine
         return box.BorderBox.Height + node.ComputedStyle.Margin.Vertical;
     }
 
-    private static IEnumerable<ILayoutNode> VisibleChildren(ILayoutNode node)
+    private static LayoutBox ApplyRelativeOffset(LayoutBox box)
     {
-        return node.LayoutChildren.Where(static child => child.IsVisible);
+        ComputedStyle style = box.Style;
+        if (style.Position != Position.Relative)
+        {
+            return box;
+        }
+
+        double dx = style.Left.HasValue ? style.Left.Value : (style.Right.HasValue ? -style.Right.Value : 0);
+        double dy = style.Top.HasValue ? style.Top.Value : (style.Bottom.HasValue ? -style.Bottom.Value : 0);
+        return (dx != 0 || dy != 0) ? box.Translated(dx, dy) : box;
     }
 
     private readonly record struct ContentLayout(List<LayoutBox> Boxes, double Width, double Height);
 
-    private LayoutBox LayoutNodeRecursive(ILayoutNode node, double availableX, double availableY, double availableWidth)
+    private LayoutBox LayoutNodeRecursive(
+        ILayoutNode node,
+        Point origin,
+        Size availableSize,
+        Rect containingBlock,
+        Size viewport,
+        double? knownMaxContentWidth = null)
     {
+        if (!node.IsVisible)
+        {
+            return new LayoutBox(node, node.ComputedStyle, Rect.Empty, Rect.Empty, []);
+        }
+
         ComputedStyle style = node.ComputedStyle;
         Thickness margin = style.Margin;
         Thickness padding = style.ContentInsets;
 
-        double borderX = availableX + margin.Left;
-        double borderY = availableY + margin.Top;
-        double borderWidth = ResolveBorderWidth(node, availableWidth);
+        double borderX = origin.X + margin.Left;
+        double borderY = origin.Y + margin.Top;
+        double borderWidth = ResolveBorderWidth(node, availableSize.Width, knownMaxContentWidth);
         double contentX = borderX + padding.Left;
         double contentY = borderY + padding.Top;
         double contentMaxWidth = Math.Max(0, borderWidth - padding.Horizontal);
 
         if (node.TextContent is string text)
         {
+            double finalBorderWidth = borderWidth;
             Size availableTextSize = new(contentMaxWidth, style.Height ?? double.PositiveInfinity);
             ITextLayout textLayout = _textMeasurer.CreateTextLayout(text, availableTextSize, style);
             Size measured = textLayout.Size;
 
-            double? explicitWidth = style.Width?.Pixels;
-            double textWidth = explicitWidth.HasValue ? contentMaxWidth : Math.Min(contentMaxWidth, measured.Width);
-            double textHeight = measured.Height;
-            double finalBorderWidth = explicitWidth ?? Math.Max(textWidth + padding.Horizontal, contentMaxWidth);
-            double finalBorderHeight = style.Height ?? (textHeight + padding.Vertical);
+            double finalBorderHeight = style.Height ?? (measured.Height + padding.Vertical);
 
             return new LayoutBox(
                 node,
                 style,
                 new Rect(borderX, borderY, finalBorderWidth, finalBorderHeight),
-                new Rect(contentX, contentY, Math.Max(0, finalBorderWidth - padding.Horizontal), textHeight),
+                new Rect(contentX, contentY, Math.Max(0, finalBorderWidth - padding.Horizontal), measured.Height),
                 [],
                 textLayout);
         }
 
         double? contentDefiniteHeight = style.Height is double borderHeight ? Math.Max(0, borderHeight - padding.Vertical) : null;
+
+        double padX = borderX + style.BorderWidth;
+        double padY = borderY + style.BorderWidth;
+        double padWidth = Math.Max(0, borderWidth - (style.BorderWidth * 2));
+        Rect inFlowContainingBlock = style.IsPositioned
+            ? new Rect(padX, padY, padWidth, 0)
+            : containingBlock;
+
         ContentLayout content = node switch
         {
-            IGridLayoutNode grid => LayoutGrid(grid, contentX, contentY, contentMaxWidth, contentDefiniteHeight),
-            IStackLayoutNode { Orientation: Orientation.Horizontal } stack => LayoutHorizontalStack(stack, contentX, contentY, contentMaxWidth),
-            IStackLayoutNode stack => LayoutVerticalChildren(stack, stack.Spacing, contentX, contentY, contentMaxWidth),
-            _ => LayoutVerticalChildren(node, 0, contentX, contentY, contentMaxWidth)
+            IGridLayoutNode grid => LayoutGrid(grid, contentX, contentY, contentMaxWidth, contentDefiniteHeight, inFlowContainingBlock, viewport),
+            IStackLayoutNode { Orientation: Orientation.Horizontal } stack => LayoutHorizontalStack(stack, contentX, contentY, contentMaxWidth, inFlowContainingBlock, viewport),
+            IStackLayoutNode stack => LayoutVerticalChildren(stack, stack.Spacing, contentX, contentY, contentMaxWidth, inFlowContainingBlock, viewport),
+            _ => LayoutVerticalChildren(node, 0, contentX, contentY, contentMaxWidth, inFlowContainingBlock, viewport)
         };
 
         List<LayoutBox> childBoxes = content.Boxes;
@@ -445,16 +643,130 @@ public sealed class LayoutEngine
         double contentHeight = content.Height;
         double resolvedBorderHeight = style.Height ?? (contentHeight + padding.Vertical);
 
+        double padHeight = Math.Max(0, resolvedBorderHeight - (style.BorderWidth * 2));
+        Rect outOfFlowContainingBlock = style.IsPositioned
+            ? new Rect(padX, padY, padWidth, padHeight)
+            : containingBlock;
+
+        IReadOnlyList<ILayoutNode> allChildren = node.LayoutChildren;
+        for (int i = 0; i < allChildren.Count; i++)
+        {
+            ILayoutNode child = allChildren[i];
+            if (!child.IsVisible)
+            {
+                continue;
+            }
+
+            ComputedStyle childStyle = child.ComputedStyle;
+            if (childStyle.Position is not (Position.Absolute or Position.Fixed))
+            {
+                continue;
+            }
+
+            Rect targetCb = childStyle.Position == Position.Fixed
+                ? new Rect(0, 0, viewport.Width, viewport.Height)
+                : outOfFlowContainingBlock;
+
+            Thickness childMargin = childStyle.Margin;
+            double? explicitW = childStyle.Width?.Pixels;
+            double childW;
+            double knownContentW = 0;
+            bool hasKnownContentW = false;
+
+            if (explicitW.HasValue)
+            {
+                childW = explicitW.Value;
+            }
+            else if (childStyle.Left.HasValue && childStyle.Right.HasValue)
+            {
+                childW = Math.Max(0, targetCb.Width - childStyle.Left.Value - childStyle.Right.Value - childMargin.Horizontal);
+            }
+            else
+            {
+                knownContentW = MeasureMaxContentWidth(child);
+                hasKnownContentW = true;
+                double avail = targetCb.Width - (childStyle.Left ?? 0) - (childStyle.Right ?? 0) - childMargin.Horizontal;
+                childW = Math.Min(knownContentW, Math.Max(0, avail));
+            }
+
+            double originX;
+            if (childStyle.Left.HasValue)
+            {
+                originX = targetCb.X + childStyle.Left.Value;
+            }
+            else if (childStyle.Right.HasValue)
+            {
+                originX = targetCb.Right - childStyle.Right.Value - childMargin.Horizontal - childW;
+            }
+            else
+            {
+                originX = targetCb.X;
+            }
+
+            double originY;
+            if (childStyle.Top.HasValue)
+            {
+                originY = targetCb.Y + childStyle.Top.Value;
+            }
+            else
+            {
+                originY = targetCb.Y;
+            }
+
+            double availHeight = childStyle.Height ?? (childStyle.Top.HasValue && childStyle.Bottom.HasValue
+                ? Math.Max(0, targetCb.Height - childStyle.Top.Value - childStyle.Bottom.Value - childMargin.Vertical)
+                : double.PositiveInfinity);
+
+            Size childAvail = new(childW + childMargin.Horizontal, availHeight);
+            LayoutBox childBox = LayoutNodeRecursive(
+                child,
+                new Point(originX, originY),
+                childAvail,
+                targetCb,
+                viewport,
+                hasKnownContentW ? knownContentW : null);
+
+            if (!childStyle.Top.HasValue && childStyle.Bottom.HasValue)
+            {
+                double targetBorderY = targetCb.Bottom - childStyle.Bottom.Value - childMargin.Bottom - childBox.BorderBox.Height;
+                double dy = targetBorderY - childBox.BorderBox.Y;
+                if (dy != 0)
+                {
+                    childBox = childBox.Translated(0, dy);
+                }
+            }
+
+            childBoxes.Add(childBox);
+        }
+
         if (style.ClipsOverflow && node is IScrollContainer scrollContainer)
         {
-            Size viewport = new(borderWidth, resolvedBorderHeight);
+            double maxRight = borderWidth;
+            double maxBottom = resolvedBorderHeight;
+            for (int i = 0; i < childBoxes.Count; i++)
+            {
+                LayoutBox b = childBoxes[i];
+                if (b.Style.Position != Position.Fixed)
+                {
+                    maxRight = Math.Max(maxRight, b.BorderBox.Right + b.Style.Margin.Right - borderX);
+                    maxBottom = Math.Max(maxBottom, b.BorderBox.Bottom + b.Style.Margin.Bottom - borderY);
+                }
+            }
+
+            Size scrollViewport = new(borderWidth, resolvedBorderHeight);
             Size extent = new(
-                Math.Max(borderWidth, maxChildWidth + padding.Horizontal),
-                Math.Max(resolvedBorderHeight, contentHeight + padding.Vertical));
-            Point offset = scrollContainer.UpdateScrollMetrics(extent, viewport);
+                Math.Max(borderWidth, Math.Max(maxChildWidth + padding.Horizontal, maxRight)),
+                Math.Max(resolvedBorderHeight, Math.Max(contentHeight + padding.Vertical, maxBottom)));
+            Point offset = scrollContainer.UpdateScrollMetrics(extent, scrollViewport);
             if (offset != default)
             {
-                childBoxes = childBoxes.ConvertAll(child => child.Translated(-offset.X, -offset.Y));
+                for (int i = 0; i < childBoxes.Count; i++)
+                {
+                    if (childBoxes[i].Style.Position != Position.Fixed)
+                    {
+                        childBoxes[i] = childBoxes[i].Translated(-offset.X, -offset.Y);
+                    }
+                }
             }
         }
 

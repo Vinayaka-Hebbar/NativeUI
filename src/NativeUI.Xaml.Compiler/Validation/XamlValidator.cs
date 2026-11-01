@@ -54,6 +54,11 @@ public enum XamlPropertyKind
     Alignment,
 
     /// <summary>
+    /// The literal must be <c>Static</c>, <c>Relative</c>, <c>Absolute</c>, or <c>Fixed</c>.
+    /// </summary>
+    Position,
+
+    /// <summary>
     /// The literal is one, two (vertical, horizontal), or four (top, right, bottom, left) comma-separated numbers,
     /// assigned to the element's inline style. It has no binding form.
     /// </summary>
@@ -275,6 +280,11 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         ["Padding"] = XamlPropertyKind.StyleThickness,
         ["Width"] = XamlPropertyKind.StyleLength,
         ["Height"] = XamlPropertyKind.StyleLength,
+        ["Position"] = XamlPropertyKind.Position,
+        ["Top"] = XamlPropertyKind.StyleLength,
+        ["Right"] = XamlPropertyKind.StyleLength,
+        ["Bottom"] = XamlPropertyKind.StyleLength,
+        ["Left"] = XamlPropertyKind.StyleLength,
         ["Grid.Row"] = XamlPropertyKind.AttachedInt32,
         ["Grid.Column"] = XamlPropertyKind.AttachedInt32,
         ["Grid.RowSpan"] = XamlPropertyKind.AttachedInt32,
@@ -644,6 +654,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             XamlPropertyKind.Orientation => literal is "Vertical" or "Horizontal",
             XamlPropertyKind.PortalSide => literal is "Top" or "Right" or "Bottom" or "Left",
             XamlPropertyKind.Alignment => literal is "Start" or "Center" or "End",
+            XamlPropertyKind.Position => literal is "Static" or "Relative" or "Absolute" or "Fixed",
             XamlPropertyKind.GridLengthList => IsValidGridLengthList(literal),
             XamlPropertyKind.StyleThickness => TryParseThickness(literal, out _),
             XamlPropertyKind.Int64 => long.TryParse(literal, NumberStyles.Integer, CultureInfo.InvariantCulture, out _),

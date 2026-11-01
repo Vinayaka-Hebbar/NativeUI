@@ -1,4 +1,5 @@
 using System.Globalization;
+using NativeUI.Layout;
 using NativeUI.Media;
 using NativeUI.Styling;
 
@@ -34,7 +35,12 @@ internal static class StyleCssDeclarations
             ("overflow-x", FormatOverflow(style?.OverflowX)),
             ("overflow-y", FormatOverflow(style?.OverflowY)),
             ("scrollbar-color", FormatScrollbarColor(style)),
-            ("scrollbar-width", FormatScrollbarWidth(style?.ScrollbarWidth))
+            ("scrollbar-width", FormatScrollbarWidth(style?.ScrollbarWidth)),
+            ("position", FormatPosition(style?.Position)),
+            ("top", FormatLength(style?.Top)),
+            ("right", FormatLength(style?.Right)),
+            ("bottom", FormatLength(style?.Bottom)),
+            ("left", FormatLength(style?.Left))
         ];
     }
 
@@ -80,6 +86,18 @@ internal static class StyleCssDeclarations
             Cursor.Crosshair => "crosshair",
             Cursor.Wait => "wait",
             Cursor.Arrow or Cursor.Default => "default",
+            _ => null
+        };
+    }
+
+    private static string? FormatPosition(Position? position)
+    {
+        return position switch
+        {
+            Position.Relative => "relative",
+            Position.Absolute => "absolute",
+            Position.Fixed => "fixed",
+            Position.Static => "static",
             _ => null
         };
     }

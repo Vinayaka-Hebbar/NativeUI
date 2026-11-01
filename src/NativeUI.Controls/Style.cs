@@ -1,4 +1,5 @@
 using NativeUI.Core;
+using NativeUI.Layout;
 using NativeUI.Media;
 using NativeUI.Styling;
 
@@ -130,6 +131,36 @@ public sealed class Style : BindableObject, IStyle
     /// </summary>
     public static readonly BindableProperty<ScrollbarWidth?> ScrollbarWidthProperty =
         BindableProperty.Create<Style, ScrollbarWidth?>(nameof(ScrollbarWidth));
+
+    /// <summary>
+    /// Identifies the <see cref="Position"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<Position?> PositionProperty =
+        BindableProperty.Create<Style, Position?>(nameof(Position));
+
+    /// <summary>
+    /// Identifies the <see cref="Top"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double?> TopProperty =
+        BindableProperty.Create<Style, double?>(nameof(Top));
+
+    /// <summary>
+    /// Identifies the <see cref="Right"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double?> RightProperty =
+        BindableProperty.Create<Style, double?>(nameof(Right));
+
+    /// <summary>
+    /// Identifies the <see cref="Bottom"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double?> BottomProperty =
+        BindableProperty.Create<Style, double?>(nameof(Bottom));
+
+    /// <summary>
+    /// Identifies the <see cref="Left"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double?> LeftProperty =
+        BindableProperty.Create<Style, double?>(nameof(Left));
 
     /// <summary>
     /// Gets or sets the foreground text color or theme color token.
@@ -309,5 +340,50 @@ public sealed class Style : BindableObject, IStyle
     {
         get => GetValue(ScrollbarWidthProperty);
         set => SetValue(ScrollbarWidthProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the positioning scheme.
+    /// </summary>
+    public Position? Position
+    {
+        get => GetValue(PositionProperty);
+        set => SetValue(PositionProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the top offset in logical pixels.
+    /// </summary>
+    public double? Top
+    {
+        get => GetValue(TopProperty);
+        set => SetValue(TopProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the right offset in logical pixels.
+    /// </summary>
+    public double? Right
+    {
+        get => GetValue(RightProperty);
+        set => SetValue(RightProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the bottom offset in logical pixels.
+    /// </summary>
+    public double? Bottom
+    {
+        get => GetValue(BottomProperty);
+        set => SetValue(BottomProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the left offset in logical pixels.
+    /// </summary>
+    public double? Left
+    {
+        get => GetValue(LeftProperty);
+        set => SetValue(LeftProperty, value);
     }
 }

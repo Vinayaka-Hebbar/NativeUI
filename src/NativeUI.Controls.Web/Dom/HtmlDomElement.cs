@@ -140,6 +140,7 @@ public class HtmlDomElement : INativePeer
             CanvasView canvasView => new HtmlDomCanvas(canvasView, element),
             Button button => new HtmlDomButton(button, element),
             Input input => new HtmlDomInput(input, element),
+            Dialog dialog => new HtmlDomDialog(dialog, element, tagName),
             Portal portal => new HtmlDomPortal(portal, element, tagName),
             StackPanel stackPanel => new HtmlDomStackPanel(stackPanel, element),
             Grid grid => new HtmlDomGrid(grid, element),

@@ -1,0 +1,15 @@
+.card {
+    position: relative;
+}
+
+.badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+}
+
+.overlay {
+    position: fixed;
+    bottom: 0px;
+    left: 0px;
+}

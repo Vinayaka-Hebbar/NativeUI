@@ -198,21 +198,7 @@ public class View : UIElement, IView, IScrollContainer
     /// <inheritdoc />
     protected override IReadOnlyList<ILayoutNode> GetLayoutChildren()
     {
-        List<ILayoutNode>? flowChildren = null;
-        for (int i = 0; i < _children.Count; i++)
-        {
-            UIElement child = _children[i];
-            if (child is Portal && flowChildren is null)
-            {
-                flowChildren = [.. _children.Take(i)];
-            }
-            else if (child is not Portal)
-            {
-                flowChildren?.Add(child);
-            }
-        }
-
-        return flowChildren ?? (IReadOnlyList<ILayoutNode>)_children;
+        return _children;
     }
 
     /// <inheritdoc />
