@@ -17,6 +17,8 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     private SelectionStyle _selectionStyle = SelectionStyle.Default;
     private Theme _computedTheme = Theme.Light;
     private UIElement? _parent;
+    private INativePeer? _nativePeer;
+    private Rect _renderedBounds;
     private IStyleResolver? _styleResolver;
     private Dictionary<RoutedEvent, RoutedHandler[]>? _routedHandlers;
     private ElementAnimator? _animator;
@@ -51,6 +53,12 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// </summary>
     public static readonly RoutedEvent<PointerEventArgs> PointerExitedEvent =
         RoutedEvent.Register<UIElement, PointerEventArgs>(nameof(PointerExited), RoutingStrategy.Direct);
+
+    /// <summary>
+    /// Identifies the <see cref="SizeChanged"/> routed event.
+    /// </summary>
+    public static readonly RoutedEvent<SizeChangedEventArgs> SizeChangedEvent =
+        RoutedEvent.Register<UIElement, SizeChangedEventArgs>(nameof(SizeChanged), RoutingStrategy.Direct);
 
     /// <summary>
     /// Identifies the <see cref="Id"/> bindable property.
@@ -140,6 +148,30 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     public static readonly BindableProperty<double?> LeftProperty = Style.LeftProperty.AddOwner<UIElement>();
 
     /// <summary>
+    /// Identifies the <see cref="Bounds"/> computed bindable property.
+    /// </summary>
+    public static readonly ComputedBindableProperty<UIElement, Rect> BoundsProperty =
+        new(nameof(Bounds), static element => element.ComputeBounds());
+
+    /// <summary>
+    /// Identifies the <see cref="ActualSize"/> computed bindable property.
+    /// </summary>
+    public static readonly ComputedBindableProperty<UIElement, Size> ActualSizeProperty =
+        new(nameof(ActualSize), static element => element.Bounds.Size);
+
+    /// <summary>
+    /// Identifies the <see cref="ActualWidth"/> computed bindable property.
+    /// </summary>
+    public static readonly ComputedBindableProperty<UIElement, double> ActualWidthProperty =
+        new(nameof(ActualWidth), static element => element.Bounds.Width);
+
+    /// <summary>
+    /// Identifies the <see cref="ActualHeight"/> computed bindable property.
+    /// </summary>
+    public static readonly ComputedBindableProperty<UIElement, double> ActualHeightProperty =
+        new(nameof(ActualHeight), static element => element.Bounds.Height);
+
+    /// <summary>
     /// Occurs whenever a visual property or computed style on this element changes.
     /// </summary>
     public event EventHandler? VisualInvalidated;
@@ -187,6 +219,83 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     {
         add => AddHandler(PointerExitedEvent, value);
         remove => RemoveHandler(PointerExitedEvent, value);
+    }
+
+    /// <summary>
+    /// Gets the rendered bounds of this element in logical coordinates.
+    /// </summary>
+    public Rect Bounds => GetValue(BoundsProperty);
+
+    /// <summary>
+    /// Gets the rendered size of this element.
+    /// </summary>
+    public Size ActualSize => Bounds.Size;
+
+    /// <summary>
+    /// Gets the rendered width of this element.
+    /// </summary>
+    public double ActualWidth => Bounds.Width;
+
+    /// <summary>
+    /// Gets the rendered height of this element.
+    /// </summary>
+    public double ActualHeight => Bounds.Height;
+
+    /// <summary>
+    /// Occurs when the rendered size of this element changes.
+    /// </summary>
+    public event EventHandler<SizeChangedEventArgs> SizeChanged
+    {
+        add => AddHandler(SizeChangedEvent, value);
+        remove => RemoveHandler(SizeChangedEvent, value);
+    }
+
+    internal Rect ComputeBounds()
+    {
+        if (_nativePeer is IGeometryPeer geometryPeer)
+        {
+            Rect? bounds = geometryPeer.GetBounds();
+            if (bounds.HasValue)
+            {
+                return bounds.Value;
+            }
+        }
+
+        return _renderedBounds;
+    }
+
+    /// <summary>
+    /// Updates the element's rendered bounds and dispatches notifications for changed geometry properties.
+    /// </summary>
+    /// <param name="newBounds">The new rendered bounds.</param>
+    internal void UpdateRenderedBounds(Rect newBounds)
+    {
+        Rect previousBounds = _renderedBounds;
+        if (previousBounds == newBounds)
+        {
+            return;
+        }
+
+        _renderedBounds = newBounds;
+
+        NotifyPropertyChanged(BoundsProperty, previousBounds, newBounds);
+
+        if (previousBounds.Size != newBounds.Size)
+        {
+            NotifyPropertyChanged(ActualSizeProperty, previousBounds.Size, newBounds.Size);
+
+            if (previousBounds.Width != newBounds.Width)
+            {
+                NotifyPropertyChanged(ActualWidthProperty, previousBounds.Width, newBounds.Width);
+            }
+
+            if (previousBounds.Height != newBounds.Height)
+            {
+                NotifyPropertyChanged(ActualHeightProperty, previousBounds.Height, newBounds.Height);
+            }
+
+            RaiseEvent(SizeChangedEvent, new SizeChangedEventArgs(previousBounds.Size, newBounds.Size));
+        }
     }
 
     /// <summary>
@@ -377,7 +486,10 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// <summary>
     /// Gets the platform-owned native handle or browser DOM proxy associated with this element.
     /// </summary>
-    public INativePeer? NativePeer { get; internal set; }
+    public INativePeer? NativePeer
+    {
+        get => _nativePeer; internal set => _nativePeer = value;
+    }
 
     /// <summary>
     /// Gets the canonical NativeUI tag name used by CSS type selectors, such as <c>view</c> or <c>text</c>.
@@ -590,6 +702,17 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         }
 
         _routedHandlers[routedEvent] = [.. existing[..index], .. existing[(index + 1)..]];
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether any handlers are registered for the specified routed event on this element.
+    /// </summary>
+    /// <param name="routedEvent">The routed event to check.</param>
+    /// <returns><see langword="true"/> if at least one handler is registered; otherwise, <see langword="false"/>.</returns>
+    public bool HasHandler(RoutedEvent routedEvent)
+    {
+        ArgumentNullException.ThrowIfNull(routedEvent);
+        return _routedHandlers is not null && _routedHandlers.ContainsKey(routedEvent);
     }
 
     /// <summary>

@@ -9,6 +9,7 @@
     <InternalsVisibleTo Include="NativeUI.Controls.MacOS" />
     <InternalsVisibleTo Include="NativeUI.Controls.Web" />
     <InternalsVisibleTo Include="NativeUI.Controls.Tests" />
+    <InternalsVisibleTo Include="NativeUI.Controls.Web.Tests" />
   </ItemGroup>
 
   <ItemGroup>

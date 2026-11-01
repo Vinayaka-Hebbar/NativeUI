@@ -80,6 +80,12 @@ public sealed class VisualTreeRenderer : IDisposable
             throw;
         }
 
+        NotifySizeChanged(rootBox);
+        foreach (LayoutBox portalBox in PortalBoxes)
+        {
+            NotifySizeChanged(portalBox);
+        }
+
         TimeSpan layoutDuration = Stopwatch.GetElapsedTime(layoutStart);
 
         context.Save();
@@ -548,6 +554,29 @@ public sealed class VisualTreeRenderer : IDisposable
         double right = region.Max(static rect => rect.Right);
         double bottom = region.Max(static rect => rect.Bottom);
         return new Rect(left, top, right - left, bottom - top);
+    }
+
+    /// <summary>
+    /// Traverses the computed layout box tree and raises <see cref="UIElement.SizeChanged"/> on elements whose rendered dimensions changed.
+    /// </summary>
+    /// <param name="box">The root layout box to traverse.</param>
+    public static void NotifyLayoutSizeChanged(LayoutBox box)
+    {
+        ArgumentNullException.ThrowIfNull(box);
+        NotifySizeChanged(box);
+    }
+
+    private static void NotifySizeChanged(LayoutBox box)
+    {
+        if (box.Element is UIElement element)
+        {
+            element.UpdateRenderedBounds(box.BorderBox);
+        }
+
+        foreach (LayoutBox child in box.Children)
+        {
+            NotifySizeChanged(child);
+        }
     }
 
     /// <summary>

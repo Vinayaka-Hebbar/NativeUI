@@ -177,8 +177,8 @@ static void TestButtonAndCursorCssEmission()
 
     Assert.Contains("new CssCursorValue(Cursor.Pointer)", emitted);
     Assert.Contains("new CssCursorValue(Cursor.NotAllowed)", emitted);
-    Assert.Contains("requiredStates: ElementStates.Pressed", emitted);
-    Assert.Contains("requiredStates: ElementStates.Disabled", emitted);
+    Assert.Contains(".State(ElementStates.Pressed)", emitted);
+    Assert.Contains(".State(ElementStates.Disabled)", emitted);
 }
 
 static void TestPositionAndOffsetsCssEmission()

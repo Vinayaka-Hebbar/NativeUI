@@ -143,7 +143,7 @@ internal static class StyleSheetTests
         CompoundSelector combined = CssSelector.And(
             CssSelector.Attribute("data-platform", "web"),
             CssSelector.Class("sample-dialog"));
-        Assert.Equal("[data-platform=\"web\"].sample-dialog", combined.ToCssString());
+        Assert.Equal(".sample-dialog[data-platform=\"web\"]", combined.ToCssString());
         Assert.Equal("@media (prefers-reduced-motion: reduce)", CssMedia.ReducedMotion.ToCssString());
         Assert.Equal(new CssMedia("prefers-reduced-motion", "reduce"), CssMedia.ReducedMotion);
         Assert.True(CssMedia.None.Matches(CssColorSchemeCondition.Light));

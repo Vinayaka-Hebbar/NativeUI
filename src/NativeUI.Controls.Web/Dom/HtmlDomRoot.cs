@@ -189,6 +189,7 @@ internal sealed class HtmlDomRoot : IDisposable
                 DomInterop.SetInputDispatcher(_rootElement, OnInput);
                 DomInterop.SetFocusDispatcher(_rootElement, OnFocus);
                 DomInterop.SetCloseDispatcher(_rootElement, OnPortalClosed);
+                DomInterop.SetResizeDispatcher(_rootElement, OnResize);
                 AnimationClock.AnimationStarted += ScheduleClockTick;
                 if (AnimationClock.HasActiveAnimations)
                 {
@@ -257,6 +258,32 @@ internal sealed class HtmlDomRoot : IDisposable
         if (HtmlDomElement.FindByNodeId(nodeId) is HtmlDomPortal portal)
         {
             portal.OnBrowserClosed();
+        }
+    }
+
+    private static void OnResize(JSObject batch)
+    {
+        using (batch)
+        {
+            int length = batch.GetPropertyAsInt32("length");
+            for (int i = 0; i < length; i++)
+            {
+                using JSObject? entry = batch.GetPropertyAsJSObject(i.ToString());
+                if (entry is null)
+                {
+                    continue;
+                }
+
+                int nodeId = entry.GetPropertyAsInt32("nodeId");
+                double width = entry.GetPropertyAsDouble("width");
+                double height = entry.GetPropertyAsDouble("height");
+                HtmlDomElement? node = HtmlDomElement.FindByNodeId(nodeId);
+                if (node?.Source is UIElement element)
+                {
+                    Rect current = element.Bounds;
+                    element.UpdateRenderedBounds(new Rect(current.X, current.Y, width, height));
+                }
+            }
         }
     }
 

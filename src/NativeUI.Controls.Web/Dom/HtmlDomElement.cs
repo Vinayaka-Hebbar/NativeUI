@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 using NativeUI.Core;
+using NativeUI.Layout;
 using NativeUI.Media;
 using NativeUI.Styling;
 
@@ -11,7 +12,7 @@ namespace NativeUI.Controls.Web;
 /// Operations must run on the browser's UI thread.
 /// </summary>
 [SupportedOSPlatform("browser")]
-public class HtmlDomElement : INativePeer, IAnimationPeer
+public class HtmlDomElement : INativePeer, IAnimationPeer, IGeometryPeer
 {
     private static readonly Dictionary<int, HtmlDomElement> s_attachedElements = [];
     private static int s_lastNodeId;
@@ -21,6 +22,7 @@ public class HtmlDomElement : INativePeer, IAnimationPeer
     private int _nodeId;
     private Style? _inlineStyle;
     private bool _attached;
+    private bool _observingSize;
     private string _className = string.Empty;
     private string? _text;
     private bool _disposed;
@@ -166,7 +168,6 @@ public class HtmlDomElement : INativePeer, IAnimationPeer
         }
 
         _parent = parent;
-        Source.NativePeer = this;
         _nodeId = ++s_lastNodeId;
         s_attachedElements[_nodeId] = this;
         if (_element is not null)
@@ -175,9 +176,11 @@ public class HtmlDomElement : INativePeer, IAnimationPeer
         }
 
         _attached = true;
+        Source.NativePeer = this;
 
         Source.PropertyChanged += OnElementPropertyChanged;
         ReplaceInlineStyle();
+        StartObservingSize();
         Initialize();
     }
 
@@ -498,6 +501,7 @@ public class HtmlDomElement : INativePeer, IAnimationPeer
     {
         try
         {
+            StopObservingSize();
             if (_element is not null)
             {
                 DomInterop.RemoveElement(_element);
@@ -517,6 +521,39 @@ public class HtmlDomElement : INativePeer, IAnimationPeer
 
             _parent = null;
         }
+    }
+
+    private void StartObservingSize()
+    {
+        if (_element is not null && _attached && !_observingSize)
+        {
+            _observingSize = true;
+            DomInterop.ObserveResize(_element);
+        }
+    }
+
+    private void StopObservingSize()
+    {
+        if (_element is not null && _observingSize)
+        {
+            _observingSize = false;
+            DomInterop.UnobserveResize(_element);
+        }
+    }
+
+    Rect? IGeometryPeer.GetBounds()
+    {
+        if (_element is not null && _attached)
+        {
+            using JSObject bounds = DomInterop.GetBounds(_element);
+            return new Rect(
+                bounds.GetPropertyAsDouble("x"),
+                bounds.GetPropertyAsDouble("y"),
+                bounds.GetPropertyAsDouble("width"),
+                bounds.GetPropertyAsDouble("height"));
+        }
+
+        return null;
     }
 
 }

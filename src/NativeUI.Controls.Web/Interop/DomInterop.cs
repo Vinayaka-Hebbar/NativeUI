@@ -182,6 +182,26 @@ public static partial class DomInterop
         [JSMarshalAs<JSType.Function<JSType.Number>>] Action<int> dispatch);
 
     /// <summary>
+    /// Sets the callback that a <c>native-ui</c> element invokes with the node identifier and new bounds of each resized descendant.
+    /// </summary>
+    [JSImport("setResizeDispatcher", "nativeui-dom")]
+    public static partial void SetResizeDispatcher(
+        JSObject root,
+        [JSMarshalAs<JSType.Function<JSType.Object>>] Action<JSObject> dispatch);
+
+    /// <summary>
+    /// Observes resize changes on the specified DOM element using <c>ResizeObserver</c>.
+    /// </summary>
+    [JSImport("observeResize", "nativeui-dom")]
+    public static partial void ObserveResize(JSObject element);
+
+    /// <summary>
+    /// Stops observing resize changes on the specified DOM element.
+    /// </summary>
+    [JSImport("unobserveResize", "nativeui-dom")]
+    public static partial void UnobserveResize(JSObject element);
+
+    /// <summary>
     /// Appends <paramref name="element"/> to the <c>native-ui</c> element containing <paramref name="parent"/>,
     /// and returns false when there is none.
     /// </summary>

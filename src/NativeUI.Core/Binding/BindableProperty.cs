@@ -229,7 +229,7 @@ public class BindableProperty<TValue> : BindableProperty
     /// <c>button.Width</c> uses the default for <c>Button</c>, while <c>button.Style.Width</c> reports only what the style
     /// itself holds. Use the element property, or the computed style, for the effective value.
     /// </summary>
-    public TValue GetDefaultValue(BindableObject owner)
+    public virtual TValue GetDefaultValue(BindableObject owner)
     {
         ArgumentNullException.ThrowIfNull(owner);
 

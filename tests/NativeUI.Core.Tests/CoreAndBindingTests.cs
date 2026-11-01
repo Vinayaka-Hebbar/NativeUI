@@ -16,7 +16,8 @@ int exitCode = TestRunner.RunSuite("NativeUI.Core.Tests",
     ("BidiAlgorithm resolves mixed LTR/RTL, paired brackets, and directional isolates", TestBidiAlgorithm),
     ("LineBreakEnumerator computes UAX #14 optional and mandatory break opportunities", TestLineBreakEnumerator),
     ("Unicode tables preserve private-use defaults and range boundaries", NativeUI.Core.Tests.UnicodeDataTablesTests.VerifyPrivateUseDefaults),
-    ("Unicode bracket lookups match the pinned official data", NativeUI.Core.Tests.UnicodeDataTablesTests.VerifyBracketMappings)
+    ("Unicode bracket lookups match the pinned official data", NativeUI.Core.Tests.UnicodeDataTablesTests.VerifyBracketMappings),
+    ("ComputedBindableProperty evaluates dynamically, rejects mutations, and triggers subscriber hooks", TestComputedBindableProperty)
 ]);
 
 return exitCode;
@@ -242,6 +243,41 @@ static void TestLineBreakEnumerator()
     // Non-breaking space U+00A0 must not allow a break before or after it
     int nbspIndex = text.IndexOf('\u00A0');
     Assert.False(breaks.Any(b => b.TextPosition == nbspIndex || b.TextPosition == nbspIndex + 1), "Must not break around non-breaking space.");
+}
+
+static void TestComputedBindableProperty()
+{
+    ComputedSample obj = new();
+    Assert.Equal(42, obj.ComputedValue);
+    Assert.Equal(42, obj.GetValue(ComputedSample.ComputedValueProperty));
+    Assert.Equal(42, obj.GetValue((BindableProperty<int>)ComputedSample.ComputedValueProperty));
+
+    int notifications = 0;
+    obj.PropertyChanged += (_, e) =>
+    {
+        if (e.Property == ComputedSample.ComputedValueProperty)
+        {
+            notifications++;
+        }
+    };
+
+    obj.RaiseComputedChanged(42, 100);
+    Assert.Equal(1, notifications);
+}
+
+file sealed class ComputedSample : BindableObject
+{
+    public int BaseValue { get; set; } = 42;
+
+    public static readonly ComputedBindableProperty<ComputedSample, int> ComputedValueProperty =
+        new(nameof(ComputedValue), static s => s.BaseValue);
+
+    public int ComputedValue => GetValue(ComputedValueProperty);
+
+    public void RaiseComputedChanged(int oldValue, int newValue)
+    {
+        NotifyPropertyChanged(ComputedValueProperty, oldValue, newValue);
+    }
 }
 
 file sealed class SampleBindable : BindableObject

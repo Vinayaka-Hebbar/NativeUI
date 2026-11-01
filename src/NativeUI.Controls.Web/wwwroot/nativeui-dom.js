@@ -48,6 +48,23 @@
  * @returns {void}
  */
 
+/**
+ * One resize event forwarded to C#.
+ *
+ * @typedef {object} ResizeEventEntry
+ * @property {number} nodeId The identifier of the resized element.
+ * @property {number} width The border-box width in CSS pixels.
+ * @property {number} height The border-box height in CSS pixels.
+ */
+
+/**
+ * Receives the batch of resized elements.
+ *
+ * @callback ResizeDispatcher
+ * @param {ResizeEventEntry[]} entries The forwarded batch of entries.
+ * @returns {void}
+ */
+
 /** @type {Map<string, CSSStyleSheet>} */
 const adoptedSheetMap = new Map();
 
@@ -171,6 +188,75 @@ class NativeUIRoot extends HTMLElement {
   /** @type {ScrollDispatcher | null} */
   closeDispatcher = null;
 
+  /** @type {ResizeDispatcher | null} */
+  resizeDispatcher = null;
+
+  /** @type {ResizeObserver | null} */
+  #resizeObserver = null;
+
+  /** @type {Map<number, ResizeEventEntry>} */
+  #pendingResizes = new Map();
+
+  /**
+   * Starts observing an element for size changes.
+   *
+   * @param {Element} element The element to observe.
+   * @returns {void}
+   */
+  observeResize(element) {
+    if (!this.#resizeObserver) {
+      this.#resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const nodeId = nodeIds.get(entry.target);
+          if (nodeId !== undefined) {
+            const borderBox = entry.borderBoxSize
+              ? Array.isArray(entry.borderBoxSize)
+                ? entry.borderBoxSize[0]
+                : entry.borderBoxSize
+              : null;
+            const width = borderBox
+              ? (borderBox.inlineSize ?? borderBox.width ?? 0)
+              : (entry.contentRect?.width ?? 0);
+            const height = borderBox
+              ? (borderBox.blockSize ?? borderBox.height ?? 0)
+              : (entry.contentRect?.height ?? 0);
+
+            this.#pendingResizes.set(nodeId, { nodeId, width, height });
+          }
+        }
+
+        this.#flushResizes();
+      });
+    }
+
+    this.#resizeObserver.observe(element);
+  }
+
+  /**
+   * Stops observing an element for size changes.
+   *
+   * @param {Element} element The element to stop observing.
+   * @returns {void}
+   */
+  unobserveResize(element) {
+    this.#resizeObserver?.unobserve(element);
+    const nodeId = nodeIds.get(element);
+    if (nodeId !== undefined) {
+      this.#pendingResizes.delete(nodeId);
+    }
+  }
+
+  #flushResizes() {
+    if (this.#pendingResizes.size === 0) {
+      return;
+    }
+
+    const entries = [...this.#pendingResizes.values()];
+    this.#pendingResizes.clear();
+
+    this.resizeDispatcher?.(entries);
+  }
+
   /**
    * Forwards the close of an attached dialog element. Close events do not bubble, so this listens during capture.
    *
@@ -267,6 +353,9 @@ class NativeUIRoot extends HTMLElement {
     this.removeEventListener("focusin", this.#handleFocus);
     this.removeEventListener("focusout", this.#handleFocus);
     this.removeEventListener("close", this.#handleClose, { capture: true });
+    this.#resizeObserver?.disconnect();
+    this.#resizeObserver = null;
+    this.#pendingResizes.clear();
     cancelAnimationFrame(this.#frame);
     this.#frame = 0;
     this.#pending.length = 0;
@@ -411,6 +500,51 @@ export const dom = {
    */
   setCloseDispatcher(root, dispatch) {
     root.closeDispatcher = dispatch;
+  },
+
+  /**
+   * Sets the callback that a `native-ui` element invokes with the identifier and new size of each resized descendant.
+   *
+   * @param {NativeUIRoot} root The `native-ui` element.
+   * @param {ResizeDispatcher} dispatch The callback.
+   * @returns {void}
+   */
+  setResizeDispatcher(root, dispatch) {
+    root.resizeDispatcher = dispatch;
+  },
+
+  /**
+   * Observes an element for size changes using the shared ResizeObserver.
+   *
+   * @param {Element | null} element The element to observe.
+   * @returns {void}
+   */
+  observeResize(element) {
+    if (!element) {
+      return;
+    }
+
+    const root = element.closest("native-ui");
+    if (root instanceof NativeUIRoot) {
+      root.observeResize(element);
+    }
+  },
+
+  /**
+   * Stops observing an element for size changes.
+   *
+   * @param {Element | null} element The element to stop observing.
+   * @returns {void}
+   */
+  unobserveResize(element) {
+    if (!element) {
+      return;
+    }
+
+    const root = element.closest("native-ui");
+    if (root instanceof NativeUIRoot) {
+      root.unobserveResize(element);
+    }
   },
 
   /**

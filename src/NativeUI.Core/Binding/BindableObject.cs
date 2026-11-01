@@ -98,7 +98,7 @@ public abstract class BindableObject : IDisposable
         }
 
         _values[property] = value;
-        NotifyValueChanged(property, oldValue, value);
+        NotifyPropertyChanged(property, oldValue, value);
         return true;
     }
 
@@ -135,7 +135,7 @@ public abstract class BindableObject : IDisposable
             return false;
         }
 
-        NotifyValueChanged(property, oldValue, newValue);
+        NotifyPropertyChanged(property, oldValue, newValue);
         return true;
     }
 
@@ -261,8 +261,19 @@ public abstract class BindableObject : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private void NotifyValueChanged<TValue>(BindableProperty<TValue> property, TValue oldValue, TValue newValue)
+    /// <summary>
+    /// Raises change notifications for the specified <paramref name="property"/> without storing a value in the property store.
+    /// </summary>
+    /// <typeparam name="TValue">The type of the property value.</typeparam>
+    /// <param name="property">The property whose value changed.</param>
+    /// <param name="oldValue">The previous value.</param>
+    /// <param name="newValue">The new value.</param>
+    protected void NotifyPropertyChanged<TValue>(
+        BindableProperty<TValue> property,
+        TValue oldValue,
+        TValue newValue)
     {
+        ArgumentNullException.ThrowIfNull(property);
         property.NotifyChanged(this, oldValue, newValue);
         OnPropertyChanged(property, oldValue, newValue);
         PropertyChanged?.Invoke(this, new BindablePropertyChangedEventArgs(property, oldValue, newValue));

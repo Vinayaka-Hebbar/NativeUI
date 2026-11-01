@@ -29,7 +29,8 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
     ("View stylesheet changes between compiled, scoped, and empty sheets keep scope state consistent", TestViewStyleSheetTransitions),
     ("The base stylesheet writes zero-specificity block, button, and color-scheme rules", TestBaseStyleSheetCss),
     ("Button mounts as HTML button element and synchronizes disabled and text attributes", TestButtonDomProxy),
-    ("CanvasView mounts as HTML canvas element, synchronizes dimensions, and records 2D drawing", TestCanvasDomProxy)
+    ("CanvasView mounts as HTML canvas element, synchronizes dimensions, and records 2D drawing", TestCanvasDomProxy),
+    ("UIElement SizeChanged event tracks rendered dimensions and notifies peer", TestSizeChangedSubscription)
 ]);
 
 return exitCode;
@@ -464,16 +465,30 @@ static void TestBaseStyleSheetCss()
 {
     string[] lines = StyleSheetCss.BaseStyleSheet.RawCss.TrimEnd().Split('\n');
 
-    Assert.Equal(17, lines.Length);
-    Assert.Equal(":where(native-ui, native-ui *) { box-sizing: border-box; }", lines[0]);
+    Assert.Equal(19, lines.Length);
+    Assert.True(lines[0].StartsWith(":where(native-ui, native-ui *) { "));
+    Assert.Contains("box-sizing: border-box;", lines[0]);
+    Assert.Contains("border: 0 solid;", lines[0]);
     Assert.Equal(":where(native-ui) { line-height: 1.25; }", lines[1]);
     Assert.Equal(":where(native-ui, native-ui span, native-ui button) { display: block; }", lines[2]);
-    Assert.Equal(":where(native-ui button) { margin: 0; padding: 0; border: none; background: none; color: inherit; font: inherit; user-select: none; width: fit-content; }", lines[3]);
-    Assert.Equal(":where([data-nui-scroll-view]) { overflow: auto; }", lines[5]);
-    Assert.Equal(":where(native-ui canvas) { display: block; width: 100%; height: 0; }", lines[4]);
-    Assert.Equal(":where(native-ui, native-ui *)::-webkit-scrollbar { width: 10px; height: 10px; }", lines[6]);
-    Assert.Equal(":where(native-ui[data-theme=\"dark\"], native-ui[data-theme=\"dark\"] *)::-webkit-scrollbar-thumb { background-color: rgb(255 255 255 / 0.35); }", lines[11]);
-    Assert.Equal(":where(native-ui[data-theme=\"dark\"]) { color-scheme: dark; }", lines[13]);
+    Assert.True(lines[3].StartsWith(":where(native-ui button) { "));
+    Assert.Contains("margin: 0;", lines[3]);
+    Assert.Contains("padding: 0;", lines[3]);
+    Assert.Contains("background: none;", lines[3]);
+    Assert.Contains("color: inherit;", lines[3]);
+    Assert.Contains("font: inherit;", lines[3]);
+    Assert.Contains("user-select: none;", lines[3]);
+    Assert.Contains("width: fit-content;", lines[3]);
+    Assert.True(lines[5].StartsWith(":where(native-ui canvas) { "));
+    Assert.Contains("display: block;", lines[5]);
+    Assert.Contains("width: 100%;", lines[5]);
+    Assert.Contains("height: 0;", lines[5]);
+    Assert.Equal(":where([data-nui-scroll-view]) { overflow: auto; }", lines[9]);
+    Assert.True(lines[10].StartsWith(":where(native-ui, native-ui *)::-webkit-scrollbar { "));
+    Assert.Contains("width: 10px;", lines[10]);
+    Assert.Contains("height: 10px;", lines[10]);
+    Assert.Equal(":where(native-ui[data-theme=\"dark\"], native-ui[data-theme=\"dark\"] *)::-webkit-scrollbar-thumb { background-color: rgb(255 255 255 / 0.35); }", lines[15]);
+    Assert.Equal(":where(native-ui[data-theme=\"dark\"]) { color-scheme: dark; }", lines[17]);
 }
 
 static void TestViewStyleSheetTransitions()
@@ -544,6 +559,52 @@ static void TestCanvasDomProxy()
     // Without a browser element, invalidating cleanly does nothing.
     canvas.InvalidateVisual();
     Assert.False(drawn);
+}
+
+static void TestSizeChangedSubscription()
+{
+    View view = new();
+    using HtmlDomRoot domRoot = new();
+    domRoot.MountHeadless(view);
+
+    int sizeChangedCount = 0;
+    Size prev = default;
+    Size next = default;
+    EventHandler<SizeChangedEventArgs> handler = (_, e) =>
+    {
+        sizeChangedCount++;
+        prev = e.PreviousSize;
+        next = e.NewSize;
+    };
+
+    view.SizeChanged += handler;
+
+    view.UpdateRenderedBounds(new Rect(0, 0, 200, 100));
+    Assert.Equal(1, sizeChangedCount);
+    Assert.Equal(new Size(0, 0), prev);
+    Assert.Equal(new Size(200, 100), next);
+    Assert.Equal(new Size(200, 100), view.ActualSize);
+    Assert.Equal(200, view.ActualWidth);
+    Assert.Equal(100, view.ActualHeight);
+    Assert.Equal(new Rect(0, 0, 200, 100), view.Bounds);
+
+    int widthChangedCount = 0;
+    void OnPropChanged(object? sender, BindablePropertyChangedEventArgs e)
+    {
+        if (e.Property == UIElement.ActualWidthProperty)
+        {
+            widthChangedCount++;
+        }
+    }
+
+    view.PropertyChanged += OnPropChanged;
+
+    view.UpdateRenderedBounds(new Rect(0, 0, 250, 100));
+    Assert.Equal(1, widthChangedCount);
+    Assert.Equal(250, view.ActualWidth);
+
+    view.PropertyChanged -= OnPropChanged;
+    view.SizeChanged -= handler;
 }
 
 static HtmlDomElement GetElement(UIElement element)

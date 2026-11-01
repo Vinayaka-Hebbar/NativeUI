@@ -125,6 +125,97 @@ public static class VisualTreeRendererTests
         Assert.True(thrown, $"Expected {typeof(TException).Name}.");
     }
 
+    public static void VerifySizeChangedEvent()
+    {
+        View root = new()
+        {
+            Style = new Style { Width = 300, Height = 200 }
+        };
+        View child = new()
+        {
+            Style = new Style { Width = 150, Height = 80 }
+        };
+        root.Children.Add(child);
+
+        int rootEvents = 0;
+        Size rootPrev = default;
+        Size rootNew = default;
+        root.SizeChanged += (_, args) =>
+        {
+            rootEvents++;
+            rootPrev = args.PreviousSize;
+            rootNew = args.NewSize;
+        };
+
+        int childEvents = 0;
+        Size childPrev = default;
+        Size childNew = default;
+        child.SizeChanged += (_, args) =>
+        {
+            childEvents++;
+            childPrev = args.PreviousSize;
+            childNew = args.NewSize;
+        };
+
+        using VisualTreeRenderer renderer = new(SkiaTextShaper.Shared);
+        MockDrawingContext context = new();
+
+        renderer.Render(context, root, new Size(500, 500));
+        Assert.Equal(1, rootEvents);
+        Assert.Equal(new Size(0, 0), rootPrev);
+        Assert.Equal(new Size(300, 200), rootNew);
+        Assert.Equal(new Size(300, 200), root.ActualSize);
+        Assert.Equal(300, root.ActualWidth);
+        Assert.Equal(200, root.ActualHeight);
+        Assert.Equal(new Rect(0, 0, 300, 200), root.Bounds);
+
+        Assert.Equal(1, childEvents);
+        Assert.Equal(new Size(0, 0), childPrev);
+        Assert.Equal(new Size(150, 80), childNew);
+        Assert.Equal(new Size(150, 80), child.ActualSize);
+        Assert.Equal(150, child.ActualWidth);
+        Assert.Equal(80, child.ActualHeight);
+
+        renderer.Render(context, root, new Size(500, 500));
+        Assert.Equal(1, rootEvents);
+        Assert.Equal(1, childEvents);
+
+        // Position-only change does NOT raise SizeChanged
+        root.UpdateRenderedBounds(new Rect(50, 60, 300, 200));
+        Assert.Equal(1, rootEvents);
+        Assert.Equal(new Rect(50, 60, 300, 200), root.Bounds);
+
+        child.Style = new Style { Width = 250, Height = 100 };
+        renderer.Render(context, root, new Size(500, 500));
+        Assert.Equal(1, rootEvents);
+        Assert.Equal(2, childEvents);
+        Assert.Equal(new Size(150, 80), childPrev);
+        Assert.Equal(new Size(250, 100), childNew);
+        Assert.Equal(new Size(250, 100), child.ActualSize);
+        Assert.Equal(250, child.ActualWidth);
+        Assert.Equal(100, child.ActualHeight);
+
+        int sizeChangedCount = 0;
+        Size observedPrev = default;
+        Size observedNew = default;
+        EventHandler<SizeChangedEventArgs> handler = (_, e) =>
+        {
+            sizeChangedCount++;
+            observedPrev = e.PreviousSize;
+            observedNew = e.NewSize;
+        };
+
+        child.SizeChanged += handler;
+        child.UpdateRenderedBounds(new Rect(10, 20, 300, 150));
+        Assert.Equal(1, sizeChangedCount);
+        Assert.Equal(new Size(250, 100), observedPrev);
+        Assert.Equal(new Size(300, 150), observedNew);
+
+        child.SizeChanged -= handler;
+        child.UpdateRenderedBounds(new Rect(10, 20, 350, 180));
+        Assert.Equal(1, sizeChangedCount);
+    }
+
     private sealed class TrackingTextMeasurer(ITextMeasurer inner) : ITextMeasurer
     {
         public bool ThrowOnNextCreate { get; set; }
