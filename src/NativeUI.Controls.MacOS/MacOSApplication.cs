@@ -49,6 +49,7 @@ public class MacOSApplication : Application
         nint nsAppClass = AppKitInterop.GetClass("NSApplication");
         nint sharedApp = AppKitInterop.SendMessage(nsAppClass, AppKitInterop.GetSelector("sharedApplication"));
         _ = AppKitInterop.SendMessage(sharedApp, AppKitInterop.GetSelector("setActivationPolicy:"), (nint)ActivationPolicyRegular);
+        AppKitInterop.InstallMainMenu(sharedApp);
 
         foreach (Window window in Windows)
         {

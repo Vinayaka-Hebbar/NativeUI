@@ -57,6 +57,8 @@ public sealed class CssValidator : CssSyntaxVisitor
         "padding",
         "margin",
         "border-radius",
+        "border-width",
+        "border-color",
         "opacity",
         "width",
         "height",

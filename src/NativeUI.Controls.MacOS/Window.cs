@@ -26,6 +26,7 @@ public sealed class Window : IDisposable, IRenderHost
     private readonly VisualTreeRenderer _renderer = new(SkiaTextShaper.Shared);
     private readonly PointerInputRouter _pointerRouter = new();
     private readonly IClipboard _clipboard;
+    private readonly Dictionary<Input, NativeTextField> _textFields = [];
     private UIElement? _content;
     private IStyleResolver? _styleResolver;
     private Color? _background;
@@ -182,6 +183,7 @@ public sealed class Window : IDisposable, IRenderHost
                 _content.VisualInvalidated -= OnContentVisualInvalidated;
             }
 
+            RemoveTextFields();
             _activeSelectionText = null;
             _activeSelectionBox = null;
             _content = value;
@@ -231,6 +233,7 @@ public sealed class Window : IDisposable, IRenderHost
             AppKitInterop.RegisterWindowView(_nsImageView, this);
             AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setContentView:"), _nsImageView);
             AppKitInterop.InstallPointerTracking(_nsWindow, _nsImageView);
+            AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setAutorecalculatesKeyViewLoop:"), true);
             _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
             _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("center"));
             AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("makeKeyAndOrderFront:"), nint.Zero);
@@ -271,6 +274,9 @@ public sealed class Window : IDisposable, IRenderHost
                 UIElement.PointerPressedEvent,
                 new PointerEventArgs(MousePointerId, viewportPoint, PointerButtons.Primary, modifiers, clickCount));
             BeginSelection(hoveredElement, viewportPoint, clickCount);
+
+            // The native field covers only the text line, so this press landed on the element's padding.
+            (hoveredElement as Input)?.Focus();
             UpdateCursor();
         }
         finally
@@ -515,7 +521,7 @@ public sealed class Window : IDisposable, IRenderHost
 
     /// <summary>
     /// Processes keyboard shortcuts such as <c>Cmd+C</c> / <c>Ctrl+C</c> (copy selected text to <see cref="Clipboard"/>)
-    /// and <c>Cmd+A</c> / <c>Ctrl+A</c> (select all).
+    /// and <c>Cmd+A</c> / <c>Ctrl+A</c> (select all). While an <see cref="Input"/> has focus, these shortcuts belong to its native field.
     /// </summary>
     public async ValueTask<bool> HandleKeyDownAsync(
         string key,
@@ -533,6 +539,11 @@ public sealed class Window : IDisposable, IRenderHost
             {
                 return true;
             }
+        }
+
+        if (_textFields.Keys.Any(static input => input.IsFocused))
+        {
+            return false;
         }
 
         if (commandOrControl && string.Equals(key, "c", StringComparison.OrdinalIgnoreCase))
@@ -588,6 +599,10 @@ public sealed class Window : IDisposable, IRenderHost
         if (_nsImageView != nint.Zero && OperatingSystem.IsMacOS())
         {
             PresentSnapshotToNativeView(snapshot);
+            if (LastLayout is not null)
+            {
+                SyncTextFields(LastLayout);
+            }
         }
 
         return snapshot;
@@ -617,6 +632,7 @@ public sealed class Window : IDisposable, IRenderHost
             _content = null;
         }
 
+        RemoveTextFields();
         _pointerRouter.Reset();
         _pointerPosition = null;
         _isDraggingSelection = false;
@@ -734,6 +750,63 @@ public sealed class Window : IDisposable, IRenderHost
         }
     }
 
+    /// <summary>
+    /// Creates, positions, and removes native fields to match the <see cref="Input"/> elements visible in the layout.
+    /// </summary>
+    private void SyncTextFields(LayoutBox root)
+    {
+        HashSet<Input> placed = [];
+        PlaceTextFields(root, new Rect(0, 0, Width, Height), 1.0, placed);
+
+        foreach (Input input in _textFields.Keys.ToArray())
+        {
+            if (!placed.Contains(input))
+            {
+                _textFields.Remove(input, out NativeTextField? field);
+                field?.Dispose();
+            }
+        }
+    }
+
+    private void PlaceTextFields(LayoutBox box, Rect clip, double opacity, HashSet<Input> placed)
+    {
+        if (box.Element is not UIElement { IsVisible: true } element)
+        {
+            return;
+        }
+
+        double boxOpacity = opacity * box.Style.Opacity;
+        if (element is Input input)
+        {
+            if (!_textFields.TryGetValue(input, out NativeTextField? field))
+            {
+                field = new NativeTextField(input, _nsImageView);
+                _textFields[input] = field;
+            }
+
+            field.Place(clip.Intersect(box.BorderBox), box.ContentBox, box.Style, boxOpacity, Height);
+            placed.Add(input);
+            return;
+        }
+
+        bool clipsChildren = box.Style.ClipsOverflow || element is View { ClipToBounds: true };
+        Rect childClip = clipsChildren ? clip.Intersect(box.BorderBox) : clip;
+        foreach (LayoutBox child in box.Children)
+        {
+            PlaceTextFields(child, childClip, boxOpacity, placed);
+        }
+    }
+
+    private void RemoveTextFields()
+    {
+        foreach (NativeTextField field in _textFields.Values)
+        {
+            field.Dispose();
+        }
+
+        _textFields.Clear();
+    }
+
     private void SyncContentStyle()
     {
         if (_content is null)
@@ -829,7 +902,7 @@ public sealed class Window : IDisposable, IRenderHost
             ? Cursor.IBeam
             : (_pointerRouter.HoveredElement?.ComputedStyle.Cursor ?? Cursor.Default);
 
-        if (_pointerRouter.HoveredElement is Text { IsTextSelectionEnabled: true } && cursor == Cursor.Default)
+        if (_pointerRouter.HoveredElement is Text { IsTextSelectionEnabled: true } or Input { IsEnabled: true } && cursor == Cursor.Default)
         {
             cursor = Cursor.IBeam;
         }

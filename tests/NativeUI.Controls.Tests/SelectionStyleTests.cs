@@ -249,6 +249,8 @@ internal static class SelectionStyleTests
             Commands.Add("Rect");
         }
 
+        public override void StrokeRoundedRectangle(Rect rect, double radius, double strokeWidth, Paint paint) { }
+
         public override void DrawRoundedRectangle(Rect rect, double radius, Paint paint)
         {
             Commands.Add("RoundedRect");

@@ -134,6 +134,7 @@ public class HtmlDomElement : INativePeer
         {
             CanvasView canvasView => new HtmlDomCanvas(canvasView, element),
             Button button => new HtmlDomButton(button, element),
+            Input input => new HtmlDomInput(input, element),
             StackPanel stackPanel => new HtmlDomStackPanel(stackPanel, element),
             Grid grid => new HtmlDomGrid(grid, element),
             Text text => new HtmlDomText(text, element),

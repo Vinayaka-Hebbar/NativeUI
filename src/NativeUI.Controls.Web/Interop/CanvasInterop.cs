@@ -94,6 +94,12 @@ internal static partial class CanvasInterop
     public static partial void DrawRoundRect(JSObject canvas, double x, double y, double w, double h, double r, string color, double opacity);
 
     /// <summary>
+    /// Strokes the outline of a rounded rectangle on the canvas.
+    /// </summary>
+    [JSImport("strokeRoundRect", "nativeui-canvas")]
+    public static partial void StrokeRoundRect(JSObject canvas, double x, double y, double w, double h, double r, double lineWidth, string color, double opacity);
+
+    /// <summary>
     /// Draws text on the canvas.
     /// </summary>
     [JSImport("drawText", "nativeui-canvas")]

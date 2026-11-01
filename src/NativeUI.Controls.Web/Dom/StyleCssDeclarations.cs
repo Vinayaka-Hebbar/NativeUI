@@ -25,6 +25,8 @@ internal static class StyleCssDeclarations
             ("padding", FormatThickness(style?.Padding)),
             ("margin", FormatThickness(style?.Margin)),
             ("border-radius", FormatLength(style?.BorderRadius)),
+            ("border-width", FormatLength(style?.BorderWidth)),
+            ("border-color", FormatColor(style?.BorderColor)),
             ("opacity", style?.Opacity is double opacity ? Math.Clamp(opacity, 0, 1).ToString("R", CultureInfo.InvariantCulture) : null),
             ("width", FormatWidth(style?.Width)),
             ("height", FormatLength(style?.Height)),

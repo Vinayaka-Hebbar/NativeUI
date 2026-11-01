@@ -22,6 +22,7 @@ internal static partial class AppKitInterop
     private const ulong EventModifierFlagControl = 1UL << 18;
     private const ulong EventModifierFlagOption = 1UL << 19;
     private const ulong EventModifierFlagCommand = 1UL << 20;
+    private const ulong AlignAllEdgesNearest = 0xF0000;
     private const ulong TrackingMouseEnteredAndExited = 0x01;
     private const ulong TrackingMouseMoved = 0x02;
     private const ulong TrackingCursorUpdate = 0x04;
@@ -70,6 +71,22 @@ internal static partial class AppKitInterop
         {
             Origin = new CGPoint(x, y);
             Size = new CGSize(width, height);
+        }
+    }
+
+    /// <summary>
+    /// Identifies the receiver and the class where a call through <see cref="SendSuperMessage"/> starts its method lookup.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct ObjCSuper
+    {
+        public nint Receiver;
+        public nint SuperClass;
+
+        public ObjCSuper(nint receiver, nint superClass)
+        {
+            Receiver = receiver;
+            SuperClass = superClass;
         }
     }
 
@@ -186,6 +203,85 @@ internal static partial class AppKitInterop
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
     public static partial void SendMessageSetSize(nint receiver, nint selector, CGSize size);
 
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    public static partial void SendMessageSetFrame(nint receiver, nint selector, CGRect frame);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    public static partial CGSize SendMessageSize(nint receiver, nint selector);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    public static partial void SendMessageVoid(nint receiver, nint selector, double arg1);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    public static partial nint SendMessage(nint receiver, nint selector, nint arg1, nint arg2, nint arg3);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    public static partial nint SendMessageColor(nint receiver, nint selector, double red, double green, double blue, double alpha);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    public static partial nint SendMessageSystemFont(nint receiver, nint selector, double size, double weight);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    public static partial nint SendMessageFontWithFamily(nint receiver, nint selector, nint family, ulong traits, long weight, double size);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    private static partial CGRect SendMessageAlignRect(nint receiver, nint selector, CGRect rect, ulong options);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend_stret")]
+    private static partial CGRect SendMessageAlignRectStret(nint receiver, nint selector, CGRect rect, ulong options);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSendSuper")]
+    public static partial byte SendSuperMessage(ref ObjCSuper super, nint selector);
+
+    /// <summary>
+    /// Installs the application menu and the standard Edit menu. AppKit delivers the clipboard, selection, and undo
+    /// shortcuts of a text field only through menu items that target the first responder.
+    /// </summary>
+    public static void InstallMainMenu(nint nsApp)
+    {
+        nint mainMenu = CreateMenu(string.Empty);
+        AddSubmenu(mainMenu, CreateMenu(string.Empty, ("Quit", "terminate:", "q")));
+        AddSubmenu(
+            mainMenu,
+            CreateMenu(
+                "Edit",
+                ("Undo", "undo:", "z"),
+                ("Redo", "redo:", "Z"),
+                ("Cut", "cut:", "x"),
+                ("Copy", "copy:", "c"),
+                ("Paste", "paste:", "v"),
+                ("Select All", "selectAll:", "a")));
+        SendMessageVoid(nsApp, GetSelector("setMainMenu:"), mainMenu);
+    }
+
+    private static nint CreateMenu(string title, params ReadOnlySpan<(string Title, string Action, string Key)> items)
+    {
+        nint menu = SendMessage(
+            SendMessage(GetClass("NSMenu"), GetSelector("alloc")),
+            GetSelector("initWithTitle:"),
+            CreateNSString(title));
+
+        foreach ((string itemTitle, string action, string key) in items)
+        {
+            nint item = SendMessage(
+                SendMessage(GetClass("NSMenuItem"), GetSelector("alloc")),
+                GetSelector("initWithTitle:action:keyEquivalent:"),
+                CreateNSString(itemTitle),
+                GetSelector(action),
+                CreateNSString(key));
+            SendMessageVoid(menu, GetSelector("addItem:"), item);
+        }
+
+        return menu;
+    }
+
+    private static void AddSubmenu(nint parent, nint submenu)
+    {
+        nint item = SendMessage(SendMessage(GetClass("NSMenuItem"), GetSelector("alloc")), GetSelector("init"));
+        SendMessageVoid(item, GetSelector("setSubmenu:"), submenu);
+        SendMessageVoid(parent, GetSelector("addItem:"), item);
+    }
+
     public static unsafe nint GetInteractiveImageViewClass()
     {
         if (s_interactiveViewClass != nint.Zero)
@@ -209,6 +305,7 @@ internal static partial class AppKitInterop
         }
 
         delegate* unmanaged[Cdecl]<nint, nint, byte> acceptsFirstResponderPtr = &OnAcceptsFirstResponder;
+        delegate* unmanaged[Cdecl]<nint, nint, byte> canBecomeKeyViewPtr = &OnCanBecomeKeyView;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> mouseDownPtr = &OnMouseDown;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> mouseDraggedPtr = &OnMouseDragged;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> mouseUpPtr = &OnMouseUp;
@@ -222,6 +319,7 @@ internal static partial class AppKitInterop
         delegate* unmanaged[Cdecl]<nint, nint, nint, byte> performKeyEquivPtr = &OnPerformKeyEquivalent;
 
         _ = ClassAddMethod(subClass, GetSelector("acceptsFirstResponder"), (nint)acceptsFirstResponderPtr, "c@:");
+        _ = ClassAddMethod(subClass, GetSelector("canBecomeKeyView"), (nint)canBecomeKeyViewPtr, "c@:");
         _ = ClassAddMethod(subClass, GetSelector("mouseDown:"), (nint)mouseDownPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("mouseDragged:"), (nint)mouseDraggedPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("mouseUp:"), (nint)mouseUpPtr, "v@:@");
@@ -403,6 +501,15 @@ internal static partial class AppKitInterop
         return 1;
     }
 
+    /// <summary>
+    /// Keeps the rendered image out of the Tab order, so Tab moves only between text fields.
+    /// </summary>
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static byte OnCanBecomeKeyView(nint self, nint cmd)
+    {
+        return 0;
+    }
+
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static void OnMouseDown(nint self, nint cmd, nint nsEvent)
     {
@@ -501,6 +608,17 @@ internal static partial class AppKitInterop
             CGRect bounds = GetBounds(self);
             window.HandleResized(new Size(bounds.Size.Width, bounds.Size.Height));
         }
+    }
+
+    /// <summary>
+    /// Moves every edge of <paramref name="rect"/>, in the coordinates of <paramref name="nsView"/>, to the nearest device pixel.
+    /// </summary>
+    public static CGRect GetBackingAlignedRect(nint nsView, CGRect rect)
+    {
+        nint selector = GetSelector("backingAlignedRect:options:");
+        return RuntimeInformation.ProcessArchitecture == Architecture.X64
+            ? SendMessageAlignRectStret(nsView, selector, rect, AlignAllEdgesNearest)
+            : SendMessageAlignRect(nsView, selector, rect, AlignAllEdgesNearest);
     }
 
     private static CGRect GetBounds(nint nsView)

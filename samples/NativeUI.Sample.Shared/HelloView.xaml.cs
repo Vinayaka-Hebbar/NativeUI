@@ -29,7 +29,8 @@ public partial class HelloView
             (NavStack, StackPage),
             (NavGrid, GridPage),
             (NavScroll, ScrollPage),
-            (NavCanvas, CanvasPage)
+            (NavCanvas, CanvasPage),
+            (NavInput, InputPage)
         ];
 
         foreach ((Button nav, View page) in _pages)
@@ -54,6 +55,10 @@ public partial class HelloView
             ShuffleBars();
             ChartCanvas.InvalidateVisual();
         };
+
+        FocusNameButton.Click += (_, _) => NameInput.Focus();
+        NameInput.GotFocus += (_, _) => FocusStatus.Value = "The field has focus";
+        NameInput.LostFocus += (_, _) => FocusStatus.Value = "The field does not have focus";
     }
 
     private void ShowPage(View selectedPage)

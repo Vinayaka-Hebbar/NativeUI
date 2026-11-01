@@ -142,6 +142,8 @@ public sealed class VisualTreeRenderer : IDisposable
                 }
             }
 
+            DrawBorder(context, box, drawOpacity);
+
             if (box.Element is Text textControl && !string.IsNullOrEmpty(textControl.Value))
             {
                 ITextLayout textLayout = box.TextLayout ?? _textMeasurer.CreateTextLayout(
@@ -230,6 +232,28 @@ public sealed class VisualTreeRenderer : IDisposable
                 context.Restore();
             }
         }
+    }
+
+    /// <summary>
+    /// Strokes the border inside the border box, so its outer edge follows <see cref="ComputedStyle.BorderRadius"/>.
+    /// </summary>
+    private static void DrawBorder(DrawingContext context, LayoutBox box, double opacity)
+    {
+        ComputedStyle style = box.Style;
+        double width = style.BorderWidth;
+        if (width <= 0)
+        {
+            return;
+        }
+
+        double inset = width / 2.0;
+        Rect outline = new(
+            box.BorderBox.X + inset,
+            box.BorderBox.Y + inset,
+            Math.Max(0, box.BorderBox.Width - width),
+            Math.Max(0, box.BorderBox.Height - width));
+        Paint paint = new(style.BorderColor ?? style.TextColor ?? Colors.Black, opacity);
+        context.StrokeRoundedRectangle(outline, Math.Max(0, style.BorderRadius - inset), width, paint);
     }
 
     private static bool ShouldClipChildren(LayoutBox box)

@@ -58,9 +58,9 @@ internal static class CssValueSyntaxBuilder
 
         return propertyName switch
         {
-            "color" or "background-color" or "background" => TryBuildColorSyntax(valueNode, out expression, out colorLiteral),
+            "color" or "background-color" or "background" or "border-color" => TryBuildColorSyntax(valueNode, out expression, out colorLiteral),
             "width" => TryBuildWidthSyntax(valueNode, out expression),
-            "font-size" or "border-radius" or "height" => TryBuildLengthSyntax(valueNode, out expression),
+            "font-size" or "border-radius" or "border-width" or "height" => TryBuildLengthSyntax(valueNode, out expression),
             "padding" or "margin" => TryBuildThicknessSyntax(valueNode, out expression),
             "font-weight" => TryBuildFontWeightSyntax(valueNode, out expression),
             "text-align" => TryBuildTextAlignSyntax(valueNode, out expression),

@@ -33,10 +33,10 @@ internal static class StyleSheetCss
 
     /// <summary>
     /// The base style shared by all <c>native-ui</c> elements, matching desktop rendering where CSS allows: border-box
-    /// sizing; the minimum line height of the desktop text shaper; a scrollbar with the size and colors of the desktop
+    /// sizing; a solid border of zero width, which <c>border-width</c> on an element makes visible; the minimum line height of the desktop text shaper; a scrollbar with the size and colors of the desktop
     /// indicator, which <c>scrollbar-color</c> or <c>scrollbar-width</c> on an element replaces; block display for the root, each <see cref="Text"/>, and
     /// each <see cref="Button"/>, none of which is block-level by default; no browser control appearance on
-    /// <see cref="Button"/>, matching desktop rendering; scrolling on each <see cref="ScrollView"/>; and a
+    /// <see cref="Button"/> and <see cref="Input"/>, matching desktop rendering; scrolling on each <see cref="ScrollView"/>; and a
     /// <c>color-scheme</c> following <c>data-theme</c>.
     /// <c>:where</c> keeps every declaration at zero specificity.
     /// </summary>
@@ -166,7 +166,8 @@ internal static class StyleSheetCss
         [
             new(":where(native-ui, native-ui *)", null, [], false, new Dictionary<string, CssValue>
             {
-                ["box-sizing"] = new CssStringValue("border-box")
+                ["box-sizing"] = new CssStringValue("border-box"),
+                ["border"] = new CssStringValue("0 solid")
             }),
             new(":where(native-ui)", null, [], false, new Dictionary<string, CssValue>
             {
@@ -180,12 +181,22 @@ internal static class StyleSheetCss
             {
                 ["margin"] = new CssStringValue("0"),
                 ["padding"] = new CssStringValue("0"),
-                ["border"] = new CssStringValue("none"),
                 ["background"] = new CssStringValue("none"),
                 ["color"] = new CssStringValue("inherit"),
                 ["font"] = new CssStringValue("inherit"),
                 ["user-select"] = new CssStringValue("none"),
                 ["width"] = new CssStringValue("fit-content")
+            }),
+            new(":where(native-ui input)", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["display"] = new CssStringValue("block"),
+                ["width"] = new CssStringValue("100%"),
+                ["margin"] = new CssStringValue("0"),
+                ["padding"] = new CssStringValue("0"),
+                ["outline"] = new CssStringValue("none"),
+                ["background"] = new CssStringValue("none"),
+                ["color"] = new CssStringValue("inherit"),
+                ["font"] = new CssStringValue("inherit")
             }),
             new(":where(native-ui canvas)", null, [], false, new Dictionary<string, CssValue>
             {

@@ -155,6 +155,20 @@
   opacity: 0.85;
 }
 
+.field {
+  background-color: var(--color-muted-surface);
+  color: var(--color-text);
+  padding: 8px 12px;
+  border-width: 1px;
+  border-color: var(--color-muted);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.field:focus {
+  border-color: var(--color-primary);
+}
+
 .canvas-box {
   border-radius: 8px;
   background-color: var(--color-muted-surface);

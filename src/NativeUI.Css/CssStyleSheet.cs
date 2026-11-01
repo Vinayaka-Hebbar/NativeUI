@@ -118,6 +118,8 @@ public sealed class CssStyleSheet : StyleSheet
         Thickness padding = Thickness.Zero;
         Thickness margin = Thickness.Zero;
         double borderRadius = 0.0;
+        double borderWidth = 0.0;
+        Color? borderColor = null;
         double opacity = 1.0;
         WidthValue? width = inheritedStyle.Width;
         double? height = inheritedStyle.Height;
@@ -222,6 +224,20 @@ public sealed class CssStyleSheet : StyleSheet
                         }
                         break;
 
+                    case "border-width":
+                        if (resolved is CssLengthValue bw)
+                        {
+                            borderWidth = bw.ToLogicalPixels(fontSize);
+                        }
+                        break;
+
+                    case "border-color":
+                        if (resolved is CssColorValue bc)
+                        {
+                            borderColor = bc.Color;
+                        }
+                        break;
+
                     case "opacity":
                         if (resolved is CssNumberValue op)
                         {
@@ -305,6 +321,8 @@ public sealed class CssStyleSheet : StyleSheet
             Padding = padding,
             Margin = margin,
             BorderRadius = borderRadius,
+            BorderWidth = borderWidth,
+            BorderColor = borderColor,
             Opacity = opacity,
             Width = width,
             Height = height,

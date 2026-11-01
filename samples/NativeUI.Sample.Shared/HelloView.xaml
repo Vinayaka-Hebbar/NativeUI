@@ -32,6 +32,7 @@
             <Button x:Name="NavGrid" Class="nav-item" Text="Grid" />
             <Button x:Name="NavScroll" Class="nav-item" Text="Scrolling" />
             <Button x:Name="NavCanvas" Class="nav-item" Text="Canvas" />
+            <Button x:Name="NavInput" Class="nav-item" Text="Input" />
         </StackPanel>
 
         <ScrollView x:Name="ExamplesScroll" Grid.Column="1" Class="examples">
@@ -112,6 +113,26 @@
                 <Text Class="section" Value="Redrawing from data" />
                 <CanvasView x:Name="ChartCanvas" Class="canvas-box canvas-chart" />
                 <Button x:Name="ShuffleButton" Class="btn-action" Text="Shuffle data" />
+            </View>
+
+            <View x:Name="InputPage">
+                <Text Class="section" Value="Two-way binding" />
+                <Input x:Name="NameInput"
+                       Class="field"
+                       Placeholder="Type your name"
+                       Value="{Binding UserName, Mode=TwoWay}" />
+                <Text Class="scroll-status" Value="{Binding Greeting}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="FocusNameButton" Class="btn-action" Text="Focus the field" />
+                    <Button Class="btn-action" Text="Clear" Command="{Binding ClearUserNameCommand}" />
+                </StackPanel>
+                <Text x:Name="FocusStatus" Class="scroll-status" Value="The field does not have focus" />
+
+                <Text Class="section" Value="Read-only" />
+                <Input Class="field" IsReadOnly="true" Value="This text can be selected and copied" />
+
+                <Text Class="section" Value="Disabled" />
+                <Input Class="field" IsEnabled="false" Value="This field does not respond" />
             </View>
         </ScrollView>
     </Grid>

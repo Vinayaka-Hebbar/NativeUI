@@ -34,6 +34,12 @@ public interface IStyle
     /// <summary>Gets the specified corner radius.</summary>
     double? BorderRadius { get; }
 
+    /// <summary>Gets the specified border width on all four edges.</summary>
+    double? BorderWidth { get; }
+
+    /// <summary>Gets the specified border color or theme token.</summary>
+    ThemeValue<Color>? BorderColor { get; }
+
     /// <summary>Gets the specified element opacity.</summary>
     double? Opacity { get; }
 

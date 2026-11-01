@@ -178,6 +178,8 @@ internal sealed class HtmlDomRoot : IDisposable
                 DomInterop.SetAttribute(_rootElement, StyleSheetCss.ScopeAttribute, _scopeId.ToString(CultureInfo.InvariantCulture));
                 DomInterop.SetPointerDispatcher(_rootElement, OnPointerEvent);
                 DomInterop.SetScrollDispatcher(_rootElement, OnScroll);
+                DomInterop.SetInputDispatcher(_rootElement, OnInput);
+                DomInterop.SetFocusDispatcher(_rootElement, OnFocus);
                 Application.Current.CurrentThemeChanged += OnCurrentThemeChanged;
                 UpdateThemeAttribute();
                 DomInterop.AppendChild(_rootElement, element);
@@ -216,6 +218,22 @@ internal sealed class HtmlDomRoot : IDisposable
         if (HtmlDomElement.FindByNodeId(nodeId)?.Source is View view)
         {
             view.NotifyPlatformScrolled();
+        }
+    }
+
+    private static void OnInput(int nodeId, string value)
+    {
+        if (HtmlDomElement.FindByNodeId(nodeId) is HtmlDomInput input)
+        {
+            input.OnBrowserInput(value);
+        }
+    }
+
+    private static void OnFocus(int nodeId, bool isFocused)
+    {
+        if (HtmlDomElement.FindByNodeId(nodeId) is HtmlDomInput input)
+        {
+            input.OnBrowserFocus(isFocused);
         }
     }
 

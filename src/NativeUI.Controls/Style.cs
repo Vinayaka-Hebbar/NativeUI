@@ -66,6 +66,18 @@ public sealed class Style : BindableObject, IStyle
         BindableProperty.Create<Style, double?>(nameof(BorderRadius));
 
     /// <summary>
+    /// Identifies the <see cref="BorderWidth"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double?> BorderWidthProperty =
+        BindableProperty.Create<Style, double?>(nameof(BorderWidth));
+
+    /// <summary>
+    /// Identifies the <see cref="BorderColor"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<ThemeValue<Color>?> BorderColorProperty =
+        BindableProperty.Create<Style, ThemeValue<Color>?>(nameof(BorderColor));
+
+    /// <summary>
     /// Identifies the <see cref="Opacity"/> bindable property.
     /// </summary>
     public static readonly BindableProperty<double?> OpacityProperty =
@@ -198,6 +210,24 @@ public sealed class Style : BindableObject, IStyle
     {
         get => GetValue(BorderRadiusProperty);
         set => SetValue(BorderRadiusProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the border width on all four edges in logical pixels. The border lies inside the element's width and height.
+    /// </summary>
+    public double? BorderWidth
+    {
+        get => GetValue(BorderWidthProperty);
+        set => SetValue(BorderWidthProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the border color or theme token. An unspecified border color uses the text color.
+    /// </summary>
+    public ThemeValue<Color>? BorderColor
+    {
+        get => GetValue(BorderColorProperty);
+        set => SetValue(BorderColorProperty, value);
     }
 
     /// <summary>

@@ -29,6 +29,12 @@ public partial class HelloViewModel : ObservableObject
     [ObservableProperty]
     private bool _isDarkMode;
 
+    [ObservableProperty]
+    private string _userName = string.Empty;
+
+    [ObservableProperty]
+    private string _greeting = "Nothing typed yet";
+
     /// <summary>
     /// Initializes a new instance of the <see cref="HelloViewModel"/> class that follows the application's theme.
     /// </summary>
@@ -42,6 +48,17 @@ public partial class HelloViewModel : ObservableObject
     private void ToggleTheme()
     {
         Application.Current.RequestedTheme = IsDarkMode ? Theme.Light : Theme.Dark;
+    }
+
+    [RelayCommand]
+    private void ClearUserName()
+    {
+        UserName = string.Empty;
+    }
+
+    partial void OnUserNameChanged(string value)
+    {
+        Greeting = value.Length == 0 ? "Nothing typed yet" : $"Hello, {value}";
     }
 
     private void OnCurrentThemeChanged(object? sender, ThemeChangedEventArgs e)

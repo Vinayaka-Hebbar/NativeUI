@@ -151,6 +151,21 @@ public sealed class SkiaDrawingContext : DrawingContext
     }
 
     /// <inheritdoc />
+    public override void StrokeRoundedRectangle(Rect rect, double radius, double strokeWidth, Paint paint)
+    {
+        using SKPaint skPaint = new()
+        {
+            Color = paint.Color.ToSKColor(paint.Opacity),
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = (float)strokeWidth
+        };
+
+        float r = (float)radius;
+        _canvas.DrawRoundRect(ToSKRect(rect), r, r, skPaint);
+    }
+
+    /// <inheritdoc />
     public override void DrawTextLayout(
         ITextLayout layout,
         Point origin,

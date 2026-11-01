@@ -162,6 +162,15 @@ public sealed class WebCanvas2DDrawingContext : DrawingContext
     }
 
     /// <inheritdoc />
+    public override void StrokeRoundedRectangle(Rect rect, double radius, double strokeWidth, Paint paint)
+    {
+        if (_canvas is not null && OperatingSystem.IsBrowser())
+        {
+            CanvasInterop.StrokeRoundRect(_canvas, rect.X, rect.Y, rect.Width, rect.Height, radius, strokeWidth, paint.Color.ToCssString(), paint.Opacity);
+        }
+    }
+
+    /// <inheritdoc />
     public override void DrawTextLayout(ITextLayout layout, Point origin, Paint paint)
     {
         ArgumentNullException.ThrowIfNull(layout);

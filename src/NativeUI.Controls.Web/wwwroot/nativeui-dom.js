@@ -23,6 +23,24 @@
  */
 
 /**
+ * Receives the identifier and current value of each edited input.
+ *
+ * @callback InputDispatcher
+ * @param {number} nodeId The identifier of the input.
+ * @param {string} value The current value.
+ * @returns {void}
+ */
+
+/**
+ * Receives the identifier and new focus state of each input that gains or loses focus.
+ *
+ * @callback FocusDispatcher
+ * @param {number} nodeId The identifier of the input.
+ * @param {boolean} isFocused Whether the input now has focus.
+ * @returns {void}
+ */
+
+/**
  * Receives each forwarded pointer event in order.
  *
  * @callback PointerDispatcher
@@ -134,6 +152,38 @@ class NativeUIRoot extends HTMLElement {
   /** @type {ScrollDispatcher | null} */
   scrollDispatcher = null;
 
+  /** @type {InputDispatcher | null} */
+  inputDispatcher = null;
+
+  /** @type {FocusDispatcher | null} */
+  focusDispatcher = null;
+
+  /**
+   * Forwards an edit of an attached input.
+   *
+   * @param {Event} event The native event.
+   * @returns {void}
+   */
+  #handleInput = (event) => {
+    const nodeId = nodeIds.get(/** @type {Node} */ (event.target));
+    if (nodeId !== undefined && event.target instanceof HTMLInputElement) {
+      this.inputDispatcher?.(nodeId, event.target.value);
+    }
+  };
+
+  /**
+   * Forwards a focus change of an attached input. `focusin` and `focusout` bubble, unlike `focus` and `blur`.
+   *
+   * @param {Event} event The native event.
+   * @returns {void}
+   */
+  #handleFocus = (event) => {
+    const nodeId = nodeIds.get(/** @type {Node} */ (event.target));
+    if (nodeId !== undefined && event.target instanceof HTMLInputElement) {
+      this.focusDispatcher?.(nodeId, event.type === "focusin");
+    }
+  };
+
   /**
    * Forwards a scroll of an attached descendant. Scroll events do not bubble, so this listens during capture.
    *
@@ -148,7 +198,7 @@ class NativeUIRoot extends HTMLElement {
   };
 
   /**
-   * Adds the delegated pointer and scroll listeners.
+   * Adds the delegated pointer, scroll, input, and focus listeners.
    *
    * @returns {void}
    */
@@ -158,6 +208,9 @@ class NativeUIRoot extends HTMLElement {
     }
 
     this.addEventListener("scroll", this.#handleScroll, { capture: true, passive: true });
+    this.addEventListener("input", this.#handleInput);
+    this.addEventListener("focusin", this.#handleFocus);
+    this.addEventListener("focusout", this.#handleFocus);
     this.#pointerHandler = (event) =>
       this.#handlePointerEvent(/** @type {MouseEvent} */ (event));
     for (const type of Object.keys(Pointer.NativeKinds)) {
@@ -166,7 +219,7 @@ class NativeUIRoot extends HTMLElement {
   }
 
   /**
-   * Removes the delegated pointer and scroll listeners and discards events that have not been forwarded.
+   * Removes the delegated listeners and discards events that have not been forwarded.
    *
    * @returns {void}
    */
@@ -180,6 +233,9 @@ class NativeUIRoot extends HTMLElement {
     }
 
     this.removeEventListener("scroll", this.#handleScroll, { capture: true });
+    this.removeEventListener("input", this.#handleInput);
+    this.removeEventListener("focusin", this.#handleFocus);
+    this.removeEventListener("focusout", this.#handleFocus);
     cancelAnimationFrame(this.#frame);
     this.#frame = 0;
     this.#pending.length = 0;
@@ -291,6 +347,59 @@ export const dom = {
    */
   setScrollDispatcher(root, dispatch) {
     root.scrollDispatcher = dispatch;
+  },
+
+  /**
+   * Sets the callback that a `native-ui` element invokes with the identifier and value of each edited input.
+   *
+   * @param {NativeUIRoot} root The `native-ui` element.
+   * @param {InputDispatcher} dispatch The callback.
+   * @returns {void}
+   */
+  setInputDispatcher(root, dispatch) {
+    root.inputDispatcher = dispatch;
+  },
+
+  /**
+   * Sets the callback that a `native-ui` element invokes with the identifier and new state of each input that gains or loses focus.
+   *
+   * @param {NativeUIRoot} root The `native-ui` element.
+   * @param {FocusDispatcher} dispatch The callback.
+   * @returns {void}
+   */
+  setFocusDispatcher(root, dispatch) {
+    root.focusDispatcher = dispatch;
+  },
+
+  /**
+   * Gets the current value of an input element.
+   *
+   * @param {HTMLInputElement} element The input element.
+   * @returns {string} The current value.
+   */
+  getValue(element) {
+    return element.value;
+  },
+
+  /**
+   * Sets the current value of an input element.
+   *
+   * @param {HTMLInputElement} element The input element.
+   * @param {string} value The new value.
+   * @returns {void}
+   */
+  setValue(element, value) {
+    element.value = value;
+  },
+
+  /**
+   * Moves keyboard focus to an element.
+   *
+   * @param {HTMLElement} element The element.
+   * @returns {void}
+   */
+  focus(element) {
+    element.focus();
   },
 
   /**

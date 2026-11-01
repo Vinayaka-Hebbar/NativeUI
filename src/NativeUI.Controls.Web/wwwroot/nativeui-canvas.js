@@ -231,6 +231,38 @@ export const canvas = {
   },
 
   /**
+   * Strokes the outline of a rounded rectangle on the canvas.
+   *
+   * @param {HTMLCanvasElement} element The canvas element.
+   * @param {number} x Left coordinate.
+   * @param {number} y Top coordinate.
+   * @param {number} w Width.
+   * @param {number} h Height.
+   * @param {number} r Corner radius.
+   * @param {number} lineWidth Line width.
+   * @param {string} color CSS color string.
+   * @param {number} opacity Opacity in [0, 1].
+   * @returns {void}
+   */
+  strokeRoundRect(element, x, y, w, h, r, lineWidth, color, opacity) {
+    const ctx = element?.getContext("2d");
+    if (ctx) {
+      ctx.save();
+      ctx.globalAlpha *= opacity;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") {
+        ctx.roundRect(x, y, w, h, r);
+      } else {
+        ctx.rect(x, y, w, h);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+  },
+
+  /**
    * Draws text on the canvas.
    *
    * @param {HTMLCanvasElement} element The canvas element.

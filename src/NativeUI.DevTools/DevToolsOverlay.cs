@@ -261,7 +261,7 @@ public sealed class DevToolsOverlay : IRenderOverlay
 
         try
         {
-            if (box.Style.Padding != Thickness.Zero)
+            if (box.Style.ContentInsets != Thickness.Zero)
             {
                 DrawOutline(context, box.ContentBox, s_contentColor);
             }

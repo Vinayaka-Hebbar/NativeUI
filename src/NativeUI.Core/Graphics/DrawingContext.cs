@@ -100,6 +100,15 @@ public abstract class DrawingContext
     public abstract void DrawRoundedRectangle(Rect rect, double radius, Paint paint);
 
     /// <summary>
+    /// Strokes the outline of a rounded rectangle, centered on the edge of <paramref name="rect"/>.
+    /// </summary>
+    /// <param name="rect">The rectangle geometry to outline.</param>
+    /// <param name="radius">The corner radius in logical pixels; zero draws square corners.</param>
+    /// <param name="strokeWidth">The line width in logical pixels.</param>
+    /// <param name="paint">The painting parameters including color and opacity.</param>
+    public abstract void StrokeRoundedRectangle(Rect rect, double radius, double strokeWidth, Paint paint);
+
+    /// <summary>
     /// Draws a shaped <see cref="ITextLayout"/> at <paramref name="origin"/> using <paramref name="paint"/>.
     /// </summary>
     /// <param name="layout">The shaped text layout to render.</param>

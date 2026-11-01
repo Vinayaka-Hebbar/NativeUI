@@ -177,6 +177,16 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["Text"] = XamlPropertyKind.String,
                 ["Command"] = XamlPropertyKind.BindingOnly,
                 ["CommandParameter"] = XamlPropertyKind.String
+            },
+            ["Input"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["Value"] = XamlPropertyKind.String,
+                ["Placeholder"] = XamlPropertyKind.String,
+                ["IsReadOnly"] = XamlPropertyKind.Boolean
             }
         };
 

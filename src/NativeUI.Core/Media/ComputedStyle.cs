@@ -60,6 +60,25 @@ public sealed record ComputedStyle
     public double BorderRadius { get; init; }
 
     /// <summary>
+    /// Gets the resolved border width on all four edges in logical pixels.
+    /// </summary>
+    public double BorderWidth { get; init; }
+
+    /// <summary>
+    /// Gets the resolved border color, or <see langword="null"/> to use <see cref="TextColor"/>.
+    /// </summary>
+    public Color? BorderColor { get; init; }
+
+    /// <summary>
+    /// Gets the distance from each edge of the border box to the content box, which is the padding plus the border width.
+    /// </summary>
+    public Thickness ContentInsets => new(
+        Padding.Top + BorderWidth,
+        Padding.Right + BorderWidth,
+        Padding.Bottom + BorderWidth,
+        Padding.Left + BorderWidth);
+
+    /// <summary>
     /// Gets the resolved element opacity in the range [0.0, 1.0].
     /// </summary>
     public double Opacity { get; init; } = 1.0;
@@ -173,6 +192,8 @@ public sealed record ComputedStyle
             Padding = inlineStyle.Padding ?? Padding,
             Margin = inlineStyle.Margin ?? Margin,
             BorderRadius = inlineStyle.BorderRadius ?? BorderRadius,
+            BorderWidth = inlineStyle.BorderWidth ?? BorderWidth,
+            BorderColor = ResolveColor(inlineStyle.BorderColor, BorderColor, resolver, element),
             Opacity = inlineStyle.Opacity is double opacity ? Math.Clamp(opacity, 0.0, 1.0) : Opacity,
             Width = inlineStyle.Width ?? Width,
             Height = inlineStyle.Height ?? Height,

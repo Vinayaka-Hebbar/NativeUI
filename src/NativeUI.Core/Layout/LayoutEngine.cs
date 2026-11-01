@@ -80,10 +80,10 @@ public sealed class LayoutEngine
         if (node.TextContent is string text)
         {
             Size unconstrained = new(double.PositiveInfinity, double.PositiveInfinity);
-            return _textMeasurer.MeasureText(text, unconstrained, style).Width + style.Padding.Horizontal;
+            return _textMeasurer.MeasureText(text, unconstrained, style).Width + style.ContentInsets.Horizontal;
         }
 
-        return MeasureMaxContentOfChildren(node) + style.Padding.Horizontal;
+        return MeasureMaxContentOfChildren(node) + style.ContentInsets.Horizontal;
     }
 
     private double MeasureMaxContentOfChildren(ILayoutNode node)
@@ -388,7 +388,7 @@ public sealed class LayoutEngine
     {
         ComputedStyle style = node.ComputedStyle;
         Thickness margin = style.Margin;
-        Thickness padding = style.Padding;
+        Thickness padding = style.ContentInsets;
 
         double borderX = availableX + margin.Left;
         double borderY = availableY + margin.Top;

@@ -10,7 +10,8 @@ public sealed class CssParser
     {
         ["hover"] = "Hover",
         ["active"] = "Pressed",
-        ["disabled"] = "Disabled"
+        ["disabled"] = "Disabled",
+        ["focus"] = "Focus"
     };
 
     private readonly IReadOnlyList<CssToken> _tokens;

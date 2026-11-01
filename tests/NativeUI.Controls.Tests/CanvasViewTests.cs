@@ -150,6 +150,8 @@ internal static class CanvasViewTests
             Rectangles.Add((rect, paint));
         }
 
+        public override void StrokeRoundedRectangle(Rect rect, double radius, double strokeWidth, Paint paint) { }
+
         public override void DrawRoundedRectangle(Rect rect, double radius, Paint paint)
         {
             Operations.Add($"DrawRoundedRectangle {rect} r={radius} {paint.Color}");

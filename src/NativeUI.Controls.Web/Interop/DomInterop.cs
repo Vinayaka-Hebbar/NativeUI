@@ -155,6 +155,42 @@ public static partial class DomInterop
         [JSMarshalAs<JSType.Function<JSType.Object>>] Action<JSObject> dispatch);
 
     /// <summary>
+    /// Sets the callback that a <c>native-ui</c> element invokes with the node identifier and value of each edited input.
+    /// The element adds its listener when connected and removes it when disconnected.
+    /// </summary>
+    [JSImport("setInputDispatcher", "nativeui-dom")]
+    public static partial void SetInputDispatcher(
+        JSObject root,
+        [JSMarshalAs<JSType.Function<JSType.Number, JSType.String>>] Action<int, string> dispatch);
+
+    /// <summary>
+    /// Sets the callback that a <c>native-ui</c> element invokes with the node identifier and new state of each input
+    /// that gains or loses focus. The element adds its listeners when connected and removes them when disconnected.
+    /// </summary>
+    [JSImport("setFocusDispatcher", "nativeui-dom")]
+    public static partial void SetFocusDispatcher(
+        JSObject root,
+        [JSMarshalAs<JSType.Function<JSType.Number, JSType.Boolean>>] Action<int, bool> dispatch);
+
+    /// <summary>
+    /// Gets the current value of an input element.
+    /// </summary>
+    [JSImport("getValue", "nativeui-dom")]
+    public static partial string GetValue(JSObject element);
+
+    /// <summary>
+    /// Sets the current value of an input element.
+    /// </summary>
+    [JSImport("setValue", "nativeui-dom")]
+    public static partial void SetValue(JSObject element, string value);
+
+    /// <summary>
+    /// Moves keyboard focus to an element.
+    /// </summary>
+    [JSImport("focus", "nativeui-dom")]
+    public static partial void Focus(JSObject element);
+
+    /// <summary>
     /// Injects or updates a <c>&lt;style&gt;</c> tag in <c>document.head</c> for a compiled <c>CssStyleSheet</c>.
     /// </summary>
     [JSImport("injectStyleSheet", "nativeui-dom")]
