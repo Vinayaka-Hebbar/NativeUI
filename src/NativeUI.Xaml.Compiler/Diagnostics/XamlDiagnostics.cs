@@ -86,6 +86,17 @@ public static class XamlDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
+    /// Diagnostic reported when a property element such as <c>&lt;Dialog.Footer&gt;</c> is unknown or used incorrectly.
+    /// </summary>
+    public static readonly DiagnosticDescriptor InvalidPropertyElement = new(
+        id: "NXAML008",
+        title: "Invalid XAML property element",
+        messageFormat: "The property element '<{0}>' is not valid here: {1}",
+        category: "NativeUI.Xaml",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
     /// Creates a Roslyn <see cref="Location"/> from a file path and 1-based <see cref="XamlSourcePosition"/>.
     /// </summary>
     public static Location CreateLocation(string filePath, XamlSourcePosition position)

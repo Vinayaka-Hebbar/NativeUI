@@ -125,6 +125,11 @@ internal sealed class HtmlDomRoot : IDisposable
                 pointerEvent.Modifiers,
                 pointerEvent.ClickCount));
         }
+
+        if (pointerEvent.Kind == PointerEventKind.Press)
+        {
+            Portal.DismissForPress(hoveredElement);
+        }
     }
 
     /// <inheritdoc />
@@ -180,6 +185,7 @@ internal sealed class HtmlDomRoot : IDisposable
                 DomInterop.SetScrollDispatcher(_rootElement, OnScroll);
                 DomInterop.SetInputDispatcher(_rootElement, OnInput);
                 DomInterop.SetFocusDispatcher(_rootElement, OnFocus);
+                DomInterop.SetCloseDispatcher(_rootElement, OnPortalClosed);
                 Application.Current.CurrentThemeChanged += OnCurrentThemeChanged;
                 UpdateThemeAttribute();
                 DomInterop.AppendChild(_rootElement, element);
@@ -234,6 +240,14 @@ internal sealed class HtmlDomRoot : IDisposable
         if (HtmlDomElement.FindByNodeId(nodeId) is HtmlDomInput input)
         {
             input.OnBrowserFocus(isFocused);
+        }
+    }
+
+    private static void OnPortalClosed(int nodeId)
+    {
+        if (HtmlDomElement.FindByNodeId(nodeId) is HtmlDomPortal portal)
+        {
+            portal.OnBrowserClosed();
         }
     }
 

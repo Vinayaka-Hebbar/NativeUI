@@ -172,7 +172,20 @@ public sealed class LayoutEngine
             maxHeight = Math.Max(maxHeight, box.BorderBox.Height + margin.Vertical);
         }
 
-        return new ContentLayout(boxes, Math.Max(0, currentX - x), maxHeight);
+        double usedWidth = Math.Max(0, currentX - x);
+        double shift = stack.HorizontalAlignment switch
+        {
+            Alignment.End => Math.Max(0, width - usedWidth),
+            Alignment.Center => Math.Max(0, width - usedWidth) / 2.0,
+            _ => 0
+        };
+
+        if (shift > 0)
+        {
+            boxes = boxes.ConvertAll(box => box.Translated(shift, 0));
+        }
+
+        return new ContentLayout(boxes, usedWidth, maxHeight);
     }
 
     /// <summary>

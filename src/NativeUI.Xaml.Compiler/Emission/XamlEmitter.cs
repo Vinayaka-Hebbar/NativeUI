@@ -94,7 +94,7 @@ public static class XamlEmitter
 
     private static PropertyDeclarationSyntax BuildNamedElementProperty(string propName, string controlType)
     {
-        TypeSyntax typeSyntax = IdentifierName(controlType);
+        TypeSyntax typeSyntax = ParseTypeName(controlType);
         AccessorDeclarationSyntax getter = AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
         AccessorDeclarationSyntax privateSetter = AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
@@ -129,10 +129,7 @@ public static class XamlEmitter
         statements.Add(ExpressionStatement(InvocationExpression(IdentifierName("AttachStyles"))));
 
         int counter = 0;
-        foreach (ValidatedXamlElement child in root.Children)
-        {
-            EmitChildElementStatements(statements, ThisExpression(), child, document.DataType, document.NamespaceName, ref counter);
-        }
+        EmitNestedElements(statements, ThisExpression(), root, document.DataType, document.NamespaceName, ref counter);
 
         return MethodDeclaration(PredefinedType(Token(SyntaxKind.VoidKeyword)), Identifier("InitializeComponent"))
             .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
@@ -153,11 +150,46 @@ public static class XamlEmitter
         {
             CollectNamedElements(child, isRoot: false, results);
         }
+
+        foreach (ValidatedXamlPropertyElement propertyElement in element.PropertyElements)
+        {
+            foreach (ValidatedXamlElement child in propertyElement.Children)
+            {
+                CollectNamedElements(child, isRoot: false, results);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Emits the children of <paramref name="element"/> into its content collection, then its property elements.
+    /// </summary>
+    private static void EmitNestedElements(
+        List<StatementSyntax> statements,
+        ExpressionSyntax elementExpr,
+        ValidatedXamlElement element,
+        string? dataType,
+        string viewNamespace,
+        ref int counter)
+    {
+        foreach (ValidatedXamlElement child in element.Children)
+        {
+            EmitChildElementStatements(statements, elementExpr, element.ContentProperty, isCollection: true, child, dataType, viewNamespace, ref counter);
+        }
+
+        foreach (ValidatedXamlPropertyElement propertyElement in element.PropertyElements)
+        {
+            foreach (ValidatedXamlElement child in propertyElement.Children)
+            {
+                EmitChildElementStatements(statements, elementExpr, propertyElement.PropertyName, propertyElement.IsCollection, child, dataType, viewNamespace, ref counter);
+            }
+        }
     }
 
     private static void EmitChildElementStatements(
         List<StatementSyntax> statements,
         ExpressionSyntax parentExpr,
+        string parentProperty,
+        bool isCollection,
         ValidatedXamlElement element,
         string? dataType,
         string viewNamespace,
@@ -168,7 +200,7 @@ public static class XamlEmitter
             ? element.XName!
             : $"element{counter}";
 
-        TypeSyntax controlType = IdentifierName(element.ControlTypeName);
+        TypeSyntax controlType = ParseTypeName(element.ControlTypeName);
         ObjectCreationExpressionSyntax newControl = ObjectCreationExpression(controlType)
             .WithArgumentList(ArgumentList());
 
@@ -192,26 +224,31 @@ public static class XamlEmitter
         IdentifierNameSyntax currentVarExpr = IdentifierName(varName);
         EmitElementPropertyStatements(statements, currentVarExpr, element, dataType, viewNamespace);
 
-        ExpressionSyntax childrenMember = parentExpr is ThisExpressionSyntax
-            ? IdentifierName("Children")
+        ExpressionSyntax parentMember = parentExpr is ThisExpressionSyntax
+            ? IdentifierName(parentProperty)
             : MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
                 parentExpr,
-                IdentifierName("Children"));
+                IdentifierName(parentProperty));
 
-        MemberAccessExpressionSyntax addMethod = MemberAccessExpression(
-            SyntaxKind.SimpleMemberAccessExpression,
-            childrenMember,
-            IdentifierName("Add"));
-
-        statements.Add(ExpressionStatement(
-            InvocationExpression(addMethod)
-                .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(currentVarExpr))))));
-
-        foreach (ValidatedXamlElement grandChild in element.Children)
+        if (isCollection)
         {
-            EmitChildElementStatements(statements, currentVarExpr, grandChild, dataType, viewNamespace, ref counter);
+            MemberAccessExpressionSyntax addMethod = MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                parentMember,
+                IdentifierName("Add"));
+
+            statements.Add(ExpressionStatement(
+                InvocationExpression(addMethod)
+                    .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(currentVarExpr))))));
         }
+        else
+        {
+            statements.Add(ExpressionStatement(
+                AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, parentMember, currentVarExpr)));
+        }
+
+        EmitNestedElements(statements, currentVarExpr, element, dataType, viewNamespace, ref counter);
     }
 
     private static void EmitElementPropertyStatements(
@@ -329,6 +366,14 @@ public static class XamlEmitter
                 SyntaxKind.SimpleMemberAccessExpression,
                 IdentifierName("Orientation"),
                 IdentifierName(rawLiteral)),
+            XamlPropertyKind.PortalSide => MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                IdentifierName("PortalSide"),
+                IdentifierName(rawLiteral)),
+            XamlPropertyKind.Alignment => MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                IdentifierName("Alignment"),
+                IdentifierName(rawLiteral)),
             XamlPropertyKind.GridLengthList => CollectionExpression(SeparatedList<CollectionElementSyntax>(
                 XamlValidator.SplitList(rawLiteral).Select(static token => ExpressionElement(StringLiteral(token))))),
             XamlPropertyKind.ClassList => CollectionExpression(SeparatedList<CollectionElementSyntax>(
@@ -347,7 +392,7 @@ public static class XamlEmitter
     {
         ExpressionSyntax propertyDescriptor = MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
-            IdentifierName(controlTypeName),
+            ParseExpression(controlTypeName),
             IdentifierName($"{propertyName}Property"));
 
         ExpressionSyntax modeEnum = MemberAccessExpression(

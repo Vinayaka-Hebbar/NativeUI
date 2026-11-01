@@ -44,6 +44,16 @@ public enum XamlPropertyKind
     GridLengthList,
 
     /// <summary>
+    /// The literal must be <c>Top</c>, <c>Right</c>, <c>Bottom</c>, or <c>Left</c>.
+    /// </summary>
+    PortalSide,
+
+    /// <summary>
+    /// The literal must be <c>Start</c>, <c>Center</c>, or <c>End</c>.
+    /// </summary>
+    Alignment,
+
+    /// <summary>
     /// The literal is one, two (vertical, horizontal), or four (top, right, bottom, left) comma-separated numbers,
     /// assigned to the element's inline style. It has no binding form.
     /// </summary>
@@ -84,11 +94,38 @@ public sealed record ValidatedXamlProperty(
 /// <summary>
 /// Represents a validated XAML element node ready for C# code emission.
 /// </summary>
+/// <param name="ControlTypeName">The control type to create.</param>
+/// <param name="XName">The <c>x:Name</c> value, if any.</param>
+/// <param name="Properties">The attribute assignments and bindings.</param>
+/// <param name="Children">The child elements, added to the collection named by <paramref name="ContentProperty"/>.</param>
+/// <param name="ContentProperty">The collection property that receives <paramref name="Children"/>.</param>
+/// <param name="PropertyElements">The property elements such as <c>&lt;Dialog.Footer&gt;</c>.</param>
 public sealed record ValidatedXamlElement(
     string ControlTypeName,
     string? XName,
     IReadOnlyList<ValidatedXamlProperty> Properties,
+    IReadOnlyList<ValidatedXamlElement> Children,
+    string ContentProperty,
+    IReadOnlyList<ValidatedXamlPropertyElement> PropertyElements);
+
+/// <summary>
+/// Represents a validated property element, whose child elements are assigned to a control property.
+/// </summary>
+/// <param name="PropertyName">The C# property that receives the children.</param>
+/// <param name="IsCollection">Whether the property is a collection; otherwise it holds exactly one child.</param>
+/// <param name="Children">The child elements.</param>
+public sealed record ValidatedXamlPropertyElement(
+    string PropertyName,
+    bool IsCollection,
     IReadOnlyList<ValidatedXamlElement> Children);
+
+/// <summary>
+/// Describes a view compiled from a XAML file in the project, which other XAML files can use as an element by its class name.
+/// </summary>
+/// <param name="ClassName">The class name without its namespace, which is the element name.</param>
+/// <param name="FullClassName">The <c>x:Class</c> value.</param>
+/// <param name="RootElement">The root element of the view's file, which determines the attributes it accepts.</param>
+public sealed record XamlViewReference(string ClassName, string FullClassName, string RootElement);
 
 /// <summary>
 /// Represents a validated XAML document ready for C# partial class generation.
@@ -137,7 +174,8 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["IsEnabled"] = XamlPropertyKind.Boolean,
                 ["ClipToBounds"] = XamlPropertyKind.Boolean,
                 ["Orientation"] = XamlPropertyKind.Orientation,
-                ["Spacing"] = XamlPropertyKind.Double
+                ["Spacing"] = XamlPropertyKind.Double,
+                ["HorizontalAlignment"] = XamlPropertyKind.Alignment
             },
             ["Grid"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
@@ -187,6 +225,47 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["Value"] = XamlPropertyKind.String,
                 ["Placeholder"] = XamlPropertyKind.String,
                 ["IsReadOnly"] = XamlPropertyKind.Boolean
+            },
+            ["Portal"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["Side"] = XamlPropertyKind.PortalSide,
+                ["Align"] = XamlPropertyKind.Alignment,
+                ["SideOffset"] = XamlPropertyKind.Double,
+                ["AlignOffset"] = XamlPropertyKind.Double
+            },
+            ["Dialog"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["Side"] = XamlPropertyKind.PortalSide,
+                ["Align"] = XamlPropertyKind.Alignment,
+                ["SideOffset"] = XamlPropertyKind.Double,
+                ["AlignOffset"] = XamlPropertyKind.Double,
+                ["IsModal"] = XamlPropertyKind.Boolean,
+                ["Title"] = XamlPropertyKind.String,
+                ["Description"] = XamlPropertyKind.String
+            }
+        };
+
+    private static readonly Dictionary<string, string> s_contentProperties = new(StringComparer.Ordinal)
+    {
+        ["Dialog"] = "Content"
+    };
+
+    private static readonly Dictionary<string, Dictionary<string, PropertyElementTarget>> s_propertyElements =
+        new(StringComparer.Ordinal)
+        {
+            ["Dialog"] = new Dictionary<string, PropertyElementTarget>(StringComparer.Ordinal)
+            {
+                ["Title"] = new PropertyElementTarget("TitleContent", IsCollection: false),
+                ["Description"] = new PropertyElementTarget("DescriptionContent", IsCollection: false),
+                ["Footer"] = new PropertyElementTarget("Footer", IsCollection: true)
             }
         };
 
@@ -204,6 +283,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
 
     private readonly string _filePath;
     private readonly IReadOnlySet<string>? _knownCssClasses;
+    private readonly Dictionary<string, XamlViewReference> _knownViews = new(StringComparer.Ordinal);
     private readonly List<Diagnostic> _diagnostics = [];
     private string _fullClassName = string.Empty;
     private string? _dataType;
@@ -222,11 +302,17 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     public static ValidatedXamlDocument Validate(
         XamlDocumentNode document,
         IReadOnlySet<string>? knownCssClasses = null,
-        string defaultNamespace = "NativeUI")
+        string defaultNamespace = "NativeUI",
+        IReadOnlyList<XamlViewReference>? knownViews = null)
     {
         ArgumentNullException.ThrowIfNull(document);
 
         XamlValidator validator = new(document.FilePath, knownCssClasses);
+        foreach (XamlViewReference view in knownViews ?? [])
+        {
+            validator._knownViews.TryAdd(view.ClassName, view);
+        }
+
         document.Accept(validator);
 
         string defaultSheetId = DeriveDefaultStyleSheetId(document.FilePath);
@@ -243,6 +329,34 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             styleSheetId,
             validator._validatedRoot,
             validator._diagnostics);
+    }
+
+    /// <summary>
+    /// Returns the view that <paramref name="document"/> compiles to, or null when it has no <c>x:Class</c> or a root
+    /// element that is not a built-in control.
+    /// </summary>
+    public static XamlViewReference? ReadViewReference(XamlDocumentNode document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        XamlElementNode? root = document.RootElement;
+        if (root is null || !s_controlProperties.ContainsKey(root.LocalName))
+        {
+            return null;
+        }
+
+        foreach (XamlAttributeNode attr in root.Attributes)
+        {
+            if (string.Equals(attr.NamespaceUri, XamlParser.XamlDirectiveNamespace, StringComparison.Ordinal) &&
+                string.Equals(attr.LocalName, "Class", StringComparison.Ordinal))
+            {
+                string fullClassName = attr.Value.Trim();
+                string className = fullClassName[(fullClassName.LastIndexOf('.') + 1)..];
+                return new XamlViewReference(className, fullClassName, root.LocalName);
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -285,7 +399,19 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             return null;
         }
 
-        if (!s_controlProperties.TryGetValue(element.LocalName, out Dictionary<string, XamlPropertyKind>? allowedProps))
+        // A compiled view takes the attributes of its root element. A view cannot contain itself.
+        string controlType = element.LocalName;
+        string controlDefinition = element.LocalName;
+        if (!isRoot &&
+            !s_controlProperties.ContainsKey(element.LocalName) &&
+            _knownViews.TryGetValue(element.LocalName, out XamlViewReference? knownView) &&
+            !string.Equals(knownView.FullClassName, _fullClassName, StringComparison.Ordinal))
+        {
+            controlDefinition = knownView.RootElement;
+            controlType = knownView.FullClassName.Contains('.') ? $"global::{knownView.FullClassName}" : knownView.ClassName;
+        }
+
+        if (!s_controlProperties.TryGetValue(controlDefinition, out Dictionary<string, XamlPropertyKind>? allowedProps))
         {
             _diagnostics.Add(Diagnostic.Create(
                 XamlDiagnostics.UnknownElement,
@@ -407,8 +533,21 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         }
 
         List<ValidatedXamlElement> validChildren = [];
+        List<ValidatedXamlPropertyElement> propertyElements = [];
+        HashSet<string> seenPropertyElements = new(StringComparer.Ordinal);
         foreach (XamlElementNode child in element.Children)
         {
+            if (child.LocalName.Contains('.'))
+            {
+                ValidatedXamlPropertyElement? propertyElement = ValidatePropertyElement(element, child, validProps, seenPropertyElements);
+                if (propertyElement is not null)
+                {
+                    propertyElements.Add(propertyElement);
+                }
+
+                continue;
+            }
+
             ValidatedXamlElement? validatedChild = ValidateElementRecursive(child, isRoot: false);
             if (validatedChild is not null)
             {
@@ -416,8 +555,80 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             }
         }
 
-        return new ValidatedXamlElement(element.LocalName, xName, validProps, validChildren);
+        string contentProperty = s_contentProperties.GetValueOrDefault(controlDefinition, "Children");
+        return new ValidatedXamlElement(controlType, xName, validProps, validChildren, contentProperty, propertyElements);
     }
+
+    /// <summary>
+    /// Validates a property element such as <c>&lt;Dialog.Footer&gt;</c> on <paramref name="owner"/>. Returns null after
+    /// reporting a diagnostic.
+    /// </summary>
+    private ValidatedXamlPropertyElement? ValidatePropertyElement(
+        XamlElementNode owner,
+        XamlElementNode element,
+        List<ValidatedXamlProperty> ownerProperties,
+        HashSet<string> seenPropertyElements)
+    {
+        string[] parts = element.LocalName.Split('.');
+        if (parts.Length != 2 ||
+            !string.Equals(parts[0], owner.LocalName, StringComparison.Ordinal) ||
+            !s_propertyElements.TryGetValue(owner.LocalName, out Dictionary<string, PropertyElementTarget>? targets) ||
+            !targets.TryGetValue(parts[1], out PropertyElementTarget target))
+        {
+            ReportPropertyElement(element, $"<{owner.LocalName}> has no such property element");
+            return null;
+        }
+
+        if (element.Attributes.Count > 0)
+        {
+            ReportPropertyElement(element, "a property element cannot have attributes");
+            return null;
+        }
+
+        if (!seenPropertyElements.Add(parts[1]))
+        {
+            ReportPropertyElement(element, "it is set more than once");
+            return null;
+        }
+
+        if (ownerProperties.Any(property => string.Equals(property.PropertyName, parts[1], StringComparison.Ordinal)))
+        {
+            ReportPropertyElement(element, $"the {parts[1]} attribute already sets this property");
+            return null;
+        }
+
+        if (!target.IsCollection && element.Children.Count != 1)
+        {
+            ReportPropertyElement(element, "it must contain exactly one element");
+            return null;
+        }
+
+        List<ValidatedXamlElement> children = [];
+        foreach (XamlElementNode child in element.Children)
+        {
+            ValidatedXamlElement? validatedChild = ValidateElementRecursive(child, isRoot: false);
+            if (validatedChild is not null)
+            {
+                children.Add(validatedChild);
+            }
+        }
+
+        return new ValidatedXamlPropertyElement(target.PropertyName, target.IsCollection, children);
+    }
+
+    private void ReportPropertyElement(XamlElementNode element, string reason)
+    {
+        _diagnostics.Add(Diagnostic.Create(
+            XamlDiagnostics.InvalidPropertyElement,
+            XamlDiagnostics.CreateLocation(_filePath, element.Position),
+            element.LocalName,
+            reason));
+    }
+
+    /// <summary>
+    /// Identifies the C# property that a property element assigns.
+    /// </summary>
+    private readonly record struct PropertyElementTarget(string PropertyName, bool IsCollection);
 
     /// <summary>
     /// Returns whether <paramref name="literal"/> converts to a value of the property <paramref name="kind"/>.
@@ -431,6 +642,8 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             XamlPropertyKind.AttachedInt32 => int.TryParse(literal, NumberStyles.None, CultureInfo.InvariantCulture, out _),
             XamlPropertyKind.StyleLength => TryParseFiniteDouble(literal, out _),
             XamlPropertyKind.Orientation => literal is "Vertical" or "Horizontal",
+            XamlPropertyKind.PortalSide => literal is "Top" or "Right" or "Bottom" or "Left",
+            XamlPropertyKind.Alignment => literal is "Start" or "Center" or "End",
             XamlPropertyKind.GridLengthList => IsValidGridLengthList(literal),
             XamlPropertyKind.StyleThickness => TryParseThickness(literal, out _),
             XamlPropertyKind.Int64 => long.TryParse(literal, NumberStyles.Integer, CultureInfo.InvariantCulture, out _),

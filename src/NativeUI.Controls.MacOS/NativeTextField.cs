@@ -25,6 +25,7 @@ internal sealed class NativeTextField : INativePeer, IInputPeer
     private static nint s_superclass;
 
     private readonly Input _input;
+    private readonly Window _window;
     private readonly nint _parentView;
     private readonly nint _clipView;
     private readonly nint _field;
@@ -36,7 +37,7 @@ internal sealed class NativeTextField : INativePeer, IInputPeer
     /// Creates the native views as children of <paramref name="parentView"/> and becomes the peer of <paramref name="input"/>.
     /// </summary>
     /// <exception cref="InvalidOperationException"><paramref name="input"/> already owns a native peer.</exception>
-    public NativeTextField(Input input, nint parentView)
+    public NativeTextField(Input input, nint parentView, Window window)
     {
         if (input.NativePeer is not null)
         {
@@ -44,6 +45,7 @@ internal sealed class NativeTextField : INativePeer, IInputPeer
         }
 
         _input = input;
+        _window = window;
         _parentView = parentView;
         _clipView = AppKitInterop.SendMessageViewInit(
             AppKitInterop.SendMessage(AppKitInterop.GetClass("NSView"), AppKitInterop.GetSelector("alloc")),
@@ -165,10 +167,12 @@ internal sealed class NativeTextField : INativePeer, IInputPeer
         delegate* unmanaged[Cdecl]<nint, nint, byte> becomeFirstResponderPtr = &OnBecomeFirstResponder;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> textDidChangePtr = &OnTextDidChange;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> textDidEndEditingPtr = &OnTextDidEndEditing;
+        delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, byte> doCommandPtr = &OnDoCommandBySelector;
 
         _ = AppKitInterop.ClassAddMethod(fieldClass, AppKitInterop.GetSelector("becomeFirstResponder"), (nint)becomeFirstResponderPtr, "c@:");
         _ = AppKitInterop.ClassAddMethod(fieldClass, AppKitInterop.GetSelector("controlTextDidChange:"), (nint)textDidChangePtr, "v@:@");
         _ = AppKitInterop.ClassAddMethod(fieldClass, AppKitInterop.GetSelector("controlTextDidEndEditing:"), (nint)textDidEndEditingPtr, "v@:@");
+        _ = AppKitInterop.ClassAddMethod(fieldClass, AppKitInterop.GetSelector("control:textView:doCommandBySelector:"), (nint)doCommandPtr, "c@:@@:");
 
         AppKitInterop.RegisterClassPair(fieldClass);
         s_class = fieldClass;
@@ -187,9 +191,24 @@ internal sealed class NativeTextField : INativePeer, IInputPeer
         if (accepted != 0 && s_fields.TryGetValue(self, out NativeTextField? field))
         {
             field._input.SetFocused(true);
+
+            // A press on the field reaches AppKit and not the window, which dismisses portals for its own presses.
+            Portal.DismissForPress(field._input);
         }
 
         return accepted;
+    }
+
+    /// <summary>
+    /// Lets Escape in the field editor close a modal dialog, because the editor otherwise consumes it.
+    /// </summary>
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static byte OnDoCommandBySelector(nint self, nint cmd, nint control, nint textView, nint selector)
+    {
+        bool handled = selector == AppKitInterop.GetSelector("cancelOperation:") &&
+            s_fields.TryGetValue(self, out NativeTextField? field) &&
+            field._window.TryCloseModalDialog();
+        return handled ? (byte)1 : (byte)0;
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]

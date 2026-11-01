@@ -22,11 +22,20 @@ public sealed class Window : IDisposable, IRenderHost
     private const ulong StyleMaskResizable = 1UL << 3;
     private const ulong BackingStoreBuffered = 2UL;
     private const long MousePointerId = 1;
+    private const nint TitleVisibilityHidden = 1;
+    private const ulong ChildWindowOrderedAbove = 1;
+    private const string EscapeKey = "\u001b";
+
+    // Layout of a window sized to its content is limited by this size, and not by the window's current size.
+    private static readonly Size s_contentMeasureViewport = new(4096, 4096);
 
     private readonly VisualTreeRenderer _renderer = new(SkiaTextShaper.Shared);
     private readonly PointerInputRouter _pointerRouter = new();
     private readonly IClipboard _clipboard;
     private readonly Dictionary<Input, NativeTextField> _textFields = [];
+    private readonly Dictionary<Dialog, DialogWindow> _dialogWindows = [];
+    private Dialog? _hostedDialog;
+    private nint _inputBlocker;
     private UIElement? _content;
     private IStyleResolver? _styleResolver;
     private Color? _background;
@@ -184,6 +193,7 @@ public sealed class Window : IDisposable, IRenderHost
             }
 
             RemoveTextFields();
+            RemoveDialogWindows();
             _activeSelectionText = null;
             _activeSelectionBox = null;
             _content = value;
@@ -204,11 +214,23 @@ public sealed class Window : IDisposable, IRenderHost
     {
         if (OperatingSystem.IsMacOS() && _nsWindow == nint.Zero)
         {
+            CreateNativeWindow(StyleMaskTitled | StyleMaskClosable | StyleMaskMiniaturizable | StyleMaskResizable);
+            _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("center"));
+            AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("makeKeyAndOrderFront:"), nint.Zero);
+        }
+
+        InvalidateFrame();
+    }
+
+    /// <summary>
+    /// Creates the <c>NSWindow</c> and its rendered image view, without showing the window.
+    /// </summary>
+    private void CreateNativeWindow(ulong styleMask)
+    {
             AppKitInterop.EnsureFrameworksLoaded();
             SyncContentStyle();
 
             AppKitInterop.CGRect rect = new(120, 120, Width, Height);
-            ulong styleMask = StyleMaskTitled | StyleMaskClosable | StyleMaskMiniaturizable | StyleMaskResizable;
 
             nint windowClass = AppKitInterop.GetClass("NSWindow");
             nint allocWin = AppKitInterop.SendMessage(windowClass, AppKitInterop.GetSelector("alloc"));
@@ -235,11 +257,6 @@ public sealed class Window : IDisposable, IRenderHost
             AppKitInterop.InstallPointerTracking(_nsWindow, _nsImageView);
             AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setAutorecalculatesKeyViewLoop:"), true);
             _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
-            _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("center"));
-            AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("makeKeyAndOrderFront:"), nint.Zero);
-        }
-
-        InvalidateFrame();
     }
 
     /// <summary>
@@ -277,6 +294,7 @@ public sealed class Window : IDisposable, IRenderHost
 
             // The native field covers only the text line, so this press landed on the element's padding.
             (hoveredElement as Input)?.Focus();
+            Portal.DismissForPress(hoveredElement);
             UpdateCursor();
         }
         finally
@@ -293,7 +311,7 @@ public sealed class Window : IDisposable, IRenderHost
         _isDraggingSelection = false;
 
         if (hoveredElement is not Text { IsTextSelectionEnabled: true } textControl ||
-            FindBoxForElement(LastLayout!, textControl) is not LayoutBox hitBox ||
+            FindBoxInFrame(textControl) is not LayoutBox hitBox ||
             hitBox.TextLayout is not ITextLayout textLayout)
         {
             return;
@@ -333,7 +351,7 @@ public sealed class Window : IDisposable, IRenderHost
         bool isPressed = true,
         PointerModifiers modifiers = PointerModifiers.None)
     {
-        if (_content is null)
+        if (_content is null || _inputBlocker != nint.Zero)
         {
             return;
         }
@@ -512,6 +530,28 @@ public sealed class Window : IDisposable, IRenderHost
     }
 
     /// <summary>
+    /// Closes the dialog this window presents, when AppKit closes the window through its title bar.
+    /// </summary>
+    internal void HandleNativeClose()
+    {
+        _hostedDialog?.Close();
+    }
+
+    /// <summary>
+    /// Closes the dialog this window presents when it is modal, and returns whether it did.
+    /// </summary>
+    internal bool TryCloseModalDialog()
+    {
+        if (_hostedDialog is not { IsModal: true } dialog)
+        {
+            return false;
+        }
+
+        dialog.Close();
+        return true;
+    }
+
+    /// <summary>
     /// Reapplies the requested cursor when AppKit asks the view to update it.
     /// </summary>
     public void HandleCursorUpdate()
@@ -528,9 +568,14 @@ public sealed class Window : IDisposable, IRenderHost
         bool commandOrControl,
         PointerModifiers modifiers = PointerModifiers.None)
     {
-        if (_content is null || string.IsNullOrEmpty(key))
+        if (_content is null || string.IsNullOrEmpty(key) || _inputBlocker != nint.Zero)
         {
             return false;
+        }
+
+        if (key == EscapeKey && TryCloseModalDialog())
+        {
+            return true;
         }
 
         foreach (IRenderOverlay overlay in Overlays)
@@ -586,11 +631,17 @@ public sealed class Window : IDisposable, IRenderHost
 
         using SkiaSurface surface = new(pixelWidth, pixelHeight);
         SkiaDrawingContext drawingContext = new(surface.Canvas, SkiaTextShaper.Shared);
-        LastLayout = _renderer.Render(drawingContext, _content, new Size(Width, Height), ScaleFactor, _background);
+        Size layoutViewport = _hostedDialog is not null ? s_contentMeasureViewport : new Size(Width, Height);
+        LastLayout = _renderer.Render(drawingContext, _content, layoutViewport, ScaleFactor, _background);
+
+        if (_hostedDialog is not null && TryResizeToContent(LastLayout))
+        {
+            return RenderFrame();
+        }
 
         if (_activeSelectionText is not null && LastLayout is not null)
         {
-            _activeSelectionBox = FindBoxForElement(LastLayout, _activeSelectionText);
+            _activeSelectionBox = FindBoxInFrame(_activeSelectionText);
         }
 
         RenderCount++;
@@ -601,7 +652,17 @@ public sealed class Window : IDisposable, IRenderHost
             PresentSnapshotToNativeView(snapshot);
             if (LastLayout is not null)
             {
-                SyncTextFields(LastLayout);
+                // Native views changing focus or closing invalidate the tree, which must not render during the updates.
+                BeginFrameBatch();
+                try
+                {
+                    SyncTextFields(LastLayout);
+                    SyncDialogWindows();
+                }
+                finally
+                {
+                    EndFrameBatch();
+                }
             }
         }
 
@@ -633,6 +694,13 @@ public sealed class Window : IDisposable, IRenderHost
         }
 
         RemoveTextFields();
+        RemoveDialogWindows();
+        if (_hostedDialog is not null && _nsWindow != nint.Zero)
+        {
+            _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("orderOut:"), nint.Zero);
+            _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("autorelease"));
+        }
+
         _pointerRouter.Reset();
         _pointerPosition = null;
         _isDraggingSelection = false;
@@ -756,7 +824,18 @@ public sealed class Window : IDisposable, IRenderHost
     private void SyncTextFields(LayoutBox root)
     {
         HashSet<Input> placed = [];
-        PlaceTextFields(root, new Rect(0, 0, Width, Height), 1.0, placed);
+        Rect windowArea = new(0, 0, Width, Height);
+        PlaceTextFields(root, windowArea, 1.0, placed, _renderer.PortalBoxes);
+        foreach (LayoutBox portalBox in _renderer.PortalBoxes)
+        {
+            PlaceTextFields(portalBox, windowArea, 1.0, placed, []);
+        }
+
+        if (_inputBlocker != nint.Zero)
+        {
+            // Adding a view that is already a subview moves it above the fields created since.
+            AppKitInterop.SendMessageVoid(_nsImageView, AppKitInterop.GetSelector("addSubview:"), _inputBlocker);
+        }
 
         foreach (Input input in _textFields.Keys.ToArray())
         {
@@ -768,7 +847,11 @@ public sealed class Window : IDisposable, IRenderHost
         }
     }
 
-    private void PlaceTextFields(LayoutBox box, Rect clip, double opacity, HashSet<Input> placed)
+    /// <summary>
+    /// Positions the fields under <paramref name="box"/>. A native field sits above everything Skia draws, so a field that
+    /// touches one of <paramref name="covers"/> is hidden instead of showing through it.
+    /// </summary>
+    private void PlaceTextFields(LayoutBox box, Rect clip, double opacity, HashSet<Input> placed, IReadOnlyList<LayoutBox> covers)
     {
         if (box.Element is not UIElement { IsVisible: true } element)
         {
@@ -780,11 +863,17 @@ public sealed class Window : IDisposable, IRenderHost
         {
             if (!_textFields.TryGetValue(input, out NativeTextField? field))
             {
-                field = new NativeTextField(input, _nsImageView);
+                field = new NativeTextField(input, _nsImageView, this);
                 _textFields[input] = field;
             }
 
-            field.Place(clip.Intersect(box.BorderBox), box.ContentBox, box.Style, boxOpacity, Height);
+            Rect visible = clip.Intersect(box.BorderBox);
+            if (covers.Any(cover => cover.BorderBox.Intersect(visible).Width > 0))
+            {
+                visible = default;
+            }
+
+            field.Place(visible, box.ContentBox, box.Style, boxOpacity, Height);
             placed.Add(input);
             return;
         }
@@ -793,7 +882,232 @@ public sealed class Window : IDisposable, IRenderHost
         Rect childClip = clipsChildren ? clip.Intersect(box.BorderBox) : clip;
         foreach (LayoutBox child in box.Children)
         {
-            PlaceTextFields(child, childClip, boxOpacity, placed);
+            PlaceTextFields(child, childClip, boxOpacity, placed, covers);
+        }
+    }
+
+    /// <summary>
+    /// Finds the box of <paramref name="element"/> in the last layout, including open portals.
+    /// </summary>
+    private LayoutBox? FindBoxInFrame(UIElement element)
+    {
+        LayoutBox? found = LastLayout is null ? null : FindBoxForElement(LastLayout, element);
+        foreach (LayoutBox portalBox in _renderer.PortalBoxes)
+        {
+            found ??= FindBoxForElement(portalBox, element);
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// Matches the window to the size of its laid-out content, and returns whether the size changed.
+    /// </summary>
+    private bool TryResizeToContent(LayoutBox? layout)
+    {
+        if (layout is null)
+        {
+            return false;
+        }
+
+        double width = Math.Max(1, Math.Ceiling(layout.BorderBox.Width));
+        double height = Math.Max(1, Math.Ceiling(layout.BorderBox.Height));
+        if (width == Width && height == Height)
+        {
+            return false;
+        }
+
+        Width = width;
+        Height = height;
+        if (_nsWindow != nint.Zero)
+        {
+            AppKitInterop.SendMessageSetSize(_nsWindow, AppKitInterop.GetSelector("setContentSize:"), new AppKitInterop.CGSize(width, height));
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Creates, positions, and closes child windows to match the open <see cref="Dialog"/> elements in the content.
+    /// </summary>
+    private void SyncDialogWindows()
+    {
+        HashSet<Dialog> open = [];
+        CollectOpenDialogs(_content!, open);
+
+        foreach (Dialog dialog in _dialogWindows.Keys.ToArray())
+        {
+            if (!open.Contains(dialog))
+            {
+                RemoveDialogWindow(dialog);
+            }
+        }
+
+        foreach (Dialog dialog in open)
+        {
+            bool isNew = !_dialogWindows.TryGetValue(dialog, out DialogWindow? dialogWindow);
+            if (dialogWindow is null)
+            {
+                dialogWindow = new DialogWindow(CreateDialogWindow(dialog));
+                _dialogWindows[dialog] = dialogWindow;
+            }
+
+            string title = dialog.Title ?? string.Empty;
+            if (dialogWindow.Window.Title != title)
+            {
+                dialogWindow.Window.Title = title;
+            }
+
+            PlaceDialogWindow(dialog, dialogWindow);
+            if (isNew)
+            {
+                AppKitInterop.SendMessageVoid(dialogWindow.Window._nsWindow, AppKitInterop.GetSelector("makeKeyAndOrderFront:"), nint.Zero);
+            }
+        }
+
+        UpdateInputBlocker();
+    }
+
+    private static void CollectOpenDialogs(UIElement element, HashSet<Dialog> open)
+    {
+        if (element is not View { IsVisible: true } view)
+        {
+            return;
+        }
+
+        foreach (UIElement child in view.Children)
+        {
+            if (child is Dialog { IsOpen: true } dialog)
+            {
+                open.Add(dialog);
+            }
+            else if (child is not Portal { IsOpen: false } and not Dialog)
+            {
+                CollectOpenDialogs(child, open);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Creates a child window that presents <paramref name="dialog"/>. The title bar stays for dragging and closing, and hides
+    /// its text because the dialog draws its own title. AppKit moves a child window with its parent.
+    /// </summary>
+    private Window CreateDialogWindow(Dialog dialog)
+    {
+        Window window = new(_clipboard)
+        {
+            ScaleFactor = ScaleFactor,
+            Width = 1,
+            Height = 1,
+            _hostedDialog = dialog
+        };
+        window.Content = dialog;
+        window.CreateNativeWindow(StyleMaskTitled | StyleMaskClosable);
+        AppKitInterop.SendMessageVoid(window._nsWindow, AppKitInterop.GetSelector("setTitleVisibility:"), TitleVisibilityHidden);
+        AppKitInterop.SendMessageVoid(window._nsWindow, AppKitInterop.GetSelector("setReleasedWhenClosed:"), false);
+        window.InvalidateFrame();
+
+        _ = AppKitInterop.SendMessage(
+            _nsWindow,
+            AppKitInterop.GetSelector("addChildWindow:ordered:"),
+            window._nsWindow,
+            ChildWindowOrderedAbove);
+        return window;
+    }
+
+    /// <summary>
+    /// Moves a dialog's window only when its calculated position changes, so a window the user dragged stays in place across
+    /// frames. Calculations use the top-down coordinates of this window's content; the title bar counts as part of the dialog.
+    /// </summary>
+    private void PlaceDialogWindow(Dialog dialog, DialogWindow dialogWindow)
+    {
+        nint childWindow = dialogWindow.Window._nsWindow;
+        AppKitInterop.CGRect frame = AppKitInterop.GetRect(childWindow, "frame");
+        AppKitInterop.CGRect content = AppKitInterop.GetRect(
+            _nsWindow,
+            "contentRectForFrameRect:",
+            AppKitInterop.GetRect(_nsWindow, "frame"));
+
+        double contentTop = content.Origin.Y + content.Size.Height;
+        Rect windowArea = new(0, 0, Width, Height);
+        Rect limits = windowArea;
+        nint screen = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("screen"));
+        if (screen != nint.Zero)
+        {
+            AppKitInterop.CGRect visible = AppKitInterop.GetRect(screen, "visibleFrame");
+            limits = new Rect(
+                visible.Origin.X - content.Origin.X,
+                contentTop - (visible.Origin.Y + visible.Size.Height),
+                visible.Size.Width,
+                visible.Size.Height);
+        }
+
+        Rect? anchor = dialog.Anchor is UIElement element ? FindBoxInFrame(element)?.BorderBox : null;
+        Size size = new(frame.Size.Width, frame.Size.Height);
+        Point position = PortalPlacement.Compute(dialog, anchor, size, windowArea, limits);
+        Rect placement = new(position.X, position.Y, size.Width, size.Height);
+        if (dialogWindow.Placement == placement)
+        {
+            return;
+        }
+
+        dialogWindow.Placement = placement;
+        AppKitInterop.SendMessageSetPoint(
+            childWindow,
+            AppKitInterop.GetSelector("setFrameOrigin:"),
+            new AppKitInterop.CGPoint(content.Origin.X + position.X, contentTop - position.Y - size.Height));
+    }
+
+    /// <summary>
+    /// Blocks input to this window's content while a modal dialog is open.
+    /// </summary>
+    private void UpdateInputBlocker()
+    {
+        bool isBlocked = _dialogWindows.Keys.Any(static dialog => dialog.IsModal);
+        if (isBlocked && _inputBlocker == nint.Zero)
+        {
+            _inputBlocker = AppKitInterop.CreateInputBlocker(_nsImageView);
+            _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
+        }
+        else if (!isBlocked && _inputBlocker != nint.Zero)
+        {
+            _ = AppKitInterop.SendMessage(_inputBlocker, AppKitInterop.GetSelector("removeFromSuperview"));
+            _ = AppKitInterop.SendMessage(_inputBlocker, AppKitInterop.GetSelector("release"));
+            _inputBlocker = nint.Zero;
+        }
+    }
+
+    private void RemoveDialogWindow(Dialog dialog)
+    {
+        _dialogWindows.Remove(dialog, out DialogWindow? dialogWindow);
+        if (dialogWindow is null)
+        {
+            return;
+        }
+
+        nint childWindow = dialogWindow.Window._nsWindow;
+        if (_nsWindow != nint.Zero && childWindow != nint.Zero)
+        {
+            AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("removeChildWindow:"), childWindow);
+        }
+
+        dialogWindow.Window.Dispose();
+        if (_nsWindow != nint.Zero)
+        {
+            _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeKeyWindow"));
+        }
+    }
+
+    private void RemoveDialogWindows()
+    {
+        foreach (Dialog dialog in _dialogWindows.Keys.ToArray())
+        {
+            RemoveDialogWindow(dialog);
+        }
+
+        if (_nsWindow != nint.Zero)
+        {
+            UpdateInputBlocker();
         }
     }
 
@@ -854,6 +1168,15 @@ public sealed class Window : IDisposable, IRenderHost
         if (LastLayout is null || Overlays.Any(overlay => overlay.ContainsPoint(position)))
         {
             return null;
+        }
+
+        for (int i = _renderer.PortalBoxes.Count - 1; i >= 0; i--)
+        {
+            UIElement? portalMatch = HitTest(_renderer.PortalBoxes[i], position);
+            if (portalMatch is not null)
+            {
+                return portalMatch;
+            }
         }
 
         return HitTest(LastLayout, position);
@@ -983,6 +1306,16 @@ public sealed class Window : IDisposable, IRenderHost
     private void RenderInvalidatedFrame()
     {
         using SKImage? snapshot = RenderFrame();
+    }
+
+    /// <summary>
+    /// Tracks the child window of an open <see cref="Dialog"/> and the placement last applied to it.
+    /// </summary>
+    private sealed class DialogWindow(Window window)
+    {
+        public Window Window { get; } = window;
+
+        public Rect? Placement { get; set; }
     }
 
     private void PresentSnapshotToNativeView(SKImage snapshot)

@@ -169,6 +169,40 @@
   border-color: var(--color-primary);
 }
 
+.sample-dialog {
+  width: 420px;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  padding: 24px;
+  border-width: 1px;
+  border-color: var(--color-muted);
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.sample-dialog .dialog-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.sample-dialog .dialog-description {
+  color: var(--color-muted);
+  margin: 0 0 16px 0;
+}
+
+.sample-dialog .dialog-footer {
+  margin: 16px 0 0 0;
+}
+
+.action-menu {
+  background-color: var(--color-surface);
+  padding: 4px;
+  border-width: 1px;
+  border-color: var(--color-muted);
+  border-radius: 8px;
+}
+
 .canvas-box {
   border-radius: 8px;
   background-color: var(--color-muted-surface);

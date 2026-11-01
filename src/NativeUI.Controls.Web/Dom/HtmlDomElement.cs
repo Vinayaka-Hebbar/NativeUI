@@ -104,6 +104,11 @@ public class HtmlDomElement : INativePeer
     internal JSObject? Element => _element;
 
     /// <summary>
+    /// Gets the DOM element of the parent proxy, or null when there is none.
+    /// </summary>
+    internal JSObject? ParentElement => _parent?._element;
+
+    /// <summary>
     /// Gets the identifier reported for pointer events targeting this element, or zero when it is not attached.
     /// </summary>
     internal int NodeId => _nodeId;
@@ -129,12 +134,13 @@ public class HtmlDomElement : INativePeer
         }
 
         string tagName = HtmlTagMapping.GetTag(source);
-        JSObject? element = useBrowserInterop && OperatingSystem.IsBrowser() ? DomInterop.CreateElement(tagName) : null;
+        JSObject? element = useBrowserInterop ? DomInterop.CreateElement(tagName) : null;
         return source switch
         {
             CanvasView canvasView => new HtmlDomCanvas(canvasView, element),
             Button button => new HtmlDomButton(button, element),
             Input input => new HtmlDomInput(input, element),
+            Portal portal => new HtmlDomPortal(portal, element, tagName),
             StackPanel stackPanel => new HtmlDomStackPanel(stackPanel, element),
             Grid grid => new HtmlDomGrid(grid, element),
             Text text => new HtmlDomText(text, element),

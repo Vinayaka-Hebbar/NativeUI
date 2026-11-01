@@ -36,7 +36,8 @@ public sealed class HtmlDomStackPanel : HtmlDomView
     {
         base.OnPropertyChanged(args);
         if (ReferenceEquals(args.Property, StackPanel.OrientationProperty) ||
-            ReferenceEquals(args.Property, StackPanel.SpacingProperty))
+            ReferenceEquals(args.Property, StackPanel.SpacingProperty) ||
+            ReferenceEquals(args.Property, StackPanel.HorizontalAlignmentProperty))
         {
             UpdateStack();
         }
@@ -47,6 +48,17 @@ public sealed class HtmlDomStackPanel : HtmlDomView
         bool isHorizontal = _panel.Orientation == Orientation.Horizontal;
         SetStyleProperty("flex-direction", isHorizontal ? "row" : "column");
         SetStyleProperty("align-items", isHorizontal ? "flex-start" : "stretch");
+        SetStyleProperty("justify-content", isHorizontal ? GetJustifyContent(_panel.HorizontalAlignment) : null);
         SetStyleProperty("gap", _panel.Spacing.ToString("R", CultureInfo.InvariantCulture) + "px");
+    }
+
+    private static string GetJustifyContent(Alignment alignment)
+    {
+        return alignment switch
+        {
+            Alignment.End => "flex-end",
+            Alignment.Center => "center",
+            _ => "flex-start"
+        };
     }
 }

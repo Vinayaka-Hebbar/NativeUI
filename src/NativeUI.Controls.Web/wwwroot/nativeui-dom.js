@@ -158,6 +158,22 @@ class NativeUIRoot extends HTMLElement {
   /** @type {FocusDispatcher | null} */
   focusDispatcher = null;
 
+  /** @type {ScrollDispatcher | null} */
+  closeDispatcher = null;
+
+  /**
+   * Forwards the close of an attached dialog element. Close events do not bubble, so this listens during capture.
+   *
+   * @param {Event} event The native event.
+   * @returns {void}
+   */
+  #handleClose = (event) => {
+    const nodeId = nodeIds.get(/** @type {Node} */ (event.target));
+    if (nodeId !== undefined && event.target instanceof HTMLDialogElement) {
+      this.closeDispatcher?.(nodeId);
+    }
+  };
+
   /**
    * Forwards an edit of an attached input.
    *
@@ -198,7 +214,7 @@ class NativeUIRoot extends HTMLElement {
   };
 
   /**
-   * Adds the delegated pointer, scroll, input, and focus listeners.
+   * Adds the delegated pointer, scroll, input, focus, and dialog close listeners.
    *
    * @returns {void}
    */
@@ -211,6 +227,7 @@ class NativeUIRoot extends HTMLElement {
     this.addEventListener("input", this.#handleInput);
     this.addEventListener("focusin", this.#handleFocus);
     this.addEventListener("focusout", this.#handleFocus);
+    this.addEventListener("close", this.#handleClose, { capture: true });
     this.#pointerHandler = (event) =>
       this.#handlePointerEvent(/** @type {MouseEvent} */ (event));
     for (const type of Object.keys(Pointer.NativeKinds)) {
@@ -236,6 +253,7 @@ class NativeUIRoot extends HTMLElement {
     this.removeEventListener("input", this.#handleInput);
     this.removeEventListener("focusin", this.#handleFocus);
     this.removeEventListener("focusout", this.#handleFocus);
+    this.removeEventListener("close", this.#handleClose, { capture: true });
     cancelAnimationFrame(this.#frame);
     this.#frame = 0;
     this.#pending.length = 0;
@@ -369,6 +387,65 @@ export const dom = {
    */
   setFocusDispatcher(root, dispatch) {
     root.focusDispatcher = dispatch;
+  },
+
+  /**
+   * Sets the callback that a `native-ui` element invokes with the identifier of each closed dialog element.
+   *
+   * @param {NativeUIRoot} root The `native-ui` element.
+   * @param {ScrollDispatcher} dispatch The callback.
+   * @returns {void}
+   */
+  setCloseDispatcher(root, dispatch) {
+    root.closeDispatcher = dispatch;
+  },
+
+  /**
+   * Appends an element to the `native-ui` element containing a parent element.
+   *
+   * @param {Element} parent The element whose `native-ui` ancestor receives the portal.
+   * @param {Element} element The portal element.
+   * @returns {boolean} Whether a `native-ui` ancestor exists.
+   */
+  mountPortal(parent, element) {
+    const root = parent.closest("native-ui");
+    root?.appendChild(element);
+    return root !== null;
+  },
+
+  /**
+   * Opens a dialog element.
+   *
+   * @param {HTMLDialogElement} element The dialog element.
+   * @param {boolean} isModal Whether to open it as a modal dialog.
+   * @returns {void}
+   */
+  showDialog(element, isModal) {
+    if (isModal) {
+      element.showModal();
+    } else {
+      element.show();
+    }
+  },
+
+  /**
+   * Reads the bounds of an element relative to the viewport.
+   *
+   * @param {Element} element The element.
+   * @returns {{x: number, y: number, width: number, height: number}} The bounds.
+   */
+  getBounds(element) {
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return { x, y, width, height };
+  },
+
+  /**
+   * Reads the viewport size.
+   *
+   * @returns {{width: number, height: number}} The size.
+   */
+  getViewportSize() {
+    return { width: window.innerWidth, height: window.innerHeight };
   },
 
   /**

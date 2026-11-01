@@ -18,6 +18,7 @@ public class HtmlDomView : HtmlDomElement, IScrollPeer
 
     private readonly View _view;
     private readonly List<HtmlDomElement> _children = [];
+    private readonly Dictionary<Portal, HtmlDomElement> _portals = [];
     private string? _viewScopeId;
     private AdoptedStyleSheet? _styleSheet;
 
@@ -47,6 +48,11 @@ public class HtmlDomView : HtmlDomElement, IScrollPeer
         foreach (HtmlDomElement child in _children)
         {
             child.UpdateTypeTokens();
+        }
+
+        foreach (HtmlDomElement portal in _portals.Values)
+        {
+            portal.UpdateTypeTokens();
         }
     }
 
@@ -112,6 +118,13 @@ public class HtmlDomView : HtmlDomElement, IScrollPeer
         }
 
         _children.Clear();
+
+        foreach (HtmlDomElement portal in _portals.Values)
+        {
+            portal.Dispose();
+        }
+
+        _portals.Clear();
         base.OnDisposing();
     }
 
@@ -136,9 +149,36 @@ public class HtmlDomView : HtmlDomElement, IScrollPeer
         SynchronizeChildren();
     }
 
+    /// <summary>
+    /// Creates and removes the proxies of portal children, which mount themselves outside this element.
+    /// </summary>
+    private void SynchronizePortals()
+    {
+        foreach (Portal portal in _portals.Keys.ToArray())
+        {
+            if (!_view.Children.Contains(portal))
+            {
+                _portals.Remove(portal, out HtmlDomElement? removed);
+                removed?.Dispose();
+            }
+        }
+
+        foreach (UIElement child in _view.Children)
+        {
+            if (child is Portal portal && !_portals.ContainsKey(portal))
+            {
+                HtmlDomElement proxy = Create(portal, Element is not null);
+                _portals[portal] = proxy;
+                proxy.Attach(this);
+            }
+        }
+    }
+
     private void SynchronizeChildren()
     {
-        UIElement[] desiredChildren = [.. _view.Children];
+        SynchronizePortals();
+
+        UIElement[] desiredChildren = [.. _view.Children.Where(static child => child is not Portal)];
         HashSet<UIElement> desiredSet = new(desiredChildren, ReferenceEqualityComparer.Instance);
         if (desiredSet.Count != desiredChildren.Length)
         {

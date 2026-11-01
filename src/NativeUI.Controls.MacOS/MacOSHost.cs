@@ -15,7 +15,8 @@ public sealed class MacOSHost
     {
         ArgumentNullException.ThrowIfNull(mainWindow);
 
-        MacOSApplication application = Application.Current as MacOSApplication ?? new MacOSApplication();
+        MacOSApplication application = Application.Current as MacOSApplication
+            ?? new MacOSApplication { MainView = mainWindow.Content as IView };
         if (!application.Windows.Contains(mainWindow))
         {
             application.Windows.Add(mainWindow);

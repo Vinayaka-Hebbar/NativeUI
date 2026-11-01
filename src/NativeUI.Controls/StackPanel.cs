@@ -27,6 +27,25 @@ public class StackPanel : View, IStackLayoutNode
             propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
 
     /// <summary>
+    /// Identifies the <see cref="HorizontalAlignment"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<Alignment> HorizontalAlignmentProperty =
+        BindableProperty.Create<StackPanel, Alignment>(
+            nameof(HorizontalAlignment),
+            defaultValue: Alignment.Start,
+            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+
+    /// <summary>
+    /// Gets or sets where a horizontal stack places its children within its width. A vertical stack ignores this.
+    /// Defaults to <see cref="Alignment.Start"/>.
+    /// </summary>
+    public Alignment HorizontalAlignment
+    {
+        get => GetValue(HorizontalAlignmentProperty);
+        set => SetValue(HorizontalAlignmentProperty, value);
+    }
+
+    /// <summary>
     /// Gets or sets the direction in which children are arranged. Defaults to <see cref="Orientation.Vertical"/>.
     /// </summary>
     public Orientation Orientation

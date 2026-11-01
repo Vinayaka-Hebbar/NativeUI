@@ -33,6 +33,7 @@
             <Button x:Name="NavScroll" Class="nav-item" Text="Scrolling" />
             <Button x:Name="NavCanvas" Class="nav-item" Text="Canvas" />
             <Button x:Name="NavInput" Class="nav-item" Text="Input" />
+            <Button x:Name="NavDialog" Class="nav-item" Text="Dialog" />
         </StackPanel>
 
         <ScrollView x:Name="ExamplesScroll" Grid.Column="1" Class="examples">
@@ -134,6 +135,8 @@
                 <Text Class="section" Value="Disabled" />
                 <Input Class="field" IsEnabled="false" Value="This field does not respond" />
             </View>
+
+            <DialogSampleView x:Name="DialogPage" />
         </ScrollView>
     </Grid>
 </View>

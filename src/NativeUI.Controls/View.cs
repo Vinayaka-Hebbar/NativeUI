@@ -198,7 +198,21 @@ public class View : UIElement, IView, IScrollContainer
     /// <inheritdoc />
     protected override IReadOnlyList<ILayoutNode> GetLayoutChildren()
     {
-        return _children;
+        List<ILayoutNode>? flowChildren = null;
+        for (int i = 0; i < _children.Count; i++)
+        {
+            UIElement child = _children[i];
+            if (child is Portal && flowChildren is null)
+            {
+                flowChildren = [.. _children.Take(i)];
+            }
+            else if (child is not Portal)
+            {
+                flowChildren?.Add(child);
+            }
+        }
+
+        return flowChildren ?? (IReadOnlyList<ILayoutNode>)_children;
     }
 
     /// <inheritdoc />
@@ -216,7 +230,8 @@ public class View : UIElement, IView, IScrollContainer
     {
         if (disposing)
         {
-            foreach (UIElement child in _children)
+            // Disposing an open dialog that this view hosts as its owner removes it from the collection.
+            foreach (UIElement child in _children.ToArray())
             {
                 child.Dispose();
             }

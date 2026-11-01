@@ -150,6 +150,11 @@ public interface IStackLayoutNode : ILayoutNode
     /// Gets the logical pixels between adjacent children.
     /// </summary>
     double Spacing { get; }
+
+    /// <summary>
+    /// Gets where a horizontal stack places its children within its width.
+    /// </summary>
+    Alignment HorizontalAlignment { get; }
 }
 
 /// <summary>

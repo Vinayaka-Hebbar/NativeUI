@@ -173,6 +173,40 @@ public static partial class DomInterop
         [JSMarshalAs<JSType.Function<JSType.Number, JSType.Boolean>>] Action<int, bool> dispatch);
 
     /// <summary>
+    /// Sets the callback that a <c>native-ui</c> element invokes with the node identifier of each closed dialog element.
+    /// The element adds its listener when connected and removes it when disconnected.
+    /// </summary>
+    [JSImport("setCloseDispatcher", "nativeui-dom")]
+    public static partial void SetCloseDispatcher(
+        JSObject root,
+        [JSMarshalAs<JSType.Function<JSType.Number>>] Action<int> dispatch);
+
+    /// <summary>
+    /// Appends <paramref name="element"/> to the <c>native-ui</c> element containing <paramref name="parent"/>,
+    /// and returns false when there is none.
+    /// </summary>
+    [JSImport("mountPortal", "nativeui-dom")]
+    public static partial bool MountPortal(JSObject parent, JSObject element);
+
+    /// <summary>
+    /// Opens a dialog element, as a modal one in the browser's top layer when <paramref name="isModal"/> is true.
+    /// </summary>
+    [JSImport("showDialog", "nativeui-dom")]
+    public static partial void ShowDialog(JSObject element, bool isModal);
+
+    /// <summary>
+    /// Reads the bounds of an element relative to the viewport, as an object with <c>x</c>, <c>y</c>, <c>width</c>, and <c>height</c>.
+    /// </summary>
+    [JSImport("getBounds", "nativeui-dom")]
+    public static partial JSObject GetBounds(JSObject element);
+
+    /// <summary>
+    /// Reads the viewport size, as an object with <c>width</c> and <c>height</c>.
+    /// </summary>
+    [JSImport("getViewportSize", "nativeui-dom")]
+    public static partial JSObject GetViewportSize();
+
+    /// <summary>
     /// Gets the current value of an input element.
     /// </summary>
     [JSImport("getValue", "nativeui-dom")]

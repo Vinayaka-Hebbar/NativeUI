@@ -10,6 +10,7 @@ internal static class HtmlTagMapping
     private const string ButtonTag = "button";
     private const string CanvasTag = "canvas";
     private const string InputTag = "input";
+    private const string DialogTag = "dialog";
 
     /// <summary>
     /// Gets the tag created for <paramref name="element"/>.
@@ -29,6 +30,11 @@ internal static class HtmlTagMapping
         if (element is Input)
         {
             return InputTag;
+        }
+
+        if (element is Dialog)
+        {
+            return DialogTag;
         }
 
         if (element is CanvasView)
@@ -64,6 +70,11 @@ internal static class HtmlTagMapping
             return InputTag;
         }
 
+        if (typeof(Dialog).IsAssignableFrom(type))
+        {
+            return DialogTag;
+        }
+
         // A base type or interface of Text also covers controls rendered with the container tag.
         return type.IsAssignableFrom(typeof(Text)) ? $":is({TextTag}, {ContainerTag})" : ContainerTag;
     }
@@ -77,7 +88,8 @@ internal static class HtmlTagMapping
         return elementType.ToLowerInvariant() switch
         {
             "text" => TextTag,
-            "view" => ContainerTag,
+            "view" or "portal" => ContainerTag,
+            "dialog" => DialogTag,
             "button" => ButtonTag,
             "canvas" or "canvasview" => CanvasTag,
             "input" => InputTag,

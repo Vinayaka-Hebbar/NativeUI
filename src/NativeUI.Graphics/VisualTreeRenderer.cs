@@ -45,6 +45,12 @@ public sealed class VisualTreeRenderer : IDisposable
     public IList<IRenderOverlay> Overlays { get; } = [];
 
     /// <summary>
+    /// Gets the layout boxes of the open portals drawn in the last pass, in drawing order. A portal that
+    /// <see cref="Portal.UsesOwnWindow"/> is not among them.
+    /// </summary>
+    public IReadOnlyList<LayoutBox> PortalBoxes { get; private set; } = [];
+
+    /// <summary>
     /// Computes layout for <paramref name="root"/> within <paramref name="logicalViewport"/> and draws the visual tree
     /// into <paramref name="context"/> at the specified DPI <paramref name="scaleFactor"/>.
     /// </summary>
@@ -65,6 +71,7 @@ public sealed class VisualTreeRenderer : IDisposable
         try
         {
             rootBox = _layoutEngine.ComputeLayout(root, logicalViewport);
+            PortalBoxes = LayoutPortals(root, rootBox, logicalViewport);
             _textMeasurer.CommitPass();
         }
         catch
@@ -82,6 +89,10 @@ public sealed class VisualTreeRenderer : IDisposable
             context.Clear(background ?? root.ComputedStyle.BackgroundColor ?? Colors.Transparent);
 
             DrawBoxRecursive(context, rootBox);
+            foreach (LayoutBox portalBox in PortalBoxes)
+            {
+                DrawBoxRecursive(context, portalBox);
+            }
 
             RenderPass pass = new(rootBox, logicalViewport, layoutDuration, _overlayTextMeasurer);
             foreach (IRenderOverlay overlay in Overlays)
@@ -109,6 +120,81 @@ public sealed class VisualTreeRenderer : IDisposable
 
         _disposed = true;
         _textMeasurer.Dispose();
+    }
+
+    /// <summary>
+    /// Lays out each open portal at the origin to learn its size, then moves it to its position against its anchor.
+    /// </summary>
+    private List<LayoutBox> LayoutPortals(UIElement root, LayoutBox rootBox, Size viewport)
+    {
+        List<Portal> portals = [];
+        CollectOpenPortals(root, portals);
+
+        List<LayoutBox> boxes = [];
+        Rect area = new(0, 0, viewport.Width, viewport.Height);
+        foreach (Portal portal in portals)
+        {
+            LayoutBox box = _layoutEngine.ComputeLayout(portal, viewport);
+            Rect? anchor = portal.Anchor is UIElement element ? FindAnchorBounds(element, rootBox, boxes) : null;
+            Point position = PortalPlacement.Compute(portal, anchor, box.BorderBox.Size, area, area);
+            boxes.Add(box.Translated(position.X - box.BorderBox.X, position.Y - box.BorderBox.Y));
+        }
+
+        return boxes;
+    }
+
+    private static void CollectOpenPortals(UIElement element, List<Portal> portals)
+    {
+        if (element is not View { IsVisible: true } view)
+        {
+            return;
+        }
+
+        foreach (UIElement child in view.Children)
+        {
+            if (child is Portal portal)
+            {
+                if (portal.IsOpen && !portal.UsesOwnWindow)
+                {
+                    portals.Add(portal);
+                    CollectOpenPortals(portal, portals);
+                }
+            }
+            else
+            {
+                CollectOpenPortals(child, portals);
+            }
+        }
+    }
+
+    private static Rect? FindAnchorBounds(UIElement anchor, LayoutBox rootBox, List<LayoutBox> portalBoxes)
+    {
+        LayoutBox? found = FindBox(rootBox, anchor);
+        foreach (LayoutBox portalBox in portalBoxes)
+        {
+            found ??= FindBox(portalBox, anchor);
+        }
+
+        return found?.BorderBox;
+    }
+
+    private static LayoutBox? FindBox(LayoutBox box, UIElement target)
+    {
+        if (ReferenceEquals(box.Element, target))
+        {
+            return box;
+        }
+
+        foreach (LayoutBox child in box.Children)
+        {
+            LayoutBox? found = FindBox(child, target);
+            if (found is not null)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     private void DrawBoxRecursive(DrawingContext context, LayoutBox box)

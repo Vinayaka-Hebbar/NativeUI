@@ -30,6 +30,9 @@ public partial class HelloViewModel : ObservableObject
     private bool _isDarkMode;
 
     [ObservableProperty]
+    private string _confirmMessage = "This cannot be undone.";
+
+    [ObservableProperty]
     private string _userName = string.Empty;
 
     [ObservableProperty]

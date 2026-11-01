@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -39,10 +40,19 @@ public sealed class XamlGenerator : IIncrementalGenerator
                     Compilation: compilation);
             });
 
-        context.RegisterSourceOutput(xamlInputs, static (productionContext, item) =>
+        IncrementalValueProvider<ImmutableArray<XamlViewReference?>> knownViews = xamlInputs
+            .Select(static (item, _) => XamlValidator.ReadViewReference(XamlParser.Parse(item.FilePath, item.Content)))
+            .Where(static view => view is not null)
+            .Collect();
+
+        context.RegisterSourceOutput(xamlInputs.Combine(knownViews), static (productionContext, input) =>
         {
+            (string FilePath, string Content, string DefaultNamespace, Compilation Compilation) item = input.Left;
             XamlDocumentNode ast = XamlParser.Parse(item.FilePath, item.Content);
-            ValidatedXamlDocument validated = XamlValidator.Validate(ast, defaultNamespace: item.DefaultNamespace);
+            ValidatedXamlDocument validated = XamlValidator.Validate(
+                ast,
+                defaultNamespace: item.DefaultNamespace,
+                knownViews: [.. input.Right.OfType<XamlViewReference>()]);
 
             foreach (Diagnostic diagnostic in validated.Diagnostics)
             {

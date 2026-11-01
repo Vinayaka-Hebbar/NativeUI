@@ -30,7 +30,8 @@ public partial class HelloView
             (NavGrid, GridPage),
             (NavScroll, ScrollPage),
             (NavCanvas, CanvasPage),
-            (NavInput, InputPage)
+            (NavInput, InputPage),
+            (NavDialog, DialogPage)
         ];
 
         foreach ((Button nav, View page) in _pages)

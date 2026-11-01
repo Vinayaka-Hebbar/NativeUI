@@ -141,6 +141,8 @@ static void TestXamlEmitterNumericLiterals()
             new ValidatedXamlProperty("Scale", XamlPropertyKind.Double, "2", null),
             new ValidatedXamlProperty("Limit", XamlPropertyKind.Double, "1e3", null)
         ],
+        [],
+        "Children",
         []);
     ValidatedXamlDocument doc = new("NumericView.xaml", "TestApp.NumericView", "TestApp", "NumericView", null, "NumericView", root, []);
 

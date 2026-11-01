@@ -52,8 +52,8 @@ public abstract class Application : BindableObject
     }
 
     /// <summary>
-    /// Gets the view shown by a single-view application, or <see langword="null"/> when none is set.
-    /// Desktop applications show windows instead and leave this unset.
+    /// Gets the application's main view, or <see langword="null"/> when none is set. A platform host that creates the
+    /// application sets it to the view it mounts: the root view on Web, and the content of the main window on desktop.
     /// </summary>
     public IView? MainView { get; init; }
 

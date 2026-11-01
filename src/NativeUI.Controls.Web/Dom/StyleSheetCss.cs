@@ -32,11 +32,16 @@ internal static class StyleSheetCss
     public const string ScrollViewAttribute = "data-nui-scroll-view";
 
     /// <summary>
+    /// The attribute marking the element of a <see cref="Portal"/>, which the base stylesheet takes out of the page flow.
+    /// </summary>
+    public const string PortalAttribute = "data-nui-portal";
+
+    /// <summary>
     /// The base style shared by all <c>native-ui</c> elements, matching desktop rendering where CSS allows: border-box
     /// sizing; a solid border of zero width, which <c>border-width</c> on an element makes visible; the minimum line height of the desktop text shaper; a scrollbar with the size and colors of the desktop
     /// indicator, which <c>scrollbar-color</c> or <c>scrollbar-width</c> on an element replaces; block display for the root, each <see cref="Text"/>, and
     /// each <see cref="Button"/>, none of which is block-level by default; no browser control appearance on
-    /// <see cref="Button"/> and <see cref="Input"/>, matching desktop rendering; scrolling on each <see cref="ScrollView"/>; and a
+    /// <see cref="Button"/> and <see cref="Input"/>, matching desktop rendering; scrolling on each <see cref="ScrollView"/>; fixed positioning on each <see cref="Portal"/>, with a modal backdrop of the same color as on desktop; and a
     /// <c>color-scheme</c> following <c>data-theme</c>.
     /// <c>:where</c> keeps every declaration at zero specificity.
     /// </summary>
@@ -203,6 +208,23 @@ internal static class StyleSheetCss
                 ["display"] = new CssStringValue("block"),
                 ["width"] = new CssStringValue("100%"),
                 ["height"] = new CssStringValue("0")
+            }),
+            new($":where([{PortalAttribute}])", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["position"] = new CssStringValue("fixed"),
+                ["inset"] = new CssStringValue("auto"),
+                ["margin"] = new CssStringValue("0"),
+                ["padding"] = new CssStringValue("0"),
+                ["width"] = new CssStringValue("fit-content"),
+                ["max-width"] = new CssStringValue("none"),
+                ["max-height"] = new CssStringValue("none"),
+                ["background"] = new CssStringValue("none"),
+                ["color"] = new CssStringValue("inherit"),
+                ["z-index"] = new CssStringValue("1000")
+            }),
+            new(":where(native-ui dialog)::backdrop", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["background"] = new CssStringValue("rgb(0 0 0 / 0.5)")
             }),
             new($":where([{ScrollViewAttribute}])", null, [], false, new Dictionary<string, CssValue>
             {

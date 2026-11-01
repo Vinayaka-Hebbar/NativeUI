@@ -30,10 +30,14 @@ internal static partial class AppKitInterop
     private const ulong TrackingInVisibleRect = 0x200;
     private const string WindowDidResignKeyNotification = "NSWindowDidResignKeyNotification";
     private const string WindowDidResizeNotification = "NSWindowDidResizeNotification";
+    private const string WindowWillCloseNotification = "NSWindowWillCloseNotification";
+    private const nint AutoresizingWidthAndHeight = 18;
+    private const double ModalBackdropOpacity = 0.5;
 
     private static readonly ConcurrentDictionary<nint, Window> s_viewToWindow = new();
     private static bool s_frameworksLoaded;
     private static nint s_interactiveViewClass;
+    private static nint s_inputBlockerClass;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct CGPoint
@@ -230,6 +234,15 @@ internal static partial class AppKitInterop
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend_stret")]
     private static partial CGRect SendMessageAlignRectStret(nint receiver, nint selector, CGRect rect, ulong options);
 
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    private static partial CGRect SendMessageRect(nint receiver, nint selector, CGRect rect);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend_stret")]
+    private static partial CGRect SendMessageRectStret(nint receiver, nint selector, CGRect rect);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    public static partial void SendMessageSetPoint(nint receiver, nint selector, CGPoint point);
+
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSendSuper")]
     public static partial byte SendSuperMessage(ref ObjCSuper super, nint selector);
 
@@ -252,6 +265,82 @@ internal static partial class AppKitInterop
                 ("Paste", "paste:", "v"),
                 ("Select All", "selectAll:", "a")));
         SendMessageVoid(nsApp, GetSelector("setMainMenu:"), mainMenu);
+    }
+
+    /// <summary>
+    /// Returns a new view that fills <paramref name="parentView"/>, dims it, and swallows its mouse input, which a modal
+    /// child window uses as its backdrop and to keep the parent's content and native fields from responding. Pressing it
+    /// returns the keyboard to the child window.
+    /// </summary>
+    public static unsafe nint CreateInputBlocker(nint parentView)
+    {
+        if (s_inputBlockerClass == nint.Zero)
+        {
+            nint blockerClass = AllocateClassPair(GetClass("NSView"), "NativeUIInputBlocker", 0);
+            delegate* unmanaged[Cdecl]<nint, nint, nint, void> mouseDownPtr = &OnBlockedMouseDown;
+            delegate* unmanaged[Cdecl]<nint, nint, nint, void> ignoredPtr = &OnBlockedEvent;
+            _ = ClassAddMethod(blockerClass, GetSelector("mouseDown:"), (nint)mouseDownPtr, "v@:@");
+            _ = ClassAddMethod(blockerClass, GetSelector("rightMouseDown:"), (nint)ignoredPtr, "v@:@");
+            _ = ClassAddMethod(blockerClass, GetSelector("scrollWheel:"), (nint)ignoredPtr, "v@:@");
+            RegisterClassPair(blockerClass);
+            s_inputBlockerClass = blockerClass;
+        }
+
+        nint blocker = SendMessageViewInit(
+            SendMessage(s_inputBlockerClass, GetSelector("alloc")),
+            GetSelector("initWithFrame:"),
+            GetBounds(parentView));
+        SendMessageVoid(blocker, GetSelector("setAutoresizingMask:"), AutoresizingWidthAndHeight);
+        SendMessageVoid(blocker, GetSelector("setWantsLayer:"), true);
+        nint backdropColor = SendMessageColor(
+            GetClass("NSColor"),
+            GetSelector("colorWithSRGBRed:green:blue:alpha:"),
+            0,
+            0,
+            0,
+            ModalBackdropOpacity);
+        SendMessageVoid(
+            SendMessage(blocker, GetSelector("layer")),
+            GetSelector("setBackgroundColor:"),
+            SendMessage(backdropColor, GetSelector("CGColor")));
+        SendMessageVoid(parentView, GetSelector("addSubview:"), blocker);
+        return blocker;
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnBlockedMouseDown(nint self, nint cmd, nint nsEvent)
+    {
+        nint children = SendMessage(SendMessage(self, GetSelector("window")), GetSelector("childWindows"));
+        nint lastChild = SendMessage(children, GetSelector("lastObject"));
+        if (lastChild != nint.Zero)
+        {
+            SendMessageVoid(lastChild, GetSelector("makeKeyAndOrderFront:"), nint.Zero);
+        }
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnBlockedEvent(nint self, nint cmd, nint nsEvent)
+    {
+    }
+
+    /// <summary>
+    /// Sends a message that returns a rectangle.
+    /// </summary>
+    public static CGRect GetRect(nint receiver, string selector)
+    {
+        return RuntimeInformation.ProcessArchitecture == Architecture.X64
+            ? SendMessageRectStret(receiver, GetSelector(selector))
+            : SendMessageRect(receiver, GetSelector(selector));
+    }
+
+    /// <summary>
+    /// Sends a message that takes and returns a rectangle.
+    /// </summary>
+    public static CGRect GetRect(nint receiver, string selector, CGRect rect)
+    {
+        return RuntimeInformation.ProcessArchitecture == Architecture.X64
+            ? SendMessageRectStret(receiver, GetSelector(selector), rect)
+            : SendMessageRect(receiver, GetSelector(selector), rect);
     }
 
     private static nint CreateMenu(string title, params ReadOnlySpan<(string Title, string Action, string Key)> items)
@@ -315,6 +404,7 @@ internal static partial class AppKitInterop
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> cursorUpdatePtr = &OnCursorUpdate;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> windowDidResignKeyPtr = &OnWindowDidResignKey;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> windowDidResizePtr = &OnWindowDidResize;
+        delegate* unmanaged[Cdecl]<nint, nint, nint, void> windowWillClosePtr = &OnWindowWillClose;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> keyDownPtr = &OnKeyDown;
         delegate* unmanaged[Cdecl]<nint, nint, nint, byte> performKeyEquivPtr = &OnPerformKeyEquivalent;
 
@@ -330,6 +420,7 @@ internal static partial class AppKitInterop
         _ = ClassAddMethod(subClass, GetSelector("cursorUpdate:"), (nint)cursorUpdatePtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("nativeUIWindowDidResignKey:"), (nint)windowDidResignKeyPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("nativeUIWindowDidResize:"), (nint)windowDidResizePtr, "v@:@");
+        _ = ClassAddMethod(subClass, GetSelector("nativeUIWindowWillClose:"), (nint)windowWillClosePtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("keyDown:"), (nint)keyDownPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("performKeyEquivalent:"), (nint)performKeyEquivPtr, "c@:@");
 
@@ -361,6 +452,7 @@ internal static partial class AppKitInterop
         nint addObserver = GetSelector("addObserver:selector:name:object:");
         SendMessageVoid(center, addObserver, nsView, GetSelector("nativeUIWindowDidResignKey:"), CreateNSString(WindowDidResignKeyNotification), nsWindow);
         SendMessageVoid(center, addObserver, nsView, GetSelector("nativeUIWindowDidResize:"), CreateNSString(WindowDidResizeNotification), nsWindow);
+        SendMessageVoid(center, addObserver, nsView, GetSelector("nativeUIWindowWillClose:"), CreateNSString(WindowWillCloseNotification), nsWindow);
     }
 
     /// <summary>
@@ -607,6 +699,15 @@ internal static partial class AppKitInterop
         {
             CGRect bounds = GetBounds(self);
             window.HandleResized(new Size(bounds.Size.Width, bounds.Size.Height));
+        }
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnWindowWillClose(nint self, nint cmd, nint notification)
+    {
+        if (s_viewToWindow.TryGetValue(self, out Window? window))
+        {
+            window.HandleNativeClose();
         }
     }
 

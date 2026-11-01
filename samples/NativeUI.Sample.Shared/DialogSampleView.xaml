@@ -1,0 +1,45 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.DialogSampleView"
+      x:DataType="NativeUI.Sample.HelloViewModel">
+
+    <Text Class="section" Value="Dialog and Portal" />
+    <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button x:Name="DeleteButton" Class="btn-action" Text="Anchored dialog" />
+        <Button x:Name="AboutButton" Class="btn-action" Text="Centered dialog" />
+        <Button x:Name="MenuButton" Class="btn-action" Text="Portal menu" />
+        <Button x:Name="CodeDialogButton" Class="btn-action" Text="Dialog from code" />
+    </StackPanel>
+    <Text x:Name="DialogStatus" Class="scroll-status" Value="Nothing has closed yet" />
+
+    <Dialog x:Name="ConfirmDialog"
+            Class="sample-dialog"
+            Title="Delete this file?"
+            Description="{Binding ConfirmMessage}"
+            Side="Bottom"
+            Align="Start"
+            SideOffset="8">
+        <Input Class="field" Placeholder="Type the file name to confirm" />
+        <Dialog.Footer>
+            <Button x:Name="CancelButton" Class="btn-action" Text="Cancel" />
+            <Button x:Name="ConfirmButton" Class="btn-action" Text="Delete" />
+        </Dialog.Footer>
+    </Dialog>
+
+    <Dialog x:Name="AboutDialog" Class="sample-dialog" IsModal="false">
+        <Dialog.Title>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Text Value="NativeUI" />
+                <Text Class="scroll-status" Value="custom title" />
+            </StackPanel>
+        </Dialog.Title>
+        <Dialog.Description>
+            <Text Value="This dialog is not modal, so a press outside it closes it." />
+        </Dialog.Description>
+    </Dialog>
+
+    <Portal x:Name="ActionMenu" Class="action-menu" Side="Right" Align="Center" SideOffset="4">
+        <Button x:Name="MenuRenameButton" Class="nav-item" Text="Rename" />
+        <Button x:Name="MenuMoveButton" Class="nav-item" Text="Move" />
+    </Portal>
+</View>
