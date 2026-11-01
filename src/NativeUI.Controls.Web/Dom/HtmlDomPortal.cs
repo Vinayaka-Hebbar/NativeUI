@@ -51,6 +51,7 @@ public class HtmlDomPortal : HtmlDomView
         base.OnPropertyChanged(args);
         if (ReferenceEquals(args.Property, Portal.IsOpenProperty))
         {
+            UpdateVisibility();
             UpdateMounted();
         }
         else if (ReferenceEquals(args.Property, Portal.SideProperty) ||

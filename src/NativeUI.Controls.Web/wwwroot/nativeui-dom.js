@@ -116,6 +116,16 @@ function findNodeId(target, root) {
 }
 
 /**
+ * Returns the identity of the pointer that raised an event.
+ *
+ * @param {MouseEvent} event The native event.
+ * @returns {number} The pointer identifier, or `Pointer.MouseId` for a mouse event.
+ */
+function getPointerId(event) {
+  return event instanceof PointerEvent ? event.pointerId : Pointer.MouseId;
+}
+
+/**
  * Converts the keyboard state of an event to {@link Modifiers} flags.
  *
  * @param {MouseEvent} event The native event.
@@ -223,7 +233,10 @@ class NativeUIRoot extends HTMLElement {
       return;
     }
 
-    this.addEventListener("scroll", this.#handleScroll, { capture: true, passive: true });
+    this.addEventListener("scroll", this.#handleScroll, {
+      capture: true,
+      passive: true,
+    });
     this.addEventListener("input", this.#handleInput);
     this.addEventListener("focusin", this.#handleFocus);
     this.addEventListener("focusout", this.#handleFocus);
@@ -319,7 +332,7 @@ class NativeUIRoot extends HTMLElement {
     return {
       kind,
       nodeId: kind === Pointer.Kind.Leave ? 0 : findNodeId(event.target, this),
-      pointerId: event instanceof PointerEvent ? event.pointerId : Pointer.MouseId,
+      pointerId: getPointerId(event),
       x: event.clientX - bounds.left,
       y: event.clientY - bounds.top,
       buttons: event.buttons,
@@ -421,6 +434,7 @@ export const dom = {
    * @returns {void}
    */
   showDialog(element, isModal) {
+    element.removeAttribute("open");
     if (isModal) {
       element.showModal();
     } else {
@@ -463,9 +477,11 @@ export const dom = {
     const count = iterations === Infinity ? "infinite" : iterations;
     element.style.animation = `${name} ${durationMilliseconds}ms ${easing} ${count}`;
 
-    const running = element
-      .getAnimations()
-      .find((animation) => animation instanceof CSSAnimation && animation.animationName === name);
+    const running = element.getAnimations().find((animation) => {
+      return (
+        animation instanceof CSSAnimation && animation.animationName === name
+      );
+    });
 
     const finish = () => {
       element.style.removeProperty("animation");

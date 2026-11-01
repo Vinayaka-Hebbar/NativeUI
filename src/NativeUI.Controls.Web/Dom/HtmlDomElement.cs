@@ -454,7 +454,10 @@ public class HtmlDomElement : INativePeer, IAnimationPeer
         }
     }
 
-    private void UpdateVisibility()
+    /// <summary>
+    /// Applies <see cref="UIElement.IsVisible"/> to the inline <c>display</c> value.
+    /// </summary>
+    protected void UpdateVisibility()
     {
         SetStyleProperty("display", Source.IsVisible ? VisibleDisplay : "none");
     }
