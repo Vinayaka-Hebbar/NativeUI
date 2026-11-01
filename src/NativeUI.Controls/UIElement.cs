@@ -93,6 +93,26 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
             propertyChanged: static (owner, oldStyle, newStyle) => owner.OnInlineStyleReplaced(oldStyle, newStyle));
 
     /// <summary>
+    /// Identifies the <see cref="Width"/> property, which is <see cref="Style.WidthProperty"/>.
+    /// </summary>
+    public static readonly BindableProperty<WidthValue?> WidthProperty = Style.WidthProperty.AddOwner<UIElement>();
+
+    /// <summary>
+    /// Identifies the <see cref="Height"/> property, which is <see cref="Style.HeightProperty"/>.
+    /// </summary>
+    public static readonly BindableProperty<double?> HeightProperty = Style.HeightProperty.AddOwner<UIElement>();
+
+    /// <summary>
+    /// Identifies the <see cref="OverflowX"/> property, which is <see cref="Style.OverflowXProperty"/>.
+    /// </summary>
+    public static readonly BindableProperty<Overflow?> OverflowXProperty = Style.OverflowXProperty.AddOwner<UIElement>();
+
+    /// <summary>
+    /// Identifies the <see cref="OverflowY"/> property, which is <see cref="Style.OverflowYProperty"/>.
+    /// </summary>
+    public static readonly BindableProperty<Overflow?> OverflowYProperty = Style.OverflowYProperty.AddOwner<UIElement>();
+
+    /// <summary>
     /// Occurs whenever a visual property or computed style on this element changes.
     /// </summary>
     public event EventHandler? VisualInvalidated;
@@ -195,6 +215,46 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     {
         get => GetValue(StyleProperty);
         set => SetValue(StyleProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the inline width, the same value as <see cref="Controls.Style.Width"/> on <see cref="Style"/>.
+    /// Setting it creates <see cref="Style"/> when none exists.
+    /// </summary>
+    public WidthValue? Width
+    {
+        get => GetValue(WidthProperty);
+        set => SetValue(WidthProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the inline height, the same value as <see cref="Controls.Style.Height"/> on <see cref="Style"/>.
+    /// Setting it creates <see cref="Style"/> when none exists.
+    /// </summary>
+    public double? Height
+    {
+        get => GetValue(HeightProperty);
+        set => SetValue(HeightProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the inline horizontal overflow, the same value as <see cref="Controls.Style.OverflowX"/> on <see cref="Style"/>.
+    /// Setting it creates <see cref="Style"/> when none exists.
+    /// </summary>
+    public Overflow? OverflowX
+    {
+        get => GetValue(OverflowXProperty);
+        set => SetValue(OverflowXProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the inline vertical overflow, the same value as <see cref="Controls.Style.OverflowY"/> on <see cref="Style"/>.
+    /// Setting it creates <see cref="Style"/> when none exists.
+    /// </summary>
+    public Overflow? OverflowY
+    {
+        get => GetValue(OverflowYProperty);
+        set => SetValue(OverflowYProperty, value);
     }
 
     /// <inheritdoc />
@@ -393,12 +453,6 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
-    /// Gets the control's default style, whose sizing and overflow values apply where no stylesheet specifies one.
-    /// Stylesheets and inline styles take precedence.
-    /// </summary>
-    protected virtual IStyle? DefaultStyle => null;
-
-    /// <summary>
     /// Returns the child layout nodes for container controls.
     /// </summary>
     protected virtual IReadOnlyList<ILayoutNode> GetLayoutChildren()
@@ -453,13 +507,9 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     private ComputedStyle ResolveComputedStyle()
     {
         IStyleResolver? resolver = StyleResolver;
-        ComputedStyle computed = resolver is not null
-            ? resolver.ResolveStyle(this)
-            : ComputedStyle.CreateInherited(_parent?.ComputedStyle);
-
-        computed = ViewStyleResolver.Resolve(this, computed, resolver);
-
-        return computed.ApplyDefaults(DefaultStyle).ApplyInline(Style, resolver, this);
+        ComputedStyle resolvedStyle = resolver?.ResolveStyle(this) ?? ComputedStyle.CreateInitial(this);
+        ComputedStyle cascadedStyle = ViewStyleResolver.Resolve(this, resolvedStyle, resolver);
+        return cascadedStyle.ApplyInline(Style, resolver, this);
     }
 
     private void UpdateComputedStyle(ComputedStyle computedStyle, SelectionStyle selectionStyle, Theme theme)
@@ -486,24 +536,43 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         return current.GetType().Name;
     }
 
+    /// <summary>
+    /// Keeps a single value for a <see cref="Controls.Style"/> property this type registered with through
+    /// <see cref="BindableProperty{TValue}.AddOwner{TOwner}"/>, whichever API sets it, by storing it on <see cref="Style"/>.
+    /// </summary>
+    protected override BindableObject? GetPropertyStore(BindableProperty property, bool createIfMissing)
+    {
+        if (property.OwnerType != typeof(Style) || !property.HasOwner(typeof(UIElement)))
+        {
+            return this;
+        }
+
+        return createIfMissing ? Style ??= new Style() : Style;
+    }
+
     private void OnInlineStyleReplaced(Style? oldStyle, Style? newStyle)
     {
         if (oldStyle is not null)
         {
-            oldStyle.Changed -= OnInlineStylePropertyChanged;
+            oldStyle.PropertyChanged -= OnInlineStylePropertyChanged;
         }
 
         if (newStyle is not null)
         {
-            newStyle.Changed += OnInlineStylePropertyChanged;
+            newStyle.PropertyChanged += OnInlineStylePropertyChanged;
         }
 
         InvalidateStyle();
     }
 
-    private void OnInlineStylePropertyChanged(object? sender, EventArgs e)
+
+    private void OnInlineStylePropertyChanged(object? sender, BindablePropertyChangedEventArgs e)
     {
         InvalidateStyle();
+        if (e.Property.HasOwner(typeof(UIElement)))
+        {
+            RaisePropertyChanged(e);
+        }
     }
 
     private void UpdateClassList(StyleClass styleClass)

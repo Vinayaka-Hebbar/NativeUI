@@ -99,7 +99,7 @@ internal static class CanvasViewTests
         Assert.Equal(Colors.Green, context.Rectangles[0].Paint.Color);
     }
 
-    public static void VerifyDefaultHeightAndFillWidth()
+    public static void VerifyFillsWidthAndSkipsDrawingWithoutHeight()
     {
         CanvasView canvas = new();
         Rect? bounds = null;
@@ -108,8 +108,11 @@ internal static class CanvasViewTests
 
         using VisualTreeRenderer renderer = new(SkiaTextShaper.Shared);
         renderer.Render(new TestDrawingContext(), canvas, new Size(800, 600));
+        Assert.Equal<Rect?>(null, bounds);
 
-        Assert.Equal<Rect?>(new Rect(0, 0, 800, 150), bounds);
+        canvas.Height = 120;
+        renderer.Render(new TestDrawingContext(), canvas, new Size(800, 600));
+        Assert.Equal<Rect?>(new Rect(0, 0, 800, 120), bounds);
     }
 
     private sealed class ChartView : CanvasView

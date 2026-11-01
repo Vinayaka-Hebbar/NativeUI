@@ -1,19 +1,16 @@
 using NativeUI.Graphics;
 using NativeUI.Layout;
-using NativeUI.Styling;
 
 namespace NativeUI.Controls;
 
 /// <summary>
 /// Provides a surface for custom two-dimensional drawing. Size it with <see cref="Style"/> or a stylesheet like any other
-/// element; without a height it is 150 logical pixels tall. Request a repaint with <see cref="UIElement.InvalidateVisual"/>.
+/// element; without a height it has no area and does not draw. Request a repaint with <see cref="UIElement.InvalidateVisual"/>.
 /// Drawing starts at (0, 0) in logical coordinates and is clipped to the canvas. The <see cref="DrawingContext"/> is valid
 /// only during the draw callback, on the UI thread.
 /// </summary>
 public class CanvasView : View
 {
-    private static readonly Style s_defaultStyle = new() { Height = 150 };
-
     /// <summary>
     /// Occurs when the canvas is drawn, after <see cref="OnDraw"/>.
     /// </summary>
@@ -21,9 +18,6 @@ public class CanvasView : View
 
     /// <inheritdoc />
     public override string TagName => "canvas";
-
-    /// <inheritdoc />
-    protected override IStyle? DefaultStyle => s_defaultStyle;
 
     /// <summary>
     /// Executes custom drawing operations, before the <see cref="Draw"/> event.

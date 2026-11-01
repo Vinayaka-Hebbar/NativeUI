@@ -123,47 +123,29 @@ public sealed record ComputedStyle
     public bool IsUserScrollableY => ClipsOverflow && OverflowY is not Overflow.Hidden;
 
     /// <summary>
-    /// Creates an element's initial style by inheriting text properties from its parent.
-    /// Box geometry, background, and opacity start at their initial values.
+    /// Creates an element's initial style before stylesheets apply. Text properties inherit from its parent, sizes and
+    /// overflow start from the element's own values, and other box geometry, background, and opacity start at their initial values.
     /// </summary>
-    /// <param name="parent">The parent's computed style, or <see langword="null"/> for a root element.</param>
-    public static ComputedStyle CreateInherited(ComputedStyle? parent)
+    /// <param name="element">The element being styled.</param>
+    public static ComputedStyle CreateInitial(IUIElement element)
     {
-        if (parent is null)
-        {
-            return Default;
-        }
+        ArgumentNullException.ThrowIfNull(element);
 
+        ComputedStyle? parent = element.Parent?.ComputedStyle;
         return new ComputedStyle
         {
-            TextColor = parent.TextColor,
-            FontSize = parent.FontSize,
-            FontWeight = parent.FontWeight,
-            FontFamily = parent.FontFamily,
-            TextAlign = parent.TextAlign,
-            Cursor = parent.Cursor,
-            ScrollbarThumbColor = parent.ScrollbarThumbColor,
-            ScrollbarTrackColor = parent.ScrollbarTrackColor
-        };
-    }
-
-    /// <summary>
-    /// Applies the sizing and overflow values of a control's default style where no stylesheet specified them.
-    /// </summary>
-    /// <param name="defaultStyle">The control's default style, or <see langword="null"/> when it has none.</param>
-    public ComputedStyle ApplyDefaults(IStyle? defaultStyle)
-    {
-        if (defaultStyle is null)
-        {
-            return this;
-        }
-
-        return this with
-        {
-            Width = Width ?? defaultStyle.Width,
-            Height = Height ?? defaultStyle.Height,
-            OverflowX = OverflowX ?? defaultStyle.OverflowX,
-            OverflowY = OverflowY ?? defaultStyle.OverflowY
+            TextColor = parent is null ? Default.TextColor : parent.TextColor,
+            FontSize = parent is null ? Default.FontSize : parent.FontSize,
+            FontWeight = parent is null ? Default.FontWeight : parent.FontWeight,
+            FontFamily = parent is null ? Default.FontFamily : parent.FontFamily,
+            TextAlign = parent is null ? Default.TextAlign : parent.TextAlign,
+            Cursor = parent is null ? Default.Cursor : parent.Cursor,
+            ScrollbarThumbColor = parent is null ? Default.ScrollbarThumbColor : parent.ScrollbarThumbColor,
+            ScrollbarTrackColor = parent is null ? Default.ScrollbarTrackColor : parent.ScrollbarTrackColor,
+            Width = element.Width,
+            Height = element.Height,
+            OverflowX = element.OverflowX,
+            OverflowY = element.OverflowY
         };
     }
 

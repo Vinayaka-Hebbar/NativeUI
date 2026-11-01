@@ -23,7 +23,7 @@ public sealed class CssStyleResolver : IStyleResolver
         CssStyleSheet? sheet = ResolveSheet(element.StyleSheetId);
         if (sheet is null)
         {
-            return ComputedStyle.CreateInherited(element.Parent?.ComputedStyle);
+            return ComputedStyle.CreateInitial(element);
         }
 
         return sheet.ComputeStyle(element);

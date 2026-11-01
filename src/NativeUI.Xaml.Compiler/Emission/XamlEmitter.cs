@@ -322,7 +322,7 @@ public static class XamlEmitter
             XamlPropertyKind.Int64 => LiteralExpression(
                 SyntaxKind.NumericLiteralExpression,
                 Literal(long.Parse(rawLiteral, NumberStyles.Integer, CultureInfo.InvariantCulture))),
-            XamlPropertyKind.Double => LiteralExpression(
+            XamlPropertyKind.Double or XamlPropertyKind.StyleLength => LiteralExpression(
                 SyntaxKind.NumericLiteralExpression,
                 Literal(double.Parse(rawLiteral, NumberStyles.Float, CultureInfo.InvariantCulture))),
             XamlPropertyKind.Orientation => MemberAccessExpression(

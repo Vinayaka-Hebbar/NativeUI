@@ -1,6 +1,7 @@
 using NativeUI.Core;
 using NativeUI.Css;
 using NativeUI.Media;
+using NativeUI.Styling;
 using NativeUI.Tests;
 
 namespace NativeUI.Controls.Tests;
@@ -155,6 +156,80 @@ internal static class StyleResolutionTests
         testTheme.Apply(parent, Theme.Dark);
         Assert.Equal(beforeThemeChange, child.ComputedStyle);
         Assert.Equal(2, childInvalidations);
+    }
+
+    internal static void VerifyMetadataDefaults()
+    {
+        Button button = new();
+        button.InvalidateStyle();
+        Assert.True(button.ComputedStyle.Width?.IsFitContent == true);
+
+        ScrollView scrollView = new();
+        scrollView.InvalidateStyle();
+        Assert.Equal<Overflow?>(Overflow.Auto, scrollView.ComputedStyle.OverflowY);
+
+        Text text = new();
+        text.InvalidateStyle();
+        Assert.Equal<WidthValue?>(null, text.ComputedStyle.Width);
+        Assert.Equal<Overflow?>(null, text.ComputedStyle.OverflowY);
+
+        button.Width = 300;
+        Assert.Equal(300.0, button.ComputedStyle.Width?.Pixels);
+
+        scrollView.Style = new Style { OverflowY = Overflow.Hidden };
+        Assert.Equal<Overflow?>(Overflow.Hidden, scrollView.ComputedStyle.OverflowY);
+        Assert.Equal<Overflow?>(Overflow.Auto, scrollView.ComputedStyle.OverflowX);
+
+        View parent = new()
+        {
+            StyleSheet = new StyleSheet
+            {
+                Rules = { StyleRule.Selector(static s => s.Type<Button>()).Style(new Style { Width = 150 }) }
+            }
+        };
+        Button styled = new();
+        parent.Children.Add(styled);
+        Assert.Equal(150.0, styled.ComputedStyle.Width?.Pixels);
+    }
+
+    internal static void VerifyForwardedSizeProperties()
+    {
+        Text element = new();
+        Assert.Null(element.Style);
+        Assert.Equal<WidthValue?>(null, element.Width);
+        Assert.Null(element.Style);
+
+        element.Width = 100;
+        Assert.NotNull(element.Style);
+        Assert.Equal<WidthValue?>(100.0, element.Style!.Width);
+        Assert.Equal(100.0, element.ComputedStyle.Width?.Pixels);
+
+        element.Style.Width = 200;
+        Assert.Equal<WidthValue?>(200.0, element.Width);
+        Assert.Equal(200.0, element.ComputedStyle.Width?.Pixels);
+
+        Assert.Same(Style.WidthProperty, UIElement.WidthProperty);
+        element.SetValue(UIElement.WidthProperty, 300.0);
+        Assert.Equal<WidthValue?>(300.0, element.Style.Width);
+
+        List<BindableProperty> raised = [];
+        element.PropertyChanged += (_, e) => raised.Add(e.Property);
+        element.Style.Height = 40;
+        Assert.Equal(40.0, element.Height);
+        Assert.True(raised.Contains(UIElement.HeightProperty), "A change through Style must notify element listeners.");
+
+        raised.Clear();
+        element.Style = new Style { Width = 50 };
+        Assert.Equal<WidthValue?>(50.0, element.Width);
+        Assert.Null(element.Height);
+        Assert.True(raised.Contains(UIElement.StyleProperty), "Replacing Style must notify the style change.");
+
+        Style oldStyle = new() { Width = 60 };
+        element.Style = oldStyle;
+        element.Style = new Style();
+        raised.Clear();
+        oldStyle.Width = 70;
+        Assert.Equal(0, raised.Count);
     }
 
     internal static void VerifyRootRuleMatching()

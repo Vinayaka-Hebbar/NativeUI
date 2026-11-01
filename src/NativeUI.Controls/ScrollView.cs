@@ -1,5 +1,4 @@
 using NativeUI.Media;
-using NativeUI.Styling;
 
 namespace NativeUI.Controls;
 
@@ -9,11 +8,11 @@ namespace NativeUI.Controls;
 /// </summary>
 public class ScrollView : View
 {
-    private static readonly Style s_defaultStyle = new()
+    static ScrollView()
     {
-        OverflowX = Overflow.Auto,
-        OverflowY = Overflow.Auto
-    };
+        OverflowXProperty.OverrideMetadata<ScrollView>(Overflow.Auto);
+        OverflowYProperty.OverrideMetadata<ScrollView>(Overflow.Auto);
+    }
 
     /// <summary>
     /// Gets or sets the single child to scroll, replacing any existing children.
@@ -30,7 +29,4 @@ public class ScrollView : View
             }
         }
     }
-
-    /// <inheritdoc />
-    protected override IStyle? DefaultStyle => s_defaultStyle;
 }

@@ -108,7 +108,7 @@ public sealed class CssStyleSheet : StyleSheet
         List<(CssRule Rule, int Order)> matching = CollectMatchingRules(element, colorScheme, CssPseudoElement.None);
         CssVariables scopedVariables = CreateScopedVariables(matching, colorScheme);
 
-        ComputedStyle inheritedStyle = ComputedStyle.CreateInherited(element.Parent?.ComputedStyle);
+        ComputedStyle inheritedStyle = ComputedStyle.CreateInitial(element);
         Color? textColor = inheritedStyle.TextColor;
         Color? backgroundColor = null;
         double fontSize = inheritedStyle.FontSize;
@@ -119,11 +119,11 @@ public sealed class CssStyleSheet : StyleSheet
         Thickness margin = Thickness.Zero;
         double borderRadius = 0.0;
         double opacity = 1.0;
-        WidthValue? width = null;
-        double? height = null;
+        WidthValue? width = inheritedStyle.Width;
+        double? height = inheritedStyle.Height;
         Cursor cursor = inheritedStyle.Cursor;
-        Overflow? overflowX = null;
-        Overflow? overflowY = null;
+        Overflow? overflowX = inheritedStyle.OverflowX;
+        Overflow? overflowY = inheritedStyle.OverflowY;
         Color? scrollbarThumbColor = inheritedStyle.ScrollbarThumbColor;
         Color? scrollbarTrackColor = inheritedStyle.ScrollbarTrackColor;
         ScrollbarWidth scrollbarWidth = ScrollbarWidth.Auto;

@@ -50,6 +50,12 @@ public enum XamlPropertyKind
     StyleThickness,
 
     /// <summary>
+    /// The literal must be a finite invariant-culture number, assigned to a size property that forwards to the element's
+    /// inline style. It has no binding form.
+    /// </summary>
+    StyleLength,
+
+    /// <summary>
     /// The literal is an invariant-culture integer assigned through a static setter such as <c>Grid.SetRow</c>.
     /// It has no binding form.
     /// </summary>
@@ -178,6 +184,8 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     {
         ["Margin"] = XamlPropertyKind.StyleThickness,
         ["Padding"] = XamlPropertyKind.StyleThickness,
+        ["Width"] = XamlPropertyKind.StyleLength,
+        ["Height"] = XamlPropertyKind.StyleLength,
         ["Grid.Row"] = XamlPropertyKind.AttachedInt32,
         ["Grid.Column"] = XamlPropertyKind.AttachedInt32,
         ["Grid.RowSpan"] = XamlPropertyKind.AttachedInt32,
@@ -331,7 +339,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
 
             if (BindingExpressionParser.IsMarkupExtension(attr.Value))
             {
-                if (kind is XamlPropertyKind.StyleThickness or XamlPropertyKind.AttachedInt32)
+                if (kind is XamlPropertyKind.StyleThickness or XamlPropertyKind.StyleLength or XamlPropertyKind.AttachedInt32)
                 {
                     _diagnostics.Add(Diagnostic.Create(
                         XamlDiagnostics.InvalidPropertyValue,
@@ -411,6 +419,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             XamlPropertyKind.Boolean => bool.TryParse(literal, out _),
             XamlPropertyKind.Int32 => int.TryParse(literal, NumberStyles.Integer, CultureInfo.InvariantCulture, out _),
             XamlPropertyKind.AttachedInt32 => int.TryParse(literal, NumberStyles.None, CultureInfo.InvariantCulture, out _),
+            XamlPropertyKind.StyleLength => TryParseFiniteDouble(literal, out _),
             XamlPropertyKind.Orientation => literal is "Vertical" or "Horizontal",
             XamlPropertyKind.GridLengthList => IsValidGridLengthList(literal),
             XamlPropertyKind.StyleThickness => TryParseThickness(literal, out _),

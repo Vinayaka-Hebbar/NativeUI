@@ -1,3 +1,4 @@
+using NativeUI.Core;
 using NativeUI.Media;
 using NativeUI.Styling;
 
@@ -8,43 +9,123 @@ namespace NativeUI.Controls;
 /// (for example, <c>Style = new() { BackgroundColor = Colors.Blue, Color = Colors.White, Padding = new(12, 8), BorderRadius = 6 }</c>).
 /// Overrides properties from CSS classes when present.
 /// </summary>
-public sealed class Style : IStyle
+public sealed class Style : BindableObject, IStyle
 {
-    private ThemeValue<Color>? _color;
-    private ThemeValue<Color>? _backgroundColor;
-    private double? _fontSize;
-    private FontWeight? _fontWeight;
-    private string? _fontFamily;
-    private TextAlign? _textAlign;
-    private Thickness? _padding;
-    private Thickness? _margin;
-    private double? _borderRadius;
-    private double? _opacity;
-    private WidthValue? _width;
-    private double? _height;
-    private Cursor? _cursor;
-    private Overflow? _overflowX;
-    private Overflow? _overflowY;
-    private ThemeValue<Color>? _scrollbarThumbColor;
-    private ThemeValue<Color>? _scrollbarTrackColor;
-    private ScrollbarWidth? _scrollbarWidth;
+    /// <summary>
+    /// Identifies the <see cref="Color"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<ThemeValue<Color>?> ColorProperty =
+        BindableProperty.Create<Style, ThemeValue<Color>?>(nameof(Color));
 
     /// <summary>
-    /// Occurs whenever any property on this <see cref="Style"/> instance is modified.
+    /// Identifies the <see cref="BackgroundColor"/> bindable property.
     /// </summary>
-    public event EventHandler? Changed;
+    public static readonly BindableProperty<ThemeValue<Color>?> BackgroundColorProperty =
+        BindableProperty.Create<Style, ThemeValue<Color>?>(nameof(BackgroundColor));
+
+    /// <summary>
+    /// Identifies the <see cref="FontSize"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double?> FontSizeProperty =
+        BindableProperty.Create<Style, double?>(nameof(FontSize));
+
+    /// <summary>
+    /// Identifies the <see cref="FontWeight"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<FontWeight?> FontWeightProperty =
+        BindableProperty.Create<Style, FontWeight?>(nameof(FontWeight));
+
+    /// <summary>
+    /// Identifies the <see cref="FontFamily"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<string?> FontFamilyProperty =
+        BindableProperty.Create<Style, string?>(nameof(FontFamily));
+
+    /// <summary>
+    /// Identifies the <see cref="TextAlign"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<TextAlign?> TextAlignProperty =
+        BindableProperty.Create<Style, TextAlign?>(nameof(TextAlign));
+
+    /// <summary>
+    /// Identifies the <see cref="Padding"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<Thickness?> PaddingProperty =
+        BindableProperty.Create<Style, Thickness?>(nameof(Padding));
+
+    /// <summary>
+    /// Identifies the <see cref="Margin"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<Thickness?> MarginProperty =
+        BindableProperty.Create<Style, Thickness?>(nameof(Margin));
+
+    /// <summary>
+    /// Identifies the <see cref="BorderRadius"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double?> BorderRadiusProperty =
+        BindableProperty.Create<Style, double?>(nameof(BorderRadius));
+
+    /// <summary>
+    /// Identifies the <see cref="Opacity"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double?> OpacityProperty =
+        BindableProperty.Create<Style, double?>(nameof(Opacity));
+
+    /// <summary>
+    /// Identifies the <see cref="Width"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<WidthValue?> WidthProperty =
+        BindableProperty.Create<Style, WidthValue?>(nameof(Width));
+
+    /// <summary>
+    /// Identifies the <see cref="Height"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double?> HeightProperty =
+        BindableProperty.Create<Style, double?>(nameof(Height));
+
+    /// <summary>
+    /// Identifies the <see cref="Cursor"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<Cursor?> CursorProperty =
+        BindableProperty.Create<Style, Cursor?>(nameof(Cursor));
+
+    /// <summary>
+    /// Identifies the <see cref="OverflowX"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<Overflow?> OverflowXProperty =
+        BindableProperty.Create<Style, Overflow?>(nameof(OverflowX));
+
+    /// <summary>
+    /// Identifies the <see cref="OverflowY"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<Overflow?> OverflowYProperty =
+        BindableProperty.Create<Style, Overflow?>(nameof(OverflowY));
+
+    /// <summary>
+    /// Identifies the <see cref="ScrollbarThumbColor"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<ThemeValue<Color>?> ScrollbarThumbColorProperty =
+        BindableProperty.Create<Style, ThemeValue<Color>?>(nameof(ScrollbarThumbColor));
+
+    /// <summary>
+    /// Identifies the <see cref="ScrollbarTrackColor"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<ThemeValue<Color>?> ScrollbarTrackColorProperty =
+        BindableProperty.Create<Style, ThemeValue<Color>?>(nameof(ScrollbarTrackColor));
+
+    /// <summary>
+    /// Identifies the <see cref="ScrollbarWidth"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<ScrollbarWidth?> ScrollbarWidthProperty =
+        BindableProperty.Create<Style, ScrollbarWidth?>(nameof(ScrollbarWidth));
 
     /// <summary>
     /// Gets or sets the foreground text color or theme color token.
     /// </summary>
     public ThemeValue<Color>? Color
     {
-        get => _color;
-        set
-        {
-            _color = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(ColorProperty);
+        set => SetValue(ColorProperty, value);
     }
 
     /// <summary>
@@ -52,12 +133,8 @@ public sealed class Style : IStyle
     /// </summary>
     public ThemeValue<Color>? BackgroundColor
     {
-        get => _backgroundColor;
-        set
-        {
-            _backgroundColor = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(BackgroundColorProperty);
+        set => SetValue(BackgroundColorProperty, value);
     }
 
     /// <summary>
@@ -65,12 +142,8 @@ public sealed class Style : IStyle
     /// </summary>
     public double? FontSize
     {
-        get => _fontSize;
-        set
-        {
-            _fontSize = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(FontSizeProperty);
+        set => SetValue(FontSizeProperty, value);
     }
 
     /// <summary>
@@ -78,12 +151,8 @@ public sealed class Style : IStyle
     /// </summary>
     public FontWeight? FontWeight
     {
-        get => _fontWeight;
-        set
-        {
-            _fontWeight = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(FontWeightProperty);
+        set => SetValue(FontWeightProperty, value);
     }
 
     /// <summary>
@@ -91,12 +160,8 @@ public sealed class Style : IStyle
     /// </summary>
     public string? FontFamily
     {
-        get => _fontFamily;
-        set
-        {
-            _fontFamily = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(FontFamilyProperty);
+        set => SetValue(FontFamilyProperty, value);
     }
 
     /// <summary>
@@ -104,12 +169,8 @@ public sealed class Style : IStyle
     /// </summary>
     public TextAlign? TextAlign
     {
-        get => _textAlign;
-        set
-        {
-            _textAlign = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(TextAlignProperty);
+        set => SetValue(TextAlignProperty, value);
     }
 
     /// <summary>
@@ -117,12 +178,8 @@ public sealed class Style : IStyle
     /// </summary>
     public Thickness? Padding
     {
-        get => _padding;
-        set
-        {
-            _padding = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(PaddingProperty);
+        set => SetValue(PaddingProperty, value);
     }
 
     /// <summary>
@@ -130,12 +187,8 @@ public sealed class Style : IStyle
     /// </summary>
     public Thickness? Margin
     {
-        get => _margin;
-        set
-        {
-            _margin = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(MarginProperty);
+        set => SetValue(MarginProperty, value);
     }
 
     /// <summary>
@@ -143,12 +196,8 @@ public sealed class Style : IStyle
     /// </summary>
     public double? BorderRadius
     {
-        get => _borderRadius;
-        set
-        {
-            _borderRadius = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(BorderRadiusProperty);
+        set => SetValue(BorderRadiusProperty, value);
     }
 
     /// <summary>
@@ -156,12 +205,8 @@ public sealed class Style : IStyle
     /// </summary>
     public double? Opacity
     {
-        get => _opacity;
-        set
-        {
-            _opacity = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(OpacityProperty);
+        set => SetValue(OpacityProperty, value);
     }
 
     /// <summary>
@@ -169,12 +214,8 @@ public sealed class Style : IStyle
     /// </summary>
     public WidthValue? Width
     {
-        get => _width;
-        set
-        {
-            _width = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(WidthProperty);
+        set => SetValue(WidthProperty, value);
     }
 
     /// <summary>
@@ -182,12 +223,8 @@ public sealed class Style : IStyle
     /// </summary>
     public double? Height
     {
-        get => _height;
-        set
-        {
-            _height = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(HeightProperty);
+        set => SetValue(HeightProperty, value);
     }
 
     /// <summary>
@@ -195,12 +232,8 @@ public sealed class Style : IStyle
     /// </summary>
     public Cursor? Cursor
     {
-        get => _cursor;
-        set
-        {
-            _cursor = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(CursorProperty);
+        set => SetValue(CursorProperty, value);
     }
 
     /// <summary>
@@ -208,12 +241,8 @@ public sealed class Style : IStyle
     /// </summary>
     public Overflow? OverflowX
     {
-        get => _overflowX;
-        set
-        {
-            _overflowX = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(OverflowXProperty);
+        set => SetValue(OverflowXProperty, value);
     }
 
     /// <summary>
@@ -221,12 +250,8 @@ public sealed class Style : IStyle
     /// </summary>
     public Overflow? OverflowY
     {
-        get => _overflowY;
-        set
-        {
-            _overflowY = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(OverflowYProperty);
+        set => SetValue(OverflowYProperty, value);
     }
 
     /// <summary>
@@ -234,12 +259,8 @@ public sealed class Style : IStyle
     /// </summary>
     public ThemeValue<Color>? ScrollbarThumbColor
     {
-        get => _scrollbarThumbColor;
-        set
-        {
-            _scrollbarThumbColor = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(ScrollbarThumbColorProperty);
+        set => SetValue(ScrollbarThumbColorProperty, value);
     }
 
     /// <summary>
@@ -247,12 +268,8 @@ public sealed class Style : IStyle
     /// </summary>
     public ThemeValue<Color>? ScrollbarTrackColor
     {
-        get => _scrollbarTrackColor;
-        set
-        {
-            _scrollbarTrackColor = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(ScrollbarTrackColorProperty);
+        set => SetValue(ScrollbarTrackColorProperty, value);
     }
 
     /// <summary>
@@ -260,11 +277,7 @@ public sealed class Style : IStyle
     /// </summary>
     public ScrollbarWidth? ScrollbarWidth
     {
-        get => _scrollbarWidth;
-        set
-        {
-            _scrollbarWidth = value;
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        get => GetValue(ScrollbarWidthProperty);
+        set => SetValue(ScrollbarWidthProperty, value);
     }
 }

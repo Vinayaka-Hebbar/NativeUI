@@ -191,7 +191,7 @@ internal static class StyleSheetCss
             {
                 ["display"] = new CssStringValue("block"),
                 ["width"] = new CssStringValue("100%"),
-                ["height"] = new CssStringValue("150px")
+                ["height"] = new CssStringValue("0")
             }),
             new($":where([{ScrollViewAttribute}])", null, [], false, new Dictionary<string, CssValue>
             {

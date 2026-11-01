@@ -338,7 +338,7 @@ public class HtmlDomElement : INativePeer
         Source.PropertyChanged -= OnElementPropertyChanged;
         if (_inlineStyle is not null)
         {
-            _inlineStyle.Changed -= OnInlineStyleChanged;
+            _inlineStyle.PropertyChanged -= OnInlineStyleChanged;
             _inlineStyle = null;
         }
 
@@ -425,19 +425,19 @@ public class HtmlDomElement : INativePeer
     {
         if (_inlineStyle is not null)
         {
-            _inlineStyle.Changed -= OnInlineStyleChanged;
+            _inlineStyle.PropertyChanged -= OnInlineStyleChanged;
         }
 
         _inlineStyle = Source.Style;
         if (_inlineStyle is not null)
         {
-            _inlineStyle.Changed += OnInlineStyleChanged;
+            _inlineStyle.PropertyChanged += OnInlineStyleChanged;
         }
 
         UpdateInlineStyle();
     }
 
-    private void OnInlineStyleChanged(object? sender, EventArgs args)
+    private void OnInlineStyleChanged(object? sender, BindablePropertyChangedEventArgs args)
     {
         if (_attached)
         {

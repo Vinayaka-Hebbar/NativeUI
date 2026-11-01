@@ -34,6 +34,26 @@ public interface IUIElement
     IStyle? Style { get; }
 
     /// <summary>
+    /// Gets the element's width: its inline value, or the default for its control type. Stylesheets override a default.
+    /// </summary>
+    WidthValue? Width { get; }
+
+    /// <summary>
+    /// Gets the element's height: its inline value, or the default for its control type. Stylesheets override a default.
+    /// </summary>
+    double? Height { get; }
+
+    /// <summary>
+    /// Gets the element's horizontal overflow: its inline value, or the default for its control type. Stylesheets override a default.
+    /// </summary>
+    Overflow? OverflowX { get; }
+
+    /// <summary>
+    /// Gets the element's vertical overflow: its inline value, or the default for its control type. Stylesheets override a default.
+    /// </summary>
+    Overflow? OverflowY { get; }
+
+    /// <summary>
     /// Gets the most recently computed style snapshot.
     /// </summary>
     ComputedStyle ComputedStyle { get; }

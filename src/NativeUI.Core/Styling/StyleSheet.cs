@@ -187,7 +187,7 @@ public class StyleSheet : IStyleResolver
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        ComputedStyle computed = ComputedStyle.CreateInherited(element.Parent?.ComputedStyle);
+        ComputedStyle computed = ComputedStyle.CreateInitial(element);
         IEnumerable<StyleRule> matching = Rules
             .Where(rule => rule.Target.Matches(element))
             .OrderBy(static rule => rule.Target.Specificity);
