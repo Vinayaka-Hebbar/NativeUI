@@ -158,6 +158,13 @@ public interface IStackLayoutNode : ILayoutNode
 }
 
 /// <summary>
+/// Implemented by layout nodes that their parent never lays out, because the host lays each one out as its own root.
+/// </summary>
+public interface IPortalLayoutNode : ILayoutNode
+{
+}
+
+/// <summary>
 /// Implemented by layout nodes that arrange their children in rows and columns.
 /// </summary>
 public interface IGridLayoutNode : ILayoutNode

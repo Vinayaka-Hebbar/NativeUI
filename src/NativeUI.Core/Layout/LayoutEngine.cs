@@ -652,7 +652,7 @@ public sealed class LayoutEngine
         for (int i = 0; i < allChildren.Count; i++)
         {
             ILayoutNode child = allChildren[i];
-            if (!child.IsVisible)
+            if (!child.IsVisible || child is IPortalLayoutNode)
             {
                 continue;
             }

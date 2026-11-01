@@ -35,7 +35,7 @@ public enum PortalSide
 /// child of its parent for <see cref="BindableObject.DataContext"/>. The desktop renderer draws it after the visual tree;
 /// on Web it is mounted at the end of the <c>native-ui</c> element, so selectors through its parent do not match its content there.
 /// </summary>
-public class Portal : View
+public class Portal : View, IPortalLayoutNode
 {
     private static readonly List<Portal> s_openPortals = [];
 

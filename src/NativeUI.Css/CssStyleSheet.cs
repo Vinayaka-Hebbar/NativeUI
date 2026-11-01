@@ -130,11 +130,11 @@ public sealed class CssStyleSheet : StyleSheet
         Color? scrollbarThumbColor = inheritedStyle.ScrollbarThumbColor;
         Color? scrollbarTrackColor = inheritedStyle.ScrollbarTrackColor;
         ScrollbarWidth scrollbarWidth = ScrollbarWidth.Auto;
-        Position position = Position.Static;
-        double? top = null;
-        double? right = null;
-        double? bottom = null;
-        double? left = null;
+        Position position = inheritedStyle.Position;
+        double? top = inheritedStyle.Top;
+        double? right = inheritedStyle.Right;
+        double? bottom = inheritedStyle.Bottom;
+        double? left = inheritedStyle.Left;
 
         // Font-relative lengths use the winning font size, regardless of declaration order.
         foreach ((CssRule rule, _) in matching)
