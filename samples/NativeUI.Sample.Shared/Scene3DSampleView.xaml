@@ -4,7 +4,7 @@
       x:DataType="NativeUI.Sample.HelloViewModel">
 
     <Text Class="section" Value="Rotating cube" />
-    <Viewport3D x:Name="CubeView" Width="500" Height="400">
+    <Viewport3D x:Name="CubeView" Height="400">
         <Viewport3D.Camera>
             <PerspectiveCamera Position="0, 2, -5" Fov="60" />
         </Viewport3D.Camera>

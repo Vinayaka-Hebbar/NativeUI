@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace NativeUI.Xaml.Compiler;
 
@@ -81,6 +82,11 @@ public enum XamlPropertyKind
     StyleLength,
 
     /// <summary>
+    /// The literal was converted according to the C# type of the property; see <see cref="ValidatedXamlProperty.ConvertedValue"/>.
+    /// </summary>
+    Converted,
+
+    /// <summary>
     /// The literal is an invariant-culture integer assigned through a static setter such as <c>Grid.SetRow</c>.
     /// It has no binding form.
     /// </summary>
@@ -100,11 +106,17 @@ public enum XamlPropertyKind
 /// <summary>
 /// Represents a validated property assignment or binding on a XAML element.
 /// </summary>
+/// <param name="PropertyName">The property name.</param>
+/// <param name="Kind">The way the literal converts to the property's value.</param>
+/// <param name="LiteralValue">The attribute text, when the attribute is not a binding.</param>
+/// <param name="Binding">The binding, when the attribute is one.</param>
+/// <param name="ConvertedValue">The expression that creates the value, when <paramref name="Kind"/> is <see cref="XamlPropertyKind.Converted"/>.</param>
 public sealed record ValidatedXamlProperty(
     string PropertyName,
     XamlPropertyKind Kind,
     string? LiteralValue,
-    BindingExpressionNode? Binding);
+    BindingExpressionNode? Binding,
+    ExpressionSyntax? ConvertedValue = null);
 
 /// <summary>
 /// Represents a validated XAML element node ready for C# code emission.
@@ -322,18 +334,6 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             }
         };
 
-    // The members of NativeUI.Media.Colors, which the compiler cannot reference.
-    private static readonly HashSet<string> s_namedColors = new(StringComparer.Ordinal)
-    {
-        "Transparent",
-        "Black",
-        "White",
-        "Blue",
-        "Indigo",
-        "Green",
-        "Red"
-    };
-
     private static readonly Dictionary<string, string> s_contentProperties = new(StringComparer.Ordinal)
     {
         ["Dialog"] = "Content",
@@ -370,7 +370,6 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     {
         ["Margin"] = XamlPropertyKind.StyleThickness,
         ["Padding"] = XamlPropertyKind.StyleThickness,
-        ["Width"] = XamlPropertyKind.StyleLength,
         ["Height"] = XamlPropertyKind.StyleLength,
         ["Position"] = XamlPropertyKind.Position,
         ["Top"] = XamlPropertyKind.StyleLength,
@@ -383,8 +382,11 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         ["Grid.ColumnSpan"] = XamlPropertyKind.AttachedInt32
     };
 
+    private static readonly Dictionary<string, XamlPropertyKind> s_noProperties = new(StringComparer.Ordinal);
+
     private readonly string _filePath;
     private readonly IReadOnlySet<string>? _knownCssClasses;
+    private readonly XamlTypeResolver? _types;
     private readonly Dictionary<string, XamlViewReference> _knownViews = new(StringComparer.Ordinal);
     private readonly List<Diagnostic> _diagnostics = [];
     private string _fullClassName = string.Empty;
@@ -392,24 +394,34 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     private string? _explicitStyleSheetId;
     private ValidatedXamlElement? _validatedRoot;
 
-    private XamlValidator(string filePath, IReadOnlySet<string>? knownCssClasses)
+    private XamlValidator(string filePath, IReadOnlySet<string>? knownCssClasses, Compilation? compilation)
     {
         _filePath = filePath;
         _knownCssClasses = knownCssClasses;
+        _types = compilation is null ? null : new XamlTypeResolver(compilation);
     }
 
     /// <summary>
     /// Validates the specified <paramref name="document"/> AST using the visitor pattern.
     /// </summary>
+    /// <param name="document">The parsed document.</param>
+    /// <param name="knownCssClasses">The class names that <c>Class</c> attributes can use, or null to accept any.</param>
+    /// <param name="defaultNamespace">The namespace of a view whose <c>x:Class</c> has none.</param>
+    /// <param name="knownViews">The views compiled from other XAML files in the project.</param>
+    /// <param name="compilation">
+    /// The compilation that resolves XML namespaces and the C# types of properties. Without it, a document can use only
+    /// built-in controls and the properties listed for them.
+    /// </param>
     public static ValidatedXamlDocument Validate(
         XamlDocumentNode document,
         IReadOnlySet<string>? knownCssClasses = null,
         string defaultNamespace = "NativeUI",
-        IReadOnlyList<XamlViewReference>? knownViews = null)
+        IReadOnlyList<XamlViewReference>? knownViews = null,
+        Compilation? compilation = null)
     {
         ArgumentNullException.ThrowIfNull(document);
 
-        XamlValidator validator = new(document.FilePath, knownCssClasses);
+        XamlValidator validator = new(document.FilePath, knownCssClasses, compilation);
         foreach (XamlViewReference view in knownViews ?? [])
         {
             validator._knownViews.TryAdd(view.ClassName, view);
@@ -491,8 +503,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
 
     private ValidatedXamlElement? ValidateElementRecursive(XamlElementNode element, bool isRoot)
     {
-        if (!string.IsNullOrEmpty(element.NamespaceUri) &&
-            !string.Equals(element.NamespaceUri, XamlParser.NativeUINamespace, StringComparison.Ordinal))
+        if (!TryResolveControl(element, isRoot, out ResolvedControl control))
         {
             _diagnostics.Add(Diagnostic.Create(
                 XamlDiagnostics.UnknownElement,
@@ -501,26 +512,9 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             return null;
         }
 
-        // A compiled view takes the attributes of its root element. A view cannot contain itself.
-        string controlType = element.LocalName;
-        string controlDefinition = element.LocalName;
-        if (!isRoot &&
-            !s_controlProperties.ContainsKey(element.LocalName) &&
-            _knownViews.TryGetValue(element.LocalName, out XamlViewReference? knownView) &&
-            !string.Equals(knownView.FullClassName, _fullClassName, StringComparison.Ordinal))
-        {
-            controlDefinition = knownView.RootElement;
-            controlType = knownView.FullClassName.Contains('.') ? $"global::{knownView.FullClassName}" : knownView.ClassName;
-        }
-
-        if (!s_controlProperties.TryGetValue(controlDefinition, out Dictionary<string, XamlPropertyKind>? allowedProps))
-        {
-            _diagnostics.Add(Diagnostic.Create(
-                XamlDiagnostics.UnknownElement,
-                XamlDiagnostics.CreateLocation(_filePath, element.Position),
-                element.LocalName));
-            return null;
-        }
+        string controlType = control.TypeName;
+        string controlDefinition = control.Definition;
+        Dictionary<string, XamlPropertyKind> allowedProps = s_controlProperties.GetValueOrDefault(controlDefinition, s_noProperties);
 
         string? xName = null;
         List<ValidatedXamlProperty> validProps = [];
@@ -553,15 +547,23 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 continue;
             }
 
+            // Shared properties belong to controls; any other property is resolved from the element's C# type.
+            IPropertySymbol? typedProperty = null;
             if (!allowedProps.TryGetValue(attr.LocalName, out XamlPropertyKind kind) &&
-                !s_sharedProperties.TryGetValue(attr.LocalName, out kind))
+                (controlDefinition.Length == 0 || !s_sharedProperties.TryGetValue(attr.LocalName, out kind)))
             {
-                _diagnostics.Add(Diagnostic.Create(
-                    XamlDiagnostics.UnknownProperty,
-                    XamlDiagnostics.CreateLocation(_filePath, attr.Position),
-                    attr.LocalName,
-                    element.LocalName));
-                continue;
+                typedProperty = control.Type is null ? null : _types!.FindSettableProperty(control.Type, attr.LocalName);
+                if (typedProperty is null)
+                {
+                    _diagnostics.Add(Diagnostic.Create(
+                        XamlDiagnostics.UnknownProperty,
+                        XamlDiagnostics.CreateLocation(_filePath, attr.Position),
+                        attr.LocalName,
+                        element.LocalName));
+                    continue;
+                }
+
+                kind = XamlPropertyKind.Converted;
             }
 
             if (isRoot && string.Equals(attr.LocalName, "StyleSheetId", StringComparison.Ordinal))
@@ -577,7 +579,10 @@ public sealed class XamlValidator : XamlSyntaxVisitor
 
             if (BindingExpressionParser.IsMarkupExtension(attr.Value))
             {
-                if (kind is XamlPropertyKind.StyleThickness or XamlPropertyKind.StyleLength or XamlPropertyKind.AttachedInt32)
+                bool isBindable = typedProperty is null
+                    ? kind is not (XamlPropertyKind.StyleThickness or XamlPropertyKind.StyleLength or XamlPropertyKind.AttachedInt32)
+                    : XamlTypeResolver.IsBindable(typedProperty);
+                if (!isBindable)
                 {
                     _diagnostics.Add(Diagnostic.Create(
                         XamlDiagnostics.InvalidPropertyValue,
@@ -602,6 +607,23 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 }
 
                 validProps.Add(new ValidatedXamlProperty(attr.LocalName, kind, null, bindingNode));
+            }
+            else if (typedProperty is not null)
+            {
+                XamlValueConverter? converter = XamlValueConverters.ForType(typedProperty.Type);
+                if (converter is not null && converter.TryConvert(attr.Value, out ExpressionSyntax? convertedValue))
+                {
+                    validProps.Add(new ValidatedXamlProperty(attr.LocalName, kind, attr.Value, null, convertedValue));
+                }
+                else
+                {
+                    _diagnostics.Add(Diagnostic.Create(
+                        XamlDiagnostics.InvalidPropertyValue,
+                        XamlDiagnostics.CreateLocation(_filePath, attr.Position),
+                        attr.Value,
+                        attr.LocalName,
+                        element.LocalName));
+                }
             }
             else if (IsValidLiteral(kind, attr.Value))
             {
@@ -671,8 +693,98 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         }
 
         string contentProperty = s_contentProperties.GetValueOrDefault(controlDefinition, "Children");
+        if (validChildren.Count > 0 && controlDefinition.Length == 0 && !HasMember(control.Type, contentProperty))
+        {
+            ReportPropertyElement(element, $"<{element.LocalName}> has no {contentProperty} property");
+            return null;
+        }
+
         return new ValidatedXamlElement(controlType, xName, validProps, validChildren, contentProperty, propertyElements);
     }
+
+    /// <summary>
+    /// Resolves <paramref name="element"/> to a built-in control, a view compiled from another XAML file, or a type in the
+    /// compilation, in that order.
+    /// </summary>
+    private bool TryResolveControl(XamlElementNode element, bool isRoot, out ResolvedControl control)
+    {
+        string localName = element.LocalName;
+        bool isNativeUINamespace = string.IsNullOrEmpty(element.NamespaceUri) ||
+            string.Equals(element.NamespaceUri, XamlParser.NativeUINamespace, StringComparison.Ordinal);
+
+        if (isNativeUINamespace && s_controlProperties.ContainsKey(localName))
+        {
+            control = new ResolvedControl(localName, localName, _types?.Resolve(XamlParser.NativeUINamespace, localName));
+            return true;
+        }
+
+        // A compiled view takes the attributes of its root element. A view cannot contain itself.
+        if (!isRoot &&
+            _knownViews.TryGetValue(localName, out XamlViewReference? knownView) &&
+            !string.Equals(knownView.FullClassName, _fullClassName, StringComparison.Ordinal) &&
+            (isNativeUINamespace || IsInClrNamespace(knownView, element.NamespaceUri)))
+        {
+            string viewType = knownView.FullClassName.Contains('.') ? $"global::{knownView.FullClassName}" : knownView.ClassName;
+            control = new ResolvedControl(viewType, knownView.RootElement, _types?.Resolve(XamlParser.NativeUINamespace, knownView.RootElement));
+            return true;
+        }
+
+        INamedTypeSymbol? type = _types?.Resolve(element.NamespaceUri, localName);
+        if (type is null || !_types!.IsCreatable(type))
+        {
+            control = default;
+            return false;
+        }
+
+        control = new ResolvedControl(type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), FindControlDefinition(type), type);
+        return true;
+    }
+
+    private static bool IsInClrNamespace(XamlViewReference view, string xmlNamespace)
+    {
+        string? clrNamespace = XamlTypeResolver.ReadClrNamespace(xmlNamespace);
+        return clrNamespace is not null &&
+            string.Equals(view.FullClassName, $"{clrNamespace}.{view.ClassName}", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Returns the name of the nearest built-in control that <paramref name="type"/> derives from, or an empty string when
+    /// it derives from none.
+    /// </summary>
+    private string FindControlDefinition(INamedTypeSymbol type)
+    {
+        for (INamedTypeSymbol? current = type.BaseType; current is not null; current = current.BaseType)
+        {
+            if (s_controlProperties.ContainsKey(current.Name) &&
+                SymbolEqualityComparer.Default.Equals(current, _types!.Resolve(XamlParser.NativeUINamespace, current.Name)))
+            {
+                return current.Name;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static bool HasMember(INamedTypeSymbol? type, string name)
+    {
+        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+        {
+            if (!current.GetMembers(name).IsEmpty)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Identifies the type an element creates.
+    /// </summary>
+    /// <param name="TypeName">The C# type name to create.</param>
+    /// <param name="Definition">The built-in control whose properties apply, or an empty string when there is none.</param>
+    /// <param name="Type">The type whose C# properties the element can also set, when a compilation is available.</param>
+    private readonly record struct ResolvedControl(string TypeName, string Definition, INamedTypeSymbol? Type);
 
     /// <summary>
     /// Validates a property element such as <c>&lt;Dialog.Footer&gt;</c> on <paramref name="owner"/>. Returns null after
@@ -750,114 +862,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     /// </summary>
     internal static bool IsValidLiteral(XamlPropertyKind kind, string literal)
     {
-        return kind switch
-        {
-            XamlPropertyKind.Boolean => bool.TryParse(literal, out _),
-            XamlPropertyKind.Int32 => int.TryParse(literal, NumberStyles.Integer, CultureInfo.InvariantCulture, out _),
-            XamlPropertyKind.AttachedInt32 => int.TryParse(literal, NumberStyles.None, CultureInfo.InvariantCulture, out _),
-            XamlPropertyKind.StyleLength => TryParseFiniteDouble(literal, out _),
-            XamlPropertyKind.Orientation => literal is "Vertical" or "Horizontal",
-            XamlPropertyKind.Vector3 => TryParseVector3(literal, out _),
-            XamlPropertyKind.Color => s_namedColors.Contains(literal) || IsValidHexColor(literal),
-            XamlPropertyKind.PortalSide => literal is "Top" or "Right" or "Bottom" or "Left",
-            XamlPropertyKind.Alignment => literal is "Start" or "Center" or "End",
-            XamlPropertyKind.Position => literal is "Static" or "Relative" or "Absolute" or "Fixed",
-            XamlPropertyKind.GridLengthList => IsValidGridLengthList(literal),
-            XamlPropertyKind.StyleThickness => TryParseThickness(literal, out _),
-            XamlPropertyKind.Int64 => long.TryParse(literal, NumberStyles.Integer, CultureInfo.InvariantCulture, out _),
-            XamlPropertyKind.Double => double.TryParse(literal, NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
-                && double.IsFinite(value),
-            XamlPropertyKind.BindingOnly => false,
-            _ => true
-        };
-    }
-
-    /// <summary>
-    /// Splits a comma-separated attribute into trimmed tokens.
-    /// </summary>
-    internal static string[] SplitList(string literal)
-    {
-        return literal.Split(',').Select(static token => token.Trim()).ToArray();
-    }
-
-    /// <summary>
-    /// Parses one, two (vertical, horizontal), or four (top, right, bottom, left) comma-separated numbers.
-    /// </summary>
-    internal static bool TryParseVector3(string literal, out double[] values)
-    {
-        string[] tokens = SplitList(literal);
-        values = new double[tokens.Length];
-        if (tokens.Length != 3)
-        {
-            return false;
-        }
-
-        for (int i = 0; i < tokens.Length; i++)
-        {
-            if (!TryParseFiniteDouble(tokens[i], out values[i]))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool IsValidHexColor(string literal)
-    {
-        if (literal.Length is not (4 or 5 or 7 or 9) || literal[0] != '#')
-        {
-            return false;
-        }
-
-        for (int i = 1; i < literal.Length; i++)
-        {
-            if (!Uri.IsHexDigit(literal[i]))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    internal static bool TryParseThickness(string literal, out double[] values)
-    {
-        string[] tokens = SplitList(literal);
-        values = new double[tokens.Length];
-        if (tokens.Length is not (1 or 2 or 4))
-        {
-            return false;
-        }
-
-        for (int i = 0; i < tokens.Length; i++)
-        {
-            if (!TryParseFiniteDouble(tokens[i], out values[i]))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool IsValidGridLengthList(string literal)
-    {
-        return SplitList(literal).All(static token =>
-        {
-            if (string.Equals(token, "Auto", StringComparison.OrdinalIgnoreCase) || token == "*")
-            {
-                return true;
-            }
-
-            string number = token.EndsWith("*", StringComparison.Ordinal) ? token.Substring(0, token.Length - 1) : token;
-            return TryParseFiniteDouble(number, out double value) && value >= 0;
-        });
-    }
-
-    private static bool TryParseFiniteDouble(string text, out double value)
-    {
-        return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && double.IsFinite(value);
+        return XamlValueConverters.TryConvert(kind, literal, out _);
     }
 
     private void ValidateCssClassTokens(string classAttributeValue, XamlSourcePosition position)

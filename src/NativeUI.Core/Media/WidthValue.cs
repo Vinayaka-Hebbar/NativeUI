@@ -1,3 +1,5 @@
+using NativeUI.Xaml;
+
 namespace NativeUI.Media;
 
 /// <summary>
@@ -26,11 +28,13 @@ public readonly record struct WidthValue
     /// Gets the element's natural width: the default of its control type when it has one. Otherwise an element in normal
     /// flow fills the available width, and an out-of-flow element fits its content.
     /// </summary>
+    [XamlLiteral("Auto")]
     public static WidthValue Auto { get; } = new(Unit.Auto, 0);
 
     /// <summary>
     /// Gets the width that fits the element's content, limited to the available width.
     /// </summary>
+    [XamlLiteral("FitContent")]
     public static WidthValue FitContent { get; } = new(Unit.FitContent, 0);
 
     /// <summary>
@@ -61,6 +65,7 @@ public readonly record struct WidthValue
     /// <summary>
     /// Creates a width of a fixed number of logical pixels.
     /// </summary>
+    [XamlLiteral("{0}")]
     public static WidthValue Pixels(double pixels)
     {
         return new WidthValue(Unit.Pixels, pixels);
@@ -69,6 +74,7 @@ public readonly record struct WidthValue
     /// <summary>
     /// Creates a width that is <paramref name="percent"/> percent of the containing width.
     /// </summary>
+    [XamlLiteral("{0}%")]
     public static WidthValue Percent(double percent)
     {
         return new WidthValue(Unit.Percent, percent);

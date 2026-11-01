@@ -52,7 +52,8 @@ public sealed class XamlGenerator : IIncrementalGenerator
             ValidatedXamlDocument validated = XamlValidator.Validate(
                 ast,
                 defaultNamespace: item.DefaultNamespace,
-                knownViews: [.. input.Right.OfType<XamlViewReference>()]);
+                knownViews: [.. input.Right.OfType<XamlViewReference>()],
+                compilation: item.Compilation);
 
             foreach (Diagnostic diagnostic in validated.Diagnostics)
             {
