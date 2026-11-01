@@ -115,6 +115,14 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["IsEnabled"] = XamlPropertyKind.Boolean,
                 ["ClipToBounds"] = XamlPropertyKind.Boolean
             },
+            ["CanvasView"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["ClipToBounds"] = XamlPropertyKind.Boolean
+            },
             ["StackPanel"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
                 ["Id"] = XamlPropertyKind.String,

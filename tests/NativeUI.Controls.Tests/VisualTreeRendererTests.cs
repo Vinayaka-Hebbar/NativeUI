@@ -185,6 +185,7 @@ public static class VisualTreeRendererTests
 
         public override void Save() => SaveCount++;
         public override void Restore() => RestoreCount++;
+        public override void Translate(double dx, double dy) { }
 
         public override void SaveLayer(Rect bounds, double opacity)
         {

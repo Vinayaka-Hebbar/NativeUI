@@ -79,7 +79,7 @@
   color: var(--color-text);
   font-size: 15px;
   font-weight: 600;
-  margin: 24px 0 8px 0;
+  margin: 16px 0 8px 0;
 }
 
 .scroll-box {
@@ -106,13 +106,70 @@
 .scroll-status {
   color: var(--color-muted);
   font-size: 13px;
-  margin: 8px 0 0 0;
+  margin: 8px 0;
+}
+
+.shell {
+  margin: 16px 0 0 0;
 }
 
 .examples {
-  height: 400px;
-  margin: 16px 0 0 0;
+  height: 420px;
   padding: 0 12px 0 0;
+}
+
+.nav-item {
+  color: var(--color-text);
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  width: 150px;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background-color: var(--color-muted-surface);
+}
+
+.nav-item-active {
+  background-color: var(--color-primary);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.nav-item-active:hover {
+  background-color: var(--color-primary);
+}
+
+.btn-action {
+  background-color: var(--color-primary);
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-action:active {
+  opacity: 0.85;
+}
+
+.canvas-box {
+  border-radius: 8px;
+  background-color: var(--color-muted-surface);
+}
+
+.canvas-shapes {
+  height: 120px;
+}
+
+.canvas-transforms {
+  height: 140px;
+}
+
+.canvas-chart {
+  height: 160px;
 }
 
 .long-text-box {

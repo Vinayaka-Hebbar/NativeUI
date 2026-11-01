@@ -25,60 +25,94 @@
             Text="{Binding ThemeButtonText}"
             Command="{Binding ToggleThemeCommand}" />
 
-    <!-- The examples scroll inside a page ScrollView; the wheel moves the innermost view that can still scroll. -->
-    <ScrollView Class="examples">
-        <Text Class="section" Value="StackPanel" />
-        <StackPanel Class="panel-box" Orientation="Horizontal" Spacing="8" Padding="12">
-            <Button Class="btn-theme" Text="Save" />
-            <Button Class="btn-theme" Text="Cancel" />
-            <Text Class="scroll-line" Value="A horizontal stack with 8px spacing." Margin="8,0" />
+    <!-- The side nav shows one example page at a time; the wheel moves the innermost view that can still scroll. -->
+    <Grid Class="shell" Columns="150,*" ColumnSpacing="20">
+        <StackPanel Spacing="4">
+            <Button x:Name="NavStack" Class="nav-item" Text="StackPanel" />
+            <Button x:Name="NavGrid" Class="nav-item" Text="Grid" />
+            <Button x:Name="NavScroll" Class="nav-item" Text="Scrolling" />
+            <Button x:Name="NavCanvas" Class="nav-item" Text="Canvas" />
         </StackPanel>
 
-        <Text Class="section" Value="Grid" />
-        <Grid Class="panel-box"
-              Rows="Auto,*"
-              Columns="140,*"
-              RowSpacing="8"
-              ColumnSpacing="12"
-              Padding="12">
-            <Text Class="grid-sidebar" Grid.RowSpan="2" Value="This sidebar spans two rows in a 140px column." />
-            <Text Class="grid-title" Grid.Column="1" Value="Dashboard" />
-            <Text Class="scroll-line" Grid.Row="1" Grid.Column="1" Value="This cell is in the star column, which takes the remaining width and wraps long text like this sentence." />
-        </Grid>
+        <ScrollView x:Name="ExamplesScroll" Grid.Column="1" Class="examples">
+            <View x:Name="StackPage">
+                <Text Class="section" Value="StackPanel" />
+                <StackPanel Class="panel-box" Orientation="Horizontal" Spacing="8" Padding="12">
+                    <Button Class="btn-action" Text="Save" />
+                    <Button Class="btn-action" Text="Cancel" />
+                </StackPanel>
+                <Text Class="section" Value="Vertical with spacing" />
+                <StackPanel Class="panel-box" Spacing="8" Padding="12">
+                    <Text Class="scroll-line" Value="Children stack from top to bottom." />
+                    <Text Class="scroll-line" Value="Spacing adds 8px between them." />
+                    <Button Class="btn-action" Text="Keeps its own width" />
+                </StackPanel>
+            </View>
 
-        <Text Class="section" Value="ScrollView" />
-        <ScrollView x:Name="LogScroll" Class="scroll-box">
-            <Text Class="scroll-line" Value="Line 1: ScrollView clips and scrolls its content." />
-            <Text Class="scroll-line" Value="Line 2: Use the wheel or a trackpad over this box." />
-            <Text Class="scroll-line" Value="Line 3: Desktop draws an overlay scroll indicator." />
-            <Text Class="scroll-line" Value="Line 4: Web uses a real overflow on a div." />
-            <Text Class="scroll-line" Value="Line 5: The buttons below call ScrollTo." />
-            <Text Class="scroll-line" Value="Line 6: ScrollChanged updates the status line." />
-            <Text Class="scroll-line" Value="Line 7: Offsets stay inside the scrollable range." />
-            <Text Class="scroll-line" Value="Line 8: This is the end of the log." />
+            <View x:Name="GridPage">
+                <Text Class="section" Value="Grid" />
+                <Grid Class="panel-box"
+                      Rows="Auto,*"
+                      Columns="140,*"
+                      RowSpacing="8"
+                      ColumnSpacing="12"
+                      Padding="12">
+                    <Text Class="grid-sidebar" Grid.RowSpan="2" Value="This sidebar spans two rows in a 140px column." />
+                    <Text Class="grid-title" Grid.Column="1" Value="Dashboard" />
+                    <Text Class="scroll-line" Grid.Row="1" Grid.Column="1" Value="This cell is in the star column, which takes the remaining width and wraps long text like this sentence." />
+                </Grid>
+            </View>
+
+            <View x:Name="ScrollPage">
+                <Text Class="section" Value="ScrollView" />
+                <ScrollView x:Name="LogScroll" Class="scroll-box">
+                    <Text Class="scroll-line" Value="Line 1: ScrollView clips and scrolls its content." />
+                    <Text Class="scroll-line" Value="Line 2: Use the wheel or a trackpad over this box." />
+                    <Text Class="scroll-line" Value="Line 3: Desktop draws an overlay scroll indicator." />
+                    <Text Class="scroll-line" Value="Line 4: Web uses a real overflow on a div." />
+                    <Text Class="scroll-line" Value="Line 5: The buttons below call ScrollTo." />
+                    <Text Class="scroll-line" Value="Line 6: ScrollChanged updates the status line." />
+                    <Text Class="scroll-line" Value="Line 7: Offsets stay inside the scrollable range." />
+                    <Text Class="scroll-line" Value="Line 8: This is the end of the log." />
+                </ScrollView>
+                <Text x:Name="ScrollStatus" Class="scroll-status" Value="Scrolled 0px" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="ScrollTopButton" Class="btn-action" Text="Scroll to top" />
+                    <Button x:Name="ScrollBottomButton" Class="btn-action" Text="Scroll to bottom" />
+                </StackPanel>
+
+                <Text Class="section" Value="View with overflow-y: auto in CSS" />
+                <View Class="overflow-box">
+                    <Text Class="scroll-line" Value="This is a plain View." />
+                    <Text Class="scroll-line" Value="Its stylesheet sets a height and overflow-y: auto." />
+                    <Text Class="scroll-line" Value="It scrolls with no ScrollView and no C#." />
+                    <Text Class="scroll-line" Value="Text can still be selected while scrolled." />
+                    <Text Class="scroll-line" Value="This is the end of the notes." />
+                </View>
+
+                <Text Class="section" Value="Long text with a styled scrollbar" />
+                <ScrollView Class="long-text-box">
+                    <Text Class="long-text" Value="A single long Text wraps to the width of its ScrollView, and the wrapped height becomes the scrollable content. NativeUI lays this paragraph out with the shared Skia engine on desktop and as a real span in the browser on Web, so the same stylesheet controls both. This box uses scrollbar-color with theme variables and scrollbar-width: thin, which are standard CSS properties. On Web the browser draws the scrollbar from them, and on desktop the renderer reads the same values from the computed style. Keep scrolling to reach the end of this paragraph. Selecting text works while scrolled, because scrolling moves the layout boxes that hit-testing already uses. This is the last sentence of the long text example." />
+                </ScrollView>
+
+                <Text Class="section" Value="Horizontal scrolling" />
+                <ScrollView x:Name="WideScroll" Class="wide-box">
+                    <Text Class="wide-line" Value="This line is 900px wide, so this box scrolls sideways. Use a sideways swipe or the button below." />
+                </ScrollView>
+                <Button x:Name="ScrollRightButton" Class="btn-action" Text="Scroll right" />
+            </View>
+
+            <View x:Name="CanvasPage">
+                <Text Class="section" Value="Shapes and opacity" />
+                <CanvasView x:Name="ShapesCanvas" Class="canvas-box canvas-shapes" />
+
+                <Text Class="section" Value="Transforms and clipping" />
+                <CanvasView x:Name="TransformCanvas" Class="canvas-box canvas-transforms" />
+
+                <Text Class="section" Value="Redrawing from data" />
+                <CanvasView x:Name="ChartCanvas" Class="canvas-box canvas-chart" />
+                <Button x:Name="ShuffleButton" Class="btn-action" Text="Shuffle data" />
+            </View>
         </ScrollView>
-        <Text x:Name="ScrollStatus" Class="scroll-status" Value="Scrolled 0px" />
-        <Button x:Name="ScrollTopButton" Class="btn-theme" Text="Scroll to top" />
-        <Button x:Name="ScrollBottomButton" Class="btn-theme" Text="Scroll to bottom" />
-
-        <Text Class="section" Value="View with overflow-y: auto in CSS" />
-        <View Class="overflow-box">
-            <Text Class="scroll-line" Value="This is a plain View." />
-            <Text Class="scroll-line" Value="Its stylesheet sets a height and overflow-y: auto." />
-            <Text Class="scroll-line" Value="It scrolls with no ScrollView and no C#." />
-            <Text Class="scroll-line" Value="Text can still be selected while scrolled." />
-            <Text Class="scroll-line" Value="This is the end of the notes." />
-        </View>
-
-        <Text Class="section" Value="Long text with a styled scrollbar" />
-        <ScrollView Class="long-text-box">
-            <Text Class="long-text" Value="A single long Text wraps to the width of its ScrollView, and the wrapped height becomes the scrollable content. NativeUI lays this paragraph out with the shared Skia engine on desktop and as a real span in the browser on Web, so the same stylesheet controls both. This box uses scrollbar-color with theme variables and scrollbar-width: thin, which are standard CSS properties. On Web the browser draws the scrollbar from them, and on desktop the renderer reads the same values from the computed style. Keep scrolling to reach the end of this paragraph. Selecting text works while scrolled, because scrolling moves the layout boxes that hit-testing already uses. This is the last sentence of the long text example." />
-        </ScrollView>
-
-        <Text Class="section" Value="Horizontal scrolling" />
-        <ScrollView x:Name="WideScroll" Class="wide-box">
-            <Text Class="wide-line" Value="This line is 900px wide, so this box scrolls sideways. Use a sideways swipe or the button below." />
-        </ScrollView>
-        <Button x:Name="ScrollRightButton" Class="btn-theme" Text="Scroll right" />
-    </ScrollView>
+    </Grid>
 </View>

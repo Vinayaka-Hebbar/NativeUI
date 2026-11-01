@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="NativeUI.Graphics" />
     <InternalsVisibleTo Include="NativeUI.Controls.MacOS" />
     <InternalsVisibleTo Include="NativeUI.Controls.Web" />
     <InternalsVisibleTo Include="NativeUI.Controls.Tests" />

@@ -132,6 +132,7 @@ public class HtmlDomElement : INativePeer
         JSObject? element = useBrowserInterop && OperatingSystem.IsBrowser() ? DomInterop.CreateElement(tagName) : null;
         return source switch
         {
+            CanvasView canvasView => new HtmlDomCanvas(canvasView, element),
             Button button => new HtmlDomButton(button, element),
             StackPanel stackPanel => new HtmlDomStackPanel(stackPanel, element),
             Grid grid => new HtmlDomGrid(grid, element),

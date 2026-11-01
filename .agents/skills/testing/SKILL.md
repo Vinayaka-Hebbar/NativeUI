@@ -20,7 +20,7 @@ Place test projects under `tests/` mirroring the source assemblies they verify.
 - **Arrange-Act-Assert**: Structure every test into clear Arrange, Act, and Assert phases.
 - **Verify Incremental Behavior**: When testing bindings or style changes, assert not only the final value, but also that unaffected properties and sibling controls were **not** recreated or redundantly updated.
 - **Verify Disposal**: Include tests asserting that disposing a binding or unmounting a control unsubscribes from change notifications and prevents memory leaks.
-- **Isolate Browser / Native Handles**: Test C# reconciliation, binding, and DOM operation recording through testable seams when running headless on the standard .NET test host, while keeping actual browser/native verification in platform samples.
+- **Isolate Browser / Native Handles Without Mock State**: Test C# reconciliation, binding, and control state directly when running headless on the standard .NET test host, while keeping actual browser/native verification in platform samples. Never add artificial mock storage, fallback attribute/style dictionaries, or recorded command logs to production platform wrappers or drawing contexts to support headless testing. Platform wrappers must cleanly no-op or return default/null values when underlying native or browser elements are absent.
 
 ## 3. Verification
 

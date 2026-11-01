@@ -13,7 +13,7 @@ HelloView view = new()
 using Window window = new()
 {
     Title = "NativeUI — macOS SkiaSharp + Compiled XAML/CSS Sample",
-    Width = 680,
+    Width = 860,
     Height = 760,
     Content = view
 };

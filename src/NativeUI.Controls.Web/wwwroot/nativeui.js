@@ -1,6 +1,8 @@
 import { dotnet } from "../../_framework/dotnet.js";
-import { nativeui } from "./nativeui-dom.js";
+import { dom } from "./nativeui-dom.js";
+import { canvas } from "./nativeui-canvas.js";
 
 const runtime = await dotnet.create();
-runtime.setModuleImports("nativeui-dom", { nativeui });
+runtime.setModuleImports("nativeui-dom", dom);
+runtime.setModuleImports("nativeui-canvas", canvas);
 await dotnet.run();

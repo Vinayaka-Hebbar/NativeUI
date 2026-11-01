@@ -259,7 +259,7 @@ if (!customElements.get("native-ui")) {
   customElements.define("native-ui", NativeUIRoot);
 }
 
-export const nativeui = {
+export const dom = {
   /**
    * Associates a DOM element with the identifier reported for pointer events targeting it.
    *
@@ -545,7 +545,7 @@ export const nativeui = {
   },
 
   /**
-   * Removes a stylesheet added by {@link nativeui.injectStyleSheet}.
+   * Removes a stylesheet added by {@link dom.injectStyleSheet}.
    *
    * @param {string} id The stylesheet identifier.
    * @returns {void}
@@ -558,5 +558,15 @@ export const nativeui = {
         (adopted) => adopted !== sheet,
       );
     }
+  },
+
+  /**
+   * Requests an animation frame and invokes the callback.
+   *
+   * @param {() => void} dispatch The callback to invoke.
+   * @returns {void}
+   */
+  requestAnimationFrame(dispatch) {
+    requestAnimationFrame(() => dispatch());
   },
 };

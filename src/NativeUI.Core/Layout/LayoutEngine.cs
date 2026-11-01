@@ -449,7 +449,7 @@ public sealed class LayoutEngine
             node,
             style,
             new Rect(borderX, borderY, borderWidth, resolvedBorderHeight),
-            new Rect(contentX, contentY, contentMaxWidth, contentHeight),
+            new Rect(contentX, contentY, contentMaxWidth, Math.Max(0, resolvedBorderHeight - padding.Vertical)),
             childBoxes);
     }
 }

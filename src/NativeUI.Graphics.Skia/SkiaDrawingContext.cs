@@ -56,6 +56,22 @@ public sealed class SkiaDrawingContext : DrawingContext
     }
 
     /// <inheritdoc />
+    public override void Translate(double dx, double dy)
+    {
+        if (double.IsNaN(dx) || double.IsInfinity(dx))
+        {
+            throw new ArgumentException("Translate dx must be a finite number.", nameof(dx));
+        }
+
+        if (double.IsNaN(dy) || double.IsInfinity(dy))
+        {
+            throw new ArgumentException("Translate dy must be a finite number.", nameof(dy));
+        }
+
+        _canvas.Translate((float)dx, (float)dy);
+    }
+
+    /// <inheritdoc />
     public override void ClipRegion(IReadOnlyList<Rect> region, ClipMode mode)
     {
         ArgumentNullException.ThrowIfNull(region);

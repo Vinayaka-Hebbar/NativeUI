@@ -3,6 +3,7 @@ using NativeUI.Controls;
 using NativeUI.Controls.Web;
 using NativeUI.Core;
 using NativeUI.Css;
+using NativeUI.Graphics;
 using NativeUI.Layout;
 using NativeUI.Media;
 using NativeUI.Sample;
@@ -27,7 +28,8 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
     ("View-scoped stylesheets manage view scope attributes on DOM mount and update", TestViewScopedStyleSheetLifecycle),
     ("View stylesheet changes between compiled, scoped, and empty sheets keep scope state consistent", TestViewStyleSheetTransitions),
     ("The base stylesheet writes zero-specificity block, button, and color-scheme rules", TestBaseStyleSheetCss),
-    ("Button mounts as HTML button element and synchronizes disabled and text attributes", TestButtonDomProxy)
+    ("Button mounts as HTML button element and synchronizes disabled and text attributes", TestButtonDomProxy),
+    ("CanvasView mounts as HTML canvas element, synchronizes dimensions, and records 2D drawing", TestCanvasDomProxy)
 ]);
 
 return exitCode;
@@ -462,15 +464,16 @@ static void TestBaseStyleSheetCss()
 {
     string[] lines = StyleSheetCss.BaseStyleSheet.RawCss.TrimEnd().Split('\n');
 
-    Assert.Equal(13, lines.Length);
+    Assert.Equal(14, lines.Length);
     Assert.Equal(":where(native-ui, native-ui *) { box-sizing: border-box; }", lines[0]);
     Assert.Equal(":where(native-ui) { line-height: 1.25; }", lines[1]);
     Assert.Equal(":where(native-ui, native-ui span, native-ui button) { display: block; }", lines[2]);
     Assert.Equal(":where(native-ui button) { margin: 0; padding: 0; border: none; background: none; color: inherit; font: inherit; user-select: none; width: fit-content; }", lines[3]);
-    Assert.Equal(":where([data-nui-scroll-view]) { overflow: auto; }", lines[4]);
-    Assert.Equal(":where(native-ui, native-ui *)::-webkit-scrollbar { width: 10px; height: 10px; }", lines[5]);
-    Assert.Equal(":where(native-ui[data-theme=\"dark\"], native-ui[data-theme=\"dark\"] *)::-webkit-scrollbar-thumb { background-color: rgb(255 255 255 / 0.35); }", lines[10]);
-    Assert.Equal(":where(native-ui[data-theme=\"dark\"]) { color-scheme: dark; }", lines[12]);
+    Assert.Equal(":where([data-nui-scroll-view]) { overflow: auto; }", lines[5]);
+    Assert.Equal(":where(native-ui canvas) { display: block; width: 100%; height: 150px; }", lines[4]);
+    Assert.Equal(":where(native-ui, native-ui *)::-webkit-scrollbar { width: 10px; height: 10px; }", lines[6]);
+    Assert.Equal(":where(native-ui[data-theme=\"dark\"], native-ui[data-theme=\"dark\"] *)::-webkit-scrollbar-thumb { background-color: rgb(255 255 255 / 0.35); }", lines[11]);
+    Assert.Equal(":where(native-ui[data-theme=\"dark\"]) { color-scheme: dark; }", lines[13]);
 }
 
 static void TestViewStyleSheetTransitions()
@@ -525,6 +528,22 @@ static void TestButtonDomProxy()
     // Verify text update
     button.Text = "Save Changes";
     Assert.Equal("Save Changes", element.TextContent);
+}
+
+static void TestCanvasDomProxy()
+{
+    bool drawn = false;
+    CanvasView canvas = new();
+    canvas.Draw += (_, _) => drawn = true;
+
+    using HtmlDomRoot domRoot = new();
+    domRoot.MountHeadless(canvas);
+
+    Assert.Equal("canvas", GetElement(canvas).TagName);
+
+    // Without a browser element, invalidating cleanly does nothing.
+    canvas.InvalidateVisual();
+    Assert.False(drawn);
 }
 
 static HtmlDomElement GetElement(UIElement element)

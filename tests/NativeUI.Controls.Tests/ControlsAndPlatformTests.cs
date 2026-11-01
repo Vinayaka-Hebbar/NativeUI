@@ -56,7 +56,13 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("VisualTreeRenderer reliably balances Save and Restore on drawing exception", NativeUI.Controls.Tests.VisualTreeRendererTests.VerifyReliableContextRestoreOnException),
     ("VisualTreeRenderer clips children to rounded container when ClipToBounds is true", NativeUI.Controls.Tests.VisualTreeRendererTests.VerifyRoundedContainerClipping),
     ("VisualTreeRenderer composites group opacity via SaveLayer", NativeUI.Controls.Tests.VisualTreeRendererTests.VerifyGroupOpacityCompositing),
-    ("VisualTreeRenderer throws ObjectDisposedException after disposal", NativeUI.Controls.Tests.VisualTreeRendererTests.VerifyDisposedRendererThrows)
+    ("VisualTreeRenderer throws ObjectDisposedException after disposal", NativeUI.Controls.Tests.VisualTreeRendererTests.VerifyDisposedRendererThrows),
+    ("CanvasView OnDraw virtual method is invoked during rendering", NativeUI.Controls.Tests.CanvasViewTests.VerifyVirtualOnDraw),
+    ("CanvasView Draw event is raised during rendering with bounds", NativeUI.Controls.Tests.CanvasViewTests.VerifyDrawEvent),
+    ("CanvasView runs OnDraw before the Draw event", NativeUI.Controls.Tests.CanvasViewTests.VerifyOnDrawRunsBeforeDrawEvent),
+    ("CanvasView fills the width and defaults to 150 tall", NativeUI.Controls.Tests.CanvasViewTests.VerifyDefaultHeightAndFillWidth),
+    ("CanvasView InvalidateCanvas raises VisualInvalidated", NativeUI.Controls.Tests.CanvasViewTests.VerifyInvalidateVisual),
+    ("VisualTreeRenderer translates, clips, and renders CanvasView", NativeUI.Controls.Tests.CanvasViewTests.VerifyVisualTreeRendererDrawsCanvas)
 ]);
 
 return exitCode;

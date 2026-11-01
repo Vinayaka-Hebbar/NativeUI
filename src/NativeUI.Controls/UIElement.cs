@@ -378,7 +378,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// <summary>
     /// Signals that this element's visual appearance or layout requires an incremental update.
     /// </summary>
-    protected internal void InvalidateVisual()
+    public void InvalidateVisual()
     {
         VisualInvalidated?.Invoke(this, EventArgs.Empty);
         _parent?.InvalidateVisual();

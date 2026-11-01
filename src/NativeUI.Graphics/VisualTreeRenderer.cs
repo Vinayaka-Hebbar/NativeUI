@@ -169,6 +169,21 @@ public sealed class VisualTreeRenderer : IDisposable
                 Paint textPaint = new(style.TextColor ?? Colors.Black, drawOpacity);
                 context.DrawTextLayout(textLayout, origin, textPaint);
             }
+            else if (box.Element is CanvasView canvasView)
+            {
+                Rect localBounds = new(0, 0, box.ContentBox.Width, box.ContentBox.Height);
+                context.Save();
+                try
+                {
+                    context.Translate(box.ContentBox.X, box.ContentBox.Y);
+                    context.ClipRect(localBounds);
+                    canvasView.RenderCanvas(context, localBounds);
+                }
+                finally
+                {
+                    context.Restore();
+                }
+            }
 
             if (box.Children.Count > 0)
             {

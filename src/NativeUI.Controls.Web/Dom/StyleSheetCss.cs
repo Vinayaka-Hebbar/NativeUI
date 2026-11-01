@@ -187,6 +187,12 @@ internal static class StyleSheetCss
                 ["user-select"] = new CssStringValue("none"),
                 ["width"] = new CssStringValue("fit-content")
             }),
+            new(":where(native-ui canvas)", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["display"] = new CssStringValue("block"),
+                ["width"] = new CssStringValue("100%"),
+                ["height"] = new CssStringValue("150px")
+            }),
             new($":where([{ScrollViewAttribute}])", null, [], false, new Dictionary<string, CssValue>
             {
                 ["overflow"] = new CssStringValue("auto")

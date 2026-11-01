@@ -224,6 +224,11 @@ internal static class SelectionStyleTests
             Commands.Add("Save");
         }
 
+        public override void Translate(double dx, double dy)
+        {
+            Commands.Add($"Translate:{dx},{dy}");
+        }
+
         public override void Restore()
         {
             Commands.Add("Restore");

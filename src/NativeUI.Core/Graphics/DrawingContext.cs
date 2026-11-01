@@ -44,6 +44,13 @@ public abstract class DrawingContext
     public abstract void Restore();
 
     /// <summary>
+    /// Translates the coordinate space by <paramref name="dx"/> horizontally and <paramref name="dy"/> vertically.
+    /// </summary>
+    /// <param name="dx">The horizontal translation delta in logical pixels.</param>
+    /// <param name="dy">The vertical translation delta in logical pixels.</param>
+    public abstract void Translate(double dx, double dy);
+
+    /// <summary>
     /// Applies horizontal and vertical scaling factors to subsequent drawing operations.
     /// </summary>
     /// <param name="scaleX">The horizontal scale factor.</param>

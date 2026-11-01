@@ -34,4 +34,9 @@ public static class Colors
     /// Gets a green color (#16A34A).
     /// </summary>
     public static Color Green => Color.FromRgbBytes(22, 163, 74);
+
+    /// <summary>
+    /// Gets a red color (#DC2626).
+    /// </summary>
+    public static Color Red => Color.FromRgbBytes(220, 38, 38);
 }
