@@ -1,5 +1,6 @@
 using System.Text;
 using NativeUI.Core;
+using NativeUI.Css;
 using NativeUI.Styling;
 
 namespace NativeUI.Controls.Web;
@@ -24,6 +25,14 @@ internal static class StyleSheetCss
     /// The attribute identifying the view element that a scoped view stylesheet applies to.
     /// </summary>
     public const string ViewScopeAttribute = "data-nui-view-scope";
+
+    /// <summary>
+    /// The base style shared by all <c>native-ui</c> elements: block display for the root, each <see cref="Text"/>, and
+    /// each <see cref="Button"/>, none of which is block-level by default; no browser control appearance on
+    /// <see cref="Button"/>, matching desktop rendering; and a <c>color-scheme</c> following <c>data-theme</c>.
+    /// <c>:where</c> keeps every declaration at zero specificity.
+    /// </summary>
+    public static CssStyleSheet BaseStyleSheet { get; } = CreateBaseStyleSheet();
 
     /// <summary>
     /// Writes the rules of <paramref name="styleSheet"/> in order, scoped to the <c>native-ui</c> element with <paramref name="scopeId"/>.
@@ -142,6 +151,48 @@ internal static class StyleSheetCss
         return typeIds;
     }
 
+
+    private static CssStyleSheet CreateBaseStyleSheet()
+    {
+        List<CssRule> rules =
+        [
+            new(":where(native-ui, native-ui span, native-ui button)", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["display"] = new CssStringValue("block")
+            }),
+            new(":where(native-ui button)", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["margin"] = new CssStringValue("0"),
+                ["padding"] = new CssStringValue("0"),
+                ["border"] = new CssStringValue("none"),
+                ["background"] = new CssStringValue("none"),
+                ["color"] = new CssStringValue("inherit"),
+                ["font"] = new CssStringValue("inherit"),
+                ["user-select"] = new CssStringValue("none")
+            }),
+            new(":where(native-ui[data-theme=\"light\"])", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["color-scheme"] = new CssStringValue("light")
+            }),
+            new(":where(native-ui[data-theme=\"dark\"])", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["color-scheme"] = new CssStringValue("dark")
+            })
+        ];
+
+        return new CssStyleSheet("NativeUI.Base", string.Join('\n', rules.Select(WriteBaseRule)), rules);
+    }
+
+    /// <summary>
+    /// Writes a rule of <see cref="BaseStyleSheet"/>, whose declarations are all <see cref="CssStringValue"/> instances.
+    /// </summary>
+    private static string WriteBaseRule(CssRule rule)
+    {
+        IEnumerable<string> declarations = rule.Declarations
+            .Select(static declaration => $"{declaration.Key}: {((CssStringValue)declaration.Value).Value};");
+        return $"{rule.Selector} {{ {string.Join(' ', declarations)} }}";
+    }
+
     private static void AppendDeclarations(StringBuilder css, IStyle style)
     {
         foreach ((string property, string? value) in StyleCssDeclarations.Get(style))
@@ -166,21 +217,23 @@ internal static class StyleSheetCss
 
     private static string WriteScopedSelector(StyleSelector selector, string viewScopeId, Dictionary<Type, string> typeIds)
     {
-        string scopeAttr = $"[{ViewScopeAttribute}=\"{viewScopeId}\"]";
+        // The selector matching from the view places the scope after a compound, because CSS requires a type selector first.
+        string scope = $":where([{ViewScopeAttribute}=\"{viewScopeId}\"])";
         string subject = WriteCompound(selector.Subject, typeIds);
 
         if (selector.Ancestors.Length == 0)
         {
-            return $":where({scopeAttr}) {subject}, :where({scopeAttr}){subject}";
+            return $"{scope} {subject}, {subject}{scope}";
         }
 
-        StringBuilder ancestors = new();
-        foreach (CompoundSelector ancestor in selector.Ancestors)
+        string firstAncestor = WriteCompound(selector.Ancestors[0], typeIds);
+        StringBuilder otherAncestors = new();
+        foreach (CompoundSelector ancestor in selector.Ancestors.Skip(1))
         {
-            ancestors.Append(WriteCompound(ancestor, typeIds)).Append(' ');
+            otherAncestors.Append(WriteCompound(ancestor, typeIds)).Append(' ');
         }
 
-        return $":where({scopeAttr}) {ancestors}{subject}, :where({scopeAttr}){ancestors}{subject}";
+        return $"{scope} {firstAncestor} {otherAncestors}{subject}, {firstAncestor}{scope} {otherAncestors}{subject}";
     }
 
     private static string WriteCompound(CompoundSelector part, Dictionary<Type, string> typeIds)

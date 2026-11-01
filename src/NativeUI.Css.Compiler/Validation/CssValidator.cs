@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -63,15 +64,17 @@ public sealed class CssValidator : CssSyntaxVisitor
     };
 
     private readonly string _filePath;
+    private readonly string _rawCss;
     private readonly List<Diagnostic> _diagnostics = [];
     private readonly List<ValidatedCssRule> _rules = [];
     private readonly HashSet<string> _definedClasses = new(StringComparer.Ordinal);
-    private readonly List<CssSourceSpan> _typeSelectorSpans = [];
+    private readonly List<BrowserCssEdit> _browserCssEdits = [];
     private CssParsedColorScheme _currentColorScheme = CssParsedColorScheme.Any;
 
-    private CssValidator(string filePath)
+    private CssValidator(string filePath, string rawCss)
     {
         _filePath = filePath;
+        _rawCss = rawCss;
     }
 
     /// <summary>
@@ -81,7 +84,7 @@ public sealed class CssValidator : CssSyntaxVisitor
     {
         ArgumentNullException.ThrowIfNull(stylesheet);
 
-        CssValidator validator = new(stylesheet.FilePath);
+        CssValidator validator = new(stylesheet.FilePath, stylesheet.RawCss);
         stylesheet.Accept(validator);
 
         string id = stylesheetId ?? DeriveStylesheetId(stylesheet.FilePath);
@@ -89,7 +92,7 @@ public sealed class CssValidator : CssSyntaxVisitor
             id,
             stylesheet.FilePath,
             stylesheet.RawCss,
-            TranslateTypeSelectors(stylesheet.RawCss, validator._typeSelectorSpans),
+            ApplyBrowserCssEdits(stylesheet.RawCss, validator._browserCssEdits),
             validator._rules,
             validator._definedClasses,
             validator._diagnostics);
@@ -140,6 +143,11 @@ public sealed class CssValidator : CssSyntaxVisitor
             return;
         }
 
+        if (node.ColorScheme != CssParsedColorScheme.Any)
+        {
+            RemoveMediaBlockDelimiters(node);
+        }
+
         CssParsedColorScheme previous = _currentColorScheme;
         _currentColorScheme = node.ColorScheme;
         base.VisitMediaRule(node);
@@ -181,7 +189,7 @@ public sealed class CssValidator : CssSyntaxVisitor
                 _definedClasses.UnionWith(ancestor.Classes);
             }
 
-            _typeSelectorSpans.AddRange(selector.TypeSelectorSpans);
+            AddBrowserSelectorEdits(selector);
             _rules.Add(new ValidatedCssRule(
                 selector.RawText,
                 selector.ElementType,
@@ -208,28 +216,72 @@ public sealed class CssValidator : CssSyntaxVisitor
     }
 
     /// <summary>
-    /// Rewrites NativeUI element type names to the HTML elements created on Web, leaving all other source text unchanged.
+    /// Applies edits in source order, leaving all other source text unchanged. An insertion precedes a replacement at the same position.
     /// </summary>
-    private static string TranslateTypeSelectors(string rawCss, IReadOnlyList<CssSourceSpan> typeSelectorSpans)
+    private static string ApplyBrowserCssEdits(string rawCss, IReadOnlyList<BrowserCssEdit> edits)
     {
-        string browserCss = rawCss;
-        foreach (CssSourceSpan span in typeSelectorSpans.OrderByDescending(static s => s.StartPos))
+        StringBuilder browserCss = new(rawCss.Length);
+        int position = 0;
+        foreach (BrowserCssEdit edit in edits.OrderBy(static e => e.Start).ThenBy(static e => e.Length))
         {
-            string typeName = rawCss.Substring(span.StartPos, span.Length);
-            string? htmlTag = typeName.ToLowerInvariant() switch
-            {
-                "text" => "span",
-                "view" => "div",
-                _ => null
-            };
-
-            if (htmlTag is not null)
-            {
-                browserCss = browserCss.Remove(span.StartPos, span.Length).Insert(span.StartPos, htmlTag);
-            }
+            browserCss.Append(rawCss, position, edit.Start - position).Append(edit.Replacement);
+            position = edit.Start + edit.Length;
         }
 
-        return browserCss;
+        return browserCss.Append(rawCss, position, rawCss.Length - position).ToString();
+    }
+
+    /// <summary>
+    /// Removes a color-scheme block's <c>@media</c> wrapper from browser CSS. A media query reports only the operating
+    /// system preference; <see cref="AddBrowserSelectorEdits"/> gates the block's rules on the root's effective theme instead.
+    /// </summary>
+    private void RemoveMediaBlockDelimiters(CssMediaRuleNode node)
+    {
+        int start = node.Span.StartPos;
+        if (node.Rules.Count == 0)
+        {
+            _browserCssEdits.Add(new BrowserCssEdit(start, node.Span.Length, string.Empty));
+            return;
+        }
+
+        _browserCssEdits.Add(new BrowserCssEdit(start, node.Rules[0].Span.StartPos - start, string.Empty));
+        _browserCssEdits.Add(new BrowserCssEdit(start + node.Span.Length - 1, 1, string.Empty));
+    }
+
+    /// <summary>
+    /// Maps a selector to browser CSS: NativeUI type names become the HTML elements created on Web, and rules in a
+    /// color-scheme block match only under a <c>native-ui</c> root with that theme. <c>:where</c> preserves specificity.
+    /// </summary>
+    private void AddBrowserSelectorEdits(CssSelectorNode selector)
+    {
+        if (_currentColorScheme != CssParsedColorScheme.Any)
+        {
+            string themedRoot = _currentColorScheme == CssParsedColorScheme.Dark
+                ? "native-ui[data-theme=\"dark\"]"
+                : "native-ui[data-theme=\"light\"]";
+            _browserCssEdits.Add(selector.IsRoot
+                ? new BrowserCssEdit(selector.Span.StartPos, selector.Span.Length, themedRoot)
+                : new BrowserCssEdit(selector.Span.StartPos, 0, $":where({themedRoot}) "));
+        }
+
+        foreach (CssSourceSpan span in selector.TypeSelectorSpans)
+        {
+            string? htmlTag = GetHtmlTag(_rawCss.Substring(span.StartPos, span.Length));
+            if (htmlTag is not null)
+            {
+                _browserCssEdits.Add(new BrowserCssEdit(span.StartPos, span.Length, htmlTag));
+            }
+        }
+    }
+
+    private static string? GetHtmlTag(string typeName)
+    {
+        return typeName.ToLowerInvariant() switch
+        {
+            "text" => "span",
+            "view" => "div",
+            _ => null
+        };
     }
 
     private void ValidateSelectionDeclarations(IReadOnlyList<CssDeclarationNode> declarations)
@@ -281,4 +333,6 @@ public sealed class CssValidator : CssSyntaxVisitor
         validated = new ValidatedCssDeclaration(propName, valueExpr, colorLiteral);
         return true;
     }
+
+    private readonly record struct BrowserCssEdit(int Start, int Length, string Replacement);
 }

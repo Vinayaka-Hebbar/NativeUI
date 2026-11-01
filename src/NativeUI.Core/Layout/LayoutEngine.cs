@@ -54,6 +54,47 @@ public sealed class LayoutEngine
         return LayoutNodeRecursive(root, 0, 0, viewport.Width);
     }
 
+    private double ResolveBorderWidth(ILayoutNode node, double availableWidth)
+    {
+        ComputedStyle style = node.ComputedStyle;
+        double fillWidth = Math.Max(0, availableWidth - style.Margin.Horizontal);
+        return style.Width switch
+        {
+            { Pixels: double pixels } => pixels,
+            { IsFitContent: true } => Math.Min(MeasureMaxContentWidth(node), fillWidth),
+            _ => fillWidth
+        };
+    }
+
+    /// <summary>
+    /// Returns the border-box width of <paramref name="node"/> when none of its text wraps.
+    /// </summary>
+    private double MeasureMaxContentWidth(ILayoutNode node)
+    {
+        ComputedStyle style = node.ComputedStyle;
+        if (style.Width?.Pixels is double pixels)
+        {
+            return pixels;
+        }
+
+        if (node.TextContent is string text)
+        {
+            Size unconstrained = new(double.PositiveInfinity, double.PositiveInfinity);
+            return _textMeasurer.MeasureText(text, unconstrained, style).Width + style.Padding.Horizontal;
+        }
+
+        double maxChildWidth = 0;
+        foreach (ILayoutNode child in node.LayoutChildren)
+        {
+            if (child.IsVisible)
+            {
+                maxChildWidth = Math.Max(maxChildWidth, MeasureMaxContentWidth(child) + child.ComputedStyle.Margin.Horizontal);
+            }
+        }
+
+        return maxChildWidth + style.Padding.Horizontal;
+    }
+
     private LayoutBox LayoutNodeRecursive(ILayoutNode node, double availableX, double availableY, double availableWidth)
     {
         ComputedStyle style = node.ComputedStyle;
@@ -62,7 +103,7 @@ public sealed class LayoutEngine
 
         double borderX = availableX + margin.Left;
         double borderY = availableY + margin.Top;
-        double borderWidth = style.Width ?? Math.Max(0, availableWidth - margin.Horizontal);
+        double borderWidth = ResolveBorderWidth(node, availableWidth);
         double contentX = borderX + padding.Left;
         double contentY = borderY + padding.Top;
         double contentMaxWidth = Math.Max(0, borderWidth - padding.Horizontal);
@@ -77,9 +118,10 @@ public sealed class LayoutEngine
             ITextLayout textLayout = _textMeasurer.CreateTextLayout(text, availableTextSize, style);
             Size measured = textLayout.Size;
 
-            double textWidth = style.Width.HasValue ? contentMaxWidth : Math.Min(contentMaxWidth, measured.Width);
+            double? explicitWidth = style.Width?.Pixels;
+            double textWidth = explicitWidth.HasValue ? contentMaxWidth : Math.Min(contentMaxWidth, measured.Width);
             double textHeight = measured.Height;
-            double finalBorderWidth = style.Width ?? Math.Max(textWidth + padding.Horizontal, contentMaxWidth);
+            double finalBorderWidth = explicitWidth ?? Math.Max(textWidth + padding.Horizontal, contentMaxWidth);
             double finalBorderHeight = style.Height ?? (textHeight + padding.Vertical);
 
             return new LayoutBox(

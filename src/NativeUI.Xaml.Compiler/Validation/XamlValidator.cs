@@ -1,12 +1,55 @@
+using System.Globalization;
 using Microsoft.CodeAnalysis;
 
 namespace NativeUI.Xaml.Compiler;
+
+/// <summary>
+/// Identifies how a XAML attribute's literal text converts to its control property's value.
+/// </summary>
+public enum XamlPropertyKind
+{
+    /// <summary>
+    /// The literal is assigned as a string, whatever its text.
+    /// </summary>
+    String,
+
+    /// <summary>
+    /// The literal must be <c>true</c> or <c>false</c>, in any letter case.
+    /// </summary>
+    Boolean,
+
+    /// <summary>
+    /// The literal must be an invariant-culture integer in the range of <see cref="int"/>.
+    /// </summary>
+    Int32,
+
+    /// <summary>
+    /// The literal must be an invariant-culture integer in the range of <see cref="long"/>.
+    /// </summary>
+    Int64,
+
+    /// <summary>
+    /// The literal must be a finite invariant-culture number in the range of <see cref="double"/>.
+    /// </summary>
+    Double,
+
+    /// <summary>
+    /// The literal is a whitespace-separated list of class names.
+    /// </summary>
+    ClassList,
+
+    /// <summary>
+    /// The property has no literal form and can only be set by a binding.
+    /// </summary>
+    BindingOnly
+}
 
 /// <summary>
 /// Represents a validated property assignment or binding on a XAML element.
 /// </summary>
 public sealed record ValidatedXamlProperty(
     string PropertyName,
+    XamlPropertyKind Kind,
     string? LiteralValue,
     BindingExpressionNode? Binding);
 
@@ -39,35 +82,35 @@ public sealed record ValidatedXamlDocument(
 /// </summary>
 public sealed class XamlValidator : XamlSyntaxVisitor
 {
-    private static readonly Dictionary<string, HashSet<string>> s_controlProperties =
+    private static readonly Dictionary<string, Dictionary<string, XamlPropertyKind>> s_controlProperties =
         new(StringComparer.Ordinal)
         {
-            ["View"] = new HashSet<string>(StringComparer.Ordinal)
+            ["View"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
-                "Id",
-                "Class",
-                "IsVisible",
-                "IsEnabled",
-                "ClipToBounds"
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["ClipToBounds"] = XamlPropertyKind.Boolean
             },
-            ["Text"] = new HashSet<string>(StringComparer.Ordinal)
+            ["Text"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
-                "Id",
-                "Class",
-                "IsVisible",
-                "IsEnabled",
-                "Value",
-                "AriaLabel"
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["Value"] = XamlPropertyKind.String,
+                ["AriaLabel"] = XamlPropertyKind.String
             },
-            ["Button"] = new HashSet<string>(StringComparer.Ordinal)
+            ["Button"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
-                "Id",
-                "Class",
-                "IsVisible",
-                "IsEnabled",
-                "Text",
-                "Command",
-                "CommandParameter"
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["Text"] = XamlPropertyKind.String,
+                ["Command"] = XamlPropertyKind.BindingOnly,
+                ["CommandParameter"] = XamlPropertyKind.String
             }
         };
 
@@ -114,6 +157,14 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             validator._diagnostics);
     }
 
+    /// <summary>
+    /// Splits a <c>Class</c> attribute into its class names, separated by any whitespace.
+    /// </summary>
+    internal static string[] SplitClassNames(string classAttributeValue)
+    {
+        return classAttributeValue.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+    }
+
     /// <inheritdoc />
     public override void VisitDocument(XamlDocumentNode node)
     {
@@ -146,7 +197,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             return null;
         }
 
-        if (!s_controlProperties.TryGetValue(element.LocalName, out HashSet<string>? allowedProps))
+        if (!s_controlProperties.TryGetValue(element.LocalName, out Dictionary<string, XamlPropertyKind>? allowedProps))
         {
             _diagnostics.Add(Diagnostic.Create(
                 XamlDiagnostics.UnknownElement,
@@ -186,7 +237,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 continue;
             }
 
-            if (!allowedProps.Contains(attr.LocalName))
+            if (!allowedProps.TryGetValue(attr.LocalName, out XamlPropertyKind kind))
             {
                 _diagnostics.Add(Diagnostic.Create(
                     XamlDiagnostics.UnknownProperty,
@@ -222,11 +273,20 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                     continue;
                 }
 
-                validProps.Add(new ValidatedXamlProperty(attr.LocalName, null, bindingNode));
+                validProps.Add(new ValidatedXamlProperty(attr.LocalName, kind, null, bindingNode));
+            }
+            else if (IsValidLiteral(kind, attr.Value))
+            {
+                validProps.Add(new ValidatedXamlProperty(attr.LocalName, kind, attr.Value, null));
             }
             else
             {
-                validProps.Add(new ValidatedXamlProperty(attr.LocalName, attr.Value, null));
+                _diagnostics.Add(Diagnostic.Create(
+                    XamlDiagnostics.InvalidPropertyValue,
+                    XamlDiagnostics.CreateLocation(_filePath, attr.Position),
+                    attr.Value,
+                    attr.LocalName,
+                    element.LocalName));
             }
         }
 
@@ -235,7 +295,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             !string.IsNullOrEmpty(element.InnerText) &&
             !validProps.Any(static p => p.PropertyName == "Value"))
         {
-            validProps.Add(new ValidatedXamlProperty("Value", element.InnerText, null));
+            validProps.Add(new ValidatedXamlProperty("Value", XamlPropertyKind.String, element.InnerText, null));
         }
 
         if (isRoot && string.IsNullOrWhiteSpace(_fullClassName))
@@ -259,6 +319,23 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         return new ValidatedXamlElement(element.LocalName, xName, validProps, validChildren);
     }
 
+    /// <summary>
+    /// Returns whether <paramref name="literal"/> converts to a value of the property <paramref name="kind"/>.
+    /// </summary>
+    internal static bool IsValidLiteral(XamlPropertyKind kind, string literal)
+    {
+        return kind switch
+        {
+            XamlPropertyKind.Boolean => bool.TryParse(literal, out _),
+            XamlPropertyKind.Int32 => int.TryParse(literal, NumberStyles.Integer, CultureInfo.InvariantCulture, out _),
+            XamlPropertyKind.Int64 => long.TryParse(literal, NumberStyles.Integer, CultureInfo.InvariantCulture, out _),
+            XamlPropertyKind.Double => double.TryParse(literal, NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
+                && double.IsFinite(value),
+            XamlPropertyKind.BindingOnly => false,
+            _ => true
+        };
+    }
+
     private void ValidateCssClassTokens(string classAttributeValue, XamlSourcePosition position)
     {
         if (_knownCssClasses is null)
@@ -266,7 +343,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             return;
         }
 
-        string[] tokens = classAttributeValue.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+        string[] tokens = SplitClassNames(classAttributeValue);
         string viewId = DeriveDefaultStyleSheetId(_filePath);
         foreach (string cls in tokens)
         {

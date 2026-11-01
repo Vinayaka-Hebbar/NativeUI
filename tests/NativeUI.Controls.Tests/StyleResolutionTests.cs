@@ -59,7 +59,7 @@ internal static class StyleResolutionTests
         Assert.Equal(Thickness.Zero, inherited.ComputedStyle.Padding);
         Assert.Equal(Thickness.Zero, inherited.ComputedStyle.Margin);
         Assert.Equal(1.0, inherited.ComputedStyle.Opacity);
-        Assert.Equal<double?>(null, inherited.ComputedStyle.Width);
+        Assert.Equal<WidthValue?>(null, inherited.ComputedStyle.Width);
         Assert.Equal<double?>(null, inherited.ComputedStyle.Height);
 
         Assert.Equal(16.0, overridden.ComputedStyle.FontSize);

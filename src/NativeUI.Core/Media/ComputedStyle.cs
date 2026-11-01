@@ -65,9 +65,9 @@ public sealed record ComputedStyle
     public double Opacity { get; init; } = 1.0;
 
     /// <summary>
-    /// Gets the explicit width in logical pixels, or <see langword="null"/> for auto sizing.
+    /// Gets the specified width, or <see langword="null"/> to fill the available width.
     /// </summary>
-    public double? Width { get; init; }
+    public WidthValue? Width { get; init; }
 
     /// <summary>
     /// Gets the explicit height in logical pixels, or <see langword="null"/> for auto sizing.
@@ -99,6 +99,24 @@ public sealed record ComputedStyle
             FontFamily = parent.FontFamily,
             TextAlign = parent.TextAlign,
             Cursor = parent.Cursor
+        };
+    }
+
+    /// <summary>
+    /// Applies the sizing values of a control's default style to the sizes that no stylesheet specified.
+    /// </summary>
+    /// <param name="defaultStyle">The control's default style, or <see langword="null"/> when it has none.</param>
+    public ComputedStyle ApplySizingDefaults(IStyle? defaultStyle)
+    {
+        if (defaultStyle is null)
+        {
+            return this;
+        }
+
+        return this with
+        {
+            Width = Width ?? defaultStyle.Width,
+            Height = Height ?? defaultStyle.Height
         };
     }
 

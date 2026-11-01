@@ -119,7 +119,7 @@ public sealed class CssStyleSheet : StyleSheet
         Thickness margin = Thickness.Zero;
         double borderRadius = 0.0;
         double opacity = 1.0;
-        double? width = null;
+        WidthValue? width = null;
         double? height = null;
         Cursor cursor = inheritedStyle.Cursor;
 
@@ -228,6 +228,10 @@ public sealed class CssStyleSheet : StyleSheet
                         if (resolved is CssLengthValue w)
                         {
                             width = w.ToLogicalPixels(fontSize);
+                        }
+                        else if (resolved is CssFitContentValue)
+                        {
+                            width = WidthValue.FitContent;
                         }
                         break;
 

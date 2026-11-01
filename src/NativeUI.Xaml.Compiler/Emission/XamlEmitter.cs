@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -226,7 +227,7 @@ public static class XamlEmitter
             }
             else if (prop.LiteralValue is not null)
             {
-                statements.Add(BuildLiteralAssignmentStatement(targetExpr, prop.PropertyName, prop.LiteralValue));
+                statements.Add(BuildLiteralAssignmentStatement(targetExpr, prop.PropertyName, prop.Kind, prop.LiteralValue));
             }
         }
     }
@@ -234,6 +235,7 @@ public static class XamlEmitter
     private static ExpressionStatementSyntax BuildLiteralAssignmentStatement(
         ExpressionSyntax targetExpr,
         string propertyName,
+        XamlPropertyKind kind,
         string rawLiteral)
     {
         ExpressionSyntax targetMember = targetExpr is ThisExpressionSyntax
@@ -243,26 +245,31 @@ public static class XamlEmitter
                 targetExpr,
                 IdentifierName(propertyName));
 
-        ExpressionSyntax rhsExpr;
-        if (string.Equals(propertyName, "Class", StringComparison.Ordinal))
-        {
-            string[] classes = rawLiteral.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            rhsExpr = classes.Length == 0
-                ? CollectionExpression()
-                : CollectionExpression(SeparatedList<CollectionElementSyntax>(
-                    classes.Select(static c => ExpressionElement(StringLiteral(c)))));
-        }
-        else if (bool.TryParse(rawLiteral, out bool boolVal))
-        {
-            rhsExpr = LiteralExpression(boolVal ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression);
-        }
-        else
-        {
-            rhsExpr = StringLiteral(rawLiteral);
-        }
-
         return ExpressionStatement(
-            AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, targetMember, rhsExpr));
+            AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, targetMember, BuildLiteralValue(kind, rawLiteral)));
+    }
+
+    private static ExpressionSyntax BuildLiteralValue(XamlPropertyKind kind, string rawLiteral)
+    {
+        return kind switch
+        {
+            XamlPropertyKind.String => StringLiteral(rawLiteral),
+            XamlPropertyKind.Boolean => bool.Parse(rawLiteral)
+                ? LiteralExpression(SyntaxKind.TrueLiteralExpression)
+                : LiteralExpression(SyntaxKind.FalseLiteralExpression),
+            XamlPropertyKind.Int32 => LiteralExpression(
+                SyntaxKind.NumericLiteralExpression,
+                Literal(int.Parse(rawLiteral, NumberStyles.Integer, CultureInfo.InvariantCulture))),
+            XamlPropertyKind.Int64 => LiteralExpression(
+                SyntaxKind.NumericLiteralExpression,
+                Literal(long.Parse(rawLiteral, NumberStyles.Integer, CultureInfo.InvariantCulture))),
+            XamlPropertyKind.Double => LiteralExpression(
+                SyntaxKind.NumericLiteralExpression,
+                Literal(double.Parse(rawLiteral, NumberStyles.Float, CultureInfo.InvariantCulture))),
+            XamlPropertyKind.ClassList => CollectionExpression(SeparatedList<CollectionElementSyntax>(
+                XamlValidator.SplitClassNames(rawLiteral).Select(static name => ExpressionElement(StringLiteral(name))))),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "The property kind has no literal form.")
+        };
     }
 
     private static ExpressionStatementSyntax BuildBindingStatement(

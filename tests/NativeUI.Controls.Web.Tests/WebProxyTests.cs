@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using NativeUI.Controls;
 using NativeUI.Controls.Web;
 using NativeUI.Core;
+using NativeUI.Css;
 using NativeUI.Layout;
 using NativeUI.Media;
 using NativeUI.Sample;
@@ -24,6 +25,8 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
     ("Generated selectors use the renderer's tag mapping and reject untranslatable parts", TestStyleSheetTypeMapping),
     ("View-scoped stylesheets generate view-scoped browser CSS rules", TestViewScopedStyleSheetCss),
     ("View-scoped stylesheets manage view scope attributes on DOM mount and update", TestViewScopedStyleSheetLifecycle),
+    ("View stylesheet changes between compiled, scoped, and empty sheets keep scope state consistent", TestViewStyleSheetTransitions),
+    ("The base stylesheet writes zero-specificity block, button, and color-scheme rules", TestBaseStyleSheetCss),
     ("Button mounts as HTML button element and synchronizes disabled and text attributes", TestButtonDomProxy)
 ]);
 
@@ -404,15 +407,18 @@ static void TestViewScopedStyleSheetCss()
             StyleRule.Selector(s => s.Class("card").Hover().Descendant(d => d.Type<Text>()))
                 .Style(new Style { FontFamily = "Arial" }),
             StyleRule.Selector(s => s)
-                .Style(new Style { BorderRadius = 4 })
+                .Style(new Style { BorderRadius = 4 }),
+            StyleRule.Selector(".outer .inner .leaf")
+                .Style(new Style { BorderRadius = 2 })
         }
     };
 
     string[] lines = StyleSheetCss.WriteScoped(styleSheet, "v1").TrimEnd().Split('\n');
-    Assert.Equal(":where([data-nui-view-scope=\"v1\"]) span.title, :where([data-nui-view-scope=\"v1\"])span.title { font-size: 26px; }", lines[0]);
-    Assert.Equal($":where([data-nui-view-scope=\"v1\"]) span.title:hover, :where([data-nui-view-scope=\"v1\"])span.title:hover {{ color: {Colors.Blue.ToCssString()}; }}", lines[1]);
-    Assert.Equal(":where([data-nui-view-scope=\"v1\"]) .card:hover span, :where([data-nui-view-scope=\"v1\"]).card:hover span { font-family: Arial; }", lines[2]);
-    Assert.Equal(":where([data-nui-view-scope=\"v1\"]) *, :where([data-nui-view-scope=\"v1\"])* { border-radius: 4px; }", lines[3]);
+    Assert.Equal(":where([data-nui-view-scope=\"v1\"]) span.title, span.title:where([data-nui-view-scope=\"v1\"]) { font-size: 26px; }", lines[0]);
+    Assert.Equal($":where([data-nui-view-scope=\"v1\"]) span.title:hover, span.title:hover:where([data-nui-view-scope=\"v1\"]) {{ color: {Colors.Blue.ToCssString()}; }}", lines[1]);
+    Assert.Equal(":where([data-nui-view-scope=\"v1\"]) .card:hover span, .card:hover:where([data-nui-view-scope=\"v1\"]) span { font-family: Arial; }", lines[2]);
+    Assert.Equal(":where([data-nui-view-scope=\"v1\"]) *, *:where([data-nui-view-scope=\"v1\"]) { border-radius: 4px; }", lines[3]);
+    Assert.Equal(":where([data-nui-view-scope=\"v1\"]) .outer .inner .leaf, .outer:where([data-nui-view-scope=\"v1\"]) .inner .leaf { border-radius: 2px; }", lines[4]);
 }
 
 static void TestViewScopedStyleSheetLifecycle()
@@ -450,6 +456,50 @@ static void TestViewScopedStyleSheetLifecycle()
     view.StyleSheet = styleSheet;
     string? newScopeId = viewProxy.ViewScopeId;
     Assert.NotNull(newScopeId);
+}
+
+static void TestBaseStyleSheetCss()
+{
+    string[] lines = StyleSheetCss.BaseStyleSheet.RawCss.TrimEnd().Split('\n');
+
+    Assert.Equal(4, lines.Length);
+    Assert.Equal(":where(native-ui, native-ui span, native-ui button) { display: block; }", lines[0]);
+    Assert.Equal(":where(native-ui button) { margin: 0; padding: 0; border: none; background: none; color: inherit; font: inherit; user-select: none; }", lines[1]);
+    Assert.Equal(":where(native-ui[data-theme=\"light\"]) { color-scheme: light; }", lines[2]);
+    Assert.Equal(":where(native-ui[data-theme=\"dark\"]) { color-scheme: dark; }", lines[3]);
+}
+
+static void TestViewStyleSheetTransitions()
+{
+    StyleSheet scopedSheet = new()
+    {
+        Rules =
+        {
+            StyleRule.Selector(".title")
+                .Style(new Style { FontSize = 20 })
+        }
+    };
+    CssStyleSheet compiledSheet = new("Compiled", ".title { font-size: 20px; }", []);
+
+    using View view = new() { StyleSheet = compiledSheet };
+    using HtmlDomRoot domRoot = new();
+    domRoot.MountHeadless(view);
+    HtmlDomView viewProxy = (HtmlDomView)GetElement(view);
+    Assert.Null(viewProxy.ViewScopeId);
+
+    view.StyleSheet = scopedSheet;
+    string? firstScopeId = viewProxy.ViewScopeId;
+    Assert.NotNull(firstScopeId);
+
+    view.StyleSheet = compiledSheet;
+    Assert.Null(viewProxy.ViewScopeId);
+
+    view.StyleSheet = scopedSheet;
+    Assert.NotNull(viewProxy.ViewScopeId);
+    Assert.False(viewProxy.ViewScopeId == firstScopeId, "A removed scope must not be reused.");
+
+    view.StyleSheet = new StyleSheet();
+    Assert.Null(viewProxy.ViewScopeId);
 }
 
 static void TestButtonDomProxy()

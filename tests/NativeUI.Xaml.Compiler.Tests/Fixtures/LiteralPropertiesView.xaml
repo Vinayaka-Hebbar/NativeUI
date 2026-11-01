@@ -1,0 +1,14 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="TestApp.LiteralPropertiesView"
+      Id="true"
+      IsVisible="false"
+      ClipToBounds="TRUE"
+      Class="first&#9;second&#10;third">
+    <Text x:Name="BooleanLikeText" Value="true" AriaLabel="False" />
+    <Button x:Name="BooleanLikeButton"
+            Text="false"
+            IsEnabled="True"
+            Command="{Binding Save}"
+            CommandParameter="true" />
+</View>

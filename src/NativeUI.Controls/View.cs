@@ -97,12 +97,12 @@ public class View : UIElement
     }
 
     /// <inheritdoc />
-    protected override void OnDataContextChanged(object? newDataContext)
+    protected override void OnDataContextChanged(DataContextChangedEventArgs args)
     {
-        base.OnDataContextChanged(newDataContext);
+        base.OnDataContextChanged(args);
         foreach (UIElement child in _children)
         {
-            child.SetInheritedDataContext(newDataContext);
+            child.SetInheritedDataContext(args.NewValue);
         }
     }
 

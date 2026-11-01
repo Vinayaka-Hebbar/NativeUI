@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using NativeUI.Core;
 using NativeUI.Media;
+using NativeUI.Styling;
 
 namespace NativeUI.Controls;
 
@@ -11,6 +12,8 @@ namespace NativeUI.Controls;
 /// </summary>
 public class Button : View
 {
+    private static readonly Style s_defaultStyle = new() { Width = WidthValue.FitContent };
+
     /// <summary>
     /// Identifies the <see cref="Click"/> routed event.
     /// </summary>
@@ -124,6 +127,9 @@ public class Button : View
     {
         return Children.Count == 0 ? Text : null;
     }
+
+    /// <inheritdoc />
+    protected override IStyle? DefaultStyle => s_defaultStyle;
 
     private void OnPointerPressed(object? sender, PointerEventArgs e)
     {

@@ -75,6 +75,17 @@ public static class XamlDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
+    /// Diagnostic reported when an attribute's literal text cannot convert to its property's type.
+    /// </summary>
+    public static readonly DiagnosticDescriptor InvalidPropertyValue = new(
+        id: "NXAML007",
+        title: "Invalid XAML property value",
+        messageFormat: "The value '{0}' is not valid for property '{1}' on control '<{2}>'",
+        category: "NativeUI.Xaml",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
     /// Creates a Roslyn <see cref="Location"/> from a file path and 1-based <see cref="XamlSourcePosition"/>.
     /// </summary>
     public static Location CreateLocation(string filePath, XamlSourcePosition position)

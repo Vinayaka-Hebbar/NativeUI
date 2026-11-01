@@ -1,5 +1,7 @@
 using System.Windows.Input;
 using NativeUI.Core;
+using NativeUI.Graphics.Skia;
+using NativeUI.Layout;
 using NativeUI.Media;
 using NativeUI.Styling;
 using NativeUI.Tests;
@@ -12,6 +14,64 @@ namespace NativeUI.Controls.Tests;
 /// </summary>
 internal static class ButtonTests
 {
+    public static void VerifyLayoutFitsText()
+    {
+        Button button = new() { Text = "Switch to Dark Mode", Style = new Style { Padding = new Thickness(10, 20, 10, 20) } };
+        Text text = new() { Value = "Switch to Dark Mode" };
+        View root = new();
+        root.Children.Add(button);
+        root.Children.Add(text);
+
+        LayoutBox layout = new LayoutEngine(SkiaTextShaper.Shared).ComputeLayout(root, new Size(600, 200));
+        LayoutBox buttonBox = layout.Children[0];
+
+        Assert.Equal(buttonBox.TextLayout!.Size.Width + 40, buttonBox.BorderBox.Width);
+        Assert.True(buttonBox.BorderBox.Width < 600, "A button must not fill the available width.");
+        Assert.Equal(1, buttonBox.TextLayout.Lines.Length);
+        Assert.Equal(600.0, layout.Children[1].BorderBox.Width);
+    }
+
+    public static void VerifyFitContentWidth()
+    {
+        Button styled = new() { Text = "Toggle", Style = new Style { Width = 300 } };
+        Button narrow = new() { Text = "A long label that has to wrap", Style = new Style { Margin = new Thickness(0, 5, 0, 5) } };
+        Button withChild = new();
+        withChild.Children.Add(new Text { Value = "Toggle", Style = new Style { Margin = new Thickness(0, 4, 0, 4) } });
+        View fitView = new() { Style = new Style { Width = WidthValue.FitContent, Padding = new Thickness(0, 3, 0, 3) } };
+        fitView.Children.Add(new Text { Value = "Toggle" });
+        View root = new();
+        root.Children.Add(styled);
+        root.Children.Add(narrow);
+        root.Children.Add(withChild);
+        root.Children.Add(fitView);
+
+        LayoutBox layout = new LayoutEngine(SkiaTextShaper.Shared).ComputeLayout(root, new Size(100, 400));
+        double toggleWidth = SkiaTextShaper.Shared.MeasureText("Toggle", new Size(double.PositiveInfinity, double.PositiveInfinity), withChild.ComputedStyle).Width;
+
+        Assert.Equal(300.0, layout.Children[0].BorderBox.Width);
+        Assert.Equal(90.0, layout.Children[1].BorderBox.Width);
+        Assert.True(layout.Children[1].TextLayout!.Lines.Length > 1, "Fit-content text must wrap at the available width.");
+        Assert.Equal(toggleWidth + 8, layout.Children[2].BorderBox.Width);
+        Assert.Equal(toggleWidth + 6, layout.Children[3].BorderBox.Width);
+    }
+
+    public static void VerifyActualThemeChangedFollowsEffectiveTheme()
+    {
+        View root = new();
+        int changes = 0;
+        root.ActualThemeChanged += (_, _) => changes++;
+
+        root.SetInheritedTheme(Theme.Dark);
+        Assert.Equal(1, changes);
+
+        root.Theme = Theme.Dark;
+        Assert.Equal(1, changes);
+
+        root.Theme = Theme.Light;
+        Assert.Equal(2, changes);
+        Assert.Equal(Theme.Light, root.ActualTheme);
+    }
+
     internal static void VerifyPointerLifecycleAndClick()
     {
         using Button button = new()

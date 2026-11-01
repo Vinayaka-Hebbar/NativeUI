@@ -164,6 +164,15 @@ public class HtmlDomElement : INativePeer
     }
 
     /// <summary>
+    /// Sets <see cref="StyleSheetCss.TypeAttribute"/> to the tokens required by the stylesheets applying to this element,
+    /// or removes the attribute when they require none.
+    /// </summary>
+    internal virtual void UpdateTypeTokens()
+    {
+        SetAttribute(StyleSheetCss.TypeAttribute, StyleSheetCss.GetTypeTokens(Source));
+    }
+
+    /// <summary>
     /// Sets an attribute, or removes it when <paramref name="value"/> is null.
     /// </summary>
     public void SetAttribute(string name, string? value)
@@ -351,12 +360,7 @@ public class HtmlDomElement : INativePeer
     {
         SetAttribute("id", Source.Id);
         SetClassName(Source.Class.ToString());
-        string? typeTokens = StyleSheetCss.GetTypeTokens(Source);
-        if (typeTokens is not null)
-        {
-            SetAttribute(StyleSheetCss.TypeAttribute, typeTokens);
-        }
-
+        UpdateTypeTokens();
         UpdateVisibility();
     }
 

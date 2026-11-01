@@ -1,0 +1,7 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="TestApp.InvalidLiteralsView"
+      IsVisible="maybe">
+    <Text IsEnabled="1" />
+    <Button Command="Save" />
+</View>

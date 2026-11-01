@@ -20,7 +20,7 @@ public sealed class Style : IStyle
     private Thickness? _margin;
     private double? _borderRadius;
     private double? _opacity;
-    private double? _width;
+    private WidthValue? _width;
     private double? _height;
     private Cursor? _cursor;
 
@@ -160,9 +160,9 @@ public sealed class Style : IStyle
     }
 
     /// <summary>
-    /// Gets or sets the explicit width in logical pixels.
+    /// Gets or sets the width, as a length in logical pixels or <see cref="WidthValue.FitContent"/>.
     /// </summary>
-    public double? Width
+    public WidthValue? Width
     {
         get => _width;
         set

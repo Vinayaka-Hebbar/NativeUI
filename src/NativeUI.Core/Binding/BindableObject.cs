@@ -42,7 +42,7 @@ public abstract class BindableObject : IDisposable
             _hasLocalDataContext = true;
             if (!ReferenceEquals(previous, value))
             {
-                NotifyDataContextChanged(value);
+                NotifyDataContextChanged(previous, value);
             }
         }
     }
@@ -122,7 +122,7 @@ public abstract class BindableObject : IDisposable
         _inheritedDataContext = dataContext;
         if (!ReferenceEquals(previous, dataContext))
         {
-            NotifyDataContextChanged(dataContext);
+            NotifyDataContextChanged(previous, dataContext);
         }
     }
 
@@ -136,7 +136,7 @@ public abstract class BindableObject : IDisposable
     /// <summary>
     /// Invoked whenever the effective <see cref="DataContext"/> changes.
     /// </summary>
-    protected virtual void OnDataContextChanged(object? newDataContext)
+    protected virtual void OnDataContextChanged(DataContextChangedEventArgs args)
     {
     }
 
@@ -170,13 +170,13 @@ public abstract class BindableObject : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private void NotifyDataContextChanged(object? newDataContext)
+    private void NotifyDataContextChanged(object? oldDataContext, object? newDataContext)
     {
         foreach (IBindingSubscription subscription in _bindings.Values)
         {
             subscription.OnDataContextChanged(newDataContext);
         }
 
-        OnDataContextChanged(newDataContext);
+        OnDataContextChanged(new DataContextChangedEventArgs(oldDataContext, newDataContext));
     }
 }

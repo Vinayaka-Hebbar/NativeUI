@@ -59,7 +59,8 @@ internal static class CssValueSyntaxBuilder
         return propertyName switch
         {
             "color" or "background-color" or "background" => TryBuildColorSyntax(valueNode, out expression, out colorLiteral),
-            "font-size" or "border-radius" or "width" or "height" => TryBuildLengthSyntax(valueNode, out expression),
+            "width" => TryBuildWidthSyntax(valueNode, out expression),
+            "font-size" or "border-radius" or "height" => TryBuildLengthSyntax(valueNode, out expression),
             "padding" or "margin" => TryBuildThicknessSyntax(valueNode, out expression),
             "font-weight" => TryBuildFontWeightSyntax(valueNode, out expression),
             "text-align" => TryBuildTextAlignSyntax(valueNode, out expression),
@@ -166,6 +167,18 @@ internal static class CssValueSyntaxBuilder
     private static ExpressionSyntax BuildCssColorValueSyntax(ParsedCssColor color)
     {
         return BuildNewCssValue("CssColorValue", BuildColorFactoryInvocation(color));
+    }
+
+    private static bool TryBuildWidthSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        if (node is CssKeywordValueNode { Keyword: var keyword } &&
+            string.Equals(keyword, "fit-content", StringComparison.OrdinalIgnoreCase))
+        {
+            expression = BuildNewCssValue("CssFitContentValue");
+            return true;
+        }
+
+        return TryBuildLengthSyntax(node, out expression);
     }
 
     private static bool TryBuildLengthSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)

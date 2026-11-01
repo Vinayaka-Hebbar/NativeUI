@@ -7,7 +7,11 @@ int exitCode = TestRunner.RunSuite("NativeUI.Xaml.Compiler.Tests",
     ("BindingExpressionParser parses shorthand and named Mode parameters", TestBindingExpressionParser),
     ("XamlValidator reports diagnostics for unknown elements, properties, and CSS classes", TestXamlValidatorDiagnostics),
     ("XamlEmitter uses SyntaxFactory to generate clean C# without global:: prefixes", TestXamlEmitterCleanSyntaxFactoryOutput),
-    ("XamlEmitter generates collection expressions for Class attribute", TestXamlEmitterClassCollectionExpressions)
+    ("XamlEmitter generates collection expressions for Class attribute", TestXamlEmitterClassCollectionExpressions),
+    ("XamlEmitter converts literals by property type, not by their text", TestXamlEmitterLiteralsUsePropertyTypes),
+    ("XamlValidator rejects literals that cannot convert to the property type", TestXamlValidatorRejectsInvalidLiterals),
+    ("XamlEmitter emits int, long, and double literals using the invariant culture", TestXamlEmitterNumericLiterals),
+    ("XamlValidator accepts numeric literals only within their property type's range", TestXamlValidatorNumericLiteralRanges)
 ]);
 
 return exitCode;
@@ -101,4 +105,85 @@ static void TestXamlEmitterClassCollectionExpressions()
     Assert.Contains("SingleClassText.Class = [\"badge\"];", emittedCSharp);
     Assert.Contains("MultiClassText.Class = [\"badge\", \"test\"];", emittedCSharp);
     Assert.Contains("EmptyClassText.Class = [];", emittedCSharp);
+}
+
+static void TestXamlEmitterLiteralsUsePropertyTypes()
+{
+    string xaml = TestRunner.ReadFixture("LiteralPropertiesView.xaml");
+    ValidatedXamlDocument doc = XamlValidator.Validate(XamlParser.Parse("LiteralPropertiesView.xaml", xaml));
+
+    Assert.Equal(0, doc.Diagnostics.Count);
+
+    string emittedCSharp = XamlEmitter.Emit(doc);
+
+    Assert.Contains("Id = \"true\";", emittedCSharp);
+    Assert.Contains("IsVisible = false;", emittedCSharp);
+    Assert.Contains("ClipToBounds = true;", emittedCSharp);
+    Assert.Contains("Class = [\"first\", \"second\", \"third\"];", emittedCSharp);
+    Assert.Contains("BooleanLikeText.Value = \"true\";", emittedCSharp);
+    Assert.Contains("BooleanLikeText.AriaLabel = \"False\";", emittedCSharp);
+    Assert.Contains("BooleanLikeButton.Text = \"false\";", emittedCSharp);
+    Assert.Contains("BooleanLikeButton.IsEnabled = true;", emittedCSharp);
+    Assert.Contains("BooleanLikeButton.CommandParameter = \"true\";", emittedCSharp);
+    Assert.Contains("PathBinding.Bind(BooleanLikeButton, Button.CommandProperty, \"Save\"", emittedCSharp);
+}
+
+static void TestXamlEmitterNumericLiterals()
+{
+    ValidatedXamlElement root = new(
+        "View",
+        null,
+        [
+            new ValidatedXamlProperty("Count", XamlPropertyKind.Int32, "42", null),
+            new ValidatedXamlProperty("Offset", XamlPropertyKind.Int32, "-7", null),
+            new ValidatedXamlProperty("Ticks", XamlPropertyKind.Int64, "9000000000", null),
+            new ValidatedXamlProperty("Ratio", XamlPropertyKind.Double, "1.5", null),
+            new ValidatedXamlProperty("Scale", XamlPropertyKind.Double, "2", null),
+            new ValidatedXamlProperty("Limit", XamlPropertyKind.Double, "1e3", null)
+        ],
+        []);
+    ValidatedXamlDocument doc = new("NumericView.xaml", "TestApp.NumericView", "TestApp", "NumericView", null, "NumericView", root, []);
+
+    string emittedCSharp = XamlEmitter.Emit(doc);
+
+    Assert.Contains("Count = 42;", emittedCSharp);
+    Assert.Contains("Offset = -7;", emittedCSharp);
+    Assert.Contains("Ticks = 9000000000L;", emittedCSharp);
+    Assert.Contains("Ratio = 1.5;", emittedCSharp);
+    Assert.Contains("Scale = 2;", emittedCSharp);
+    Assert.Contains("Limit = 1000;", emittedCSharp);
+}
+
+static void TestXamlValidatorNumericLiteralRanges()
+{
+    Assert.True(XamlValidator.IsValidLiteral(XamlPropertyKind.Int32, "-2147483648"));
+    Assert.False(XamlValidator.IsValidLiteral(XamlPropertyKind.Int32, "2147483648"));
+    Assert.False(XamlValidator.IsValidLiteral(XamlPropertyKind.Int32, "1.5"));
+    Assert.False(XamlValidator.IsValidLiteral(XamlPropertyKind.Int32, "1,000"));
+
+    Assert.True(XamlValidator.IsValidLiteral(XamlPropertyKind.Int64, "9223372036854775807"));
+    Assert.False(XamlValidator.IsValidLiteral(XamlPropertyKind.Int64, "9223372036854775808"));
+
+    Assert.True(XamlValidator.IsValidLiteral(XamlPropertyKind.Double, "-1.5e3"));
+    Assert.False(XamlValidator.IsValidLiteral(XamlPropertyKind.Double, "1,5"));
+    Assert.False(XamlValidator.IsValidLiteral(XamlPropertyKind.Double, "NaN"));
+    Assert.False(XamlValidator.IsValidLiteral(XamlPropertyKind.Double, "Infinity"));
+    Assert.False(XamlValidator.IsValidLiteral(XamlPropertyKind.Double, "1e999"));
+}
+
+static void TestXamlValidatorRejectsInvalidLiterals()
+{
+    string xaml = TestRunner.ReadFixture("InvalidLiteralsView.xaml");
+    ValidatedXamlDocument doc = XamlValidator.Validate(XamlParser.Parse("InvalidLiteralsView.xaml", xaml));
+
+    string[] messages = doc.Diagnostics
+        .Where(static d => d.Id == "NXAML007")
+        .Select(static d => d.GetMessage())
+        .ToArray();
+
+    Assert.Equal(3, messages.Length);
+    Assert.Contains("'maybe' is not valid for property 'IsVisible' on control '<View>'", messages[0]);
+    Assert.Contains("'1' is not valid for property 'IsEnabled' on control '<Text>'", messages[1]);
+    Assert.Contains("'Save' is not valid for property 'Command' on control '<Button>'", messages[2]);
+    Assert.False(doc.RootElement!.Properties.Any(static p => p.PropertyName == "IsVisible"), "Invalid literals must not reach the emitter.");
 }

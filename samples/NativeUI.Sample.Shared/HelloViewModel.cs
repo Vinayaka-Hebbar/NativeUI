@@ -35,11 +35,14 @@ public partial class HelloViewModel : ObservableObject
     [RelayCommand]
     private void ToggleTheme()
     {
-        IsDarkMode = !IsDarkMode;
-        ThemeButtonText = IsDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode";
-        LiveStatus = IsDarkMode
+        ThemeToggled?.Invoke(this, EventArgs.Empty);
+    }
+
+    partial void OnIsDarkModeChanged(bool value)
+    {
+        ThemeButtonText = value ? "Switch to Light Mode" : "Switch to Dark Mode";
+        LiveStatus = value
             ? "Dark theme active: --color-surface resolved to #0f172a"
             : "Light theme active: --color-surface resolved to #f8fafc";
-        ThemeToggled?.Invoke(this, EventArgs.Empty);
     }
 }

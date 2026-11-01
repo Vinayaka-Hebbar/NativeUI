@@ -15,6 +15,8 @@ namespace NativeUI.Controls.Web;
 [SupportedOSPlatform("browser")]
 internal sealed class HtmlDomRoot : IDisposable
 {
+    private const string ThemeAttribute = "data-theme";
+
     private static int s_lastScopeId;
 
     private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -24,7 +26,7 @@ internal sealed class HtmlDomRoot : IDisposable
     private HtmlDomElement? _rootDom;
     private JSObject? _container;
     private JSObject? _rootElement;
-    private string? _scopedStyleSheetId;
+    private AdoptedStyleSheet? _styleSheet;
     private bool _disposed;
 
     /// <summary>
@@ -61,18 +63,19 @@ internal sealed class HtmlDomRoot : IDisposable
     {
         try
         {
-            // Disconnecting the native-ui element removes its pointer listeners.
+            if (_root is not null)
+            {
+                _root.ActualThemeChanged -= OnActualThemeChanged;
+            }
+
+            // Disconnecting the native-ui element removes its pointer and color scheme listeners.
             if (_rootElement is not null)
             {
                 DomInterop.RemoveElement(_rootElement);
             }
 
-            if (_scopedStyleSheetId is not null)
-            {
-                DomInterop.RemoveStyleSheet(_scopedStyleSheetId);
-                _scopedStyleSheetId = null;
-            }
-
+            _styleSheet?.Dispose();
+            _styleSheet = null;
             _pointerRouter.Reset();
             _rootDom?.Dispose();
         }
@@ -165,6 +168,8 @@ internal sealed class HtmlDomRoot : IDisposable
         {
             if (useBrowserInterop)
             {
+                OnColorSchemeChanged(DomInterop.PrefersDarkColorScheme());
+                DomInterop.InjectStyleSheet(StyleSheetCss.BaseStyleSheet.Id, StyleSheetCss.BaseStyleSheet.RawCss);
                 UpdateStyleSheet();
             }
 
@@ -175,6 +180,9 @@ internal sealed class HtmlDomRoot : IDisposable
                 _rootElement = DomInterop.CreateElement("native-ui");
                 DomInterop.SetAttribute(_rootElement, StyleSheetCss.ScopeAttribute, _scopeId.ToString(CultureInfo.InvariantCulture));
                 DomInterop.SetPointerDispatcher(_rootElement, OnPointerEvent);
+                DomInterop.SetColorSchemeDispatcher(_rootElement, OnColorSchemeChanged);
+                root.ActualThemeChanged += OnActualThemeChanged;
+                UpdateThemeAttribute();
                 DomInterop.AppendChild(_rootElement, element);
                 DomInterop.AppendChild(_container, _rootElement);
             }
@@ -206,6 +214,28 @@ internal sealed class HtmlDomRoot : IDisposable
         }
     }
 
+    private void OnColorSchemeChanged(bool prefersDark)
+    {
+        _root?.SetInheritedTheme(prefersDark ? Theme.Dark : Theme.Light);
+    }
+
+    private void OnActualThemeChanged(object? sender, EventArgs e)
+    {
+        UpdateThemeAttribute();
+    }
+
+    /// <summary>
+    /// Sets <c>data-theme</c> on the <c>native-ui</c> element to the root's <see cref="UIElement.ActualTheme"/>.
+    /// Compiled color-scheme rules and the base stylesheet select this attribute.
+    /// </summary>
+    private void UpdateThemeAttribute()
+    {
+        if (_root is not null && _rootElement is not null)
+        {
+            DomInterop.SetAttribute(_rootElement, ThemeAttribute, _root.ActualTheme == Theme.Dark ? "dark" : "light");
+        }
+    }
+
     private void OnHotReloaded(Type[]? updatedTypes)
     {
         if (_disposed || _root is null)
@@ -220,18 +250,31 @@ internal sealed class HtmlDomRoot : IDisposable
         }
     }
 
+    /// <summary>
+    /// Releases the previous stylesheet only after adopting the current one, which keeps a shared identifier adopted.
+    /// </summary>
     private void UpdateStyleSheet()
+    {
+        AdoptedStyleSheet? previous = _styleSheet;
+        _styleSheet = AdoptStyleSheet();
+        previous?.Dispose();
+    }
+
+    private AdoptedStyleSheet? AdoptStyleSheet()
     {
         if (_root?.StyleResolver is StyleSheet styleSheet)
         {
-            _scopedStyleSheetId = $"NativeUI.StyleSheet.{_scopeId}";
-            DomInterop.InjectStyleSheet(_scopedStyleSheetId, StyleSheetCss.Write(styleSheet, _scopeId));
-            return;
+            return AdoptedStyleSheet.Adopt($"NativeUI.StyleSheet.{_scopeId}", StyleSheetCss.Write(styleSheet, _scopeId));
         }
 
-        if (_root is not null && CssStyleRegistry.TryGet(_root.StyleSheetId, out CssStyleSheet? sheet) && sheet is not null)
+        // HtmlDomView adopts the stylesheet of a root view.
+        if (_root is View { StyleSheet: not null })
         {
-            DomInterop.InjectStyleSheet(sheet.Id, sheet.RawCss);
+            return null;
         }
+
+        return _root is not null && CssStyleRegistry.TryGet(_root.StyleSheetId, out CssStyleSheet? sheet) && sheet is not null
+            ? AdoptedStyleSheet.Adopt(sheet.Id, sheet.RawCss)
+            : null;
     }
 }

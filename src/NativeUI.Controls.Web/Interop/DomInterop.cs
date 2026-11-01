@@ -113,7 +113,22 @@ public static partial class DomInterop
     public static partial void SetNodeId(JSObject element, int nodeId);
 
     /// <summary>
-    /// Sets the callback that a <c>native-ui</c> element invokes, in order, with each forwarded pointer event.
+    /// Sets the callback that a <c>native-ui</c> element invokes when the browser's color scheme preference changes,
+    /// with <see langword="true"/> for dark. The element observes the preference only while connected.
+    /// </summary>
+    [JSImport("nativeui.setColorSchemeDispatcher", "nativeui-dom")]
+    public static partial void SetColorSchemeDispatcher(
+        JSObject root,
+        [JSMarshalAs<JSType.Function<JSType.Boolean>>] Action<bool> dispatch);
+
+    /// <summary>
+    /// Gets whether the browser reports a dark color scheme preference.
+    /// </summary>
+    [JSImport("nativeui.prefersDarkColorScheme", "nativeui-dom")]
+    public static partial bool PrefersDarkColorScheme();
+
+    /// <summary>
+    /// Sets the callback that a <c>native-ui</c> element invokes with each forwarded pointer event.
     /// The element adds its delegated listeners when connected and removes them when disconnected.
     /// </summary>
     [JSImport("nativeui.setPointerDispatcher", "nativeui-dom")]

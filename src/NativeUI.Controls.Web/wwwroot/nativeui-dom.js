@@ -15,6 +15,14 @@
  */
 
 /**
+ * Receives each change of the browser's color scheme preference.
+ *
+ * @callback ColorSchemeDispatcher
+ * @param {boolean} prefersDark Whether the browser now prefers a dark color scheme.
+ * @returns {void}
+ */
+
+/**
  * Receives each forwarded pointer event in order.
  *
  * @callback PointerDispatcher
@@ -27,6 +35,8 @@ const adoptedSheetMap = new Map();
 
 /** @type {WeakMap<Node, number>} */
 const nodeIds = new WeakMap();
+
+const darkColorScheme = matchMedia("(prefers-color-scheme: dark)");
 
 /**
  * Values match `PointerEventKind` in `PointerEventData.cs`.
@@ -109,16 +119,6 @@ function getModifiers(event) {
  * to C#. Only consecutive moves of one pointer are coalesced, per animation frame. Routing and hover remain in C#.
  */
 class NativeUIRoot extends HTMLElement {
-  /**
-   * Adopts the base layout shared by all `native-ui` elements. Custom elements and `span` default to inline, but
-   * NativeUI lays out the root and each `Text` as blocks. `:where` adds no specificity, so any rule can override it.
-   */
-  static {
-    const baseStyleSheet = new CSSStyleSheet();
-    baseStyleSheet.replaceSync(":where(native-ui, native-ui span) { display: block; }");
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, baseStyleSheet];
-  }
-
   /** @type {EventListener | undefined} */
   #pointerHandler;
 
@@ -131,8 +131,21 @@ class NativeUIRoot extends HTMLElement {
   /** @type {PointerDispatcher | null} */
   pointerDispatcher = null;
 
+  /** @type {ColorSchemeDispatcher | null} */
+  colorSchemeDispatcher = null;
+
   /**
-   * Adds the delegated pointer listeners.
+   * Forwards a change of the browser's color scheme preference.
+   *
+   * @param {MediaQueryListEvent} event The native event.
+   * @returns {void}
+   */
+  #handleColorSchemeChange = (event) => {
+    this.colorSchemeDispatcher?.(event.matches);
+  };
+
+  /**
+   * Adds the delegated pointer listeners and observes the browser's color scheme preference.
    *
    * @returns {void}
    */
@@ -141,6 +154,7 @@ class NativeUIRoot extends HTMLElement {
       return;
     }
 
+    darkColorScheme.addEventListener("change", this.#handleColorSchemeChange);
     this.#pointerHandler = (event) =>
       this.#handlePointerEvent(/** @type {MouseEvent} */ (event));
     for (const type of Object.keys(Pointer.NativeKinds)) {
@@ -149,7 +163,7 @@ class NativeUIRoot extends HTMLElement {
   }
 
   /**
-   * Removes the delegated pointer listeners and discards events that have not been forwarded.
+   * Removes the delegated pointer and color scheme listeners and discards events that have not been forwarded.
    *
    * @returns {void}
    */
@@ -162,6 +176,7 @@ class NativeUIRoot extends HTMLElement {
       this.removeEventListener(type, this.#pointerHandler);
     }
 
+    darkColorScheme.removeEventListener("change", this.#handleColorSchemeChange);
     cancelAnimationFrame(this.#frame);
     this.#frame = 0;
     this.#pending.length = 0;
@@ -262,6 +277,26 @@ export const nativeui = {
    */
   setPointerDispatcher(root, dispatch) {
     root.pointerDispatcher = dispatch;
+  },
+
+  /**
+   * Sets the callback that a `native-ui` element invokes when the browser's color scheme preference changes.
+   *
+   * @param {NativeUIRoot} root The `native-ui` element.
+   * @param {ColorSchemeDispatcher} dispatch The callback.
+   * @returns {void}
+   */
+  setColorSchemeDispatcher(root, dispatch) {
+    root.colorSchemeDispatcher = dispatch;
+  },
+
+  /**
+   * Gets whether the browser prefers a dark color scheme.
+   *
+   * @returns {boolean} Whether the preference is dark.
+   */
+  prefersDarkColorScheme() {
+    return darkColorScheme.matches;
   },
 
   /**

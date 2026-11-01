@@ -13,8 +13,11 @@
             background: #e2e8f0;
             font-family: system-ui, -apple-system, sans-serif;
         }
+        body:has(native-ui[data-theme="dark"]) {
+            background: #1e293b;
+        }
         @media (prefers-color-scheme: dark) {
-            body {
+            body:not(:has(native-ui)) {
                 background: #1e293b;
             }
         }

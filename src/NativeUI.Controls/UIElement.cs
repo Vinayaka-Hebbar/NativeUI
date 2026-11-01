@@ -108,6 +108,11 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     public event EventHandler? VisualInvalidated;
 
     /// <summary>
+    /// Occurs after <see cref="ActualTheme"/> changes and this element's style reflects the new theme.
+    /// </summary>
+    public event EventHandler? ActualThemeChanged;
+
+    /// <summary>
     /// Occurs when a pointer button is pressed over this element or one of its descendants.
     /// </summary>
     public event EventHandler<PointerEventArgs> PointerPressed
@@ -427,6 +432,12 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
+    /// Gets the control's default style, whose sizing values apply where no stylesheet specifies one.
+    /// Stylesheets and inline styles take precedence.
+    /// </summary>
+    protected virtual IStyle? DefaultStyle => null;
+
+    /// <summary>
     /// Returns the child layout nodes for container controls.
     /// </summary>
     protected virtual IReadOnlyList<ILayoutNode> GetLayoutChildren()
@@ -487,7 +498,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
 
         computed = ViewStyleResolver.Resolve(this, computed, resolver);
 
-        return computed.ApplyInline(Style, resolver, this);
+        return computed.ApplySizingDefaults(DefaultStyle).ApplyInline(Style, resolver, this);
     }
 
     private void UpdateComputedStyle(ComputedStyle computedStyle, SelectionStyle selectionStyle, Theme theme)
@@ -497,10 +508,15 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
             return;
         }
 
+        bool themeChanged = _computedTheme != theme;
         _computedStyle = computedStyle;
         _selectionStyle = selectionStyle;
         _computedTheme = theme;
         InvalidateVisual();
+        if (themeChanged)
+        {
+            ActualThemeChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     /// <summary>

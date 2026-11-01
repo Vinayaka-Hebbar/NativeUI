@@ -1,3 +1,4 @@
+using NativeUI.Core;
 using NativeUI.Media;
 
 namespace NativeUI.Sample;
@@ -7,39 +8,42 @@ namespace NativeUI.Sample;
 /// </summary>
 public partial class HelloView
 {
-    private HelloViewModel? _observedViewModel;
-
     /// <summary>
     /// Initializes a new instance of the <see cref="HelloView"/> class.
     /// </summary>
     public HelloView()
     {
         InitializeComponent();
+        ActualThemeChanged += OnActualThemeChanged;
     }
 
     /// <inheritdoc />
-    protected override void OnDataContextChanged(object? newDataContext)
+    protected override void OnDataContextChanged(DataContextChangedEventArgs args)
     {
-        base.OnDataContextChanged(newDataContext);
+        base.OnDataContextChanged(args);
 
-        if (_observedViewModel is not null)
+        if (args.OldValue is HelloViewModel oldViewModel)
         {
-            _observedViewModel.ThemeToggled -= OnThemeToggled;
+            oldViewModel.ThemeToggled -= OnThemeToggled;
         }
 
-        if (newDataContext is HelloViewModel vm)
+        if (args.NewValue is HelloViewModel newViewModel)
         {
-            _observedViewModel = vm;
-            vm.ThemeToggled += OnThemeToggled;
-        }
-        else
-        {
-            _observedViewModel = null;
+            newViewModel.ThemeToggled += OnThemeToggled;
+            newViewModel.IsDarkMode = ActualTheme == NativeUI.Core.Theme.Dark;
         }
     }
 
     private void OnThemeToggled(object? sender, EventArgs e)
     {
-        Theme = Theme == NativeUI.Core.Theme.Light ? NativeUI.Core.Theme.Dark : NativeUI.Core.Theme.Light;
+        Theme = ActualTheme == NativeUI.Core.Theme.Light ? NativeUI.Core.Theme.Dark : NativeUI.Core.Theme.Light;
+    }
+
+    private void OnActualThemeChanged(object? sender, EventArgs e)
+    {
+        if (DataContext is HelloViewModel viewModel)
+        {
+            viewModel.IsDarkMode = ActualTheme == NativeUI.Core.Theme.Dark;
+        }
     }
 }

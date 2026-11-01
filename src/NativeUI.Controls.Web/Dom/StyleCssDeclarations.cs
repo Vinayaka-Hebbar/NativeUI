@@ -26,7 +26,7 @@ internal static class StyleCssDeclarations
             ("margin", FormatThickness(style?.Margin)),
             ("border-radius", FormatLength(style?.BorderRadius)),
             ("opacity", style?.Opacity is double opacity ? Math.Clamp(opacity, 0, 1).ToString("R", CultureInfo.InvariantCulture) : null),
-            ("width", FormatLength(style?.Width)),
+            ("width", FormatWidth(style?.Width)),
             ("height", FormatLength(style?.Height)),
             ("cursor", FormatCursor(style?.Cursor))
         ];
@@ -61,6 +61,11 @@ internal static class StyleCssDeclarations
         }
 
         return color.Value.ToCssString();
+    }
+
+    private static string? FormatWidth(WidthValue? value)
+    {
+        return value is { IsFitContent: true } ? "fit-content" : FormatLength(value?.Pixels);
     }
 
     private static string? FormatLength(double? value)

@@ -2,6 +2,7 @@ using System.Collections.Specialized;
 using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 using NativeUI.Core;
+using NativeUI.Css;
 using NativeUI.Styling;
 
 namespace NativeUI.Controls.Web;
@@ -17,7 +18,7 @@ public class HtmlDomView : HtmlDomElement
     private readonly View _view;
     private readonly List<HtmlDomElement> _children = [];
     private string? _viewScopeId;
-    private string? _injectedSheetId;
+    private AdoptedStyleSheet? _styleSheet;
 
     internal HtmlDomView(View view, JSObject? element, string tagName = "div") : base(view, element, tagName)
     {
@@ -27,7 +28,7 @@ public class HtmlDomView : HtmlDomElement
     /// <summary>
     /// Gets the scope identifier for this view's stylesheet, or null if no stylesheet is scoped to this view.
     /// </summary>
-    public string? ViewScopeId
+    internal string? ViewScopeId
     {
         get
         {
@@ -36,11 +37,23 @@ public class HtmlDomView : HtmlDomElement
         }
     }
 
+    /// <summary>
+    /// Updates this view and all its descendants. A view's stylesheet determines the tokens required by its entire subtree.
+    /// </summary>
+    internal override void UpdateTypeTokens()
+    {
+        base.UpdateTypeTokens();
+        foreach (HtmlDomElement child in _children)
+        {
+            child.UpdateTypeTokens();
+        }
+    }
+
     /// <inheritdoc />
     protected override void Initialize()
     {
         base.Initialize();
-        UpdateScopedStyleSheet();
+        UpdateStyleSheet();
         SubscribeToChildren();
         SynchronizeChildren();
     }
@@ -51,14 +64,16 @@ public class HtmlDomView : HtmlDomElement
         base.OnPropertyChanged(args);
         if (ReferenceEquals(args.Property, View.StyleSheetProperty))
         {
-            UpdateScopedStyleSheet();
+            UpdateStyleSheet();
+            UpdateTypeTokens();
         }
     }
 
     /// <inheritdoc />
     protected override void OnDisposing()
     {
-        RemoveScopedStyleSheet();
+        _styleSheet?.Dispose();
+        _styleSheet = null;
         UnsubscribeFromChildren();
 
         foreach (HtmlDomElement child in _children)
@@ -100,14 +115,7 @@ public class HtmlDomView : HtmlDomElement
             throw new InvalidOperationException("A view cannot mount the same child more than once.");
         }
 
-        foreach (HtmlDomElement child in _children.ToArray())
-        {
-            if (!desiredSet.Contains(child.Source))
-            {
-                child.Dispose();
-                _children.Remove(child);
-            }
-        }
+        RemoveStaleChildren(desiredSet);
 
         for (int i = 0; i < desiredChildren.Length; i++)
         {
@@ -118,83 +126,112 @@ public class HtmlDomView : HtmlDomElement
             }
 
             int previousIndex = _children.FindIndex(child => ReferenceEquals(child.Source, source));
-            bool created = previousIndex < 0;
-            HtmlDomElement child;
-            if (created)
+            if (previousIndex < 0)
             {
-                child = Create(source, Element is not null);
+                InsertNewChild(source, i);
             }
             else
             {
-                child = _children[previousIndex];
-                _children.RemoveAt(previousIndex);
-            }
-
-            HtmlDomElement? reference = i < _children.Count ? _children[i] : null;
-            _children.Insert(i, child);
-            try
-            {
-                if (created)
-                {
-                    child.Attach(this);
-                }
-
-                InsertBefore(child, reference);
-            }
-            catch
-            {
-                if (created)
-                {
-                    _children.Remove(child);
-                    child.Dispose();
-                }
-
-                throw;
+                MoveChild(previousIndex, i);
             }
         }
     }
 
-    private void UpdateScopedStyleSheet()
+    private void RemoveStaleChildren(HashSet<UIElement> desiredSet)
     {
-        if (_view.StyleSheet is StyleSheet sheet && (sheet is NativeUI.Css.CssStyleSheet || sheet.Rules.Count > 0))
+        foreach (HtmlDomElement child in _children.ToArray())
         {
-            _viewScopeId ??= $"v{Interlocked.Increment(ref s_lastViewScopeId)}";
+            if (!desiredSet.Contains(child.Source))
+            {
+                _children.Remove(child);
+                child.Dispose();
+            }
+        }
+    }
+
+    private void InsertNewChild(UIElement source, int index)
+    {
+        HtmlDomElement child = Create(source, Element is not null);
+        HtmlDomElement? reference = GetChildAtOrDefault(index);
+        _children.Insert(index, child);
+        try
+        {
+            child.Attach(this);
+            InsertBefore(child, reference);
+        }
+        catch
+        {
+            _children.Remove(child);
+            child.Dispose();
+            throw;
+        }
+    }
+
+    private void MoveChild(int previousIndex, int index)
+    {
+        HtmlDomElement child = _children[previousIndex];
+        _children.RemoveAt(previousIndex);
+        HtmlDomElement? reference = GetChildAtOrDefault(index);
+        _children.Insert(index, child);
+        InsertBefore(child, reference);
+    }
+
+    private HtmlDomElement? GetChildAtOrDefault(int index)
+    {
+        return index < _children.Count ? _children[index] : null;
+    }
+
+    private void UpdateStyleSheet()
+    {
+        switch (_view.StyleSheet)
+        {
+            case CssStyleSheet compiled:
+                ClearViewScope();
+                ReplaceStyleSheet(compiled.Id, compiled.RawCss);
+                break;
+            case StyleSheet { Rules.Count: > 0 } sheet:
+                string viewScopeId = EnsureViewScope();
+                ReplaceStyleSheet($"NativeUI.ViewStyleSheet.{viewScopeId}", StyleSheetCss.WriteScoped(sheet, viewScopeId));
+                break;
+            default:
+                ClearViewScope();
+                _styleSheet?.Dispose();
+                _styleSheet = null;
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Releases the previous stylesheet only after adopting the new one, which keeps a shared identifier adopted.
+    /// </summary>
+    private void ReplaceStyleSheet(string id, string css)
+    {
+        if (Element is null)
+        {
+            return;
+        }
+
+        AdoptedStyleSheet? previous = _styleSheet;
+        _styleSheet = AdoptedStyleSheet.Adopt(id, css);
+        previous?.Dispose();
+    }
+
+    private string EnsureViewScope()
+    {
+        if (_viewScopeId is null)
+        {
+            _viewScopeId = $"v{++s_lastViewScopeId}";
             SetAttribute(StyleSheetCss.ViewScopeAttribute, _viewScopeId);
+        }
 
-            _injectedSheetId ??= $"NativeUI.ViewStyleSheet.{_viewScopeId}";
-            string css = sheet is NativeUI.Css.CssStyleSheet cssSheet
-                ? cssSheet.RawCss
-                : StyleSheetCss.WriteScoped(sheet, _viewScopeId);
-            if (OperatingSystem.IsBrowser())
-            {
-                DomInterop.InjectStyleSheet(_injectedSheetId, css);
-            }
-        }
-        else
-        {
-            RemoveScopedStyleSheet();
-        }
+        return _viewScopeId;
     }
 
-    private void RemoveScopedStyleSheet()
+    private void ClearViewScope()
     {
-        if (_injectedSheetId is not null)
-        {
-            if (OperatingSystem.IsBrowser())
-            {
-                DomInterop.RemoveStyleSheet(_injectedSheetId);
-            }
-
-            _injectedSheetId = null;
-        }
-
         if (_viewScopeId is not null)
         {
-            if (!IsDisposed)
-            {
-                SetAttribute(StyleSheetCss.ViewScopeAttribute, null);
-            }
-
+            SetAttribute(StyleSheetCss.ViewScopeAttribute, null);
             _viewScopeId = null;
         }
     }

@@ -10,7 +10,9 @@ int exitCode = TestRunner.RunSuite("NativeUI.Css.Compiler.Tests",
     ("CssParser compiles hover, descendant, universal, and ::selection selectors", TestStateAndDescendantSelectors),
     ("CssValidator diagnoses unsupported pseudo-selectors, combinators, and ::selection properties", TestUnsupportedSelectorDiagnostics),
     ("CssEmitter translates only type selectors for browser CSS and emits selector metadata", TestBrowserCssAndSelectorEmission),
-    ("CssEmitter compiles cursor property and active/disabled pseudo-classes", TestButtonAndCursorCssEmission)
+    ("CssEmitter compiles cursor property and active/disabled pseudo-classes", TestButtonAndCursorCssEmission),
+    ("Browser CSS gates color-scheme rules on the root's theme instead of the OS preference", TestBrowserCssThemeRules),
+    ("CssEmitter compiles width: fit-content and rejects it on other properties", TestFitContentWidthEmission)
 ]);
 
 return exitCode;
@@ -127,6 +129,40 @@ static void TestBrowserCssAndSelectorEmission()
     Assert.Contains("pseudoElement: CssPseudoElement.Selection", emitted);
     Assert.Contains("span.title:hover", emitted);
     Assert.False(emitted.Contains("text.title:hover {", StringComparison.Ordinal), "Stylesheet text must use browser type names.");
+}
+
+static void TestFitContentWidthEmission()
+{
+    ValidatedCssStylesheet valid = CssValidator.Validate(CssParser.Parse("Fit.css", ".fit { width: fit-content; }"));
+    Assert.Equal(0, valid.Diagnostics.Count);
+    Assert.Contains("[\"width\"] = new CssFitContentValue()", CssEmitter.Emit(valid, "TestApp", Accessibility.Public));
+
+    ValidatedCssStylesheet invalid = CssValidator.Validate(CssParser.Parse("Fit.css", ".fit { height: fit-content; }"));
+    Assert.True(invalid.Diagnostics.Count > 0, "fit-content is supported only on width.");
+}
+
+static void TestBrowserCssThemeRules()
+{
+    const string Css = """
+        :root { --surface: #fff; }
+        @media (prefers-color-scheme: dark) {
+            :root { --surface: #000; }
+            text.title, .card:hover { color: #fff; }
+        }
+        @media (prefers-color-scheme: light) {
+            .card { color: #000; }
+        }
+        """;
+
+    ValidatedCssStylesheet validated = CssValidator.Validate(CssParser.Parse("Themed.css", Css));
+
+    Assert.Equal(0, validated.Diagnostics.Count);
+    Assert.False(validated.BrowserCss.Contains("@media", StringComparison.Ordinal), "Theme rules must not follow the OS preference.");
+    Assert.Contains(":root { --surface: #fff; }", validated.BrowserCss);
+    Assert.Contains("native-ui[data-theme=\"dark\"] { --surface: #000; }", validated.BrowserCss);
+    Assert.Contains(":where(native-ui[data-theme=\"dark\"]) span.title, :where(native-ui[data-theme=\"dark\"]) .card:hover { color: #fff; }", validated.BrowserCss);
+    Assert.Contains(":where(native-ui[data-theme=\"light\"]) .card { color: #000; }", validated.BrowserCss);
+    Assert.Contains("@media (prefers-color-scheme: dark)", validated.RawCss);
 }
 
 static void TestButtonAndCursorCssEmission()

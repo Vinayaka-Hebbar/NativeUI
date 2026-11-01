@@ -37,8 +37,8 @@ public interface IStyle
     /// <summary>Gets the specified element opacity.</summary>
     double? Opacity { get; }
 
-    /// <summary>Gets the specified width in logical pixels.</summary>
-    double? Width { get; }
+    /// <summary>Gets the specified width.</summary>
+    WidthValue? Width { get; }
 
     /// <summary>Gets the specified height in logical pixels.</summary>
     double? Height { get; }

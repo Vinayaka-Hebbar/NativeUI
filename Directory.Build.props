@@ -7,6 +7,5 @@
     <Deterministic>true</Deterministic>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
-   
   </PropertyGroup>
 </Project>
