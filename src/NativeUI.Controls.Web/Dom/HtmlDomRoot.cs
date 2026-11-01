@@ -177,6 +177,7 @@ internal sealed class HtmlDomRoot : IDisposable
                 _rootElement = DomInterop.CreateElement("native-ui");
                 DomInterop.SetAttribute(_rootElement, StyleSheetCss.ScopeAttribute, _scopeId.ToString(CultureInfo.InvariantCulture));
                 DomInterop.SetPointerDispatcher(_rootElement, OnPointerEvent);
+                DomInterop.SetScrollDispatcher(_rootElement, OnScroll);
                 Application.Current.CurrentThemeChanged += OnCurrentThemeChanged;
                 UpdateThemeAttribute();
                 DomInterop.AppendChild(_rootElement, element);
@@ -207,6 +208,14 @@ internal sealed class HtmlDomRoot : IDisposable
                 Modifiers = (PointerModifiers)pointerEvent.GetPropertyAsInt32("modifiers"),
                 ClickCount = pointerEvent.GetPropertyAsInt32("clickCount")
             });
+        }
+    }
+
+    private static void OnScroll(int nodeId)
+    {
+        if (HtmlDomElement.FindByNodeId(nodeId)?.Source is View view)
+        {
+            view.NotifyPlatformScrolled();
         }
     }
 

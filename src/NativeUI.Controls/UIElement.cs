@@ -393,7 +393,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
-    /// Gets the control's default style, whose sizing values apply where no stylesheet specifies one.
+    /// Gets the control's default style, whose sizing and overflow values apply where no stylesheet specifies one.
     /// Stylesheets and inline styles take precedence.
     /// </summary>
     protected virtual IStyle? DefaultStyle => null;
@@ -459,7 +459,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
 
         computed = ViewStyleResolver.Resolve(this, computed, resolver);
 
-        return computed.ApplySizingDefaults(DefaultStyle).ApplyInline(Style, resolver, this);
+        return computed.ApplyDefaults(DefaultStyle).ApplyInline(Style, resolver, this);
     }
 
     private void UpdateComputedStyle(ComputedStyle computedStyle, SelectionStyle selectionStyle, Theme theme)

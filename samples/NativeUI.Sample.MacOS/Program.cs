@@ -11,7 +11,7 @@ using Window window = new()
 {
     Title = "NativeUI — macOS SkiaSharp + Compiled XAML/CSS Sample",
     Width = 680,
-    Height = 360,
+    Height = 760,
     Content = view
 };
 

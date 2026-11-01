@@ -27,9 +27,17 @@ internal static class StyleSheetCss
     public const string ViewScopeAttribute = "data-nui-view-scope";
 
     /// <summary>
-    /// The base style shared by all <c>native-ui</c> elements: block display for the root, each <see cref="Text"/>, and
+    /// The attribute marking the element of a <see cref="ScrollView"/>, whose default overflow the base stylesheet sets.
+    /// </summary>
+    public const string ScrollViewAttribute = "data-nui-scroll-view";
+
+    /// <summary>
+    /// The base style shared by all <c>native-ui</c> elements, matching desktop rendering where CSS allows: border-box
+    /// sizing; the minimum line height of the desktop text shaper; a scrollbar with the size and colors of the desktop
+    /// indicator, which <c>scrollbar-color</c> or <c>scrollbar-width</c> on an element replaces; block display for the root, each <see cref="Text"/>, and
     /// each <see cref="Button"/>, none of which is block-level by default; no browser control appearance on
-    /// <see cref="Button"/>, matching desktop rendering; and a <c>color-scheme</c> following <c>data-theme</c>.
+    /// <see cref="Button"/>, matching desktop rendering; scrolling on each <see cref="ScrollView"/>; and a
+    /// <c>color-scheme</c> following <c>data-theme</c>.
     /// <c>:where</c> keeps every declaration at zero specificity.
     /// </summary>
     public static CssStyleSheet BaseStyleSheet { get; } = CreateBaseStyleSheet();
@@ -156,6 +164,14 @@ internal static class StyleSheetCss
     {
         List<CssRule> rules =
         [
+            new(":where(native-ui, native-ui *)", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["box-sizing"] = new CssStringValue("border-box")
+            }),
+            new(":where(native-ui)", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["line-height"] = new CssStringValue("1.25")
+            }),
             new(":where(native-ui, native-ui span, native-ui button)", null, [], false, new Dictionary<string, CssValue>
             {
                 ["display"] = new CssStringValue("block")
@@ -169,6 +185,37 @@ internal static class StyleSheetCss
                 ["color"] = new CssStringValue("inherit"),
                 ["font"] = new CssStringValue("inherit"),
                 ["user-select"] = new CssStringValue("none")
+            }),
+            new($":where([{ScrollViewAttribute}])", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["overflow"] = new CssStringValue("auto")
+            }),
+            new(":where(native-ui, native-ui *)::-webkit-scrollbar", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["width"] = new CssStringValue("10px"),
+                ["height"] = new CssStringValue("10px")
+            }),
+            new(":where(native-ui, native-ui *)::-webkit-scrollbar-track", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["background"] = new CssStringValue("transparent")
+            }),
+            new(":where(native-ui, native-ui *)::-webkit-scrollbar-corner", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["background"] = new CssStringValue("transparent")
+            }),
+            new(":where(native-ui, native-ui *)::-webkit-scrollbar-thumb", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["border"] = new CssStringValue("2px solid transparent"),
+                ["border-radius"] = new CssStringValue("5px"),
+                ["background-clip"] = new CssStringValue("padding-box")
+            }),
+            new(":where(native-ui[data-theme=\"light\"], native-ui[data-theme=\"light\"] *)::-webkit-scrollbar-thumb", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["background-color"] = new CssStringValue("rgb(0 0 0 / 0.35)")
+            }),
+            new(":where(native-ui[data-theme=\"dark\"], native-ui[data-theme=\"dark\"] *)::-webkit-scrollbar-thumb", null, [], false, new Dictionary<string, CssValue>
+            {
+                ["background-color"] = new CssStringValue("rgb(255 255 255 / 0.35)")
             }),
             new(":where(native-ui[data-theme=\"light\"])", null, [], false, new Dictionary<string, CssValue>
             {

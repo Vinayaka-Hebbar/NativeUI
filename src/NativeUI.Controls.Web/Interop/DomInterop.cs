@@ -113,6 +113,27 @@ public static partial class DomInterop
     public static partial void SetNodeId(JSObject element, int nodeId);
 
     /// <summary>
+    /// Sets the callback that a <c>native-ui</c> element invokes with the node identifier of each scrolled descendant.
+    /// The element adds its listener when connected and removes it when disconnected.
+    /// </summary>
+    [JSImport("nativeui.setScrollDispatcher", "nativeui-dom")]
+    public static partial void SetScrollDispatcher(
+        JSObject root,
+        [JSMarshalAs<JSType.Function<JSType.Number>>] Action<int> dispatch);
+
+    /// <summary>
+    /// Scrolls an element to the given offset, which the browser limits to the scrollable range.
+    /// </summary>
+    [JSImport("nativeui.scrollTo", "nativeui-dom")]
+    public static partial void ScrollTo(JSObject element, double x, double y);
+
+    /// <summary>
+    /// Reads an element's <c>scrollLeft</c>, <c>scrollTop</c>, <c>scrollWidth</c>, <c>scrollHeight</c>, <c>clientWidth</c>, and <c>clientHeight</c>.
+    /// </summary>
+    [JSImport("nativeui.getScrollMetrics", "nativeui-dom")]
+    public static partial JSObject GetScrollMetrics(JSObject element);
+
+    /// <summary>
     /// Invokes <paramref name="dispatch"/> whenever the browser's color scheme preference changes, for the application's lifetime.
     /// </summary>
     [JSImport("nativeui.observeColorScheme", "nativeui-dom")]

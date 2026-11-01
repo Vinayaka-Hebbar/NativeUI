@@ -390,6 +390,33 @@ public sealed class Window : IDisposable
     }
 
     /// <summary>
+    /// Scrolls the innermost view under the pointer that can move by the given distance, in logical pixels of scroll offset.
+    /// </summary>
+    public void HandlePointerWheel(Point viewportPoint, double deltaX, double deltaY)
+    {
+        if (_content is null)
+        {
+            return;
+        }
+
+        BeginFrameBatch();
+        try
+        {
+            for (UIElement? element = HitTest(viewportPoint); element is not null; element = element.Parent)
+            {
+                if (element is View view && view.TryScrollBy(deltaX, deltaY))
+                {
+                    break;
+                }
+            }
+        }
+        finally
+        {
+            EndFrameBatch();
+        }
+    }
+
+    /// <summary>
     /// Clears hover when the pointer leaves the window. An active selection drag continues until release or cancellation.
     /// </summary>
     public void HandlePointerExited()
@@ -559,12 +586,16 @@ public sealed class Window : IDisposable
             return null;
         }
 
-        for (int i = box.Children.Count - 1; i >= 0; i--)
+        bool clipsChildren = box.Style.ClipsOverflow || element is View { ClipToBounds: true };
+        if (!clipsChildren || box.BorderBox.Contains(point))
         {
-            UIElement? childMatch = HitTest(box.Children[i], point);
-            if (childMatch is not null)
+            for (int i = box.Children.Count - 1; i >= 0; i--)
             {
-                return childMatch;
+                UIElement? childMatch = HitTest(box.Children[i], point);
+                if (childMatch is not null)
+                {
+                    return childMatch;
+                }
             }
         }
 

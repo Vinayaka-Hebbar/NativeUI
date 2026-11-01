@@ -11,5 +11,11 @@ public partial class HelloView
     public HelloView()
     {
         InitializeComponent();
+
+        ScrollTopButton.Click += (_, _) => LogScroll.ScrollTo(0, 0);
+        ScrollBottomButton.Click += (_, _) => LogScroll.ScrollTo(0, LogScroll.ExtentHeight);
+        ScrollRightButton.Click += (_, _) => WideScroll.ScrollTo(WideScroll.ExtentWidth, 0);
+        LogScroll.ScrollChanged += (_, _) =>
+            ScrollStatus.Value = $"Scrolled {LogScroll.VerticalOffset:0}px of {LogScroll.ExtentHeight - LogScroll.ViewportHeight:0}px";
     }
 }

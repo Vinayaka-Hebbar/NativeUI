@@ -151,6 +151,19 @@ public sealed class LayoutEngine
         double contentHeight = Math.Max(0, currentY - contentY);
         double resolvedBorderHeight = style.Height ?? (contentHeight + padding.Vertical);
 
+        if (style.ClipsOverflow && node is IScrollContainer scrollContainer)
+        {
+            Size viewport = new(borderWidth, resolvedBorderHeight);
+            Size extent = new(
+                Math.Max(borderWidth, maxChildWidth + padding.Horizontal),
+                Math.Max(resolvedBorderHeight, contentHeight + padding.Vertical));
+            Point offset = scrollContainer.UpdateScrollMetrics(extent, viewport);
+            if (offset != default)
+            {
+                childBoxes = childBoxes.ConvertAll(child => child.Translated(-offset.X, -offset.Y));
+            }
+        }
+
         return new LayoutBox(
             node,
             style,

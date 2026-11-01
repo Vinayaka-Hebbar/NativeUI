@@ -13,6 +13,12 @@ namespace NativeUI.Graphics;
 public sealed class VisualTreeRenderer : IDisposable
 {
     private static readonly Color s_lightSelectionColor = Color.FromRgbBytes(37, 99, 235, 76);
+    private const double ScrollIndicatorThickness = 6;
+    private const double ThinScrollIndicatorThickness = 4;
+    private const double ScrollIndicatorInset = 2;
+    private const double ScrollIndicatorMinimumLength = 24;
+    private const double ScrollIndicatorOpacity = 0.35;
+
     private static readonly Color s_darkSelectionColor = Color.FromRgbBytes(96, 165, 250, 96);
 
     private readonly LayoutEngine _layoutEngine;
@@ -182,6 +188,8 @@ public sealed class VisualTreeRenderer : IDisposable
                     }
                 }
             }
+
+            DrawScrollIndicators(context, box, drawOpacity);
         }
         finally
         {
@@ -194,7 +202,76 @@ public sealed class VisualTreeRenderer : IDisposable
 
     private static bool ShouldClipChildren(LayoutBox box)
     {
-        return box.Element is View { ClipToBounds: true };
+        return box.Style.ClipsOverflow || box.Element is View { ClipToBounds: true };
+    }
+
+    /// <summary>
+    /// Draws overlay scrollbars, which take no layout space, along the right and bottom edges of a scrolled view.
+    /// </summary>
+    private static void DrawScrollIndicators(DrawingContext context, LayoutBox box, double opacity)
+    {
+        ComputedStyle style = box.Style;
+        if (box.Element is not View view || !style.ClipsOverflow || style.ScrollbarWidth == ScrollbarWidth.None)
+        {
+            return;
+        }
+
+        double thickness = style.ScrollbarWidth == ScrollbarWidth.Thin ? ThinScrollIndicatorThickness : ScrollIndicatorThickness;
+        Rect bounds = box.BorderBox;
+
+        if (style.IsUserScrollableY && view.ExtentHeight > view.ViewportHeight)
+        {
+            double trackX = bounds.X + bounds.Width - thickness - (2 * ScrollIndicatorInset);
+            double length = GetScrollIndicatorLength(view.ViewportHeight, view.ExtentHeight);
+            double travel = view.VerticalOffset / (view.ExtentHeight - view.ViewportHeight) * (view.ViewportHeight - length);
+            DrawScrollIndicator(
+                context,
+                style,
+                new Rect(trackX, bounds.Y, thickness + (2 * ScrollIndicatorInset), bounds.Height),
+                new Rect(trackX + ScrollIndicatorInset, bounds.Y + travel, thickness, length),
+                opacity);
+        }
+
+        if (style.IsUserScrollableX && view.ExtentWidth > view.ViewportWidth)
+        {
+            double trackY = bounds.Y + bounds.Height - thickness - (2 * ScrollIndicatorInset);
+            double length = GetScrollIndicatorLength(view.ViewportWidth, view.ExtentWidth);
+            double travel = view.HorizontalOffset / (view.ExtentWidth - view.ViewportWidth) * (view.ViewportWidth - length);
+            DrawScrollIndicator(
+                context,
+                style,
+                new Rect(bounds.X, trackY, bounds.Width, thickness + (2 * ScrollIndicatorInset)),
+                new Rect(bounds.X + travel, trackY + ScrollIndicatorInset, length, thickness),
+                opacity);
+        }
+    }
+
+    /// <summary>
+    /// Draws one scrollbar. As in CSS, the track color applies only together with a thumb color.
+    /// </summary>
+    private static void DrawScrollIndicator(DrawingContext context, ComputedStyle style, Rect track, Rect thumb, double opacity)
+    {
+        Paint thumbPaint;
+        if (style.ScrollbarThumbColor is Color thumbColor)
+        {
+            thumbPaint = new Paint(thumbColor, opacity);
+            if (style.ScrollbarTrackColor is Color trackColor && trackColor.Alpha > 0)
+            {
+                context.DrawRectangle(track, new Paint(trackColor, opacity));
+            }
+        }
+        else
+        {
+            Color defaultColor = Application.Current.CurrentTheme == Theme.Dark ? Colors.White : Colors.Black;
+            thumbPaint = new Paint(defaultColor, opacity * ScrollIndicatorOpacity);
+        }
+
+        context.DrawRoundedRectangle(thumb, Math.Min(thumb.Width, thumb.Height) / 2, thumbPaint);
+    }
+
+    private static double GetScrollIndicatorLength(double viewport, double extent)
+    {
+        return Math.Min(viewport, Math.Max(ScrollIndicatorMinimumLength, viewport * viewport / extent));
     }
 
     /// <summary>

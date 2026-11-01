@@ -23,6 +23,11 @@ public sealed class Style : IStyle
     private WidthValue? _width;
     private double? _height;
     private Cursor? _cursor;
+    private Overflow? _overflowX;
+    private Overflow? _overflowY;
+    private ThemeValue<Color>? _scrollbarThumbColor;
+    private ThemeValue<Color>? _scrollbarTrackColor;
+    private ScrollbarWidth? _scrollbarWidth;
 
     /// <summary>
     /// Occurs whenever any property on this <see cref="Style"/> instance is modified.
@@ -194,6 +199,71 @@ public sealed class Style : IStyle
         set
         {
             _cursor = value;
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the horizontal overflow behavior.
+    /// </summary>
+    public Overflow? OverflowX
+    {
+        get => _overflowX;
+        set
+        {
+            _overflowX = value;
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the vertical overflow behavior.
+    /// </summary>
+    public Overflow? OverflowY
+    {
+        get => _overflowY;
+        set
+        {
+            _overflowY = value;
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the scrollbar thumb color.
+    /// </summary>
+    public ThemeValue<Color>? ScrollbarThumbColor
+    {
+        get => _scrollbarThumbColor;
+        set
+        {
+            _scrollbarThumbColor = value;
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the scrollbar track color, which applies only with <see cref="ScrollbarThumbColor"/>.
+    /// </summary>
+    public ThemeValue<Color>? ScrollbarTrackColor
+    {
+        get => _scrollbarTrackColor;
+        set
+        {
+            _scrollbarTrackColor = value;
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the scrollbar thickness.
+    /// </summary>
+    public ScrollbarWidth? ScrollbarWidth
+    {
+        get => _scrollbarWidth;
+        set
+        {
+            _scrollbarWidth = value;
             Changed?.Invoke(this, EventArgs.Empty);
         }
     }

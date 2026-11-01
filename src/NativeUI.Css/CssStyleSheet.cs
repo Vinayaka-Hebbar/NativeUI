@@ -122,6 +122,11 @@ public sealed class CssStyleSheet : StyleSheet
         WidthValue? width = null;
         double? height = null;
         Cursor cursor = inheritedStyle.Cursor;
+        Overflow? overflowX = null;
+        Overflow? overflowY = null;
+        Color? scrollbarThumbColor = inheritedStyle.ScrollbarThumbColor;
+        Color? scrollbarTrackColor = inheritedStyle.ScrollbarTrackColor;
+        ScrollbarWidth scrollbarWidth = ScrollbarWidth.Auto;
 
         // Font-relative lengths use the winning font size, regardless of declaration order.
         foreach ((CssRule rule, _) in matching)
@@ -224,6 +229,43 @@ public sealed class CssStyleSheet : StyleSheet
                         }
                         break;
 
+                    case "scrollbar-color":
+                        if (resolved is CssScrollbarColorValue scrollbarColor)
+                        {
+                            scrollbarThumbColor = (scopedVariables.Resolve(scrollbarColor.Thumb) as CssColorValue)?.Color;
+                            scrollbarTrackColor = (scopedVariables.Resolve(scrollbarColor.Track) as CssColorValue)?.Color;
+                        }
+                        break;
+
+                    case "scrollbar-width":
+                        if (resolved is CssScrollbarWidthValue scrollbarWidthValue)
+                        {
+                            scrollbarWidth = scrollbarWidthValue.Width;
+                        }
+                        break;
+
+                    case "overflow":
+                        if (resolved is CssOverflowValue both)
+                        {
+                            overflowX = both.Overflow;
+                            overflowY = both.Overflow;
+                        }
+                        break;
+
+                    case "overflow-x":
+                        if (resolved is CssOverflowValue x)
+                        {
+                            overflowX = x.Overflow;
+                        }
+                        break;
+
+                    case "overflow-y":
+                        if (resolved is CssOverflowValue y)
+                        {
+                            overflowY = y.Overflow;
+                        }
+                        break;
+
                     case "width":
                         if (resolved is CssLengthValue w)
                         {
@@ -266,7 +308,12 @@ public sealed class CssStyleSheet : StyleSheet
             Opacity = opacity,
             Width = width,
             Height = height,
-            Cursor = cursor
+            Cursor = cursor,
+            OverflowX = overflowX,
+            OverflowY = overflowY,
+            ScrollbarThumbColor = scrollbarThumbColor,
+            ScrollbarTrackColor = scrollbarTrackColor,
+            ScrollbarWidth = scrollbarWidth
         };
         return cssStyle;
     }

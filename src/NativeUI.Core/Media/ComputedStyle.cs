@@ -80,6 +80,49 @@ public sealed record ComputedStyle
     public Cursor Cursor { get; init; } = Cursor.Default;
 
     /// <summary>
+    /// Gets the specified horizontal overflow, or <see langword="null"/> when none is specified.
+    /// </summary>
+    public Overflow? OverflowX { get; init; }
+
+    /// <summary>
+    /// Gets the specified vertical overflow, or <see langword="null"/> when none is specified.
+    /// </summary>
+    public Overflow? OverflowY { get; init; }
+
+    /// <summary>
+    /// Gets the inherited scrollbar thumb color, or <see langword="null"/> for the platform default.
+    /// </summary>
+    public Color? ScrollbarThumbColor { get; init; }
+
+    /// <summary>
+    /// Gets the inherited scrollbar track color, or <see langword="null"/> for the platform default.
+    /// </summary>
+    public Color? ScrollbarTrackColor { get; init; }
+
+    /// <summary>
+    /// Gets the scrollbar thickness, which is not inherited.
+    /// </summary>
+    public ScrollbarWidth ScrollbarWidth { get; init; } = ScrollbarWidth.Auto;
+
+    /// <summary>
+    /// Gets a value indicating whether content is clipped to the element's bounds.
+    /// As in CSS, a non-visible overflow on either axis clips both.
+    /// </summary>
+    public bool ClipsOverflow => OverflowX is not (null or Overflow.Visible) || OverflowY is not (null or Overflow.Visible);
+
+    /// <summary>
+    /// Gets a value indicating whether the user can scroll horizontally. As in CSS, a visible axis computes to
+    /// <see cref="Overflow.Auto"/> when the other axis clips.
+    /// </summary>
+    public bool IsUserScrollableX => ClipsOverflow && OverflowX is not Overflow.Hidden;
+
+    /// <summary>
+    /// Gets a value indicating whether the user can scroll vertically. As in CSS, a visible axis computes to
+    /// <see cref="Overflow.Auto"/> when the other axis clips.
+    /// </summary>
+    public bool IsUserScrollableY => ClipsOverflow && OverflowY is not Overflow.Hidden;
+
+    /// <summary>
     /// Creates an element's initial style by inheriting text properties from its parent.
     /// Box geometry, background, and opacity start at their initial values.
     /// </summary>
@@ -98,15 +141,17 @@ public sealed record ComputedStyle
             FontWeight = parent.FontWeight,
             FontFamily = parent.FontFamily,
             TextAlign = parent.TextAlign,
-            Cursor = parent.Cursor
+            Cursor = parent.Cursor,
+            ScrollbarThumbColor = parent.ScrollbarThumbColor,
+            ScrollbarTrackColor = parent.ScrollbarTrackColor
         };
     }
 
     /// <summary>
-    /// Applies the sizing values of a control's default style to the sizes that no stylesheet specified.
+    /// Applies the sizing and overflow values of a control's default style where no stylesheet specified them.
     /// </summary>
     /// <param name="defaultStyle">The control's default style, or <see langword="null"/> when it has none.</param>
-    public ComputedStyle ApplySizingDefaults(IStyle? defaultStyle)
+    public ComputedStyle ApplyDefaults(IStyle? defaultStyle)
     {
         if (defaultStyle is null)
         {
@@ -116,7 +161,9 @@ public sealed record ComputedStyle
         return this with
         {
             Width = Width ?? defaultStyle.Width,
-            Height = Height ?? defaultStyle.Height
+            Height = Height ?? defaultStyle.Height,
+            OverflowX = OverflowX ?? defaultStyle.OverflowX,
+            OverflowY = OverflowY ?? defaultStyle.OverflowY
         };
     }
 
@@ -147,7 +194,12 @@ public sealed record ComputedStyle
             Opacity = inlineStyle.Opacity is double opacity ? Math.Clamp(opacity, 0.0, 1.0) : Opacity,
             Width = inlineStyle.Width ?? Width,
             Height = inlineStyle.Height ?? Height,
-            Cursor = inlineStyle.Cursor ?? Cursor
+            Cursor = inlineStyle.Cursor ?? Cursor,
+            OverflowX = inlineStyle.OverflowX ?? OverflowX,
+            OverflowY = inlineStyle.OverflowY ?? OverflowY,
+            ScrollbarThumbColor = ResolveColor(inlineStyle.ScrollbarThumbColor, ScrollbarThumbColor, resolver, element),
+            ScrollbarTrackColor = ResolveColor(inlineStyle.ScrollbarTrackColor, ScrollbarTrackColor, resolver, element),
+            ScrollbarWidth = inlineStyle.ScrollbarWidth ?? ScrollbarWidth
         };
     }
 

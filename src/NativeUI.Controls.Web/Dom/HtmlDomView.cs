@@ -3,6 +3,7 @@ using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 using NativeUI.Core;
 using NativeUI.Css;
+using NativeUI.Layout;
 using NativeUI.Styling;
 
 namespace NativeUI.Controls.Web;
@@ -11,7 +12,7 @@ namespace NativeUI.Controls.Web;
 /// Synchronizes a view with a div element and owns the DOM elements for its children.
 /// </summary>
 [SupportedOSPlatform("browser")]
-public class HtmlDomView : HtmlDomElement
+public class HtmlDomView : HtmlDomElement, IScrollPeer
 {
     private static int s_lastViewScopeId;
 
@@ -50,9 +51,38 @@ public class HtmlDomView : HtmlDomElement
     }
 
     /// <inheritdoc />
+    void IScrollPeer.ScrollTo(double x, double y)
+    {
+        if (Element is JSObject element)
+        {
+            DomInterop.ScrollTo(element, x, y);
+        }
+    }
+
+    /// <inheritdoc />
+    ScrollMetrics? IScrollPeer.GetScrollMetrics()
+    {
+        if (Element is not JSObject element)
+        {
+            return null;
+        }
+
+        using JSObject metrics = DomInterop.GetScrollMetrics(element);
+        return new ScrollMetrics(
+            new Point(metrics.GetPropertyAsDouble("scrollLeft"), metrics.GetPropertyAsDouble("scrollTop")),
+            new Size(metrics.GetPropertyAsDouble("scrollWidth"), metrics.GetPropertyAsDouble("scrollHeight")),
+            new Size(metrics.GetPropertyAsDouble("clientWidth"), metrics.GetPropertyAsDouble("clientHeight")));
+    }
+
+    /// <inheritdoc />
     protected override void Initialize()
     {
         base.Initialize();
+        if (_view is ScrollView)
+        {
+            SetAttribute(StyleSheetCss.ScrollViewAttribute, string.Empty);
+        }
+
         UpdateStyleSheet();
         SubscribeToChildren();
         SynchronizeChildren();

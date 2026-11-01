@@ -67,6 +67,9 @@ internal static class CssValueSyntaxBuilder
             "opacity" => TryBuildOpacitySyntax(valueNode, out expression),
             "font-family" => TryBuildFontFamilySyntax(valueNode, out expression),
             "cursor" => TryBuildCursorSyntax(valueNode, out expression),
+            "overflow" or "overflow-x" or "overflow-y" => TryBuildOverflowSyntax(valueNode, out expression),
+            "scrollbar-color" => TryBuildScrollbarColorSyntax(valueNode, out expression),
+            "scrollbar-width" => TryBuildScrollbarWidthSyntax(valueNode, out expression),
             _ => false
         };
     }
@@ -337,6 +340,79 @@ internal static class CssValueSyntaxBuilder
 
         expression = null;
         return false;
+    }
+
+    private static bool TryBuildScrollbarColorSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        expression = null;
+        if (node is CssKeywordValueNode { Keyword: var keyword } &&
+            string.Equals(keyword, "auto", StringComparison.OrdinalIgnoreCase))
+        {
+            ExpressionSyntax none = LiteralExpression(SyntaxKind.NullLiteralExpression);
+            expression = BuildNewCssValue("CssScrollbarColorValue", none, none);
+            return true;
+        }
+
+        if (node is CssValueListNode { Items.Count: 2 } list &&
+            TryBuildValueExpression("color", list.Items[0], out ExpressionSyntax? thumb, out _) && thumb is not null &&
+            TryBuildValueExpression("color", list.Items[1], out ExpressionSyntax? track, out _) && track is not null)
+        {
+            expression = BuildNewCssValue("CssScrollbarColorValue", thumb, track);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryBuildScrollbarWidthSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        expression = null;
+        if (node is not CssKeywordValueNode keyword)
+        {
+            return false;
+        }
+
+        string? width = keyword.Keyword.ToLowerInvariant() switch
+        {
+            "auto" => "Auto",
+            "thin" => "Thin",
+            "none" => "None",
+            _ => null
+        };
+
+        if (width is null)
+        {
+            return false;
+        }
+
+        expression = BuildNewCssValue("CssScrollbarWidthValue", BuildEnumMember("ScrollbarWidth", width));
+        return true;
+    }
+
+    private static bool TryBuildOverflowSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        expression = null;
+        if (node is not CssKeywordValueNode keyword)
+        {
+            return false;
+        }
+
+        string? overflow = keyword.Keyword.ToLowerInvariant() switch
+        {
+            "visible" => "Visible",
+            "hidden" => "Hidden",
+            "auto" => "Auto",
+            "scroll" => "Scroll",
+            _ => null
+        };
+
+        if (overflow is null)
+        {
+            return false;
+        }
+
+        expression = BuildNewCssValue("CssOverflowValue", BuildEnumMember("Overflow", overflow));
+        return true;
     }
 
     private static bool TryBuildCursorSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)

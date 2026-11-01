@@ -13,6 +13,8 @@ namespace NativeUI.Controls.MacOS;
 /// </summary>
 internal static partial class AppKitInterop
 {
+    private const double WheelLineHeight = 16;
+
     private const string ObjCLib = "/usr/lib/libobjc.A.dylib";
     private const string AppKitFramework = "/System/Library/Frameworks/AppKit.framework/AppKit";
     private const string FoundationFramework = "/System/Library/Frameworks/Foundation.framework/Foundation";
@@ -119,6 +121,9 @@ internal static partial class AppKitInterop
     public static partial nint SendMessage(nint receiver, nint selector);
 
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    public static partial double SendMessageDouble(nint receiver, nint selector);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
     public static partial nint SendMessage(nint receiver, nint selector, nint arg1);
 
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
@@ -209,6 +214,7 @@ internal static partial class AppKitInterop
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> mouseUpPtr = &OnMouseUp;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> mouseMovedPtr = &OnMouseMoved;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> mouseExitedPtr = &OnMouseExited;
+        delegate* unmanaged[Cdecl]<nint, nint, nint, void> scrollWheelPtr = &OnScrollWheel;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> cursorUpdatePtr = &OnCursorUpdate;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> windowDidResignKeyPtr = &OnWindowDidResignKey;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> windowDidResizePtr = &OnWindowDidResize;
@@ -222,6 +228,7 @@ internal static partial class AppKitInterop
         _ = ClassAddMethod(subClass, GetSelector("mouseMoved:"), (nint)mouseMovedPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("mouseEntered:"), (nint)mouseMovedPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("mouseExited:"), (nint)mouseExitedPtr, "v@:@");
+        _ = ClassAddMethod(subClass, GetSelector("scrollWheel:"), (nint)scrollWheelPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("cursorUpdate:"), (nint)cursorUpdatePtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("nativeUIWindowDidResignKey:"), (nint)windowDidResignKeyPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("nativeUIWindowDidResize:"), (nint)windowDidResizePtr, "v@:@");
@@ -446,6 +453,26 @@ internal static partial class AppKitInterop
         {
             window.HandlePointerExited();
         }
+    }
+
+    /// <summary>
+    /// Forwards wheel and trackpad scrolling. AppKit reports the distance content moves, the inverse of the scroll offset,
+    /// and reports a wheel without precise deltas in lines.
+    /// </summary>
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnScrollWheel(nint self, nint cmd, nint nsEvent)
+    {
+        if (!s_viewToWindow.TryGetValue(self, out Window? window) || nsEvent == nint.Zero)
+        {
+            return;
+        }
+
+        bool hasPreciseDeltas = (SendMessage(nsEvent, GetSelector("hasPreciseScrollingDeltas")) & 0xFF) != 0;
+        double scale = hasPreciseDeltas ? 1.0 : WheelLineHeight;
+        window.HandlePointerWheel(
+            GetTopDownPoint(self, nsEvent),
+            -SendMessageDouble(nsEvent, GetSelector("scrollingDeltaX")) * scale,
+            -SendMessageDouble(nsEvent, GetSelector("scrollingDeltaY")) * scale);
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]

@@ -28,8 +28,44 @@ internal static class StyleCssDeclarations
             ("opacity", style?.Opacity is double opacity ? Math.Clamp(opacity, 0, 1).ToString("R", CultureInfo.InvariantCulture) : null),
             ("width", FormatWidth(style?.Width)),
             ("height", FormatLength(style?.Height)),
-            ("cursor", FormatCursor(style?.Cursor))
+            ("cursor", FormatCursor(style?.Cursor)),
+            ("overflow-x", FormatOverflow(style?.OverflowX)),
+            ("overflow-y", FormatOverflow(style?.OverflowY)),
+            ("scrollbar-color", FormatScrollbarColor(style)),
+            ("scrollbar-width", FormatScrollbarWidth(style?.ScrollbarWidth))
         ];
+    }
+
+    /// <summary>
+    /// Formats the CSS property, which requires both colors. An unspecified track is transparent.
+    /// </summary>
+    private static string? FormatScrollbarColor(IStyle? style)
+    {
+        string? thumb = FormatColor(style?.ScrollbarThumbColor);
+        return thumb is null ? null : $"{thumb} {FormatColor(style?.ScrollbarTrackColor) ?? "transparent"}";
+    }
+
+    private static string? FormatScrollbarWidth(ScrollbarWidth? width)
+    {
+        return width switch
+        {
+            ScrollbarWidth.Auto => "auto",
+            ScrollbarWidth.Thin => "thin",
+            ScrollbarWidth.None => "none",
+            _ => null
+        };
+    }
+
+    private static string? FormatOverflow(Overflow? overflow)
+    {
+        return overflow switch
+        {
+            Overflow.Visible => "visible",
+            Overflow.Hidden => "hidden",
+            Overflow.Auto => "auto",
+            Overflow.Scroll => "scroll",
+            _ => null
+        };
     }
 
     private static string? FormatCursor(Cursor? cursor)

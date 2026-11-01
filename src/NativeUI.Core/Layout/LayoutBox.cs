@@ -59,4 +59,18 @@ public sealed class LayoutBox
         Children = children;
         TextLayout = textLayout;
     }
+
+    /// <summary>
+    /// Returns a copy of this box and its descendants moved by the given distance, sharing their text layouts.
+    /// </summary>
+    public LayoutBox Translated(double deltaX, double deltaY)
+    {
+        return new LayoutBox(
+            Element,
+            Style,
+            BorderBox with { X = BorderBox.X + deltaX, Y = BorderBox.Y + deltaY },
+            ContentBox with { X = ContentBox.X + deltaX, Y = ContentBox.Y + deltaY },
+            Children.Select(child => child.Translated(deltaX, deltaY)).ToList(),
+            TextLayout);
+    }
 }

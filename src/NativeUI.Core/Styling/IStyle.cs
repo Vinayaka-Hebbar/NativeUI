@@ -45,4 +45,19 @@ public interface IStyle
 
     /// <summary>Gets the specified pointer cursor appearance.</summary>
     Cursor? Cursor { get; }
+
+    /// <summary>Gets the specified horizontal overflow behavior.</summary>
+    Overflow? OverflowX { get; }
+
+    /// <summary>Gets the specified vertical overflow behavior.</summary>
+    Overflow? OverflowY { get; }
+
+    /// <summary>Gets the specified scrollbar thumb color.</summary>
+    ThemeValue<Color>? ScrollbarThumbColor { get; }
+
+    /// <summary>Gets the specified scrollbar track color, which applies only with <see cref="ScrollbarThumbColor"/>.</summary>
+    ThemeValue<Color>? ScrollbarTrackColor { get; }
+
+    /// <summary>Gets the specified scrollbar thickness.</summary>
+    ScrollbarWidth? ScrollbarWidth { get; }
 }

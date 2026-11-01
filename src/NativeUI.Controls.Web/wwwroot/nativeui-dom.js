@@ -15,6 +15,14 @@
  */
 
 /**
+ * Receives the identifier of each scrolled element.
+ *
+ * @callback ScrollDispatcher
+ * @param {number} nodeId The identifier of the scrolled element.
+ * @returns {void}
+ */
+
+/**
  * Receives each forwarded pointer event in order.
  *
  * @callback PointerDispatcher
@@ -123,8 +131,24 @@ class NativeUIRoot extends HTMLElement {
   /** @type {PointerDispatcher | null} */
   pointerDispatcher = null;
 
+  /** @type {ScrollDispatcher | null} */
+  scrollDispatcher = null;
+
   /**
-   * Adds the delegated pointer listeners.
+   * Forwards a scroll of an attached descendant. Scroll events do not bubble, so this listens during capture.
+   *
+   * @param {Event} event The native event.
+   * @returns {void}
+   */
+  #handleScroll = (event) => {
+    const nodeId = nodeIds.get(/** @type {Node} */ (event.target));
+    if (nodeId !== undefined) {
+      this.scrollDispatcher?.(nodeId);
+    }
+  };
+
+  /**
+   * Adds the delegated pointer and scroll listeners.
    *
    * @returns {void}
    */
@@ -133,6 +157,7 @@ class NativeUIRoot extends HTMLElement {
       return;
     }
 
+    this.addEventListener("scroll", this.#handleScroll, { capture: true, passive: true });
     this.#pointerHandler = (event) =>
       this.#handlePointerEvent(/** @type {MouseEvent} */ (event));
     for (const type of Object.keys(Pointer.NativeKinds)) {
@@ -141,7 +166,7 @@ class NativeUIRoot extends HTMLElement {
   }
 
   /**
-   * Removes the delegated pointer listeners and discards events that have not been forwarded.
+   * Removes the delegated pointer and scroll listeners and discards events that have not been forwarded.
    *
    * @returns {void}
    */
@@ -154,6 +179,7 @@ class NativeUIRoot extends HTMLElement {
       this.removeEventListener(type, this.#pointerHandler);
     }
 
+    this.removeEventListener("scroll", this.#handleScroll, { capture: true });
     cancelAnimationFrame(this.#frame);
     this.#frame = 0;
     this.#pending.length = 0;
@@ -254,6 +280,46 @@ export const nativeui = {
    */
   setPointerDispatcher(root, dispatch) {
     root.pointerDispatcher = dispatch;
+  },
+
+  /**
+   * Sets the callback that a `native-ui` element invokes with the identifier of each scrolled descendant.
+   *
+   * @param {NativeUIRoot} root The `native-ui` element.
+   * @param {ScrollDispatcher} dispatch The callback.
+   * @returns {void}
+   */
+  setScrollDispatcher(root, dispatch) {
+    root.scrollDispatcher = dispatch;
+  },
+
+  /**
+   * Scrolls an element to the given offset, which the browser limits to the scrollable range.
+   *
+   * @param {Element} element The element.
+   * @param {number} x The horizontal offset.
+   * @param {number} y The vertical offset.
+   * @returns {void}
+   */
+  scrollTo(element, x, y) {
+    element.scrollTo(x, y);
+  },
+
+  /**
+   * Reads the scroll state of an element.
+   *
+   * @param {Element} element The element.
+   * @returns {{scrollLeft: number, scrollTop: number, scrollWidth: number, scrollHeight: number, clientWidth: number, clientHeight: number}} The scroll state.
+   */
+  getScrollMetrics(element) {
+    return {
+      scrollLeft: element.scrollLeft,
+      scrollTop: element.scrollTop,
+      scrollWidth: element.scrollWidth,
+      scrollHeight: element.scrollHeight,
+      clientWidth: element.clientWidth,
+      clientHeight: element.clientHeight,
+    };
   },
 
   /**
