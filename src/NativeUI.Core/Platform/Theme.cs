@@ -1,12 +1,12 @@
 namespace NativeUI.Core;
 
 /// <summary>
-/// Specifies the appearance theme for an application, window, or visual subtree.
+/// Specifies the appearance theme of an <see cref="Application"/>.
 /// </summary>
 public enum Theme
 {
     /// <summary>
-    /// Inherits the theme from the parent element or system platform settings.
+    /// Follows the theme reported by the operating system or browser.
     /// </summary>
     Default,
 

@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using NativeUI.Controls;
 using NativeUI.Controls.MacOS;
+using NativeUI.Controls.Tests;
 using NativeUI.Core;
 using NativeUI.Css;
 using NativeUI.Graphics.Skia;
@@ -11,7 +12,7 @@ using NativeUI.Tests;
 
 int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
 [
-    ("Control supports CSS Class styling, inline C# Style overrides, and Theme/ActualTheme inheritance", TestClassAndInlineStyleSystem),
+    ("Control supports CSS Class styling, inline C# Style overrides, and application theme changes", TestClassAndInlineStyleSystem),
     ("Desktop LayoutEngine and SkiaSurface render HelloView and re-render on ViewModel change", TestDesktopSkiaRenderingAndBindingUpdate),
     ("HarfBuzz SkiaTextShaper and SkiaTextLayout support hit-testing, word boundaries, wrapped selection rects, and disposal", TestHarfBuzzTextShapingAndHitTesting),
     ("Selection follows font bounds with balanced line spacing and accurate cluster hit-testing", NativeUI.Controls.Tests.SelectionGeometryTests.Verify),
@@ -45,7 +46,8 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("Replacing or removing View stylesheet recomputes subtree and avoids redundant invalidation", NativeUI.Controls.Tests.ViewStyleSheetTests.VerifyStyleSheetReplacementAndRemoval),
     ("Button width fits its text while Text fills the available width", NativeUI.Controls.Tests.ButtonTests.VerifyLayoutFitsText),
     ("Fit-content width covers children and wrapping, and yields to an explicit width", NativeUI.Controls.Tests.ButtonTests.VerifyFitContentWidth),
-    ("ActualThemeChanged is raised only when the effective theme changes", NativeUI.Controls.Tests.ButtonTests.VerifyActualThemeChangedFollowsEffectiveTheme),
+    ("Application exposes a View as its MainView through IView", NativeUI.Controls.Tests.ApplicationTests.VerifyMainView),
+    ("A compiled binding follows Application.CurrentTheme", NativeUI.Controls.Tests.ApplicationTests.VerifyCurrentThemeBinding),
     ("Button pointer pressed and release lifecycle raises Click event", NativeUI.Controls.Tests.ButtonTests.VerifyPointerLifecycleAndClick),
     ("Button pointer exit cancels pressed state without click", NativeUI.Controls.Tests.ButtonTests.VerifyPointerExitCancelsPressed),
     ("Button executes command and synchronizes IsEnabled with CanExecute", NativeUI.Controls.Tests.ButtonTests.VerifyCommandExecutionAndCanExecute),
@@ -96,9 +98,9 @@ static void TestClassAndInlineStyleSystem()
     styledBadge.Style.BorderRadius = 10;
     Assert.Equal(10.0, styledBadge.ComputedStyle.BorderRadius);
 
-    // Setting Theme on parent View propagates ActualTheme to children and re-evaluates @media (prefers-color-scheme: dark)
-    view.Theme = Theme.Light;
-    Assert.Equal(Theme.Light, view.TitleText.ActualTheme);
+    // Changing the application theme re-evaluates @media (prefers-color-scheme: dark)
+    using TestTheme testTheme = new();
+    testTheme.Apply(view, Theme.Light);
     Color? lightTitleColor = view.TitleText.ComputedStyle.TextColor;
     IUIElement element = view.TitleText;
     ThemeValue<Color> textColorToken = new("--color-text");
@@ -107,8 +109,7 @@ static void TestClassAndInlineStyleSystem()
     Assert.Equal(beforeResolution, CssStyleResolver.Instance.ResolveStyle(element));
     Assert.Same(beforeResolution, element.ComputedStyle);
 
-    view.Theme = Theme.Dark;
-    Assert.Equal(Theme.Dark, view.TitleText.ActualTheme);
+    testTheme.Apply(view, Theme.Dark);
     Color? darkTitleColor = view.TitleText.ComputedStyle.TextColor;
     Assert.Equal(darkTitleColor, CssStyleResolver.Instance.ResolveColor(textColorToken, element));
 

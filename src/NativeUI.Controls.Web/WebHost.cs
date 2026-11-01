@@ -1,3 +1,5 @@
+using NativeUI.Core;
+
 namespace NativeUI.Controls.Web;
 
 /// <summary>
@@ -16,6 +18,11 @@ public static class WebHost
         if (!OperatingSystem.IsBrowser())
         {
             throw new PlatformNotSupportedException("Run this application with the WebAssembly SDK in a browser.");
+        }
+
+        if (Application.Current is not WebApplication)
+        {
+            _ = new WebApplication { MainView = root as IView };
         }
 
         HtmlDomRoot domRoot = new();

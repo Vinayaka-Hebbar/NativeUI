@@ -6,8 +6,8 @@ using NativeUI.Styling;
 namespace NativeUI.Controls;
 
 /// <summary>
-/// Base class for all visual elements in NativeUI, participating in visual-tree <see cref="Core.Theme"/>
-/// and <see cref="IStyleResolver"/> inheritance, inline C# <see cref="Controls.Style"/>, desktop layout/rendering,
+/// Base class for all visual elements in NativeUI, participating in visual-tree
+/// <see cref="IStyleResolver"/> inheritance, inline C# <see cref="Controls.Style"/>, desktop layout/rendering,
 /// and Web DOM synchronization.
 /// </summary>
 public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
@@ -17,7 +17,6 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     private SelectionStyle _selectionStyle = SelectionStyle.Default;
     private Theme _computedTheme = Theme.Light;
     private UIElement? _parent;
-    private Theme _inheritedTheme = Theme.Light;
     private IStyleResolver? _styleResolver;
     private Dictionary<RoutedEvent, RoutedHandler[]>? _routedHandlers;
 
@@ -94,23 +93,9 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
             propertyChanged: static (owner, oldStyle, newStyle) => owner.OnInlineStyleReplaced(oldStyle, newStyle));
 
     /// <summary>
-    /// Identifies the <see cref="Theme"/> bindable property.
-    /// </summary>
-    public static readonly BindableProperty<Theme> ThemeProperty =
-        BindableProperty.Create<UIElement, Theme>(
-            nameof(Theme),
-            defaultValue: Theme.Default,
-            propertyChanged: static (owner, _, _) => owner.UpdateInheritedProperties());
-
-    /// <summary>
     /// Occurs whenever a visual property or computed style on this element changes.
     /// </summary>
     public event EventHandler? VisualInvalidated;
-
-    /// <summary>
-    /// Occurs after <see cref="ActualTheme"/> changes and this element's style reflects the new theme.
-    /// </summary>
-    public event EventHandler? ActualThemeChanged;
 
     /// <summary>
     /// Occurs when a pointer button is pressed over this element or one of its descendants.
@@ -212,21 +197,6 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         set => SetValue(StyleProperty, value);
     }
 
-    /// <summary>
-    /// Gets or sets the theme explicitly requested on this element (<see cref="Theme.Default"/> inherits from parent/host).
-    /// </summary>
-    public Theme Theme
-    {
-        get => GetValue(ThemeProperty);
-        set => SetValue(ThemeProperty, value);
-    }
-
-    /// <summary>
-    /// Gets the effective <see cref="Core.Theme"/> (<see cref="Theme.Light"/> or <see cref="Theme.Dark"/>)
-    /// resolved from <see cref="Theme"/> or inherited from the parent/host.
-    /// </summary>
-    public Theme ActualTheme => Theme != Theme.Default ? Theme : _inheritedTheme;
-
     /// <inheritdoc />
     public virtual double? FontSize => ComputedStyle.FontSize;
 
@@ -317,13 +287,13 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
 
     /// <summary>
     /// Recomputes the element's <see cref="ComputedStyle"/> and <see cref="SelectionStyle"/> using its effective
-    /// <see cref="StyleResolver"/>, <see cref="ActualTheme"/>, and inline <see cref="Style"/> overrides.
+    /// <see cref="StyleResolver"/>, <see cref="Application.CurrentTheme"/>, and inline <see cref="Style"/> overrides.
     /// </summary>
     public virtual void RecomputeStyle()
     {
         ComputedStyle computedStyle = ResolveComputedStyle();
         SelectionStyle selectionStyle = ResolveSelectionStyle();
-        UpdateComputedStyle(computedStyle, selectionStyle, ActualTheme);
+        UpdateComputedStyle(computedStyle, selectionStyle, Application.Current.CurrentTheme);
     }
 
     /// <summary>
@@ -402,16 +372,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     protected virtual void OnParentChanged()
     {
         SetInheritedDataContext(_parent?.DataContext);
-        UpdateInheritedProperties();
-    }
-
-    /// <summary>
-    /// Sets the inherited <paramref name="theme"/> from a platform host when this element is the root of a window.
-    /// </summary>
-    protected internal void SetInheritedTheme(Theme theme)
-    {
-        _inheritedTheme = theme != Theme.Default ? theme : Theme.Light;
-        UpdateInheritedProperties();
+        InvalidateStyle();
     }
 
     /// <summary>
@@ -508,28 +469,10 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
             return;
         }
 
-        bool themeChanged = _computedTheme != theme;
         _computedStyle = computedStyle;
         _selectionStyle = selectionStyle;
         _computedTheme = theme;
         InvalidateVisual();
-        if (themeChanged)
-        {
-            ActualThemeChanged?.Invoke(this, EventArgs.Empty);
-        }
-    }
-
-    /// <summary>
-    /// Updates properties inherited from ancestor elements (such as effective theme) and invalidates styles.
-    /// </summary>
-    protected internal virtual void UpdateInheritedProperties()
-    {
-        if (_parent is not null)
-        {
-            _inheritedTheme = _parent.ActualTheme;
-        }
-
-        InvalidateStyle();
     }
 
     private string FindScopeTypeName()

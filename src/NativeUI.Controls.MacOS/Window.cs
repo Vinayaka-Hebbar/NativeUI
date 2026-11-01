@@ -11,7 +11,7 @@ namespace NativeUI.Controls.MacOS;
 
 /// <summary>
 /// Represents a native macOS desktop window that hosts a <see cref="UIElement"/> hierarchy,
-/// propagates <see cref="ActualTheme"/> and <see cref="StyleResolver"/>, routes mouse/keyboard text selection
+/// follows <see cref="Application.CurrentTheme"/>, propagates <see cref="StyleResolver"/>, routes mouse/keyboard text selection
 /// and clipboard operations, and renders its visual tree using <see cref="VisualTreeRenderer"/> and <see cref="SkiaSurface"/>.
 /// </summary>
 public sealed class Window : IDisposable
@@ -25,10 +25,8 @@ public sealed class Window : IDisposable
 
     private readonly VisualTreeRenderer _renderer = new(SkiaTextShaper.Shared);
     private readonly PointerInputRouter _pointerRouter = new();
-    private readonly IPlatformSettings _platformSettings;
     private readonly IClipboard _clipboard;
     private UIElement? _content;
-    private Theme _theme = Theme.Default;
     private IStyleResolver? _styleResolver;
     private Color? _background;
     private nint _nsWindow;
@@ -48,13 +46,11 @@ public sealed class Window : IDisposable
     /// <summary>
     /// Initializes a new instance of the <see cref="Window"/> class.
     /// </summary>
-    /// <param name="platformSettings">Optional platform settings service; defaults to <see cref="MacOSPlatformSettings.Instance"/>.</param>
     /// <param name="clipboard">Optional clipboard service; defaults to <see cref="MacOSClipboard.Instance"/>.</param>
-    public Window(IPlatformSettings? platformSettings = null, IClipboard? clipboard = null)
+    public Window(IClipboard? clipboard = null)
     {
-        _platformSettings = platformSettings ?? MacOSPlatformSettings.Instance;
         _clipboard = clipboard ?? MacOSClipboard.Instance;
-        _platformSettings.ThemeChanged += OnPlatformThemeChanged;
+        Application.Current.CurrentThemeChanged += OnCurrentThemeChanged;
         HotReloadManager.HotReloaded += OnHotReloaded;
     }
 
@@ -96,30 +92,6 @@ public sealed class Window : IDisposable
     public float ScaleFactor { get; set; } = 2.0f;
 
     /// <summary>
-    /// Gets or sets the requested <see cref="Core.Theme"/> for this window (<see cref="Theme.Default"/> follows the OS appearance).
-    /// </summary>
-    public Theme Theme
-    {
-        get => _theme;
-        set
-        {
-            if (_theme == value)
-            {
-                return;
-            }
-
-            _theme = value;
-            SyncContentThemeAndStyle();
-            InvalidateFrame();
-        }
-    }
-
-    /// <summary>
-    /// Gets the resolved <see cref="Core.Theme"/> (<see cref="Theme.Light"/> or <see cref="Theme.Dark"/>) active in this window.
-    /// </summary>
-    public Theme ActualTheme => _theme != Theme.Default ? _theme : _platformSettings.GetSystemTheme();
-
-    /// <summary>
     /// Gets or sets the <see cref="IStyleResolver"/> propagated to the window's content tree.
     /// </summary>
     public IStyleResolver? StyleResolver
@@ -133,7 +105,7 @@ public sealed class Window : IDisposable
             }
 
             _styleResolver = value;
-            SyncContentThemeAndStyle();
+            SyncContentStyle();
             InvalidateFrame();
         }
     }
@@ -205,7 +177,7 @@ public sealed class Window : IDisposable
             _content = value;
             if (_content is not null)
             {
-                SyncContentThemeAndStyle();
+                SyncContentStyle();
                 _content.VisualInvalidated += OnContentVisualInvalidated;
             }
 
@@ -221,7 +193,7 @@ public sealed class Window : IDisposable
         if (OperatingSystem.IsMacOS() && _nsWindow == nint.Zero)
         {
             AppKitInterop.EnsureFrameworksLoaded();
-            SyncContentThemeAndStyle();
+            SyncContentStyle();
 
             AppKitInterop.CGRect rect = new(120, 120, Width, Height);
             ulong styleMask = StyleMaskTitled | StyleMaskClosable | StyleMaskMiniaturizable | StyleMaskResizable;
@@ -552,7 +524,7 @@ public sealed class Window : IDisposable
         }
 
         _disposed = true;
-        _platformSettings.ThemeChanged -= OnPlatformThemeChanged;
+        Application.Current.CurrentThemeChanged -= OnCurrentThemeChanged;
         HotReloadManager.HotReloaded -= OnHotReloaded;
 
         if (_nsImageView != nint.Zero)
@@ -680,7 +652,7 @@ public sealed class Window : IDisposable
         }
     }
 
-    private void SyncContentThemeAndStyle()
+    private void SyncContentStyle()
     {
         if (_content is null)
         {
@@ -692,17 +664,17 @@ public sealed class Window : IDisposable
             _content.StyleResolver = _styleResolver;
         }
 
-        _content.SetInheritedTheme(ActualTheme);
+        _content.InvalidateStyle();
     }
 
-    private void OnPlatformThemeChanged(object? sender, Theme newSystemTheme)
+    private void OnCurrentThemeChanged(object? sender, ThemeChangedEventArgs e)
     {
-        if (_disposed || _theme != Theme.Default)
+        if (_disposed)
         {
             return;
         }
 
-        SyncContentThemeAndStyle();
+        SyncContentStyle();
         InvalidateFrame();
     }
 
@@ -713,7 +685,7 @@ public sealed class Window : IDisposable
             return;
         }
 
-        SyncContentThemeAndStyle();
+        SyncContentStyle();
         InvalidateFrame();
     }
 

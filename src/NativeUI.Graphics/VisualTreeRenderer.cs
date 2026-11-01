@@ -218,7 +218,7 @@ public sealed class VisualTreeRenderer : IDisposable
 
         SelectionStyle selectionStyle = textControl.SelectionStyle;
         Color selectionBackground = selectionStyle.BackgroundColor
-            ?? (textControl.ActualTheme == Theme.Dark ? s_darkSelectionColor : s_lightSelectionColor);
+            ?? (Application.Current.CurrentTheme == Theme.Dark ? s_darkSelectionColor : s_lightSelectionColor);
         Paint selBgPaint = new(selectionBackground, textPaint.Opacity);
 
         context.Save();

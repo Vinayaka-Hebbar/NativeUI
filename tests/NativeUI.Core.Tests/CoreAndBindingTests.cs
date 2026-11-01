@@ -7,6 +7,7 @@ using NativeUI.Tests;
 
 int exitCode = TestRunner.RunSuite("NativeUI.Core.Tests",
 [
+    ("Application resolves CurrentTheme, raises changes once, and carries state to a replacement", TestApplicationTheme),
     ("Color spaces convert accurately across sRGB, HSL, Oklab, and Oklch", TestColorSpacesAndConversions),
     ("ThemeValue<T> supports literal values and CSS variable references", TestThemeValueAndCssVariables),
     ("BindableProperty<T> is primary type and BindableObject raises PropertyChanged", TestBindablePropertyAndPropertyChanged),
@@ -19,6 +20,67 @@ int exitCode = TestRunner.RunSuite("NativeUI.Core.Tests",
 ]);
 
 return exitCode;
+
+static void TestApplicationTheme()
+{
+    Application initial = Application.Current;
+    Assert.Equal(Theme.Default, initial.RequestedTheme);
+    Assert.Equal(Theme.Light, initial.CurrentTheme);
+
+    List<(Theme Old, Theme New)> changes = [];
+    initial.CurrentThemeChanged += (_, e) => changes.Add((e.OldTheme, e.NewTheme));
+    List<string?> properties = [];
+    initial.PropertyChanged += (_, e) => properties.Add(e.Property.Name);
+
+    initial.RequestedTheme = Theme.Dark;
+    initial.RequestedTheme = Theme.Dark;
+    Assert.Equal("CurrentTheme,RequestedTheme", string.Join(',', properties));
+    Assert.Equal(Theme.Dark, initial.CurrentTheme);
+    Assert.Equal(1, changes.Count);
+    Assert.Equal((Theme.Light, Theme.Dark), changes[0]);
+
+    initial.RequestedTheme = Theme.Default;
+    Assert.Equal(Theme.Light, initial.CurrentTheme);
+    Assert.Equal(2, changes.Count);
+
+    initial.RequestedTheme = Theme.Light;
+    SampleBindable boundToInitial = new() { DataContext = initial };
+    using IDisposable binding = boundToInitial.SetBinding(
+        SampleBindable.TextProperty,
+        new CompiledBinding<Application, string>(nameof(Application.CurrentTheme), static application => application.CurrentTheme.ToString()));
+    Assert.Equal("Light", boundToInitial.GetValue(SampleBindable.TextProperty));
+
+    FakeApplication replacement = new(Theme.Dark);
+    Assert.Same(replacement, Application.Current);
+    Assert.Equal(Theme.Light, replacement.RequestedTheme);
+    Assert.Equal(Theme.Light, replacement.CurrentTheme);
+
+    replacement.ChangeSystemTheme(Theme.Light);
+    replacement.ChangeSystemTheme(Theme.Dark);
+    Assert.Equal(Theme.Light, replacement.CurrentTheme);
+    Assert.Equal(2, changes.Count);
+
+    replacement.RequestedTheme = Theme.Default;
+    Assert.Equal(Theme.Dark, replacement.CurrentTheme);
+    Assert.Equal(3, changes.Count);
+    Assert.Equal((Theme.Light, Theme.Dark), changes[2]);
+
+    properties.Clear();
+    replacement.ChangeSystemTheme(Theme.Light);
+    Assert.Equal(Theme.Light, replacement.CurrentTheme);
+    Assert.Equal(4, changes.Count);
+    Assert.Equal("CurrentTheme", string.Join(',', properties));
+    Assert.Equal("Light", boundToInitial.GetValue(SampleBindable.TextProperty));
+
+    replacement.RequestedTheme = Theme.Dark;
+    Assert.Equal("Dark", boundToInitial.GetValue(SampleBindable.TextProperty));
+    Assert.Equal(Theme.Dark, initial.RequestedTheme);
+    Assert.Equal(replacement.Dispatcher, initial.Dispatcher);
+    FakeApplication darkSystem = new(Theme.Light);
+    Assert.Equal(Theme.Dark, darkSystem.CurrentTheme);
+    darkSystem.RequestedTheme = Theme.Default;
+    Assert.Equal(Theme.Light, darkSystem.CurrentTheme);
+}
 
 static void TestColorSpacesAndConversions()
 {
@@ -196,5 +258,24 @@ file sealed class SampleViewModel : ObservableObject
     {
         get => _title;
         set => SetProperty(ref _title, value);
+    }
+}
+
+sealed class FakeApplication : Application
+{
+    private Theme _systemTheme;
+
+    public FakeApplication(Theme systemTheme)
+    {
+        _systemTheme = systemTheme;
+        Current = this;
+    }
+
+    protected override Theme SystemTheme => _systemTheme;
+
+    public void ChangeSystemTheme(Theme systemTheme)
+    {
+        _systemTheme = systemTheme;
+        NotifySystemThemeChanged();
     }
 }

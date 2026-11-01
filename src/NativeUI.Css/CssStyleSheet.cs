@@ -54,7 +54,7 @@ public sealed class CssStyleSheet : StyleSheet
     /// <inheritdoc />
     public override Color? ResolveColor(ThemeValue<Color> colorValue, IUIElement element)
     {
-        CssColorSchemeCondition scheme = element.ActualTheme == Theme.Dark
+        CssColorSchemeCondition scheme = Application.Current.CurrentTheme == Theme.Dark
             ? CssColorSchemeCondition.Dark
             : CssColorSchemeCondition.Light;
         CssVariables variables = CreateScopedVariables(element, scheme);
@@ -102,7 +102,7 @@ public sealed class CssStyleSheet : StyleSheet
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        CssColorSchemeCondition colorScheme = element.ActualTheme == Theme.Dark
+        CssColorSchemeCondition colorScheme = Application.Current.CurrentTheme == Theme.Dark
             ? CssColorSchemeCondition.Dark
             : CssColorSchemeCondition.Light;
         List<(CssRule Rule, int Order)> matching = CollectMatchingRules(element, colorScheme, CssPseudoElement.None);
@@ -281,7 +281,7 @@ public sealed class CssStyleSheet : StyleSheet
         ArgumentNullException.ThrowIfNull(element);
 
         SelectionStyle inherited = element.Parent?.SelectionStyle ?? SelectionStyle.Default;
-        CssColorSchemeCondition colorScheme = element.ActualTheme == Theme.Dark
+        CssColorSchemeCondition colorScheme = Application.Current.CurrentTheme == Theme.Dark
             ? CssColorSchemeCondition.Dark
             : CssColorSchemeCondition.Light;
         List<(CssRule Rule, int Order)> selectionRules = CollectMatchingRules(element, colorScheme, CssPseudoElement.Selection);

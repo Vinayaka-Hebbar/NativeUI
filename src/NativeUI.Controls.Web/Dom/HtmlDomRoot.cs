@@ -63,12 +63,9 @@ internal sealed class HtmlDomRoot : IDisposable
     {
         try
         {
-            if (_root is not null)
-            {
-                _root.ActualThemeChanged -= OnActualThemeChanged;
-            }
+            Application.Current.CurrentThemeChanged -= OnCurrentThemeChanged;
 
-            // Disconnecting the native-ui element removes its pointer and color scheme listeners.
+            // Disconnecting the native-ui element removes its pointer listeners.
             if (_rootElement is not null)
             {
                 DomInterop.RemoveElement(_rootElement);
@@ -168,7 +165,7 @@ internal sealed class HtmlDomRoot : IDisposable
         {
             if (useBrowserInterop)
             {
-                OnColorSchemeChanged(DomInterop.PrefersDarkColorScheme());
+                root.InvalidateStyle();
                 DomInterop.InjectStyleSheet(StyleSheetCss.BaseStyleSheet.Id, StyleSheetCss.BaseStyleSheet.RawCss);
                 UpdateStyleSheet();
             }
@@ -180,8 +177,7 @@ internal sealed class HtmlDomRoot : IDisposable
                 _rootElement = DomInterop.CreateElement("native-ui");
                 DomInterop.SetAttribute(_rootElement, StyleSheetCss.ScopeAttribute, _scopeId.ToString(CultureInfo.InvariantCulture));
                 DomInterop.SetPointerDispatcher(_rootElement, OnPointerEvent);
-                DomInterop.SetColorSchemeDispatcher(_rootElement, OnColorSchemeChanged);
-                root.ActualThemeChanged += OnActualThemeChanged;
+                Application.Current.CurrentThemeChanged += OnCurrentThemeChanged;
                 UpdateThemeAttribute();
                 DomInterop.AppendChild(_rootElement, element);
                 DomInterop.AppendChild(_container, _rootElement);
@@ -214,25 +210,21 @@ internal sealed class HtmlDomRoot : IDisposable
         }
     }
 
-    private void OnColorSchemeChanged(bool prefersDark)
+    private void OnCurrentThemeChanged(object? sender, ThemeChangedEventArgs e)
     {
-        _root?.SetInheritedTheme(prefersDark ? Theme.Dark : Theme.Light);
-    }
-
-    private void OnActualThemeChanged(object? sender, EventArgs e)
-    {
+        _root?.InvalidateStyle();
         UpdateThemeAttribute();
     }
 
     /// <summary>
-    /// Sets <c>data-theme</c> on the <c>native-ui</c> element to the root's <see cref="UIElement.ActualTheme"/>.
+    /// Sets <c>data-theme</c> on the <c>native-ui</c> element to <see cref="Application.CurrentTheme"/>.
     /// Compiled color-scheme rules and the base stylesheet select this attribute.
     /// </summary>
     private void UpdateThemeAttribute()
     {
-        if (_root is not null && _rootElement is not null)
+        if (_rootElement is not null)
         {
-            DomInterop.SetAttribute(_rootElement, ThemeAttribute, _root.ActualTheme == Theme.Dark ? "dark" : "light");
+            DomInterop.SetAttribute(_rootElement, ThemeAttribute, Application.Current.CurrentTheme == Theme.Dark ? "dark" : "light");
         }
     }
 

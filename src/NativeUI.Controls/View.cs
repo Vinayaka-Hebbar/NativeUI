@@ -10,7 +10,7 @@ namespace NativeUI.Controls;
 /// Represents a composite view or container element that manages child <see cref="UIElement"/> instances,
 /// their parent-child relationships, <c>DataContext</c> and style invalidation propagation, and disposal lifecycle.
 /// </summary>
-public class View : UIElement
+public class View : UIElement, IView
 {
     /// <summary>
     /// Identifies the <see cref="StyleSheet"/> bindable property.
@@ -77,16 +77,6 @@ public class View : UIElement
         foreach (UIElement child in _children)
         {
             child.InvalidateStyle();
-        }
-    }
-
-    /// <inheritdoc />
-    protected internal override void UpdateInheritedProperties()
-    {
-        base.UpdateInheritedProperties();
-        foreach (UIElement child in _children)
-        {
-            child.UpdateInheritedProperties();
         }
     }
 

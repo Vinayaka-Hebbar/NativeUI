@@ -113,13 +113,10 @@ public static partial class DomInterop
     public static partial void SetNodeId(JSObject element, int nodeId);
 
     /// <summary>
-    /// Sets the callback that a <c>native-ui</c> element invokes when the browser's color scheme preference changes,
-    /// with <see langword="true"/> for dark. The element observes the preference only while connected.
+    /// Invokes <paramref name="dispatch"/> whenever the browser's color scheme preference changes, for the application's lifetime.
     /// </summary>
-    [JSImport("nativeui.setColorSchemeDispatcher", "nativeui-dom")]
-    public static partial void SetColorSchemeDispatcher(
-        JSObject root,
-        [JSMarshalAs<JSType.Function<JSType.Boolean>>] Action<bool> dispatch);
+    [JSImport("nativeui.observeColorScheme", "nativeui-dom")]
+    public static partial void ObserveColorScheme([JSMarshalAs<JSType.Function>] Action dispatch);
 
     /// <summary>
     /// Gets whether the browser reports a dark color scheme preference.

@@ -46,7 +46,7 @@ public sealed class CssStyleResolver : IStyleResolver
         CssStyleSheet? sheet = ResolveSheet(element.StyleSheetId);
         if (sheet is not null)
         {
-            CssColorSchemeCondition scheme = ToColorSchemeCondition(element.ActualTheme);
+            CssColorSchemeCondition scheme = ToColorSchemeCondition(Application.Current.CurrentTheme);
             CssVariables variables = sheet.CreateScopedVariables(element, scheme);
             return variables.ResolveColor(colorValue);
         }

@@ -151,10 +151,10 @@ internal static class StyleResolutionTests
         Assert.Equal(22.0, child.ComputedStyle.FontSize);
 
         ComputedStyle beforeThemeChange = child.ComputedStyle;
-        parent.Theme = Theme.Dark;
+        using TestTheme testTheme = new();
+        testTheme.Apply(parent, Theme.Dark);
         Assert.Equal(beforeThemeChange, child.ComputedStyle);
         Assert.Equal(2, childInvalidations);
-        Assert.Equal(Theme.Dark, child.ActualTheme);
     }
 
     internal static void VerifyRootRuleMatching()
@@ -178,11 +178,12 @@ internal static class StyleResolutionTests
             })
         ]));
 
-        using RootRuleView root = new() { Theme = Theme.Light };
+        using RootRuleView root = new();
         Text child = new() { Class = "uses-accent" };
         Text plain = new();
         root.Children.Add(child);
         root.Children.Add(plain);
+        root.InvalidateStyle();
 
         Assert.Equal<Color?>(Colors.Green, root.ComputedStyle.BackgroundColor);
         Assert.Equal<Color?>(Colors.Blue, root.ComputedStyle.TextColor);
@@ -190,7 +191,8 @@ internal static class StyleResolutionTests
         Assert.Equal<Color?>(null, plain.ComputedStyle.BackgroundColor);
         Assert.Equal<Color?>(Colors.Green, child.ComputedStyle.BackgroundColor);
 
-        root.Theme = Theme.Dark;
+        using TestTheme testTheme = new();
+        testTheme.Apply(root, Theme.Dark);
         Assert.Equal<Color?>(Colors.White, root.ComputedStyle.TextColor);
     }
 

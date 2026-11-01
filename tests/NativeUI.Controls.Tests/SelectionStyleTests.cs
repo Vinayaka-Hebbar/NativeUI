@@ -78,9 +78,10 @@ internal static class SelectionStyleTests
         Assert.Equal<Color?>(null, child.ComputedStyle.TextColor);
         Assert.Equal<Color?>(null, child.ComputedStyle.BackgroundColor);
 
-        parent.Theme = Theme.Light;
+        using TestTheme testTheme = new();
+        testTheme.Apply(parent, Theme.Light);
         Assert.Equal<Color?>(Colors.Black, themed.SelectionStyle.TextColor);
-        parent.Theme = Theme.Dark;
+        testTheme.Apply(parent, Theme.Dark);
         Assert.Equal<Color?>(Colors.White, themed.SelectionStyle.TextColor);
     }
 

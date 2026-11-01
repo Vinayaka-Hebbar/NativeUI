@@ -1,5 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using NativeUI.Core;
+using ObservableObject = CommunityToolkit.Mvvm.ComponentModel.ObservableObject;
 
 namespace NativeUI.Sample;
 
@@ -28,14 +30,23 @@ public partial class HelloViewModel : ObservableObject
     private bool _isDarkMode;
 
     /// <summary>
-    /// Occurs when the user requests a theme toggle.
+    /// Initializes a new instance of the <see cref="HelloViewModel"/> class that follows the application's theme.
     /// </summary>
-    public event EventHandler? ThemeToggled;
+    public HelloViewModel()
+    {
+        IsDarkMode = Application.Current.CurrentTheme == Theme.Dark;
+        Application.Current.CurrentThemeChanged += OnCurrentThemeChanged;
+    }
 
     [RelayCommand]
     private void ToggleTheme()
     {
-        ThemeToggled?.Invoke(this, EventArgs.Empty);
+        Application.Current.RequestedTheme = IsDarkMode ? Theme.Light : Theme.Dark;
+    }
+
+    private void OnCurrentThemeChanged(object? sender, ThemeChangedEventArgs e)
+    {
+        IsDarkMode = e.NewTheme == Theme.Dark;
     }
 
     partial void OnIsDarkModeChanged(bool value)

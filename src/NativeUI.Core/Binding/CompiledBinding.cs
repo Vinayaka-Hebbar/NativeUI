@@ -84,6 +84,7 @@ public sealed class CompiledBinding<TSource, TValue>
         private readonly CompiledBinding<TSource, TValue> _binding;
         private TSource? _currentSource;
         private INotifyPropertyChanged? _observableSource;
+        private BindableObject? _bindableSource;
         private bool _isUpdating;
         private bool _disposed;
 
@@ -119,10 +120,20 @@ public sealed class CompiledBinding<TSource, TValue>
             _currentSource = typedSource;
             PushSourceToTarget(typedSource);
 
-            if (_binding.Mode != BindingMode.OneTime && typedSource is INotifyPropertyChanged notify)
+            if (_binding.Mode == BindingMode.OneTime)
+            {
+                return;
+            }
+
+            if (typedSource is INotifyPropertyChanged notify)
             {
                 _observableSource = notify;
                 _observableSource.PropertyChanged += OnSourcePropertyChanged;
+            }
+            else if (typedSource is BindableObject bindable)
+            {
+                _bindableSource = bindable;
+                _bindableSource.PropertyChanged += OnBindableSourcePropertyChanged;
             }
         }
 
@@ -144,13 +155,24 @@ public sealed class CompiledBinding<TSource, TValue>
 
         private void OnSourcePropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (_disposed || _currentSource is null)
+            if (string.IsNullOrEmpty(e.PropertyName) ||
+                string.Equals(e.PropertyName, _binding.PropertyName, StringComparison.Ordinal))
             {
-                return;
+                UpdateTargetFromSource();
             }
+        }
 
-            if (!string.IsNullOrEmpty(e.PropertyName) &&
-                !string.Equals(e.PropertyName, _binding.PropertyName, StringComparison.Ordinal))
+        private void OnBindableSourcePropertyChanged(object? sender, BindablePropertyChangedEventArgs e)
+        {
+            if (string.Equals(e.Property.Name, _binding.PropertyName, StringComparison.Ordinal))
+            {
+                UpdateTargetFromSource();
+            }
+        }
+
+        private void UpdateTargetFromSource()
+        {
+            if (_disposed || _currentSource is null)
             {
                 return;
             }
@@ -240,6 +262,12 @@ public sealed class CompiledBinding<TSource, TValue>
             {
                 _observableSource.PropertyChanged -= OnSourcePropertyChanged;
                 _observableSource = null;
+            }
+
+            if (_bindableSource is not null)
+            {
+                _bindableSource.PropertyChanged -= OnBindableSourcePropertyChanged;
+                _bindableSource = null;
             }
 
             _currentSource = null;

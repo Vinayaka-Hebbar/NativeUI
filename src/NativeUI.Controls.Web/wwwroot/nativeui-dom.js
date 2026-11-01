@@ -15,14 +15,6 @@
  */
 
 /**
- * Receives each change of the browser's color scheme preference.
- *
- * @callback ColorSchemeDispatcher
- * @param {boolean} prefersDark Whether the browser now prefers a dark color scheme.
- * @returns {void}
- */
-
-/**
  * Receives each forwarded pointer event in order.
  *
  * @callback PointerDispatcher
@@ -131,21 +123,8 @@ class NativeUIRoot extends HTMLElement {
   /** @type {PointerDispatcher | null} */
   pointerDispatcher = null;
 
-  /** @type {ColorSchemeDispatcher | null} */
-  colorSchemeDispatcher = null;
-
   /**
-   * Forwards a change of the browser's color scheme preference.
-   *
-   * @param {MediaQueryListEvent} event The native event.
-   * @returns {void}
-   */
-  #handleColorSchemeChange = (event) => {
-    this.colorSchemeDispatcher?.(event.matches);
-  };
-
-  /**
-   * Adds the delegated pointer listeners and observes the browser's color scheme preference.
+   * Adds the delegated pointer listeners.
    *
    * @returns {void}
    */
@@ -154,7 +133,6 @@ class NativeUIRoot extends HTMLElement {
       return;
     }
 
-    darkColorScheme.addEventListener("change", this.#handleColorSchemeChange);
     this.#pointerHandler = (event) =>
       this.#handlePointerEvent(/** @type {MouseEvent} */ (event));
     for (const type of Object.keys(Pointer.NativeKinds)) {
@@ -163,7 +141,7 @@ class NativeUIRoot extends HTMLElement {
   }
 
   /**
-   * Removes the delegated pointer and color scheme listeners and discards events that have not been forwarded.
+   * Removes the delegated pointer listeners and discards events that have not been forwarded.
    *
    * @returns {void}
    */
@@ -176,7 +154,6 @@ class NativeUIRoot extends HTMLElement {
       this.removeEventListener(type, this.#pointerHandler);
     }
 
-    darkColorScheme.removeEventListener("change", this.#handleColorSchemeChange);
     cancelAnimationFrame(this.#frame);
     this.#frame = 0;
     this.#pending.length = 0;
@@ -280,14 +257,13 @@ export const nativeui = {
   },
 
   /**
-   * Sets the callback that a `native-ui` element invokes when the browser's color scheme preference changes.
+   * Invokes a callback whenever the browser's color scheme preference changes, for the application's lifetime.
    *
-   * @param {NativeUIRoot} root The `native-ui` element.
-   * @param {ColorSchemeDispatcher} dispatch The callback.
+   * @param {() => void} dispatch The callback.
    * @returns {void}
    */
-  setColorSchemeDispatcher(root, dispatch) {
-    root.colorSchemeDispatcher = dispatch;
+  observeColorScheme(dispatch) {
+    darkColorScheme.addEventListener("change", () => dispatch());
   },
 
   /**

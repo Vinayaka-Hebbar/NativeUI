@@ -1,3 +1,5 @@
+using NativeUI.Core;
+
 namespace NativeUI.Controls.MacOS;
 
 /// <summary>
@@ -5,28 +7,20 @@ namespace NativeUI.Controls.MacOS;
 /// </summary>
 public sealed class MacOSHost
 {
-    private const ulong ActivationPolicyRegular = 0UL;
-
     /// <summary>
-    /// Initializes the native AppKit application, displays <paramref name="mainWindow"/>, and starts the macOS event loop.
+    /// Displays <paramref name="mainWindow"/> with the current <see cref="MacOSApplication"/>, creating one when none
+    /// exists, and starts the macOS event loop.
     /// </summary>
     public void Run(Window mainWindow)
     {
         ArgumentNullException.ThrowIfNull(mainWindow);
 
-        if (!OperatingSystem.IsMacOS())
+        MacOSApplication application = Application.Current as MacOSApplication ?? new MacOSApplication();
+        if (!application.Windows.Contains(mainWindow))
         {
-            throw new PlatformNotSupportedException("MacOSHost.Run is only supported on macOS.");
+            application.Windows.Add(mainWindow);
         }
 
-        AppKitInterop.EnsureFrameworksLoaded();
-        nint nsAppClass = AppKitInterop.GetClass("NSApplication");
-        nint sharedApp = AppKitInterop.SendMessage(nsAppClass, AppKitInterop.GetSelector("sharedApplication"));
-        _ = AppKitInterop.SendMessage(sharedApp, AppKitInterop.GetSelector("setActivationPolicy:"), (nint)ActivationPolicyRegular);
-
-        mainWindow.Show();
-
-        AppKitInterop.SendMessageVoid(sharedApp, AppKitInterop.GetSelector("activateIgnoringOtherApps:"), true);
-        _ = AppKitInterop.SendMessage(sharedApp, AppKitInterop.GetSelector("run"));
+        application.Run();
     }
 }

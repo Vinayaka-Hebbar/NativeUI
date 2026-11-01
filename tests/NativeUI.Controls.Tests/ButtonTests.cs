@@ -55,23 +55,6 @@ internal static class ButtonTests
         Assert.Equal(toggleWidth + 6, layout.Children[3].BorderBox.Width);
     }
 
-    public static void VerifyActualThemeChangedFollowsEffectiveTheme()
-    {
-        View root = new();
-        int changes = 0;
-        root.ActualThemeChanged += (_, _) => changes++;
-
-        root.SetInheritedTheme(Theme.Dark);
-        Assert.Equal(1, changes);
-
-        root.Theme = Theme.Dark;
-        Assert.Equal(1, changes);
-
-        root.Theme = Theme.Light;
-        Assert.Equal(2, changes);
-        Assert.Equal(Theme.Light, root.ActualTheme);
-    }
-
     internal static void VerifyPointerLifecycleAndClick()
     {
         using Button button = new()

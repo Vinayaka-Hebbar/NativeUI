@@ -24,11 +24,6 @@ public interface IUIElement
     string? StyleSheetId { get; }
 
     /// <summary>
-    /// Gets the effective theme inherited from the parent or host unless explicitly set.
-    /// </summary>
-    Theme ActualTheme { get; }
-
-    /// <summary>
     /// Gets the parent element supplying inherited style properties, or null for a root element.
     /// </summary>
     IUIElement? Parent { get; }
