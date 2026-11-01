@@ -18,6 +18,11 @@ internal static partial class AppKitInterop
     private const string ObjCLib = "/usr/lib/libobjc.A.dylib";
     private const string AppKitFramework = "/System/Library/Frameworks/AppKit.framework/AppKit";
     private const string FoundationFramework = "/System/Library/Frameworks/Foundation.framework/Foundation";
+    private const string CoreGraphicsFramework = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics";
+    private const nuint BitsPerComponent = 8;
+    private const nuint BitsPerPixel = 32;
+    private const uint ImageAlphaPremultipliedLast = 1;
+    private const int ColorRenderingIntentDefault = 0;
     private const ulong EventModifierFlagShift = 1UL << 17;
     private const ulong EventModifierFlagControl = 1UL << 18;
     private const ulong EventModifierFlagOption = 1UL << 19;
@@ -38,6 +43,7 @@ internal static partial class AppKitInterop
     private static bool s_frameworksLoaded;
     private static nint s_interactiveViewClass;
     private static nint s_inputBlockerClass;
+    private static nint s_srgbColorSpace;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct CGPoint
@@ -202,7 +208,101 @@ internal static partial class AppKitInterop
     public static partial nint SendMessageViewInit(nint receiver, nint selector, CGRect frameRect);
 
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
-    public static partial nint SendMessageImageInitWithData(nint receiver, nint selector, nint nsData);
+    private static partial nint SendMessageImageInitWithCGImage(nint receiver, nint selector, nint cgImage, CGSize size);
+
+    [LibraryImport(CoreGraphicsFramework, EntryPoint = "CGColorSpaceCreateWithName")]
+    private static partial nint CGColorSpaceCreateWithName(nint name);
+
+    [LibraryImport(CoreGraphicsFramework, EntryPoint = "CGDataProviderCreateWithCFData")]
+    private static partial nint CGDataProviderCreateWithCFData(nint data);
+
+    [LibraryImport(CoreGraphicsFramework, EntryPoint = "CGDataProviderRelease")]
+    private static partial void CGDataProviderRelease(nint provider);
+
+    [LibraryImport(CoreGraphicsFramework, EntryPoint = "CGImageCreate")]
+    private static partial nint CGImageCreate(
+        nuint width,
+        nuint height,
+        nuint bitsPerComponent,
+        nuint bitsPerPixel,
+        nuint bytesPerRow,
+        nint colorSpace,
+        uint bitmapInfo,
+        nint provider,
+        nint decode,
+        [MarshalAs(UnmanagedType.I1)] bool shouldInterpolate,
+        int intent);
+
+    [LibraryImport(CoreGraphicsFramework, EntryPoint = "CGImageRelease")]
+    private static partial void CGImageRelease(nint image);
+
+    /// <summary>
+    /// Returns a retained <c>NSImage</c> showing a copy of premultiplied RGBA pixels in sRGB, with the logical
+    /// <paramref name="size"/>. The caller releases it.
+    /// </summary>
+    public static nint CreateImage(ReadOnlySpan<byte> rgbaPixels, int width, int height, int rowBytes, CGSize size)
+    {
+        if (s_srgbColorSpace == nint.Zero)
+        {
+            s_srgbColorSpace = CGColorSpaceCreateWithName(ReadFrameworkConstant(CoreGraphicsFramework, "kCGColorSpaceSRGB"));
+        }
+
+        nint provider = CGDataProviderCreateWithCFData(CreateNSData(rgbaPixels));
+        nint cgImage = CGImageCreate(
+            (nuint)width,
+            (nuint)height,
+            BitsPerComponent,
+            BitsPerPixel,
+            (nuint)rowBytes,
+            s_srgbColorSpace,
+            ImageAlphaPremultipliedLast,
+            provider,
+            nint.Zero,
+            false,
+            ColorRenderingIntentDefault);
+        CGDataProviderRelease(provider);
+
+        nint nsImage = SendMessageImageInitWithCGImage(
+            SendMessage(GetClass("NSImage"), GetSelector("alloc")),
+            GetSelector("initWithCGImage:size:"),
+            cgImage,
+            size);
+        CGImageRelease(cgImage);
+        return nsImage;
+    }
+
+    /// <summary>
+    /// Returns a retained, paused display link that calls <paramref name="nsView"/> on the main run loop at the refresh
+    /// rate of its screen, or <see cref="nint.Zero"/> before macOS 14, which has no view display link. The view must be in a window.
+    /// </summary>
+    public static nint CreateDisplayLink(nint nsView)
+    {
+        nint selector = GetSelector("displayLinkWithTarget:selector:");
+        if ((SendMessage(nsView, GetSelector("respondsToSelector:"), selector) & 0xFF) == 0)
+        {
+            return nint.Zero;
+        }
+
+        nint displayLink = SendMessage(nsView, selector, nsView, GetSelector("nativeUIDisplayLinkFired:"));
+        _ = SendMessage(displayLink, GetSelector("retain"));
+        SendMessageVoid(displayLink, GetSelector("setPaused:"), true);
+
+        // Common modes keep frames coming during scroll gestures and live resizing.
+        _ = SendMessage(
+            displayLink,
+            GetSelector("addToRunLoop:forMode:"),
+            SendMessage(GetClass("NSRunLoop"), GetSelector("mainRunLoop")),
+            ReadFrameworkConstant(FoundationFramework, "NSRunLoopCommonModes"));
+        return displayLink;
+    }
+
+    /// <summary>
+    /// Reads an exported object constant, such as a string, from a framework.
+    /// </summary>
+    private static nint ReadFrameworkConstant(string framework, string name)
+    {
+        return Marshal.ReadIntPtr(NativeLibrary.GetExport(NativeLibrary.Load(framework), name));
+    }
 
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
     public static partial void SendMessageSetSize(nint receiver, nint selector, CGSize size);
@@ -405,6 +505,7 @@ internal static partial class AppKitInterop
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> windowDidResignKeyPtr = &OnWindowDidResignKey;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> windowDidResizePtr = &OnWindowDidResize;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> windowWillClosePtr = &OnWindowWillClose;
+        delegate* unmanaged[Cdecl]<nint, nint, nint, void> displayLinkFiredPtr = &OnDisplayLinkFired;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> keyDownPtr = &OnKeyDown;
         delegate* unmanaged[Cdecl]<nint, nint, nint, byte> performKeyEquivPtr = &OnPerformKeyEquivalent;
 
@@ -421,6 +522,7 @@ internal static partial class AppKitInterop
         _ = ClassAddMethod(subClass, GetSelector("nativeUIWindowDidResignKey:"), (nint)windowDidResignKeyPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("nativeUIWindowDidResize:"), (nint)windowDidResizePtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("nativeUIWindowWillClose:"), (nint)windowWillClosePtr, "v@:@");
+        _ = ClassAddMethod(subClass, GetSelector("nativeUIDisplayLinkFired:"), (nint)displayLinkFiredPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("keyDown:"), (nint)keyDownPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("performKeyEquivalent:"), (nint)performKeyEquivPtr, "c@:@");
 
@@ -699,6 +801,15 @@ internal static partial class AppKitInterop
         {
             CGRect bounds = GetBounds(self);
             window.HandleResized(new Size(bounds.Size.Width, bounds.Size.Height));
+        }
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnDisplayLinkFired(nint self, nint cmd, nint displayLink)
+    {
+        if (s_viewToWindow.TryGetValue(self, out Window? window))
+        {
+            window.HandleDisplayRefresh();
         }
     }
 

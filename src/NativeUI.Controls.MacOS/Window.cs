@@ -34,6 +34,9 @@ public sealed class Window : IDisposable, IRenderHost
     private readonly IClipboard _clipboard;
     private readonly Dictionary<Input, NativeTextField> _textFields = [];
     private readonly Dictionary<Dialog, DialogWindow> _dialogWindows = [];
+    private SkiaSurface? _surface;
+    private nint _displayLink;
+    private bool _isFrameScheduled;
     private Dialog? _hostedDialog;
     private nint _inputBlocker;
     private UIElement? _content;
@@ -215,6 +218,7 @@ public sealed class Window : IDisposable, IRenderHost
         if (OperatingSystem.IsMacOS() && _nsWindow == nint.Zero)
         {
             CreateNativeWindow(StyleMaskTitled | StyleMaskClosable | StyleMaskMiniaturizable | StyleMaskResizable);
+            UpdateFrame();
             _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("center"));
             AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("makeKeyAndOrderFront:"), nint.Zero);
         }
@@ -257,6 +261,22 @@ public sealed class Window : IDisposable, IRenderHost
         AppKitInterop.InstallPointerTracking(_nsWindow, _nsImageView);
         AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setAutorecalculatesKeyViewLoop:"), true);
         _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
+        _displayLink = AppKitInterop.CreateDisplayLink(_nsImageView);
+    }
+
+    /// <summary>
+    /// Renders the frame scheduled for this screen refresh.
+    /// </summary>
+    internal void HandleDisplayRefresh()
+    {
+        if (!_isFrameScheduled)
+        {
+            return;
+        }
+
+        _isFrameScheduled = false;
+        AppKitInterop.SendMessageVoid(_displayLink, AppKitInterop.GetSelector("setPaused:"), true);
+        UpdateFrame();
     }
 
     /// <summary>
@@ -629,8 +649,15 @@ public sealed class Window : IDisposable, IRenderHost
         int pixelWidth = Math.Max(1, (int)Math.Round(Width * ScaleFactor));
         int pixelHeight = Math.Max(1, (int)Math.Round(Height * ScaleFactor));
 
-        using SkiaSurface surface = new(pixelWidth, pixelHeight);
-        SkiaDrawingContext drawingContext = new(surface.Canvas, SkiaTextShaper.Shared);
+        if (_surface is null || _surface.PixelWidth != pixelWidth || _surface.PixelHeight != pixelHeight)
+        {
+            _surface?.Dispose();
+            _surface = new SkiaSurface(pixelWidth, pixelHeight);
+        }
+
+        // The canvas outlives the frame, and a CanvasView handler can leave saved states on it.
+        _surface.Canvas.RestoreToCount(1);
+        SkiaDrawingContext drawingContext = new(_surface.Canvas, SkiaTextShaper.Shared);
         Size layoutViewport = _hostedDialog is not null ? s_contentMeasureViewport : new Size(Width, Height);
         LastLayout = _renderer.Render(drawingContext, _content, layoutViewport, ScaleFactor, _background);
 
@@ -646,7 +673,7 @@ public sealed class Window : IDisposable, IRenderHost
 
         RenderCount++;
 
-        SKImage snapshot = surface.Snapshot();
+        SKImage snapshot = _surface.Snapshot();
         if (_nsImageView != nint.Zero && OperatingSystem.IsMacOS())
         {
             PresentSnapshotToNativeView(snapshot);
@@ -681,6 +708,13 @@ public sealed class Window : IDisposable, IRenderHost
         Application.Current.CurrentThemeChanged -= OnCurrentThemeChanged;
         HotReloadManager.HotReloaded -= OnHotReloaded;
 
+        if (_displayLink != nint.Zero)
+        {
+            _ = AppKitInterop.SendMessage(_displayLink, AppKitInterop.GetSelector("invalidate"));
+            _ = AppKitInterop.SendMessage(_displayLink, AppKitInterop.GetSelector("release"));
+            _displayLink = nint.Zero;
+        }
+
         if (_nsImageView != nint.Zero)
         {
             AppKitInterop.RemovePointerTracking(_nsImageView);
@@ -707,6 +741,8 @@ public sealed class Window : IDisposable, IRenderHost
         _activeSelectionText = null;
         _activeSelectionBox = null;
         _renderer.Dispose();
+        _surface?.Dispose();
+        _surface = null;
         _nsImageView = nint.Zero;
         _nsWindow = nint.Zero;
     }
@@ -1026,7 +1062,7 @@ public sealed class Window : IDisposable, IRenderHost
         window.CreateNativeWindow(StyleMaskTitled | StyleMaskClosable);
         AppKitInterop.SendMessageVoid(window._nsWindow, AppKitInterop.GetSelector("setTitleVisibility:"), TitleVisibilityHidden);
         AppKitInterop.SendMessageVoid(window._nsWindow, AppKitInterop.GetSelector("setReleasedWhenClosed:"), false);
-        window.InvalidateFrame();
+        window.UpdateFrame();
 
         _ = AppKitInterop.SendMessage(
             _nsWindow,
@@ -1304,6 +1340,31 @@ public sealed class Window : IDisposable, IRenderHost
             return;
         }
 
+        // A shown window renders at most once per screen refresh; any number of invalidations before it share one frame.
+        if (_displayLink != nint.Zero)
+        {
+            if (!_isFrameScheduled)
+            {
+                _isFrameScheduled = true;
+                AppKitInterop.SendMessageVoid(_displayLink, AppKitInterop.GetSelector("setPaused:"), false);
+            }
+
+            return;
+        }
+
+        UpdateFrame();
+    }
+
+    /// <summary>
+    /// Renders and presents a frame immediately, then reevaluates the pointer against its layout.
+    /// </summary>
+    private void UpdateFrame()
+    {
+        if (_content is null)
+        {
+            return;
+        }
+
         RenderInvalidatedFrame();
 
         // Hover changes caused by the new layout render one further frame; later shifts wait for the next invalidation.
@@ -1320,7 +1381,14 @@ public sealed class Window : IDisposable, IRenderHost
         if (_isFrameDirty)
         {
             _isFrameDirty = false;
-            RenderInvalidatedFrame();
+            if (_displayLink != nint.Zero)
+            {
+                InvalidateFrame();
+            }
+            else
+            {
+                RenderInvalidatedFrame();
+            }
         }
     }
 
@@ -1341,27 +1409,19 @@ public sealed class Window : IDisposable, IRenderHost
 
     private void PresentSnapshotToNativeView(SKImage snapshot)
     {
-        using SKData? encoded = snapshot.Encode(SKEncodedImageFormat.Png, 100);
-        if (encoded is null)
+        using SKPixmap? pixels = snapshot.PeekPixels();
+        if (pixels is null)
         {
             return;
         }
 
-        nint nsData = AppKitInterop.CreateNSData(encoded.AsSpan());
-        nint nsImageClass = AppKitInterop.GetClass("NSImage");
-        nint allocImg = AppKitInterop.SendMessage(nsImageClass, AppKitInterop.GetSelector("alloc"));
-        nint nsImage = AppKitInterop.SendMessageImageInitWithData(
-            allocImg,
-            AppKitInterop.GetSelector("initWithData:"),
-            nsData);
-
-        if (nsImage != nint.Zero)
-        {
-            AppKitInterop.SendMessageSetSize(
-                nsImage,
-                AppKitInterop.GetSelector("setSize:"),
-                new AppKitInterop.CGSize(Width, Height));
-            AppKitInterop.SendMessageVoid(_nsImageView, AppKitInterop.GetSelector("setImage:"), nsImage);
-        }
+        nint nsImage = AppKitInterop.CreateImage(
+            pixels.GetPixelSpan(),
+            pixels.Width,
+            pixels.Height,
+            pixels.RowBytes,
+            new AppKitInterop.CGSize(Width, Height));
+        AppKitInterop.SendMessageVoid(_nsImageView, AppKitInterop.GetSelector("setImage:"), nsImage);
+        _ = AppKitInterop.SendMessage(nsImage, AppKitInterop.GetSelector("release"));
     }
 }
