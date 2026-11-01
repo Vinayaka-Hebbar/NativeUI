@@ -91,7 +91,7 @@ internal static class HtmlTagMapping
             "view" or "portal" or "progressbar" => ContainerTag,
             "dialog" => DialogTag,
             "button" => ButtonTag,
-            "canvas" or "canvasview" => CanvasTag,
+            "canvas" or "canvasview" or "viewport3d" => CanvasTag,
             "input" => InputTag,
             _ => throw new NotSupportedException($"The element type '{elementType}' has no HTML element mapping.")
         };

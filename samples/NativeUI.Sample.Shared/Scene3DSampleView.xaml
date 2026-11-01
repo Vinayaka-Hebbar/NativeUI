@@ -1,0 +1,35 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.Scene3DSampleView"
+      x:DataType="NativeUI.Sample.HelloViewModel">
+
+    <Text Class="section" Value="Rotating cube" />
+    <Viewport3D x:Name="CubeView" Width="500" Height="400">
+        <Viewport3D.Camera>
+            <PerspectiveCamera Position="0, 2, -5" Fov="60" />
+        </Viewport3D.Camera>
+        <Scene3D>
+            <GradientSky
+                TopColor="#2F80ED"
+                HorizonColor="#DCEEFF"
+                GroundColor="#30343B"
+                GroundHorizonColor="#8A9099"
+                SkyCurve="0.15"
+                GroundCurve="0.1"
+                EnergyMultiplier="1" />
+
+            <DirectionalLight
+                Color="White"
+                Direction="0.5, 1.0, -0.7" />
+
+            <Mesh x:Name="Cube">
+                <Mesh.Geometry>
+                    <BoxGeometry Width="1" Height="1" Depth="1" />
+                </Mesh.Geometry>
+                <Mesh.Material>
+                    <StandardMaterial Color="#0070F3" />
+                </Mesh.Material>
+            </Mesh>
+        </Scene3D>
+    </Viewport3D>
+</View>

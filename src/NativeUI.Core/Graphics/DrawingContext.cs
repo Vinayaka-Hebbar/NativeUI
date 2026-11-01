@@ -109,6 +109,25 @@ public abstract class DrawingContext
     public abstract void StrokeRoundedRectangle(Rect rect, double radius, double strokeWidth, Paint paint);
 
     /// <summary>
+    /// Fills a polygon defined by the specified points.
+    /// </summary>
+    /// <param name="points">
+    /// The polygon vertices in logical coordinates. The polygon is closed automatically.
+    /// Fewer than three points produce no output.
+    /// </param>
+    /// <param name="paint">The paint used to fill the polygon.</param>
+    public abstract void FillPolygon(IReadOnlyList<Point> points, Paint paint);
+
+    /// <summary>
+    /// Fills a rectangle with a linear gradient.
+    /// </summary>
+    /// <param name="rect">The rectangle geometry to fill.</param>
+    /// <param name="start">The point at which the gradient starts.</param>
+    /// <param name="end">The point at which the gradient ends.</param>
+    /// <param name="stops">The colors along the gradient, in ascending order of offset.</param>
+    public abstract void FillLinearGradient(Rect rect, Point start, Point end, IReadOnlyList<GradientStop> stops);
+
+    /// <summary>
     /// Draws a shaped <see cref="ITextLayout"/> at <paramref name="origin"/> using <paramref name="paint"/>.
     /// </summary>
     /// <param name="layout">The shaped text layout to render.</param>

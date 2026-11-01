@@ -151,6 +151,63 @@ public sealed class SkiaDrawingContext : DrawingContext
     }
 
     /// <inheritdoc />
+    public override void FillLinearGradient(Rect rect, Point start, Point end, IReadOnlyList<GradientStop> stops)
+    {
+        ArgumentNullException.ThrowIfNull(stops);
+
+        SKColor[] colors = new SKColor[stops.Count];
+        float[] offsets = new float[stops.Count];
+        for (int i = 0; i < stops.Count; i++)
+        {
+            colors[i] = stops[i].Color.ToSKColor();
+            offsets[i] = (float)stops[i].Offset;
+        }
+
+        using SKShader shader = SKShader.CreateLinearGradient(
+            new SKPoint((float)start.X, (float)start.Y),
+            new SKPoint((float)end.X, (float)end.Y),
+            colors,
+            offsets,
+            SKShaderTileMode.Clamp);
+        using SKPaint skPaint = new()
+        {
+            IsAntialias = true,
+            Style = SKPaintStyle.Fill,
+            Shader = shader
+        };
+
+        _canvas.DrawRect(ToSKRect(rect), skPaint);
+    }
+
+    /// <inheritdoc />
+    public override void FillPolygon(IReadOnlyList<Point> points, Paint paint)
+    {
+        ArgumentNullException.ThrowIfNull(points);
+        if (points.Count < 3)
+        {
+            return;
+        }
+
+        using SKPath path = new();
+        path.MoveTo((float)points[0].X, (float)points[0].Y);
+        for (int i = 1; i < points.Count; i++)
+        {
+            path.LineTo((float)points[i].X, (float)points[i].Y);
+        }
+
+        path.Close();
+
+        using SKPaint skPaint = new()
+        {
+            Color = paint.Color.ToSKColor(paint.Opacity),
+            IsAntialias = true,
+            Style = SKPaintStyle.Fill
+        };
+
+        _canvas.DrawPath(path, skPaint);
+    }
+
+    /// <inheritdoc />
     public override void StrokeRoundedRectangle(Rect rect, double radius, double strokeWidth, Paint paint)
     {
         using SKPaint skPaint = new()

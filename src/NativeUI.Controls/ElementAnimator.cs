@@ -6,7 +6,7 @@ namespace NativeUI.Controls;
 /// Runs the transitions and keyframe animations of one element on hosts that draw their own frames, and produces the
 /// element's effective style from its cascaded style. Operations must run on the UI thread.
 /// </summary>
-internal sealed class ElementAnimator(UIElement element)
+internal sealed class ElementAnimator(UIElement element) : IFrameTarget
 {
     private static readonly AnimatableProperty[] s_properties =
     [
@@ -66,7 +66,7 @@ internal sealed class ElementAnimator(UIElement element)
     /// </summary>
     public void Tick(double now)
     {
-        if (_target is null || !IsElementShown())
+        if (_target is null || !element.IsVisibleInTree)
         {
             return;
         }
@@ -219,19 +219,6 @@ internal sealed class ElementAnimator(UIElement element)
         {
             AnimationClock.Remove(this);
         }
-    }
-
-    private bool IsElementShown()
-    {
-        for (UIElement? current = element; current is not null; current = current.Parent)
-        {
-            if (!current.IsVisible)
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /// <summary>

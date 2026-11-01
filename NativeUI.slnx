@@ -10,6 +10,7 @@
     <Project Path="src/NativeUI.DevTools/NativeUI.DevTools.csproj" />
     <Project Path="src/NativeUI.Graphics.Skia/NativeUI.Graphics.Skia.csproj" />
     <Project Path="src/NativeUI.Graphics/NativeUI.Graphics.csproj" />
+    <Project Path="src/NativeUI.Graphics3D/NativeUI.Graphics3D.csproj" />
     <Project Path="src/NativeUI.Xaml.Compiler/NativeUI.Xaml.Compiler.csproj" />
     <Project Path="src/NativeUI.Xaml/NativeUI.Xaml.csproj" />
   </Folder>

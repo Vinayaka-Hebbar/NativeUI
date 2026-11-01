@@ -251,6 +251,10 @@ internal static class SelectionStyleTests
 
         public override void StrokeRoundedRectangle(Rect rect, double radius, double strokeWidth, Paint paint) { }
 
+        public override void FillPolygon(IReadOnlyList<Point> points, Paint paint) { }
+
+        public override void FillLinearGradient(Rect rect, Point start, Point end, IReadOnlyList<GradientStop> stops) { }
+
         public override void DrawRoundedRectangle(Rect rect, double radius, Paint paint)
         {
             Commands.Add("RoundedRect");

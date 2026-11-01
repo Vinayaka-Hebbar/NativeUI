@@ -32,7 +32,8 @@ public partial class HelloView
             (NavCanvas, CanvasPage),
             (NavInput, InputPage),
             (NavDialog, DialogPage),
-            (NavAnimation, AnimationPage)
+            (NavAnimation, AnimationPage),
+            (NavScene3D, Scene3DPage)
         ];
 
         foreach ((Button nav, View page) in _pages)

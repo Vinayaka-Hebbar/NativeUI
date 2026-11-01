@@ -83,6 +83,7 @@ public static class XamlEmitter
             .WithUsings(List(
             [
                 UsingDirective(ParseName("NativeUI.Controls")),
+                UsingDirective(ParseName("NativeUI.Graphics3D")),
                 UsingDirective(ParseName("NativeUI.Core")),
                 UsingDirective(ParseName("NativeUI.Layout")),
                 UsingDirective(ParseName("NativeUI.Media")),
@@ -366,6 +367,8 @@ public static class XamlEmitter
                 SyntaxKind.SimpleMemberAccessExpression,
                 IdentifierName("Orientation"),
                 IdentifierName(rawLiteral)),
+            XamlPropertyKind.Vector3 => BuildVector3(rawLiteral),
+            XamlPropertyKind.Color => BuildColor(rawLiteral),
             XamlPropertyKind.PortalSide => MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
                 IdentifierName("PortalSide"),
@@ -384,6 +387,32 @@ public static class XamlEmitter
                 XamlValidator.SplitClassNames(rawLiteral).Select(static name => ExpressionElement(StringLiteral(name))))),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "The property kind has no literal form.")
         };
+    }
+
+    private static ExpressionSyntax BuildColor(string rawLiteral)
+    {
+        if (!rawLiteral.StartsWith('#'))
+        {
+            return MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                IdentifierName("Colors"),
+                IdentifierName(rawLiteral));
+        }
+
+        return InvocationExpression(
+            MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                IdentifierName("Color"),
+                IdentifierName("FromHex")))
+            .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(StringLiteral(rawLiteral)))));
+    }
+
+    private static ExpressionSyntax BuildVector3(string rawLiteral)
+    {
+        _ = XamlValidator.TryParseVector3(rawLiteral, out double[] values);
+        return ObjectCreationExpression(ParseTypeName("global::System.Numerics.Vector3"))
+            .WithArgumentList(ArgumentList(SeparatedList(values.Select(static value =>
+                Argument(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal((float)value)))))));
     }
 
     private static ExpressionStatementSyntax BuildBindingStatement(

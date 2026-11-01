@@ -462,6 +462,25 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
+    /// Gets a value indicating whether this element and all its ancestors are visible.
+    /// </summary>
+    internal bool IsVisibleInTree
+    {
+        get
+        {
+            for (UIElement? current = this; current is not null; current = current._parent)
+            {
+                if (!current.IsVisible)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Gets a value indicating whether a host has drawn this element, after which style changes can transition.
     /// </summary>
     internal bool HasRendered { get; private set; }

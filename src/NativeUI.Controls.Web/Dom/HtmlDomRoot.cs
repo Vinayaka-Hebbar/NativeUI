@@ -27,6 +27,7 @@ internal sealed class HtmlDomRoot : IDisposable
     private JSObject? _container;
     private JSObject? _rootElement;
     private AdoptedStyleSheet? _styleSheet;
+    private bool _isClockTickScheduled;
     private bool _disposed;
 
     /// <summary>
@@ -64,6 +65,7 @@ internal sealed class HtmlDomRoot : IDisposable
         try
         {
             Application.Current.CurrentThemeChanged -= OnCurrentThemeChanged;
+            AnimationClock.AnimationStarted -= ScheduleClockTick;
 
             // Disconnecting the native-ui element removes its pointer listeners.
             if (_rootElement is not null)
@@ -187,6 +189,12 @@ internal sealed class HtmlDomRoot : IDisposable
                 DomInterop.SetInputDispatcher(_rootElement, OnInput);
                 DomInterop.SetFocusDispatcher(_rootElement, OnFocus);
                 DomInterop.SetCloseDispatcher(_rootElement, OnPortalClosed);
+                AnimationClock.AnimationStarted += ScheduleClockTick;
+                if (AnimationClock.HasActiveAnimations)
+                {
+                    ScheduleClockTick();
+                }
+
                 Application.Current.CurrentThemeChanged += OnCurrentThemeChanged;
                 UpdateThemeAttribute();
                 DomInterop.AppendChild(_rootElement, element);
@@ -249,6 +257,34 @@ internal sealed class HtmlDomRoot : IDisposable
         if (HtmlDomElement.FindByNodeId(nodeId) is HtmlDomPortal portal)
         {
             portal.OnBrowserClosed();
+        }
+    }
+
+    /// <summary>
+    /// Requests the next screen refresh for frame targets. The browser runs CSS animations itself, so this root never
+    /// attaches as a clock driver and style animations stay off.
+    /// </summary>
+    private void ScheduleClockTick()
+    {
+        if (!_isClockTickScheduled)
+        {
+            _isClockTickScheduled = true;
+            DomInterop.RequestAnimationFrame(OnClockFrame);
+        }
+    }
+
+    private void OnClockFrame()
+    {
+        _isClockTickScheduled = false;
+        if (_disposed || _rootDom is null)
+        {
+            return;
+        }
+
+        AnimationClock.Tick();
+        if (AnimationClock.HasActiveAnimations)
+        {
+            ScheduleClockTick();
         }
     }
 

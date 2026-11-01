@@ -59,6 +59,16 @@ public enum XamlPropertyKind
     Position,
 
     /// <summary>
+    /// The literal is three comma-separated finite numbers, assigned as a <c>System.Numerics.Vector3</c>.
+    /// </summary>
+    Vector3,
+
+    /// <summary>
+    /// The literal is a hexadecimal color (<c>#RGB</c>, <c>#RGBA</c>, <c>#RRGGBB</c>, or <c>#RRGGBBAA</c>) or a member name of <c>Colors</c>.
+    /// </summary>
+    Color,
+
+    /// <summary>
     /// The literal is one, two (vertical, horizontal), or four (top, right, bottom, left) comma-separated numbers,
     /// assigned to the element's inline style. It has no binding form.
     /// </summary>
@@ -231,6 +241,50 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["Placeholder"] = XamlPropertyKind.String,
                 ["IsReadOnly"] = XamlPropertyKind.Boolean
             },
+            ["Viewport3D"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean
+            },
+            ["Scene3D"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal),
+            ["PerspectiveCamera"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Position"] = XamlPropertyKind.Vector3,
+                ["LookAt"] = XamlPropertyKind.Vector3,
+                ["Fov"] = XamlPropertyKind.Double
+            },
+            ["DirectionalLight"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Color"] = XamlPropertyKind.Color,
+                ["Direction"] = XamlPropertyKind.Vector3
+            },
+            ["Mesh"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Position"] = XamlPropertyKind.Vector3,
+                ["Rotation"] = XamlPropertyKind.Vector3
+            },
+            ["BoxGeometry"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Width"] = XamlPropertyKind.Double,
+                ["Height"] = XamlPropertyKind.Double,
+                ["Depth"] = XamlPropertyKind.Double
+            },
+            ["StandardMaterial"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Color"] = XamlPropertyKind.Color
+            },
+            ["GradientSky"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["TopColor"] = XamlPropertyKind.Color,
+                ["HorizonColor"] = XamlPropertyKind.Color,
+                ["GroundColor"] = XamlPropertyKind.Color,
+                ["GroundHorizonColor"] = XamlPropertyKind.Color,
+                ["SkyCurve"] = XamlPropertyKind.Double,
+                ["GroundCurve"] = XamlPropertyKind.Double,
+                ["EnergyMultiplier"] = XamlPropertyKind.Double
+            },
             ["ProgressBar"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
                 ["Id"] = XamlPropertyKind.String,
@@ -268,9 +322,28 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             }
         };
 
+    // The members of NativeUI.Media.Colors, which the compiler cannot reference.
+    private static readonly HashSet<string> s_namedColors = new(StringComparer.Ordinal)
+    {
+        "Transparent",
+        "Black",
+        "White",
+        "Blue",
+        "Indigo",
+        "Green",
+        "Red"
+    };
+
     private static readonly Dictionary<string, string> s_contentProperties = new(StringComparer.Ordinal)
     {
-        ["Dialog"] = "Content"
+        ["Dialog"] = "Content",
+        ["Scene3D"] = "Items"
+    };
+
+    // Controls whose direct child is assigned to a property that holds one value, instead of added to a collection.
+    private static readonly Dictionary<string, string> s_singleContentProperties = new(StringComparer.Ordinal)
+    {
+        ["Viewport3D"] = "Scene"
     };
 
     private static readonly Dictionary<string, Dictionary<string, PropertyElementTarget>> s_propertyElements =
@@ -281,6 +354,15 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["Title"] = new PropertyElementTarget("TitleContent", IsCollection: false),
                 ["Description"] = new PropertyElementTarget("DescriptionContent", IsCollection: false),
                 ["Footer"] = new PropertyElementTarget("Footer", IsCollection: true)
+            },
+            ["Viewport3D"] = new Dictionary<string, PropertyElementTarget>(StringComparer.Ordinal)
+            {
+                ["Camera"] = new PropertyElementTarget("Camera", IsCollection: false)
+            },
+            ["Mesh"] = new Dictionary<string, PropertyElementTarget>(StringComparer.Ordinal)
+            {
+                ["Geometry"] = new PropertyElementTarget("Geometry", IsCollection: false),
+                ["Material"] = new PropertyElementTarget("Material", IsCollection: false)
             }
         };
 
@@ -569,9 +651,22 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             }
 
             ValidatedXamlElement? validatedChild = ValidateElementRecursive(child, isRoot: false);
-            if (validatedChild is not null)
+            if (validatedChild is null)
+            {
+                continue;
+            }
+
+            if (!s_singleContentProperties.TryGetValue(controlDefinition, out string? singleContentProperty))
             {
                 validChildren.Add(validatedChild);
+            }
+            else if (seenPropertyElements.Add(singleContentProperty))
+            {
+                propertyElements.Add(new ValidatedXamlPropertyElement(singleContentProperty, IsCollection: false, [validatedChild]));
+            }
+            else
+            {
+                ReportPropertyElement(child, $"<{element.LocalName}> can contain only one element");
             }
         }
 
@@ -662,6 +757,8 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             XamlPropertyKind.AttachedInt32 => int.TryParse(literal, NumberStyles.None, CultureInfo.InvariantCulture, out _),
             XamlPropertyKind.StyleLength => TryParseFiniteDouble(literal, out _),
             XamlPropertyKind.Orientation => literal is "Vertical" or "Horizontal",
+            XamlPropertyKind.Vector3 => TryParseVector3(literal, out _),
+            XamlPropertyKind.Color => s_namedColors.Contains(literal) || IsValidHexColor(literal),
             XamlPropertyKind.PortalSide => literal is "Top" or "Right" or "Bottom" or "Left",
             XamlPropertyKind.Alignment => literal is "Start" or "Center" or "End",
             XamlPropertyKind.Position => literal is "Static" or "Relative" or "Absolute" or "Fixed",
@@ -686,6 +783,44 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     /// <summary>
     /// Parses one, two (vertical, horizontal), or four (top, right, bottom, left) comma-separated numbers.
     /// </summary>
+    internal static bool TryParseVector3(string literal, out double[] values)
+    {
+        string[] tokens = SplitList(literal);
+        values = new double[tokens.Length];
+        if (tokens.Length != 3)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < tokens.Length; i++)
+        {
+            if (!TryParseFiniteDouble(tokens[i], out values[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsValidHexColor(string literal)
+    {
+        if (literal.Length is not (4 or 5 or 7 or 9) || literal[0] != '#')
+        {
+            return false;
+        }
+
+        for (int i = 1; i < literal.Length; i++)
+        {
+            if (!Uri.IsHexDigit(literal[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     internal static bool TryParseThickness(string literal, out double[] values)
     {
         string[] tokens = SplitList(literal);

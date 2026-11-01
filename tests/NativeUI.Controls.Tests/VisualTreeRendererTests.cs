@@ -213,6 +213,8 @@ public static class VisualTreeRendererTests
 
         public override void DrawRoundedRectangle(Rect rect, double radius, Paint paint) { }
         public override void StrokeRoundedRectangle(Rect rect, double radius, double strokeWidth, Paint paint) { }
+        public override void FillPolygon(IReadOnlyList<Point> points, Paint paint) { }
+        public override void FillLinearGradient(Rect rect, Point start, Point end, IReadOnlyList<GradientStop> stops) { }
         public override void DrawTextLayout(ITextLayout layout, Point origin, Paint paint) { }
     }
 }

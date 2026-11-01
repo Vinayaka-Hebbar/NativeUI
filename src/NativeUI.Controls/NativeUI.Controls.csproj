@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NativeUI.Core\NativeUI.Core.csproj" />
+    <ProjectReference Include="..\NativeUI.Graphics3D\NativeUI.Graphics3D.csproj" />
   </ItemGroup>
 
 </Project>

@@ -231,6 +231,60 @@ export const canvas = {
   },
 
   /**
+   * Fills a rectangle with a linear gradient on the canvas.
+   *
+   * @param {HTMLCanvasElement} element The canvas element.
+   * @param {number} x Left coordinate.
+   * @param {number} y Top coordinate.
+   * @param {number} w Width.
+   * @param {number} h Height.
+   * @param {number} startX Horizontal start of the gradient.
+   * @param {number} startY Vertical start of the gradient.
+   * @param {number} endX Horizontal end of the gradient.
+   * @param {number} endY Vertical end of the gradient.
+   * @param {number[]} offsets Stop positions in [0, 1].
+   * @param {string[]} colors CSS color strings of the stops.
+   * @returns {void}
+   */
+  fillLinearGradient(element, x, y, w, h, startX, startY, endX, endY, offsets, colors) {
+    const ctx = element?.getContext("2d");
+    if (ctx) {
+      const gradient = ctx.createLinearGradient(startX, startY, endX, endY);
+      offsets.forEach((offset, index) => gradient.addColorStop(offset, colors[index]));
+      ctx.save();
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x, y, w, h);
+      ctx.restore();
+    }
+  },
+
+  /**
+   * Fills a closed polygon on the canvas.
+   *
+   * @param {HTMLCanvasElement} element The canvas element.
+   * @param {number[]} coordinates Alternating x and y values of the vertices.
+   * @param {string} color CSS color string.
+   * @param {number} opacity Opacity in [0, 1].
+   * @returns {void}
+   */
+  fillPolygon(element, coordinates, color, opacity) {
+    const ctx = element?.getContext("2d");
+    if (ctx) {
+      ctx.save();
+      ctx.globalAlpha *= opacity;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(coordinates[0], coordinates[1]);
+      for (let i = 2; i < coordinates.length; i += 2) {
+        ctx.lineTo(coordinates[i], coordinates[i + 1]);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+  },
+
+  /**
    * Strokes the outline of a rounded rectangle on the canvas.
    *
    * @param {HTMLCanvasElement} element The canvas element.

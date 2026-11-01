@@ -94,6 +94,33 @@ internal static partial class CanvasInterop
     public static partial void DrawRoundRect(JSObject canvas, double x, double y, double w, double h, double r, string color, double opacity);
 
     /// <summary>
+    /// Fills a rectangle with a linear gradient on the canvas.
+    /// </summary>
+    [JSImport("fillLinearGradient", "nativeui-canvas")]
+    public static partial void FillLinearGradient(
+        JSObject canvas,
+        double x,
+        double y,
+        double w,
+        double h,
+        double startX,
+        double startY,
+        double endX,
+        double endY,
+        [JSMarshalAs<JSType.Array<JSType.Number>>] double[] offsets,
+        [JSMarshalAs<JSType.Array<JSType.String>>] string[] colors);
+
+    /// <summary>
+    /// Fills a closed polygon on the canvas. <paramref name="coordinates"/> holds alternating x and y values.
+    /// </summary>
+    [JSImport("fillPolygon", "nativeui-canvas")]
+    public static partial void FillPolygon(
+        JSObject canvas,
+        [JSMarshalAs<JSType.Array<JSType.Number>>] double[] coordinates,
+        string color,
+        double opacity);
+
+    /// <summary>
     /// Strokes the outline of a rounded rectangle on the canvas.
     /// </summary>
     [JSImport("strokeRoundRect", "nativeui-canvas")]

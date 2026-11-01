@@ -162,6 +162,45 @@ public sealed class WebCanvas2DDrawingContext : DrawingContext
     }
 
     /// <inheritdoc />
+    public override void FillLinearGradient(Rect rect, Point start, Point end, IReadOnlyList<GradientStop> stops)
+    {
+        ArgumentNullException.ThrowIfNull(stops);
+        if (_canvas is null || !OperatingSystem.IsBrowser())
+        {
+            return;
+        }
+
+        double[] offsets = new double[stops.Count];
+        string[] colors = new string[stops.Count];
+        for (int i = 0; i < stops.Count; i++)
+        {
+            offsets[i] = stops[i].Offset;
+            colors[i] = stops[i].Color.ToCssString();
+        }
+
+        CanvasInterop.FillLinearGradient(_canvas, rect.X, rect.Y, rect.Width, rect.Height, start.X, start.Y, end.X, end.Y, offsets, colors);
+    }
+
+    /// <inheritdoc />
+    public override void FillPolygon(IReadOnlyList<Point> points, Paint paint)
+    {
+        ArgumentNullException.ThrowIfNull(points);
+        if (_canvas is null || !OperatingSystem.IsBrowser() || points.Count < 3)
+        {
+            return;
+        }
+
+        double[] coordinates = new double[points.Count * 2];
+        for (int i = 0; i < points.Count; i++)
+        {
+            coordinates[i * 2] = points[i].X;
+            coordinates[(i * 2) + 1] = points[i].Y;
+        }
+
+        CanvasInterop.FillPolygon(_canvas, coordinates, paint.Color.ToCssString(), paint.Opacity);
+    }
+
+    /// <inheritdoc />
     public override void StrokeRoundedRectangle(Rect rect, double radius, double strokeWidth, Paint paint)
     {
         if (_canvas is not null && OperatingSystem.IsBrowser())
