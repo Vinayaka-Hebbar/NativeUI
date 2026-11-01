@@ -34,6 +34,28 @@ public enum XamlPropertyKind
     Double,
 
     /// <summary>
+    /// The literal must be <c>Vertical</c> or <c>Horizontal</c>.
+    /// </summary>
+    Orientation,
+
+    /// <summary>
+    /// The literal is a comma-separated list of <c>Auto</c>, <c>*</c>, <c>2*</c>, or a number of pixels.
+    /// </summary>
+    GridLengthList,
+
+    /// <summary>
+    /// The literal is one, two (vertical, horizontal), or four (top, right, bottom, left) comma-separated numbers,
+    /// assigned to the element's inline style. It has no binding form.
+    /// </summary>
+    StyleThickness,
+
+    /// <summary>
+    /// The literal is an invariant-culture integer assigned through a static setter such as <c>Grid.SetRow</c>.
+    /// It has no binding form.
+    /// </summary>
+    AttachedInt32,
+
+    /// <summary>
     /// The literal is a whitespace-separated list of class names.
     /// </summary>
     ClassList,
@@ -93,6 +115,28 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["IsEnabled"] = XamlPropertyKind.Boolean,
                 ["ClipToBounds"] = XamlPropertyKind.Boolean
             },
+            ["StackPanel"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["ClipToBounds"] = XamlPropertyKind.Boolean,
+                ["Orientation"] = XamlPropertyKind.Orientation,
+                ["Spacing"] = XamlPropertyKind.Double
+            },
+            ["Grid"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["ClipToBounds"] = XamlPropertyKind.Boolean,
+                ["Rows"] = XamlPropertyKind.GridLengthList,
+                ["Columns"] = XamlPropertyKind.GridLengthList,
+                ["RowSpacing"] = XamlPropertyKind.Double,
+                ["ColumnSpacing"] = XamlPropertyKind.Double
+            },
             ["ScrollView"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
                 ["Id"] = XamlPropertyKind.String,
@@ -121,6 +165,16 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["CommandParameter"] = XamlPropertyKind.String
             }
         };
+
+    private static readonly Dictionary<string, XamlPropertyKind> s_sharedProperties = new(StringComparer.Ordinal)
+    {
+        ["Margin"] = XamlPropertyKind.StyleThickness,
+        ["Padding"] = XamlPropertyKind.StyleThickness,
+        ["Grid.Row"] = XamlPropertyKind.AttachedInt32,
+        ["Grid.Column"] = XamlPropertyKind.AttachedInt32,
+        ["Grid.RowSpan"] = XamlPropertyKind.AttachedInt32,
+        ["Grid.ColumnSpan"] = XamlPropertyKind.AttachedInt32
+    };
 
     private readonly string _filePath;
     private readonly IReadOnlySet<string>? _knownCssClasses;
@@ -245,7 +299,8 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 continue;
             }
 
-            if (!allowedProps.TryGetValue(attr.LocalName, out XamlPropertyKind kind))
+            if (!allowedProps.TryGetValue(attr.LocalName, out XamlPropertyKind kind) &&
+                !s_sharedProperties.TryGetValue(attr.LocalName, out kind))
             {
                 _diagnostics.Add(Diagnostic.Create(
                     XamlDiagnostics.UnknownProperty,
@@ -268,6 +323,17 @@ public sealed class XamlValidator : XamlSyntaxVisitor
 
             if (BindingExpressionParser.IsMarkupExtension(attr.Value))
             {
+                if (kind is XamlPropertyKind.StyleThickness or XamlPropertyKind.AttachedInt32)
+                {
+                    _diagnostics.Add(Diagnostic.Create(
+                        XamlDiagnostics.InvalidPropertyValue,
+                        XamlDiagnostics.CreateLocation(_filePath, attr.Position),
+                        attr.Value,
+                        attr.LocalName,
+                        element.LocalName));
+                    continue;
+                }
+
                 if (!BindingExpressionParser.TryParse(
                     attr.Value,
                     attr.Position,
@@ -336,12 +402,66 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         {
             XamlPropertyKind.Boolean => bool.TryParse(literal, out _),
             XamlPropertyKind.Int32 => int.TryParse(literal, NumberStyles.Integer, CultureInfo.InvariantCulture, out _),
+            XamlPropertyKind.AttachedInt32 => int.TryParse(literal, NumberStyles.None, CultureInfo.InvariantCulture, out _),
+            XamlPropertyKind.Orientation => literal is "Vertical" or "Horizontal",
+            XamlPropertyKind.GridLengthList => IsValidGridLengthList(literal),
+            XamlPropertyKind.StyleThickness => TryParseThickness(literal, out _),
             XamlPropertyKind.Int64 => long.TryParse(literal, NumberStyles.Integer, CultureInfo.InvariantCulture, out _),
             XamlPropertyKind.Double => double.TryParse(literal, NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
                 && double.IsFinite(value),
             XamlPropertyKind.BindingOnly => false,
             _ => true
         };
+    }
+
+    /// <summary>
+    /// Splits a comma-separated attribute into trimmed tokens.
+    /// </summary>
+    internal static string[] SplitList(string literal)
+    {
+        return literal.Split(',').Select(static token => token.Trim()).ToArray();
+    }
+
+    /// <summary>
+    /// Parses one, two (vertical, horizontal), or four (top, right, bottom, left) comma-separated numbers.
+    /// </summary>
+    internal static bool TryParseThickness(string literal, out double[] values)
+    {
+        string[] tokens = SplitList(literal);
+        values = new double[tokens.Length];
+        if (tokens.Length is not (1 or 2 or 4))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < tokens.Length; i++)
+        {
+            if (!TryParseFiniteDouble(tokens[i], out values[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsValidGridLengthList(string literal)
+    {
+        return SplitList(literal).All(static token =>
+        {
+            if (string.Equals(token, "Auto", StringComparison.OrdinalIgnoreCase) || token == "*")
+            {
+                return true;
+            }
+
+            string number = token.EndsWith("*", StringComparison.Ordinal) ? token.Substring(0, token.Length - 1) : token;
+            return TryParseFiniteDouble(number, out double value) && value >= 0;
+        });
+    }
+
+    private static bool TryParseFiniteDouble(string text, out double value)
+    {
+        return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && double.IsFinite(value);
     }
 
     private void ValidateCssClassTokens(string classAttributeValue, XamlSourcePosition position)

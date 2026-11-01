@@ -141,3 +141,19 @@
   font-size: 14px;
   width: 900px;
 }
+
+.panel-box {
+  border-radius: 8px;
+  background-color: var(--color-muted-surface);
+}
+
+.grid-sidebar {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.grid-title {
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+}

@@ -21,9 +21,15 @@ public abstract class BindableProperty
     public Type ValueType { get; }
 
     /// <summary>
+    /// Gets a value indicating whether this property is declared by <see cref="OwnerType"/> to be set on other objects,
+    /// such as a grid's row on its children.
+    /// </summary>
+    public bool IsAttached { get; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="BindableProperty"/> class.
     /// </summary>
-    protected BindableProperty(string name, Type ownerType, Type valueType)
+    protected BindableProperty(string name, Type ownerType, Type valueType, bool isAttached = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(ownerType);
@@ -32,6 +38,7 @@ public abstract class BindableProperty
         Name = name;
         OwnerType = ownerType;
         ValueType = valueType;
+        IsAttached = isAttached;
     }
 
     /// <summary>
@@ -62,6 +69,20 @@ public abstract class BindableProperty
     {
         return new BindableProperty<TOwner, TValue>(name, defaultValue, propertyChanged);
     }
+
+    /// <summary>
+    /// Creates an attached property, declared by <typeparamref name="TOwner"/> and settable on any <see cref="BindableObject"/>.
+    /// </summary>
+    /// <param name="name">The property name, without the owner's name.</param>
+    /// <param name="defaultValue">The value on objects where the property is not set.</param>
+    /// <param name="propertyChanged">Invoked with the object the property is set on, which need not be a <typeparamref name="TOwner"/>.</param>
+    public static BindableProperty<TValue> CreateAttached<TOwner, TValue>(
+        string name,
+        TValue defaultValue = default!,
+        Action<BindableObject, TValue, TValue>? propertyChanged = null)
+    {
+        return new BindableProperty<TValue>(name, typeof(TOwner), defaultValue, propertyChanged, isAttached: true);
+    }
 }
 
 /// <summary>
@@ -84,8 +105,9 @@ public class BindableProperty<TValue> : BindableProperty
         string name,
         Type ownerType,
         TValue defaultValue = default!,
-        Action<BindableObject, TValue, TValue>? propertyChanged = null)
-        : base(name, ownerType, typeof(TValue))
+        Action<BindableObject, TValue, TValue>? propertyChanged = null,
+        bool isAttached = false)
+        : base(name, ownerType, typeof(TValue), isAttached)
     {
         DefaultValue = defaultValue;
         _propertyChanged = propertyChanged;

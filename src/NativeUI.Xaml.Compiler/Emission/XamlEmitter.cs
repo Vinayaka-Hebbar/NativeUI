@@ -84,6 +84,8 @@ public static class XamlEmitter
             [
                 UsingDirective(ParseName("NativeUI.Controls")),
                 UsingDirective(ParseName("NativeUI.Core")),
+                UsingDirective(ParseName("NativeUI.Layout")),
+                UsingDirective(ParseName("NativeUI.Media")),
                 UsingDirective(ParseName("NativeUI.Xaml"))
             ]))
             .WithMembers(SingletonList<MemberDeclarationSyntax>(namespaceDecl))
@@ -238,6 +240,16 @@ public static class XamlEmitter
         XamlPropertyKind kind,
         string rawLiteral)
     {
+        if (kind == XamlPropertyKind.AttachedInt32)
+        {
+            return BuildAttachedSetterStatement(targetExpr, propertyName, rawLiteral);
+        }
+
+        if (kind == XamlPropertyKind.StyleThickness)
+        {
+            return BuildStyleThicknessStatement(targetExpr, propertyName, rawLiteral);
+        }
+
         ExpressionSyntax targetMember = targetExpr is ThisExpressionSyntax
             ? IdentifierName(propertyName)
             : MemberAccessExpression(
@@ -247,6 +259,53 @@ public static class XamlEmitter
 
         return ExpressionStatement(
             AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, targetMember, BuildLiteralValue(kind, rawLiteral)));
+    }
+
+    /// <summary>
+    /// Emits <c>Grid.SetRow(target, 1);</c> for the attribute <c>Grid.Row="1"</c>.
+    /// </summary>
+    private static ExpressionStatementSyntax BuildAttachedSetterStatement(ExpressionSyntax targetExpr, string propertyName, string rawLiteral)
+    {
+        string[] parts = propertyName.Split('.');
+        MemberAccessExpressionSyntax setter = MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            IdentifierName(parts[0]),
+            IdentifierName($"Set{parts[1]}"));
+
+        LiteralExpressionSyntax value = LiteralExpression(
+            SyntaxKind.NumericLiteralExpression,
+            Literal(int.Parse(rawLiteral, NumberStyles.None, CultureInfo.InvariantCulture)));
+
+        return ExpressionStatement(
+            InvocationExpression(setter)
+                .WithArgumentList(ArgumentList(SeparatedList([Argument(targetExpr), Argument(value)]))));
+    }
+
+    /// <summary>
+    /// Emits <c>(target.Style ??= new Style()).Margin = new Thickness(...);</c> for the attribute <c>Margin="..."</c>.
+    /// </summary>
+    private static ExpressionStatementSyntax BuildStyleThicknessStatement(ExpressionSyntax targetExpr, string propertyName, string rawLiteral)
+    {
+        ExpressionSyntax styleMember = targetExpr is ThisExpressionSyntax
+            ? IdentifierName("Style")
+            : MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, targetExpr, IdentifierName("Style"));
+
+        ExpressionSyntax style = ParenthesizedExpression(
+            AssignmentExpression(
+                SyntaxKind.CoalesceAssignmentExpression,
+                styleMember,
+                ObjectCreationExpression(IdentifierName("Style")).WithArgumentList(ArgumentList())));
+
+        _ = XamlValidator.TryParseThickness(rawLiteral, out double[] values);
+        ExpressionSyntax thickness = ObjectCreationExpression(IdentifierName("Thickness"))
+            .WithArgumentList(ArgumentList(SeparatedList(values.Select(static value =>
+                Argument(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(value)))))));
+
+        return ExpressionStatement(
+            AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, style, IdentifierName(propertyName)),
+                thickness));
     }
 
     private static ExpressionSyntax BuildLiteralValue(XamlPropertyKind kind, string rawLiteral)
@@ -266,6 +325,12 @@ public static class XamlEmitter
             XamlPropertyKind.Double => LiteralExpression(
                 SyntaxKind.NumericLiteralExpression,
                 Literal(double.Parse(rawLiteral, NumberStyles.Float, CultureInfo.InvariantCulture))),
+            XamlPropertyKind.Orientation => MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                IdentifierName("Orientation"),
+                IdentifierName(rawLiteral)),
+            XamlPropertyKind.GridLengthList => CollectionExpression(SeparatedList<CollectionElementSyntax>(
+                XamlValidator.SplitList(rawLiteral).Select(static token => ExpressionElement(StringLiteral(token))))),
             XamlPropertyKind.ClassList => CollectionExpression(SeparatedList<CollectionElementSyntax>(
                 XamlValidator.SplitClassNames(rawLiteral).Select(static name => ExpressionElement(StringLiteral(name))))),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "The property kind has no literal form.")

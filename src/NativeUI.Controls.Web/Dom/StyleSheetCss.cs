@@ -184,7 +184,8 @@ internal static class StyleSheetCss
                 ["background"] = new CssStringValue("none"),
                 ["color"] = new CssStringValue("inherit"),
                 ["font"] = new CssStringValue("inherit"),
-                ["user-select"] = new CssStringValue("none")
+                ["user-select"] = new CssStringValue("none"),
+                ["width"] = new CssStringValue("fit-content")
             }),
             new($":where([{ScrollViewAttribute}])", null, [], false, new Dictionary<string, CssValue>
             {

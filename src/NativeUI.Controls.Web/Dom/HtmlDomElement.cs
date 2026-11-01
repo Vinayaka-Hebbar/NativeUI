@@ -25,6 +25,11 @@ public class HtmlDomElement : INativePeer
     private bool _disposed;
 
     /// <summary>
+    /// Gets the inline <c>display</c> value while the element is visible, or null to leave it to stylesheets.
+    /// </summary>
+    protected virtual string? VisibleDisplay => null;
+
+    /// <summary>
     /// Gets a value indicating whether this proxy has been disposed.
     /// </summary>
     protected bool IsDisposed => _disposed;
@@ -128,6 +133,8 @@ public class HtmlDomElement : INativePeer
         return source switch
         {
             Button button => new HtmlDomButton(button, element),
+            StackPanel stackPanel => new HtmlDomStackPanel(stackPanel, element),
+            Grid grid => new HtmlDomGrid(grid, element),
             Text text => new HtmlDomText(text, element),
             View view => new HtmlDomView(view, element),
             _ => new HtmlDomElement(source, element, tagName)
@@ -362,6 +369,15 @@ public class HtmlDomElement : INativePeer
         SetClassName(Source.Class.ToString());
         UpdateTypeTokens();
         UpdateVisibility();
+        _parent?.ApplyAttachedProperties(this);
+    }
+
+    /// <summary>
+    /// Applies the attached properties this element's panel declares to <paramref name="child"/>, when the child
+    /// attaches and whenever one of its attached properties changes. Elements that are not panels declare none.
+    /// </summary>
+    internal virtual void ApplyAttachedProperties(HtmlDomElement child)
+    {
     }
 
     /// <summary>
@@ -385,6 +401,10 @@ public class HtmlDomElement : INativePeer
         {
             ReplaceInlineStyle();
         }
+        else if (args.Property.IsAttached)
+        {
+            _parent?.ApplyAttachedProperties(this);
+        }
     }
 
     private void OnElementPropertyChanged(object? sender, BindablePropertyChangedEventArgs args)
@@ -397,7 +417,7 @@ public class HtmlDomElement : INativePeer
 
     private void UpdateVisibility()
     {
-        SetStyleProperty("display", Source.IsVisible ? null : "none");
+        SetStyleProperty("display", Source.IsVisible ? VisibleDisplay : "none");
     }
 
     private void ReplaceInlineStyle()

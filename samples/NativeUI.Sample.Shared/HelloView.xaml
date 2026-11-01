@@ -27,6 +27,25 @@
 
     <!-- The examples scroll inside a page ScrollView; the wheel moves the innermost view that can still scroll. -->
     <ScrollView Class="examples">
+        <Text Class="section" Value="StackPanel" />
+        <StackPanel Class="panel-box" Orientation="Horizontal" Spacing="8" Padding="12">
+            <Button Class="btn-theme" Text="Save" />
+            <Button Class="btn-theme" Text="Cancel" />
+            <Text Class="scroll-line" Value="A horizontal stack with 8px spacing." Margin="8,0" />
+        </StackPanel>
+
+        <Text Class="section" Value="Grid" />
+        <Grid Class="panel-box"
+              Rows="Auto,*"
+              Columns="140,*"
+              RowSpacing="8"
+              ColumnSpacing="12"
+              Padding="12">
+            <Text Class="grid-sidebar" Grid.RowSpan="2" Value="This sidebar spans two rows in a 140px column." />
+            <Text Class="grid-title" Grid.Column="1" Value="Dashboard" />
+            <Text Class="scroll-line" Grid.Row="1" Grid.Column="1" Value="This cell is in the star column, which takes the remaining width and wraps long text like this sentence." />
+        </Grid>
+
         <Text Class="section" Value="ScrollView" />
         <ScrollView x:Name="LogScroll" Class="scroll-box">
             <Text Class="scroll-line" Value="Line 1: ScrollView clips and scrolls its content." />

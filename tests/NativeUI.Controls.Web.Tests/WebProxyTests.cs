@@ -466,7 +466,7 @@ static void TestBaseStyleSheetCss()
     Assert.Equal(":where(native-ui, native-ui *) { box-sizing: border-box; }", lines[0]);
     Assert.Equal(":where(native-ui) { line-height: 1.25; }", lines[1]);
     Assert.Equal(":where(native-ui, native-ui span, native-ui button) { display: block; }", lines[2]);
-    Assert.Equal(":where(native-ui button) { margin: 0; padding: 0; border: none; background: none; color: inherit; font: inherit; user-select: none; }", lines[3]);
+    Assert.Equal(":where(native-ui button) { margin: 0; padding: 0; border: none; background: none; color: inherit; font: inherit; user-select: none; width: fit-content; }", lines[3]);
     Assert.Equal(":where([data-nui-scroll-view]) { overflow: auto; }", lines[4]);
     Assert.Equal(":where(native-ui, native-ui *)::-webkit-scrollbar { width: 10px; height: 10px; }", lines[5]);
     Assert.Equal(":where(native-ui[data-theme=\"dark\"], native-ui[data-theme=\"dark\"] *)::-webkit-scrollbar-thumb { background-color: rgb(255 255 255 / 0.35); }", lines[10]);
