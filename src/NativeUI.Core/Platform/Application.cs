@@ -21,6 +21,87 @@ public abstract class Application : BindableObject
         BindableProperty.Create<Application, Theme>(nameof(CurrentTheme), defaultValue: Theme.Default);
 
     private static Application s_current = new HeadlessApplication();
+    private string? _platform;
+
+    /// <summary>
+    /// Gets or sets the running platform name (such as <c>"macos"</c>, <c>"windows"</c>, <c>"linux"</c>, <c>"web"</c>, <c>"android"</c>, or <c>"ios"</c>).
+    /// </summary>
+    public string Platform
+    {
+        get => _platform ?? DetectDefaultPlatform();
+        set => _platform = string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Gets or sets the running platform name. Alias for <see cref="Platform"/>.
+    /// </summary>
+    public string Platfrom
+    {
+        get => Platform;
+        set => Platform = value;
+    }
+
+    /// <summary>
+    /// Determines whether the specified platform name matches the active running platform.
+    /// <c>"web"</c> and <c>"browser"</c> are treated as synonyms.
+    /// </summary>
+    /// <param name="platform">The lowercase platform name to test.</param>
+    public bool IsPlatform(string platform)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(platform);
+
+        string current = Platform.Trim();
+        string normalized = platform.Trim();
+        if (string.Equals(normalized, current, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if ((string.Equals(normalized, "web", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(normalized, "browser", StringComparison.OrdinalIgnoreCase)) &&
+            (string.Equals(current, "web", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(current, "browser", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string DetectDefaultPlatform()
+    {
+        if (OperatingSystem.IsBrowser())
+        {
+            return "web";
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return "macos";
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            return "windows";
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return "linux";
+        }
+
+        if (OperatingSystem.IsAndroid())
+        {
+            return "android";
+        }
+
+        if (OperatingSystem.IsIOS())
+        {
+            return "ios";
+        }
+
+        return "unknown";
+    }
 
     /// <summary>
     /// Gets the running application, which is never <see langword="null"/>. Before a platform host starts, this is an
@@ -41,6 +122,7 @@ public abstract class Application : BindableObject
 
             Application previous = s_current;
             value.Dispatcher = previous.Dispatcher;
+            value._platform = previous._platform;
             value.SetValue(CurrentThemeProperty, previous.CurrentTheme);
             value.CurrentThemeChanged += previous.CurrentThemeChanged;
             previous.CurrentThemeChanged = null;

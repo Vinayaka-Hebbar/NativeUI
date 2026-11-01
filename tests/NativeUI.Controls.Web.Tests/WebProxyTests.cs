@@ -464,7 +464,7 @@ static void TestBaseStyleSheetCss()
 {
     string[] lines = StyleSheetCss.BaseStyleSheet.RawCss.TrimEnd().Split('\n');
 
-    Assert.Equal(14, lines.Length);
+    Assert.Equal(17, lines.Length);
     Assert.Equal(":where(native-ui, native-ui *) { box-sizing: border-box; }", lines[0]);
     Assert.Equal(":where(native-ui) { line-height: 1.25; }", lines[1]);
     Assert.Equal(":where(native-ui, native-ui span, native-ui button) { display: block; }", lines[2]);

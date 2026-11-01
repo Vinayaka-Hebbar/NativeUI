@@ -77,15 +77,26 @@ public enum CssParsedPseudoElement
 }
 
 /// <summary>
+/// Represents a parsed CSS attribute selector, such as <c>[data-platform="macos"]</c>.
+/// </summary>
+/// <param name="Name">The attribute name.</param>
+/// <param name="Value">The attribute value.</param>
+public sealed record CssAttributeSelectorNode(
+    string Name,
+    string Value);
+
+/// <summary>
 /// Represents one compound part of a selector, such as <c>text.title:hover</c>.
 /// </summary>
 /// <param name="ElementType">The required lowercase element type, or <see langword="null"/> if unconstrained.</param>
 /// <param name="Classes">The required class names.</param>
 /// <param name="RequiredStates">The <c>ElementStates</c> member names required by the part's pseudo-classes.</param>
+/// <param name="Attributes">The attribute selectors required by the part.</param>
 public sealed record CssCompoundSelectorNode(
     string? ElementType,
     IReadOnlyList<string> Classes,
-    IReadOnlyList<string> RequiredStates);
+    IReadOnlyList<string> RequiredStates,
+    IReadOnlyList<CssAttributeSelectorNode>? Attributes = null);
 
 /// <summary>
 /// Represents a parsed CSS selector (such as <c>:root</c>, <c>text</c>, <c>.title:hover</c>, or <c>.card .title::selection</c>).
@@ -101,6 +112,7 @@ public sealed record CssCompoundSelectorNode(
 /// <param name="IsRoot">Whether the selector is <c>:root</c>.</param>
 /// <param name="IsValid">Whether the selector uses only supported syntax.</param>
 /// <param name="Span">The source span of the selector.</param>
+/// <param name="Attributes">The attribute selectors required on the subject.</param>
 public sealed record CssSelectorNode(
     string RawText,
     string? ElementType,
@@ -111,7 +123,8 @@ public sealed record CssSelectorNode(
     IReadOnlyList<CssSourceSpan> TypeSelectorSpans,
     bool IsRoot,
     bool IsValid,
-    CssSourceSpan Span) : CssSyntaxNode(Span)
+    CssSourceSpan Span,
+    IReadOnlyList<CssAttributeSelectorNode>? Attributes = null) : CssSyntaxNode(Span)
 {
     /// <inheritdoc />
     public override void Accept(ICssSyntaxVisitor visitor) => visitor.VisitSelector(this);

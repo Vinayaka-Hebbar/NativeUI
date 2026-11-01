@@ -113,6 +113,21 @@ public enum CssTokenKind
     CloseBrace,
 
     /// <summary>
+    /// Opening square bracket (<c>[</c>).
+    /// </summary>
+    OpenBracket,
+
+    /// <summary>
+    /// Closing square bracket (<c>]</c>).
+    /// </summary>
+    CloseBracket,
+
+    /// <summary>
+    /// Equals sign (<c>=</c>).
+    /// </summary>
+    Equals,
+
+    /// <summary>
     /// An unrecognized or malformed character sequence.
     /// </summary>
     BadToken

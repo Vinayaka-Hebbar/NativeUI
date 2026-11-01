@@ -24,7 +24,8 @@ public sealed record ValidatedCssRule(
     IReadOnlyList<ValidatedCssDeclaration> Declarations,
     IReadOnlyList<string>? RequiredStates = null,
     IReadOnlyList<CssCompoundSelectorNode>? Ancestors = null,
-    CssParsedPseudoElement PseudoElement = CssParsedPseudoElement.None);
+    CssParsedPseudoElement PseudoElement = CssParsedPseudoElement.None,
+    IReadOnlyList<CssAttributeSelectorNode>? Attributes = null);
 
 /// <summary>
 /// Represents the output of <see cref="CssValidator"/> for a CSS file.
@@ -211,7 +212,8 @@ public sealed class CssValidator : CssSyntaxVisitor
                 validDecls,
                 selector.RequiredStates,
                 selector.Ancestors,
-                selector.PseudoElement));
+                selector.PseudoElement,
+                selector.Attributes));
         }
     }
 

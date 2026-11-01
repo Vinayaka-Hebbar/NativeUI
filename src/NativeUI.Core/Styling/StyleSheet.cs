@@ -97,7 +97,7 @@ public sealed class SelectorBuilder
 
     private CompoundSelector CreateCompound()
     {
-        return new CompoundSelector(null, _classes.ToImmutable(), _states, _type);
+        return new CompoundSelector(null, _classes.ToImmutable(), _states, clrType: _type);
     }
 }
 

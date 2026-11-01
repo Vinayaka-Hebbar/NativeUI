@@ -271,6 +271,53 @@ internal static class StyleResolutionTests
         Assert.Equal<Color?>(Colors.White, root.ComputedStyle.TextColor);
     }
 
+    internal static void VerifyPlatformSpecificStyling()
+    {
+        string originalPlatform = Application.Current.Platform;
+        try
+        {
+            CssStyleRegistry.Register(new CssStyleSheet("PlatformStylingView", string.Empty,
+            [
+                new CssRule("[data-platform=\"android\"] .toolbar", null, ["toolbar"], false, new Dictionary<string, CssValue>
+                {
+                    ["height"] = new CssLengthValue(56)
+                }, ancestors: [new CompoundSelector(null, [], ElementStates.None, attributes: [new AttributeSelector("data-platform", "android")])]),
+                new CssRule("[data-platform=\"macos\"] .toolbar", null, ["toolbar"], false, new Dictionary<string, CssValue>
+                {
+                    ["height"] = new CssLengthValue(56)
+                }, ancestors: [new CompoundSelector(null, [], ElementStates.None, attributes: [new AttributeSelector("data-platform", "macos")])]),
+                new CssRule("[data-platform=\"web\"] .toolbar", null, ["toolbar"], false, new Dictionary<string, CssValue>
+                {
+                    ["height"] = new CssLengthValue(44)
+                }, ancestors: [new CompoundSelector(null, [], ElementStates.None, attributes: [new AttributeSelector("data-platform", "web")])])
+            ]));
+
+            using PlatformStylingView view = new();
+            View toolbar = new() { Class = "toolbar" };
+            view.Children.Add(toolbar);
+
+            Application.Current.Platform = "macos";
+            view.InvalidateStyle();
+            Assert.Equal(56.0, toolbar.ComputedStyle.Height);
+
+            Application.Current.Platform = "web";
+            view.InvalidateStyle();
+            Assert.Equal(44.0, toolbar.ComputedStyle.Height);
+
+            Application.Current.Platfrom = "android";
+            view.InvalidateStyle();
+            Assert.Equal(56.0, toolbar.ComputedStyle.Height);
+
+            Application.Current.Platform = "windows";
+            view.InvalidateStyle();
+            Assert.Equal<double?>(null, toolbar.ComputedStyle.Height);
+        }
+        finally
+        {
+            Application.Current.Platform = originalPlatform;
+        }
+    }
+
     private static CssRule Rule(string className, IReadOnlyDictionary<string, CssValue> declarations)
     {
         return new CssRule("." + className, null, [className], false, declarations);
@@ -281,4 +328,6 @@ internal static class StyleResolutionTests
     }
 
     private sealed class RootRuleView : View;
+
+    private sealed class PlatformStylingView : View;
 }

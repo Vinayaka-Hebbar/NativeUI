@@ -181,6 +181,7 @@ internal sealed class HtmlDomRoot : IDisposable
             {
                 _rootElement = DomInterop.CreateElement("native-ui");
                 DomInterop.SetAttribute(_rootElement, StyleSheetCss.ScopeAttribute, _scopeId.ToString(CultureInfo.InvariantCulture));
+                DomInterop.SetAttribute(_rootElement, "data-platform", Application.Current.Platform);
                 DomInterop.SetPointerDispatcher(_rootElement, OnPointerEvent);
                 DomInterop.SetScrollDispatcher(_rootElement, OnScroll);
                 DomInterop.SetInputDispatcher(_rootElement, OnInput);

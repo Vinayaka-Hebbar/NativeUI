@@ -79,7 +79,7 @@ public sealed class CssRule
     /// <summary>
     /// Gets the compiled property and custom-variable declarations inside this rule block.
     /// </summary>
-    public IReadOnlyDictionary<string, CssValue> Declarations { get; }
+    public ImmutableDictionary<string, CssValue> Declarations { get; }
 
     /// <summary>
     /// Gets the part of the matched element styled by this rule.
@@ -98,17 +98,41 @@ public sealed class CssRule
         CssColorSchemeCondition colorScheme = CssColorSchemeCondition.Any,
         ImmutableArray<CompoundSelector> ancestors = default,
         ElementStates requiredStates = ElementStates.None,
-        CssPseudoElement pseudoElement = CssPseudoElement.None)
+        CssPseudoElement pseudoElement = CssPseudoElement.None,
+        ImmutableArray<AttributeSelector> attributes = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(selector);
         ArgumentNullException.ThrowIfNull(declarations);
 
         Selector = selector;
         Target = new StyleSelector(
-            new CompoundSelector(elementType, classes.IsDefault ? [] : classes, requiredStates),
-            ancestors.IsDefault ? [] : ancestors);
+            new CompoundSelector(elementType, classes, requiredStates, attributes),
+            ancestors);
         IsRoot = isRoot;
-        Declarations = declarations;
+        Declarations = declarations.ToImmutableDictionary(StringComparer.Ordinal);
+        ColorScheme = colorScheme;
+        PseudoElement = pseudoElement;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CssRule"/> class with a pre-compiled target selector.
+    /// </summary>
+    public CssRule(
+        string selector,
+        StyleSelector target,
+        bool isRoot,
+        IReadOnlyDictionary<string, CssValue> declarations,
+        CssColorSchemeCondition colorScheme = CssColorSchemeCondition.Any,
+        CssPseudoElement pseudoElement = CssPseudoElement.None)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(selector);
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(declarations);
+
+        Selector = selector;
+        Target = target;
+        IsRoot = isRoot;
+        Declarations = declarations.ToImmutableDictionary(StringComparer.Ordinal);
         ColorScheme = colorScheme;
         PseudoElement = pseudoElement;
     }

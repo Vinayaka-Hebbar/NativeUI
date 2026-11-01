@@ -231,14 +231,14 @@ internal static class PositioningTests
                 Position = Position.Absolute,
                 Left = 20,
                 Top = 15,
-                Margin = new Thickness(10, 5, 0, 0),
+                Margin = new Thickness(5, 0, 0, 10),
                 Width = 80,
                 Height = 40
             }
         };
         card.Children.Add(badge);
 
-        Assert.Equal(new Thickness(10, 5, 0, 0), badge.ComputedStyle.Margin);
+        Assert.Equal(new Thickness(5, 0, 0, 10), badge.ComputedStyle.Margin);
         LayoutBox layout = new LayoutEngine(SkiaTextShaper.Shared).ComputeLayout(card, new Size(300, 200));
         LayoutBox badgeBox = layout.Children[0];
 

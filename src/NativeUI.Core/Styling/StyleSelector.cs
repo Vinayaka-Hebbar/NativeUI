@@ -28,7 +28,27 @@ public readonly record struct SelectorSpecificity(int Classes, int Types) : ICom
 }
 
 /// <summary>
-/// Represents one compound part of a selector, such as an element type, its classes, and its required states.
+/// Represents an attribute match requirement in a CSS selector, such as <c>[data-platform="macos"]</c>.
+/// </summary>
+/// <param name="Name">The attribute name.</param>
+/// <param name="Value">The required attribute value.</param>
+public readonly record struct AttributeSelector(string Name, string Value)
+{
+    /// <summary>
+    /// Gets a value indicating whether this attribute specifies a platform environment condition.
+    /// </summary>
+    public bool IsPlatformAttribute =>
+        string.Equals(Name, "data-platform", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Determines whether this platform attribute matches the currently running platform.
+    /// </summary>
+    public bool MatchesPlatform() =>
+        IsPlatformAttribute && Application.Current.IsPlatform(Value);
+}
+
+/// <summary>
+/// Represents one compound part of a selector, such as an element type, its classes, required states, attributes, and optional CLR type.
 /// </summary>
 public sealed record CompoundSelector
 {
@@ -38,28 +58,26 @@ public sealed record CompoundSelector
     /// <param name="elementType">The required lowercase element type name, or <see langword="null"/> if unconstrained.</param>
     /// <param name="classes">The required class names.</param>
     /// <param name="requiredStates">The states the element must have.</param>
+    /// <param name="attributes">The attribute conditions the element or scope must satisfy.</param>
     /// <param name="clrType">The CLR type the element must be or derive from, or <see langword="null"/> if unconstrained.</param>
     /// <exception cref="ArgumentException"><paramref name="classes"/> is uninitialized or contains a blank name.</exception>
     public CompoundSelector(
         string? elementType,
         ImmutableArray<string> classes,
         ElementStates requiredStates = ElementStates.None,
+        ImmutableArray<AttributeSelector> attributes = default,
         Type? clrType = null)
     {
-        if (classes.IsDefault)
-        {
-            throw new ArgumentException("The class list must be initialized.", nameof(classes));
-        }
-
-        foreach (string className in classes)
-        {
-            ArgumentException.ThrowIfNullOrWhiteSpace(className, nameof(classes));
-        }
-
         ElementType = elementType;
         Classes = classes;
         RequiredStates = requiredStates;
+        Attributes = attributes;
         ClrType = clrType;
+
+        foreach (string className in Classes)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(className, nameof(classes));
+        }
     }
 
     /// <summary>
@@ -78,12 +96,59 @@ public sealed record CompoundSelector
     public ElementStates RequiredStates { get; }
 
     /// <summary>
+    /// Gets the attribute selectors required by this compound part.
+    /// </summary>
+    public ImmutableArray<AttributeSelector> Attributes { get; }
+
+    /// <summary>
     /// Gets the CLR type the element must be or derive from, or <see langword="null"/> if unconstrained.
     /// </summary>
     public Type? ClrType { get; }
 
     /// <summary>
-    /// Gets the specificity of this part. Each required state counts once, because states are flags.
+    /// Gets the required platform name from any platform attribute, or <see langword="null"/> if unconstrained.
+    /// </summary>
+    public string? Platform
+    {
+        get
+        {
+            if (Attributes.IsDefault)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < Attributes.Length; i++)
+            {
+                if (Attributes[i].IsPlatformAttribute)
+                {
+                    return Attributes[i].Value;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether this compound selector specifies only platform environment attributes.
+    /// </summary>
+    public bool IsEnvironmentPlatformSelector =>
+        ElementType is null &&
+        Classes.IsDefaultOrEmpty &&
+        RequiredStates == ElementStates.None &&
+        ClrType is null &&
+        !Attributes.IsDefaultOrEmpty &&
+        Attributes.All(static a => a.IsPlatformAttribute);
+
+    /// <summary>
+    /// Determines whether all platform attributes in this selector match the currently running platform.
+    /// </summary>
+    public bool MatchesPlatform() =>
+        !Attributes.IsDefaultOrEmpty &&
+        Attributes.All(static a => a.MatchesPlatform());
+
+    /// <summary>
+    /// Gets the specificity of this part. Each required state and attribute counts once.
     /// </summary>
     public SelectorSpecificity Specificity
     {
@@ -91,8 +156,9 @@ public sealed record CompoundSelector
         {
             bool hasType = ElementType is not null || ClrType is not null;
             int stateCount = int.PopCount((int)RequiredStates);
+            int classAndAttrCount = (Classes.IsDefault ? 0 : Classes.Length) + (Attributes.IsDefault ? 0 : Attributes.Length);
 
-            return new SelectorSpecificity(Classes.Length + stateCount, hasType ? 1 : 0);
+            return new SelectorSpecificity(classAndAttrCount + stateCount, hasType ? 1 : 0);
         }
     }
 
@@ -103,12 +169,12 @@ public sealed record CompoundSelector
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        if ((element.States & RequiredStates) != RequiredStates)
+        if (ClrType is not null && !ClrType.IsAssignableFrom(element.GetType()))
         {
             return false;
         }
 
-        if (ClrType is not null && !ClrType.IsInstanceOfType(element))
+        if ((element.States & RequiredStates) != RequiredStates)
         {
             return false;
         }
@@ -119,22 +185,44 @@ public sealed record CompoundSelector
             return false;
         }
 
-        IReadOnlyList<string> elementClasses = element.Classes;
-        for (int i = 0; i < Classes.Length; i++)
+        if (!Classes.IsDefault)
         {
-            bool found = false;
-            for (int j = 0; j < elementClasses.Count; j++)
+            IReadOnlyList<string> elementClasses = element.Classes;
+            for (int i = 0; i < Classes.Length; i++)
             {
-                if (string.Equals(Classes[i], elementClasses[j], StringComparison.Ordinal))
+                bool found = false;
+                for (int j = 0; j < elementClasses.Count; j++)
                 {
-                    found = true;
-                    break;
+                    if (string.Equals(Classes[i], elementClasses[j], StringComparison.Ordinal))
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
+                {
+                    return false;
                 }
             }
+        }
 
-            if (!found)
+        if (!Attributes.IsDefault)
+        {
+            for (int i = 0; i < Attributes.Length; i++)
             {
-                return false;
+                AttributeSelector attr = Attributes[i];
+                if (attr.IsPlatformAttribute)
+                {
+                    if (element.Parent is not null || !Application.Current.IsPlatform(attr.Value))
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    return false;
+                }
             }
         }
 
@@ -153,18 +241,14 @@ public sealed record StyleSelector
     /// </summary>
     /// <param name="subject">The compound part the matched element must satisfy.</param>
     /// <param name="ancestors">The compound parts required on ancestors of the element, outermost first.</param>
+    /// <param name="platform">The target platform name, or <see langword="null"/> if unconstrained.</param>
     /// <exception cref="ArgumentNullException"><paramref name="subject"/> is null.</exception>
-    /// <exception cref="ArgumentException"><paramref name="ancestors"/> is uninitialized or contains a null part.</exception>
-    public StyleSelector(CompoundSelector subject, ImmutableArray<CompoundSelector> ancestors)
+    public StyleSelector(CompoundSelector subject, ImmutableArray<CompoundSelector> ancestors = default, string? platform = null)
     {
         ArgumentNullException.ThrowIfNull(subject);
-        if (ancestors.IsDefault || ancestors.Contains(null!))
-        {
-            throw new ArgumentException("The ancestor list must be initialized and contain no null parts.", nameof(ancestors));
-        }
-
         Subject = subject;
         Ancestors = ancestors;
+        Platform = string.IsNullOrWhiteSpace(platform) ? subject.Platform : platform.Trim().ToLowerInvariant();
     }
 
     /// <summary>
@@ -178,6 +262,11 @@ public sealed record StyleSelector
     public ImmutableArray<CompoundSelector> Ancestors { get; }
 
     /// <summary>
+    /// Gets the target platform name, or <see langword="null"/> if unconstrained.
+    /// </summary>
+    public string? Platform { get; }
+
+    /// <summary>
     /// Gets the specificity of the complete selector.
     /// </summary>
     public SelectorSpecificity Specificity
@@ -185,9 +274,12 @@ public sealed record StyleSelector
         get
         {
             SelectorSpecificity specificity = Subject.Specificity;
-            foreach (CompoundSelector ancestor in Ancestors)
+            if (!Ancestors.IsDefault)
             {
-                specificity += ancestor.Specificity;
+                foreach (CompoundSelector ancestor in Ancestors)
+                {
+                    specificity += ancestor.Specificity;
+                }
             }
 
             return specificity;
@@ -203,12 +295,17 @@ public sealed record StyleSelector
     {
         ArgumentNullException.ThrowIfNull(element);
 
+        if (Platform is not null && !Application.Current.IsPlatform(Platform))
+        {
+            return false;
+        }
+
         if (!Subject.Matches(element))
         {
             return false;
         }
 
-        if (Ancestors.Length == 0)
+        if (Ancestors.IsDefaultOrEmpty)
         {
             return true;
         }
@@ -221,7 +318,8 @@ public sealed record StyleSelector
         IUIElement? current = element.Parent;
         for (int i = Ancestors.Length - 1; i >= 0; i--)
         {
-            while (current is not null && !Ancestors[i].Matches(current))
+            CompoundSelector ancestor = Ancestors[i];
+            while (current is not null && !ancestor.Matches(current))
             {
                 if (ReferenceEquals(current, container))
                 {
@@ -234,6 +332,11 @@ public sealed record StyleSelector
 
             if (current is null)
             {
+                if (i == 0 && ancestor.IsEnvironmentPlatformSelector && ancestor.MatchesPlatform())
+                {
+                    return true;
+                }
+
                 return false;
             }
 
@@ -267,15 +370,21 @@ public sealed record StyleSelector
             throw new ArgumentException("The selector text cannot be empty.", nameof(selectorText));
         }
 
-        CompoundSelector[] compounds = new CompoundSelector[parts.Length];
+        List<CompoundSelector> compounds = [];
         for (int i = 0; i < parts.Length; i++)
         {
-            compounds[i] = ParseCompound(parts[i]);
+            CompoundSelector compound = ParseCompound(parts[i]);
+            compounds.Add(compound);
+        }
+
+        if (compounds.Count == 0)
+        {
+            compounds.Add(new CompoundSelector(null, []));
         }
 
         CompoundSelector subject = compounds[^1];
-        ImmutableArray<CompoundSelector> ancestors = compounds.Length > 1
-            ? [.. compounds[..^1]]
+        ImmutableArray<CompoundSelector> ancestors = compounds.Count > 1
+            ? [.. compounds.GetRange(0, compounds.Count - 1)]
             : ImmutableArray<CompoundSelector>.Empty;
 
         return new StyleSelector(subject, ancestors);
@@ -286,6 +395,7 @@ public sealed record StyleSelector
         string? elementType = null;
         List<string> classes = [];
         ElementStates states = ElementStates.None;
+        List<AttributeSelector> attributes = [];
 
         int index = 0;
         int length = text.Length;
@@ -293,7 +403,7 @@ public sealed record StyleSelector
         if (char.IsLetter(text[0]))
         {
             int start = index;
-            while (index < length && text[index] != '.' && text[index] != ':')
+            while (index < length && text[index] != '.' && text[index] != ':' && text[index] != '[')
             {
                 index++;
             }
@@ -307,7 +417,7 @@ public sealed record StyleSelector
             {
                 index++;
                 int start = index;
-                while (index < length && text[index] != '.' && text[index] != ':')
+                while (index < length && text[index] != '.' && text[index] != ':' && text[index] != '[')
                 {
                     index++;
                 }
@@ -321,7 +431,7 @@ public sealed record StyleSelector
             {
                 index++;
                 int start = index;
-                while (index < length && text[index] != '.' && text[index] != ':')
+                while (index < length && text[index] != '.' && text[index] != ':' && text[index] != '[')
                 {
                     index++;
                 }
@@ -347,12 +457,33 @@ public sealed record StyleSelector
                     }
                 }
             }
+            else if (text[index] == '[')
+            {
+                int closeIndex = text.IndexOf(']', index);
+                if (closeIndex > index)
+                {
+                    string attributeExpr = text[(index + 1)..closeIndex];
+                    index = closeIndex + 1;
+
+                    int equalsIndex = attributeExpr.IndexOf('=');
+                    if (equalsIndex > 0)
+                    {
+                        string attrName = attributeExpr[..equalsIndex].Trim();
+                        string attrVal = attributeExpr[(equalsIndex + 1)..].Trim().Trim('"', '\'');
+                        attributes.Add(new AttributeSelector(attrName, attrVal));
+                    }
+                }
+                else
+                {
+                    index++;
+                }
+            }
             else
             {
                 index++;
             }
         }
 
-        return new CompoundSelector(elementType, [.. classes], states);
+        return new CompoundSelector(elementType, [.. classes], states, attributes: [.. attributes]);
     }
 }

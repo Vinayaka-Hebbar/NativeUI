@@ -13,7 +13,8 @@ int exitCode = TestRunner.RunSuite("NativeUI.Css.Compiler.Tests",
     ("CssEmitter compiles cursor property and active/disabled pseudo-classes", TestButtonAndCursorCssEmission),
     ("Browser CSS gates color-scheme rules on the root's theme instead of the OS preference", TestBrowserCssThemeRules),
     ("CssEmitter compiles width: fit-content and rejects it on other properties", TestFitContentWidthEmission),
-    ("CssEmitter compiles position relative, absolute, fixed, and offset lengths", TestPositionAndOffsetsCssEmission)
+    ("CssEmitter compiles position relative, absolute, fixed, and offset lengths", TestPositionAndOffsetsCssEmission),
+    ("CssCompiler compiles platform-specific styling rules", TestPlatformSpecificStyling)
 ]);
 
 return exitCode;
@@ -94,7 +95,7 @@ static void TestStateAndDescendantSelectors()
 
 static void TestUnsupportedSelectorDiagnostics()
 {
-    Assert.True(HasDiagnostic(".a:focus { color: #ffffff; }", "NCSS004"), "Expected unsupported pseudo-class error.");
+    Assert.True(HasDiagnostic(".a:visited { color: #ffffff; }", "NCSS004"), "Expected unsupported pseudo-class error.");
     Assert.True(HasDiagnostic(".a::before { color: #ffffff; }", "NCSS004"), "Expected unsupported pseudo-element error.");
     Assert.True(HasDiagnostic(".a > .b { color: #ffffff; }", "NCSS004"), "Expected unsupported child combinator error.");
     Assert.True(HasDiagnostic(".a + .b { color: #ffffff; }", "NCSS004"), "Expected unsupported next-sibling combinator error.");
@@ -203,9 +204,49 @@ static void TestPositionAndOffsetsCssEmission()
 
     Assert.Contains("new CssPositionValue(Position.Absolute)", emitted);
     Assert.Contains("new CssPositionValue(Position.Fixed)", emitted);
-    Assert.Contains("new CssLengthValue(10)", emitted);
-    Assert.Contains("new CssLengthValue(15)", emitted);
-    Assert.Contains("new CssLengthValue(0)", emitted);
-    Assert.Contains("new CssLengthValue(20)", emitted);
+    Assert.Contains("new CssLengthValue(10, CssLengthUnit.Px)", emitted);
+    Assert.Contains("new CssLengthValue(15, CssLengthUnit.Px)", emitted);
+    Assert.Contains("new CssLengthValue(0, CssLengthUnit.Px)", emitted);
+    Assert.Contains("new CssLengthValue(20, CssLengthUnit.Px)", emitted);
+}
+
+static void TestPlatformSpecificStyling()
+{
+    const string css = """
+        [data-platform="android"] .toolbar {
+            height: 56px;
+        }
+
+        [data-platform="macos"] .toolbar {
+            height: 56px;
+        }
+
+        [data-platform="web"] .toolbar {
+            height: 44px;
+        }
+        """;
+
+    ValidatedCssStylesheet validated = CssValidator.Validate(
+        CssParser.Parse("PlatformTheme.css", css));
+
+    Assert.Equal(0, validated.Diagnostics.Count);
+    Assert.Equal(3, validated.Rules.Count);
+
+    Assert.NotNull(validated.Rules[0].Ancestors);
+    Assert.Equal("data-platform", validated.Rules[0].Ancestors![0].Attributes![0].Name);
+    Assert.Equal("android", validated.Rules[0].Ancestors![0].Attributes![0].Value);
+
+    Assert.NotNull(validated.Rules[1].Ancestors);
+    Assert.Equal("data-platform", validated.Rules[1].Ancestors![0].Attributes![0].Name);
+    Assert.Equal("macos", validated.Rules[1].Ancestors![0].Attributes![0].Value);
+
+    Assert.NotNull(validated.Rules[2].Ancestors);
+    Assert.Equal("data-platform", validated.Rules[2].Ancestors![0].Attributes![0].Name);
+    Assert.Equal("web", validated.Rules[2].Ancestors![0].Attributes![0].Value);
+
+    string emitted = CssEmitter.Emit(validated, "NativeUI.Sample.Shared", Accessibility.Public);
+    Assert.Contains("new AttributeSelector(\"data-platform\", \"android\")", emitted);
+    Assert.Contains("new AttributeSelector(\"data-platform\", \"macos\")", emitted);
+    Assert.Contains("new AttributeSelector(\"data-platform\", \"web\")", emitted);
 }
 

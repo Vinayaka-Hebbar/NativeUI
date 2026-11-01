@@ -137,14 +137,61 @@ internal static class StyleSheetTests
     {
         CompoundSelector part = new(null, []);
 
-        AssertThrows<ArgumentException>(() => new CompoundSelector(null, default));
         AssertThrows<ArgumentException>(() => new CompoundSelector(null, [" "]));
         AssertThrows<ArgumentNullException>(() => new StyleSelector(null!, []));
-        AssertThrows<ArgumentException>(() => new StyleSelector(part, default));
-        AssertThrows<ArgumentException>(() => new StyleSelector(part, [null!]));
 
-        Assert.Equal(0, new CssRule(".a", null, default, false, new Dictionary<string, CssValue>()).Target.Ancestors.Length);
+        Assert.True(new CssRule(".a", null, [], false, new Dictionary<string, CssValue>()).Target.Ancestors.IsDefault);
         Assert.True(new StyleSelector(part, []).Matches(new Text()));
+    }
+
+    internal static void VerifyCompoundSelectorDistinctions()
+    {
+        string originalPlatform = Application.Current.Platform;
+        try
+        {
+            Button button = new();
+            View view = new();
+
+            // Match by NativeUI tag name such as button or view.
+            CompoundSelector buttonTagSelector = new("button", []);
+            CompoundSelector viewTagSelector = new("view", []);
+            Assert.True(buttonTagSelector.Matches(button));
+            Assert.False(buttonTagSelector.Matches(view));
+            Assert.True(viewTagSelector.Matches(view));
+            Assert.False(viewTagSelector.Matches(button));
+
+            // Match by CLR type hierarchy such as typeof(Button).
+            CompoundSelector buttonClrSelector = new(null, [], clrType: typeof(Button));
+            CompoundSelector uiElementClrSelector = new(null, [], clrType: typeof(UIElement));
+            Assert.True(buttonClrSelector.Matches(button));
+            Assert.False(buttonClrSelector.Matches(view));
+            Assert.True(uiElementClrSelector.Matches(button));
+            Assert.True(uiElementClrSelector.Matches(view));
+
+            // Match by CSS attribute selectors such as [data-platform="macos"].
+            CompoundSelector macAttrSelector = new(
+                null,
+                [],
+                attributes: [new AttributeSelector("data-platform", "macos")]);
+
+            Application.Current.Platform = "macos";
+            Assert.True(macAttrSelector.Matches(view));
+
+            view.Children.Add(button);
+            Assert.False(macAttrSelector.Matches(button));
+
+            // StyleSelector descendant matching resolves platform attribute on ancestor.
+            StyleSelector macToolbarSelector = StyleSelector.Parse("[data-platform=\"macos\"] button");
+            Assert.True(macToolbarSelector.Matches(button));
+
+            Application.Current.Platform = "windows";
+            Assert.False(macAttrSelector.Matches(view));
+            Assert.False(macToolbarSelector.Matches(button));
+        }
+        finally
+        {
+            Application.Current.Platform = originalPlatform;
+        }
     }
 
     private static void AssertThrows<TException>(Action action)

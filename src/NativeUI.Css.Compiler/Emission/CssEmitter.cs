@@ -280,8 +280,15 @@ public static class CssEmitter
             arguments.Add(Argument(pseudoElement).WithNameColon(NameColon("pseudoElement")));
         }
 
-        return ObjectCreationExpression(ruleType)
+        if (rule.Attributes is { Count: > 0 } attributes)
+        {
+            arguments.Add(Argument(BuildAttributesExpression(attributes)).WithNameColon(NameColon("attributes")));
+        }
+
+        ObjectCreationExpressionSyntax ruleCreation = ObjectCreationExpression(ruleType)
             .WithArgumentList(ArgumentList(SeparatedList(arguments)));
+
+        return ruleCreation;
     }
 
     private static ExpressionSyntax BuildClassesExpression(IReadOnlyList<string> classes)
@@ -328,16 +335,45 @@ public static class CssEmitter
                 ? LiteralExpression(SyntaxKind.NullLiteralExpression)
                 : CssValueSyntaxBuilder.StringLiteral(ancestor.ElementType);
 
+            List<ArgumentSyntax> compoundArgs =
+            [
+                Argument(elementType),
+                Argument(BuildClassesExpression(ancestor.Classes)),
+                Argument(BuildStatesExpression(ancestor.RequiredStates))
+            ];
+
+            if (ancestor.Attributes is { Count: > 0 } attrs)
+            {
+                compoundArgs.Add(Argument(BuildAttributesExpression(attrs)).WithNameColon(NameColon("attributes")));
+            }
+
             return (ExpressionSyntax)ObjectCreationExpression(compoundType)
-                .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
-                [
-                    Argument(elementType),
-                    Argument(BuildClassesExpression(ancestor.Classes)),
-                    Argument(BuildStatesExpression(ancestor.RequiredStates))
-                ])));
+                .WithArgumentList(ArgumentList(SeparatedList(compoundArgs)));
         });
 
         return BuildImmutableArrayCreation(parts);
+    }
+
+    private static ExpressionSyntax BuildAttributesExpression(IReadOnlyList<CssAttributeSelectorNode> attributes)
+    {
+        if (attributes.Count == 0)
+        {
+            return MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                ParseTypeName("ImmutableArray<AttributeSelector>"),
+                IdentifierName("Empty"));
+        }
+
+        TypeSyntax attrType = IdentifierName("AttributeSelector");
+        IEnumerable<ExpressionSyntax> items = attributes.Select(attr =>
+            (ExpressionSyntax)ObjectCreationExpression(attrType)
+                .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
+                [
+                    Argument(CssValueSyntaxBuilder.StringLiteral(attr.Name)),
+                    Argument(CssValueSyntaxBuilder.StringLiteral(attr.Value))
+                ]))));
+
+        return BuildImmutableArrayCreation(items);
     }
 
     private static string SanitizeIdentifier(string raw)

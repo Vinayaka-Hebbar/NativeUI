@@ -46,6 +46,21 @@ public static class CssTokenizer
                     tokens.Add(MakeSimpleToken(CssTokenKind.CloseBrace, "}", startPos, startLine, startCol, index, line, col, hadTrivia));
                     continue;
 
+                case '[':
+                    Advance(source, ref index, ref line, ref col);
+                    tokens.Add(MakeSimpleToken(CssTokenKind.OpenBracket, "[", startPos, startLine, startCol, index, line, col, hadTrivia));
+                    continue;
+
+                case ']':
+                    Advance(source, ref index, ref line, ref col);
+                    tokens.Add(MakeSimpleToken(CssTokenKind.CloseBracket, "]", startPos, startLine, startCol, index, line, col, hadTrivia));
+                    continue;
+
+                case '=':
+                    Advance(source, ref index, ref line, ref col);
+                    tokens.Add(MakeSimpleToken(CssTokenKind.Equals, "=", startPos, startLine, startCol, index, line, col, hadTrivia));
+                    continue;
+
                 case '(':
                     Advance(source, ref index, ref line, ref col);
                     tokens.Add(MakeSimpleToken(CssTokenKind.OpenParen, "(", startPos, startLine, startCol, index, line, col, hadTrivia));

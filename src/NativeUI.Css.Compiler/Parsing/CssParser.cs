@@ -284,7 +284,8 @@ public sealed class CssParser
             typeSpans,
             IsRoot: false,
             isValid,
-            fullSpan);
+            fullSpan,
+            subject.Attributes);
     }
 
     /// <summary>
@@ -301,6 +302,7 @@ public sealed class CssParser
         string? elementType = null;
         List<string> classes = [];
         List<string> requiredStates = [];
+        List<CssAttributeSelectorNode> attributes = [];
         bool hasContent = false;
         int start = index;
 
@@ -334,6 +336,19 @@ public sealed class CssParser
                 hasContent = true;
                 index += 2;
             }
+            else if (tokens[index].Kind == CssTokenKind.OpenBracket &&
+                index + 4 < tokens.Count &&
+                tokens[index + 1].Kind == CssTokenKind.Identifier &&
+                tokens[index + 2].Kind == CssTokenKind.Equals &&
+                tokens[index + 3].Kind is CssTokenKind.String or CssTokenKind.Identifier &&
+                tokens[index + 4].Kind == CssTokenKind.CloseBracket)
+            {
+                attributes.Add(new CssAttributeSelectorNode(
+                    tokens[index + 1].Text,
+                    tokens[index + 3].Text));
+                hasContent = true;
+                index += 5;
+            }
             else if (IsAttachedIdentifier(tokens, index + 2) &&
                 tokens[index].Kind == CssTokenKind.Colon &&
                 tokens[index + 1].Kind == CssTokenKind.Colon &&
@@ -351,7 +366,7 @@ public sealed class CssParser
             }
         }
 
-        compound = new CssCompoundSelectorNode(elementType, classes, requiredStates);
+        compound = new CssCompoundSelectorNode(elementType, classes, requiredStates, attributes);
         return isValid && hasContent;
     }
 
