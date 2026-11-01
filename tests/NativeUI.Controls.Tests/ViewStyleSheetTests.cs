@@ -173,7 +173,7 @@ internal static class ViewStyleSheetTests
             nameof(ScopedFontLengthView),
             string.Empty,
             [
-                new CssRule(".title", null, ["title"], false, new Dictionary<string, CssValue>
+                new CssRule(CssSelector.Class("title"), new Dictionary<string, CssValue>
                 {
                     ["margin"] = new CssLengthValue(1, CssLengthUnit.Em)
                 })
@@ -207,7 +207,7 @@ internal static class ViewStyleSheetTests
             nameof(ThemeVarView),
             string.Empty,
             [
-                new CssRule(":root", null, [], true, new Dictionary<string, CssValue>
+                new CssRule(CssSelector.Root(), new Dictionary<string, CssValue>
                 {
                     ["--brand-color"] = new CssColorValue(Colors.Blue)
                 })

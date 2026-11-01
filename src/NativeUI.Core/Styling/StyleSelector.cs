@@ -28,29 +28,29 @@ public readonly record struct SelectorSpecificity(int Classes, int Types) : ICom
 }
 
 /// <summary>
-/// Represents an attribute match requirement in a CSS selector, such as <c>[data-platform="macos"]</c>.
+/// Represents an attribute match requirement in a CSS selector, such as <c>[data-platform="macos"]</c> or <c>[disabled]</c>.
 /// </summary>
 /// <param name="Name">The attribute name.</param>
-/// <param name="Value">The required attribute value.</param>
-public readonly record struct AttributeSelector(string Name, string Value)
+/// <param name="Value">The required attribute value, or <see langword="null"/> to require only the attribute's presence.</param>
+public readonly record struct AttributeSelector(string Name, string? Value = null)
 {
     /// <summary>
     /// Gets a value indicating whether this attribute specifies a platform environment condition.
     /// </summary>
     public bool IsPlatformAttribute =>
-        string.Equals(Name, "data-platform", StringComparison.OrdinalIgnoreCase);
+        string.Equals(Name, "data-platform", StringComparison.OrdinalIgnoreCase) && Value is not null;
 
     /// <summary>
     /// Determines whether this platform attribute matches the currently running platform.
     /// </summary>
     public bool MatchesPlatform() =>
-        IsPlatformAttribute && Application.Current.IsPlatform(Value);
+        IsPlatformAttribute && Application.Current.IsPlatform(Value!);
 }
 
 /// <summary>
 /// Represents one compound part of a selector, such as an element type, its classes, required states, attributes, and optional CLR type.
 /// </summary>
-public sealed record CompoundSelector
+public record CompoundSelector
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="CompoundSelector"/> class.
@@ -150,7 +150,7 @@ public sealed record CompoundSelector
     /// <summary>
     /// Gets the specificity of this part. Each required state and attribute counts once.
     /// </summary>
-    public SelectorSpecificity Specificity
+    public virtual SelectorSpecificity Specificity
     {
         get
         {
@@ -163,9 +163,136 @@ public sealed record CompoundSelector
     }
 
     /// <summary>
+    /// Implicitly converts a <see cref="CompoundSelector"/> to a <see cref="StyleSelector"/> with no ancestors.
+    /// </summary>
+    /// <param name="compound">The compound selector to convert.</param>
+    public static implicit operator StyleSelector(CompoundSelector compound)
+    {
+        ArgumentNullException.ThrowIfNull(compound);
+        return new StyleSelector(compound);
+    }
+
+    /// <summary>
+    /// Returns a new compound selector with the required class <paramref name="className"/> added.
+    /// </summary>
+    /// <param name="className">The class name to require.</param>
+    public CompoundSelector Class(string className)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(className);
+        return new CompoundSelector(
+            ElementType,
+            Classes.IsDefault ? [className] : Classes.Add(className),
+            RequiredStates,
+            Attributes,
+            ClrType);
+    }
+
+    /// <summary>
+    /// Returns a new compound selector with the specified <paramref name="states"/> required.
+    /// </summary>
+    /// <param name="states">The states to require.</param>
+    public CompoundSelector State(ElementStates states)
+    {
+        return new CompoundSelector(
+            ElementType,
+            Classes,
+            RequiredStates | states,
+            Attributes,
+            ClrType);
+    }
+
+    /// <summary>
+    /// Returns a new compound selector with the required attribute presence added.
+    /// </summary>
+    /// <param name="name">The attribute name.</param>
+    public CompoundSelector Attribute(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        AttributeSelector attr = new(name);
+        return new CompoundSelector(
+            ElementType,
+            Classes,
+            RequiredStates,
+            Attributes.IsDefault ? [attr] : Attributes.Add(attr),
+            ClrType);
+    }
+
+    /// <summary>
+    /// Returns a new compound selector with the required attribute condition added.
+    /// </summary>
+    /// <param name="name">The attribute name.</param>
+    /// <param name="value">The required attribute value.</param>
+    public CompoundSelector Attribute(string name, string value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(value);
+        AttributeSelector attr = new(name, value);
+        return new CompoundSelector(
+            ElementType,
+            Classes,
+            RequiredStates,
+            Attributes.IsDefault ? [attr] : Attributes.Add(attr),
+            ClrType);
+    }
+
+    /// <summary>
+    /// Converts this compound selector to a <see cref="StyleSelector"/> with the specified pseudo-element attached.
+    /// </summary>
+    /// <param name="name">The pseudo-element name.</param>
+    public StyleSelector PseudoElement(string name)
+    {
+        return ((StyleSelector)this).PseudoElement(name);
+    }
+
+    /// <summary>
+    /// Formats this compound selector as CSS text.
+    /// </summary>
+    public virtual string ToCssString()
+    {
+        System.Text.StringBuilder sb = new();
+        if (ElementType is not null)
+        {
+            sb.Append(ElementType);
+        }
+
+        if (!Classes.IsDefaultOrEmpty)
+        {
+            foreach (string cls in Classes)
+            {
+                sb.Append('.').Append(cls);
+            }
+        }
+
+        if (!Attributes.IsDefaultOrEmpty)
+        {
+            foreach (AttributeSelector attr in Attributes)
+            {
+                if (attr.Value is null)
+                {
+                    sb.Append('[').Append(attr.Name).Append(']');
+                }
+                else
+                {
+                    sb.Append('[').Append(attr.Name).Append("=\"").Append(attr.Value).Append("\"]");
+                }
+            }
+        }
+
+        if (RequiredStates != ElementStates.None)
+        {
+            if (RequiredStates.HasFlag(ElementStates.Hover)) sb.Append(":hover");
+            if (RequiredStates.HasFlag(ElementStates.Pressed)) sb.Append(":active");
+            if (RequiredStates.HasFlag(ElementStates.Disabled)) sb.Append(":disabled");
+            if (RequiredStates.HasFlag(ElementStates.Focus)) sb.Append(":focus");
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// Determines whether <paramref name="element"/> satisfies this compound part.
     /// </summary>
-    public bool Matches(IUIElement element)
+    public virtual bool Matches(IUIElement element)
     {
         ArgumentNullException.ThrowIfNull(element);
 
@@ -180,6 +307,7 @@ public sealed record CompoundSelector
         }
 
         if (ElementType is not null &&
+            ElementType != "*" &&
             !string.Equals(ElementType, element.TagName, StringComparison.OrdinalIgnoreCase))
         {
             return false;
@@ -214,7 +342,7 @@ public sealed record CompoundSelector
                 AttributeSelector attr = Attributes[i];
                 if (attr.IsPlatformAttribute)
                 {
-                    if (element.Parent is not null || !Application.Current.IsPlatform(attr.Value))
+                    if (element.Parent is not null || attr.Value is null || !Application.Current.IsPlatform(attr.Value))
                     {
                         return false;
                     }
@@ -228,6 +356,128 @@ public sealed record CompoundSelector
 
         return true;
     }
+    /// <summary>
+    /// Combines this compound selector with <paramref name="other"/>, requiring all conditions from both to match.
+    /// </summary>
+    /// <param name="other">The other compound selector to combine with.</param>
+    /// <returns>A new compound selector containing the merged conditions.</returns>
+    public CompoundSelector And(CompoundSelector other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+
+        string? elementType = ElementType;
+        if (elementType is null or "*")
+        {
+            elementType = other.ElementType;
+        }
+        else if (other.ElementType is not null && other.ElementType != "*" &&
+                 !string.Equals(elementType, other.ElementType, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException($"Cannot combine conflicting element types '{elementType}' and '{other.ElementType}'.", nameof(other));
+        }
+
+        ImmutableArray<string> classes;
+        if (Classes.IsDefaultOrEmpty)
+        {
+            classes = other.Classes;
+        }
+        else if (other.Classes.IsDefaultOrEmpty)
+        {
+            classes = Classes;
+        }
+        else
+        {
+            classes = Classes.AddRange(other.Classes.Where(c => !Classes.Contains(c, StringComparer.Ordinal)));
+        }
+
+        ElementStates states = RequiredStates | other.RequiredStates;
+
+        ImmutableArray<AttributeSelector> attributes;
+        if (Attributes.IsDefaultOrEmpty)
+        {
+            attributes = other.Attributes;
+        }
+        else if (other.Attributes.IsDefaultOrEmpty)
+        {
+            attributes = Attributes;
+        }
+        else
+        {
+            attributes = Attributes.AddRange(other.Attributes.Where(a => !Attributes.Contains(a)));
+        }
+
+        Type? clrType = ClrType ?? other.ClrType;
+        if (ClrType is not null && other.ClrType is not null)
+        {
+            if (ClrType.IsAssignableFrom(other.ClrType))
+            {
+                clrType = other.ClrType;
+            }
+            else if (other.ClrType.IsAssignableFrom(ClrType))
+            {
+                clrType = ClrType;
+            }
+            else
+            {
+                throw new ArgumentException($"Cannot combine conflicting CLR types '{ClrType}' and '{other.ClrType}'.", nameof(other));
+            }
+        }
+
+        if (this is RootClassSelector || other is RootClassSelector)
+        {
+            return new RootClassSelector(classes, states, attributes);
+        }
+
+        return new CompoundSelector(elementType, classes, states, attributes, clrType);
+    }
+}
+
+/// <summary>
+/// Represents the <c>:root</c> pseudo-class selector matching the root element.
+/// </summary>
+public sealed record RootClassSelector : CompoundSelector
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RootClassSelector"/> class.
+    /// </summary>
+    public RootClassSelector()
+        : base(null, [])
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RootClassSelector"/> class with additional constraints.
+    /// </summary>
+    /// <param name="classes">The required class names.</param>
+    /// <param name="requiredStates">The states the element must have.</param>
+    /// <param name="attributes">The attribute conditions the element or scope must satisfy.</param>
+    public RootClassSelector(
+        ImmutableArray<string> classes,
+        ElementStates requiredStates = ElementStates.None,
+        ImmutableArray<AttributeSelector> attributes = default)
+        : base(null, classes, requiredStates, attributes)
+    {
+    }
+
+    /// <inheritdoc />
+    public override SelectorSpecificity Specificity
+    {
+        get
+        {
+            SelectorSpecificity baseSpec = base.Specificity;
+            return new SelectorSpecificity(baseSpec.Classes + 1, baseSpec.Types);
+        }
+    }
+
+    /// <inheritdoc />
+    public override bool Matches(IUIElement element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return element.Parent is null && base.Matches(element);
+    }
+
+    /// <inheritdoc />
+    public override string ToCssString() => ":root" + base.ToCssString();
 }
 
 /// <summary>
@@ -242,13 +492,33 @@ public sealed record StyleSelector
     /// <param name="subject">The compound part the matched element must satisfy.</param>
     /// <param name="ancestors">The compound parts required on ancestors of the element, outermost first.</param>
     /// <param name="platform">The target platform name, or <see langword="null"/> if unconstrained.</param>
+    /// <param name="pseudoElementName">The optional pseudo-element name attached to this selector.</param>
     /// <exception cref="ArgumentNullException"><paramref name="subject"/> is null.</exception>
-    public StyleSelector(CompoundSelector subject, ImmutableArray<CompoundSelector> ancestors = default, string? platform = null)
+    public StyleSelector(
+        CompoundSelector subject,
+        ImmutableArray<CompoundSelector> ancestors = default,
+        string? platform = null,
+        string? pseudoElementName = null)
     {
         ArgumentNullException.ThrowIfNull(subject);
         Subject = subject;
         Ancestors = ancestors;
         Platform = string.IsNullOrWhiteSpace(platform) ? subject.Platform : platform.Trim().ToLowerInvariant();
+        PseudoElementName = pseudoElementName;
+        WhereSelectors = ImmutableArray<StyleSelector>.Empty;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="StyleSelector"/> class for a :where(...) selector list.
+    /// </summary>
+    /// <param name="whereSelectors">The inner selectors contained in the :where(...) list.</param>
+    /// <param name="pseudoElementName">The optional pseudo-element name attached to this selector.</param>
+    public StyleSelector(ImmutableArray<StyleSelector> whereSelectors, string? pseudoElementName = null)
+    {
+        Subject = new CompoundSelector(null, []);
+        Ancestors = ImmutableArray<CompoundSelector>.Empty;
+        WhereSelectors = whereSelectors;
+        PseudoElementName = pseudoElementName;
     }
 
     /// <summary>
@@ -267,19 +537,100 @@ public sealed record StyleSelector
     public string? Platform { get; }
 
     /// <summary>
+    /// Gets a value indicating whether this selector represents a :where(...) functional pseudo-class.
+    /// </summary>
+    public bool IsWhere => !WhereSelectors.IsDefaultOrEmpty;
+
+    /// <summary>
+    /// Gets the list of selectors contained in the :where(...) list.
+    /// </summary>
+    public ImmutableArray<StyleSelector> WhereSelectors { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether this selector targets the <c>:root</c> element.
+    /// </summary>
+    public bool IsRoot => Subject is RootClassSelector;
+
+    /// <summary>
+    /// Gets the optional pseudo-element name attached to this selector (such as <c>"::backdrop"</c>).
+    /// </summary>
+    public string? PseudoElementName { get; }
+
+    /// <summary>
+    /// Returns a new selector with the specified pseudo-element name attached.
+    /// </summary>
+    /// <param name="name">The pseudo-element name.</param>
+    public StyleSelector PseudoElement(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (IsWhere)
+        {
+            return new StyleSelector(WhereSelectors, name);
+        }
+
+        return new StyleSelector(Subject, Ancestors, Platform, name);
+    }
+
+    /// <summary>
+    /// Formats this selector as CSS text.
+    /// </summary>
+    public string ToCssString()
+    {
+        string baseSelector;
+        if (IsWhere)
+        {
+            baseSelector = $":where({string.Join(", ", WhereSelectors.Select(static s => s.ToCssString()))})";
+        }
+        else
+        {
+            System.Text.StringBuilder sb = new();
+            if (!Ancestors.IsDefaultOrEmpty)
+            {
+                foreach (CompoundSelector ancestor in Ancestors)
+                {
+                    sb.Append(ancestor.ToCssString()).Append(' ');
+                }
+            }
+
+            sb.Append(Subject.ToCssString());
+            baseSelector = sb.ToString();
+        }
+
+        if (PseudoElementName is not null)
+        {
+            string pseudo = PseudoElementName.StartsWith("::", StringComparison.Ordinal)
+                ? PseudoElementName
+                : "::" + PseudoElementName;
+            return baseSelector + pseudo;
+        }
+
+        return baseSelector;
+    }
+
+    /// <summary>
     /// Gets the specificity of the complete selector.
     /// </summary>
     public SelectorSpecificity Specificity
     {
         get
         {
-            SelectorSpecificity specificity = Subject.Specificity;
-            if (!Ancestors.IsDefault)
+            SelectorSpecificity specificity = default;
+
+            if (!IsWhere)
             {
-                foreach (CompoundSelector ancestor in Ancestors)
+                specificity = Subject.Specificity;
+                if (!Ancestors.IsDefault)
                 {
-                    specificity += ancestor.Specificity;
+                    foreach (CompoundSelector ancestor in Ancestors)
+                    {
+                        specificity += ancestor.Specificity;
+                    }
                 }
+            }
+
+            if (PseudoElementName is not null)
+            {
+                specificity += new SelectorSpecificity(0, 1);
             }
 
             return specificity;
@@ -294,6 +645,19 @@ public sealed record StyleSelector
     public bool Matches(IUIElement element, IUIElement? container = null)
     {
         ArgumentNullException.ThrowIfNull(element);
+
+        if (IsWhere)
+        {
+            for (int i = 0; i < WhereSelectors.Length; i++)
+            {
+                if (WhereSelectors[i].Matches(element, container))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         if (Platform is not null && !Application.Current.IsPlatform(Platform))
         {

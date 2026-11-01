@@ -236,16 +236,16 @@ internal static class StyleResolutionTests
     {
         CssStyleRegistry.Register(new CssStyleSheet(nameof(RootRuleView), string.Empty,
         [
-            new CssRule(":root", null, [], true, new Dictionary<string, CssValue>
+            new CssRule(CssSelector.Root(), new Dictionary<string, CssValue>
             {
                 ["--accent"] = new CssColorValue(Colors.Green),
                 ["background-color"] = new CssVariableReference("--accent"),
                 ["color"] = new CssColorValue(Colors.Blue)
             }),
-            new CssRule(":root", null, [], true, new Dictionary<string, CssValue>
+            new CssRule(CssSelector.Root(), new Dictionary<string, CssValue>
             {
                 ["color"] = new CssColorValue(Colors.White)
-            }, CssColorSchemeCondition.Dark),
+            }, media: CssMedia.Dark),
             Rule("uses-accent", new Dictionary<string, CssValue>
             {
                 ["border-radius"] = new CssLengthValue(4),
@@ -278,18 +278,30 @@ internal static class StyleResolutionTests
         {
             CssStyleRegistry.Register(new CssStyleSheet("PlatformStylingView", string.Empty,
             [
-                new CssRule("[data-platform=\"android\"] .toolbar", null, ["toolbar"], false, new Dictionary<string, CssValue>
-                {
-                    ["height"] = new CssLengthValue(56)
-                }, ancestors: [new CompoundSelector(null, [], ElementStates.None, attributes: [new AttributeSelector("data-platform", "android")])]),
-                new CssRule("[data-platform=\"macos\"] .toolbar", null, ["toolbar"], false, new Dictionary<string, CssValue>
-                {
-                    ["height"] = new CssLengthValue(56)
-                }, ancestors: [new CompoundSelector(null, [], ElementStates.None, attributes: [new AttributeSelector("data-platform", "macos")])]),
-                new CssRule("[data-platform=\"web\"] .toolbar", null, ["toolbar"], false, new Dictionary<string, CssValue>
-                {
-                    ["height"] = new CssLengthValue(44)
-                }, ancestors: [new CompoundSelector(null, [], ElementStates.None, attributes: [new AttributeSelector("data-platform", "web")])])
+                new CssRule(
+                    CssSelector.Descendant(
+                        CssSelector.Attribute("data-platform", "android"),
+                        CssSelector.Class("toolbar")),
+                    new Dictionary<string, CssValue>
+                    {
+                        ["height"] = new CssLengthValue(56)
+                    }),
+                new CssRule(
+                    CssSelector.Descendant(
+                        CssSelector.Attribute("data-platform", "macos"),
+                        CssSelector.Class("toolbar")),
+                    new Dictionary<string, CssValue>
+                    {
+                        ["height"] = new CssLengthValue(56)
+                    }),
+                new CssRule(
+                    CssSelector.Descendant(
+                        CssSelector.Attribute("data-platform", "web"),
+                        CssSelector.Class("toolbar")),
+                    new Dictionary<string, CssValue>
+                    {
+                        ["height"] = new CssLengthValue(44)
+                    })
             ]));
 
             using PlatformStylingView view = new();
@@ -304,7 +316,7 @@ internal static class StyleResolutionTests
             view.InvalidateStyle();
             Assert.Equal(44.0, toolbar.ComputedStyle.Height);
 
-            Application.Current.Platfrom = "android";
+            Application.Current.Platform = "android";
             view.InvalidateStyle();
             Assert.Equal(56.0, toolbar.ComputedStyle.Height);
 
@@ -320,7 +332,7 @@ internal static class StyleResolutionTests
 
     private static CssRule Rule(string className, IReadOnlyDictionary<string, CssValue> declarations)
     {
-        return new CssRule("." + className, null, [className], false, declarations);
+        return new CssRule(CssSelector.Class(className), declarations);
     }
 
     private sealed class StyleResolutionView : View

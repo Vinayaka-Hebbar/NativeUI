@@ -10,7 +10,7 @@ namespace NativeUI.Css;
 /// Represents a compiled CSS stylesheet containing <see cref="CssRule"/> definitions,
 /// root custom properties, and the raw CSS source for Web injection.
 /// </summary>
-public sealed class CssStyleSheet : StyleSheet
+public class CssStyleSheet : StyleSheet
 {
     // Rules declaring custom properties, in cascade order, which is the only part of the stylesheet that inheritance reads.
     private readonly CssRule[] _variableRules;
@@ -116,7 +116,7 @@ public sealed class CssStyleSheet : StyleSheet
         CssVariables variables = new(parent);
         foreach (CssRule rule in CssRules)
         {
-            if (rule.IsRoot && (rule.ColorScheme == CssColorSchemeCondition.Any || rule.ColorScheme == colorScheme))
+            if (rule.IsRoot && rule.Media.Matches(colorScheme))
             {
                 SetVariables(rule, variables);
             }
@@ -151,7 +151,7 @@ public sealed class CssStyleSheet : StyleSheet
         ArgumentNullException.ThrowIfNull(element);
 
         CssColorSchemeCondition colorScheme = GetActiveColorScheme();
-        List<(CssRule Rule, int Order)> matching = CollectMatchingRules(element, colorScheme, CssPseudoElement.None);
+        List<(CssRule Rule, int Order)> matching = CollectMatchingRules(element, colorScheme, pseudoElement: null);
         CssVariables variables = CreateScopedVariables(element, colorScheme);
 
         ComputedStyle style = ComputedStyle.CreateInitial(element);
@@ -184,7 +184,7 @@ public sealed class CssStyleSheet : StyleSheet
 
         SelectionStyle inherited = element.Parent?.SelectionStyle ?? SelectionStyle.Default;
         CssColorSchemeCondition colorScheme = GetActiveColorScheme();
-        List<(CssRule Rule, int Order)> selectionRules = CollectMatchingRules(element, colorScheme, CssPseudoElement.Selection);
+        List<(CssRule Rule, int Order)> selectionRules = CollectMatchingRules(element, colorScheme, pseudoElement: "selection");
         if (selectionRules.Count == 0)
         {
             return inherited;
@@ -228,7 +228,7 @@ public sealed class CssStyleSheet : StyleSheet
         for (int i = 0; i < rules.Count; i++)
         {
             CssRule rule = rules[i];
-            if (!rule.IsRoot && rule.PseudoElement == CssPseudoElement.None && DeclaresVariables(rule))
+            if (!rule.IsRoot && rule.PseudoElementName is null && DeclaresVariables(rule))
             {
                 variableRules.Add((rule, i));
             }
@@ -457,13 +457,17 @@ public sealed class CssStyleSheet : StyleSheet
     private List<(CssRule Rule, int Order)> CollectMatchingRules(
         IUIElement element,
         CssColorSchemeCondition colorScheme,
-        CssPseudoElement pseudoElement)
+        string? pseudoElement)
     {
         List<(CssRule Rule, int Order)> matching = [];
         for (int i = 0; i < CssRules.Count; i++)
         {
             CssRule rule = CssRules[i];
-            if (rule.PseudoElement == pseudoElement && rule.Matches(element, colorScheme))
+            bool pseudoMatch = pseudoElement is null
+                ? rule.PseudoElementName is null
+                : string.Equals(rule.PseudoElementName?.TrimStart(':'), pseudoElement, StringComparison.OrdinalIgnoreCase);
+
+            if (pseudoMatch && rule.Matches(element, colorScheme))
             {
                 matching.Add((rule, i));
             }

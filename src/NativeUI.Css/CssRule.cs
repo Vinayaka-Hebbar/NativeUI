@@ -1,24 +1,8 @@
+namespace NativeUI.Css;
+
 using System.Collections.Immutable;
 using NativeUI.Core;
 using NativeUI.Styling;
-
-namespace NativeUI.Css;
-
-/// <summary>
-/// Identifies the part of an element styled by a <see cref="CssRule"/>.
-/// </summary>
-public enum CssPseudoElement
-{
-    /// <summary>
-    /// The rule styles the element itself.
-    /// </summary>
-    None,
-
-    /// <summary>
-    /// The rule styles selected text through <c>::selection</c>.
-    /// </summary>
-    Selection
-}
 
 /// <summary>
 /// Specifies the color scheme media query condition attached to a <see cref="CssRule"/>.
@@ -48,11 +32,6 @@ public enum CssColorSchemeCondition
 public sealed class CssRule
 {
     /// <summary>
-    /// Gets the normalized selector string (for example, <c>":root"</c>, <c>"text"</c>, <c>".title"</c>, or <c>"text.title"</c>).
-    /// </summary>
-    public string Selector { get; }
-
-    /// <summary>
     /// Gets the compiled selector that determines which elements this rule matches.
     /// </summary>
     public StyleSelector Target { get; }
@@ -61,20 +40,22 @@ public sealed class CssRule
     /// Gets a value indicating whether this rule targets the <c>:root</c> scope.
     /// Its custom properties are global variables, and its other declarations apply to the root element.
     /// </summary>
-    public bool IsRoot { get; }
+    public bool IsRoot => Target.IsRoot;
 
     /// <summary>
-    /// Gets the color scheme media condition for this rule.
+    /// Gets the optional pseudo-element name attached to this rule's selector.
     /// </summary>
-    public CssColorSchemeCondition ColorScheme { get; }
+    public string? PseudoElementName => Target.PseudoElementName;
 
     /// <summary>
-    /// Gets the specificity used to order matching rules. <c>:root</c> counts as a pseudo-class and a pseudo-element as a type.
+    /// Gets the media query condition for this rule.
     /// </summary>
-    public SelectorSpecificity Specificity =>
-        Target.Specificity + new SelectorSpecificity(
-            IsRoot ? 1 : 0,
-            PseudoElement != CssPseudoElement.None ? 1 : 0);
+    public CssMedia Media { get; }
+
+    /// <summary>
+    /// Gets the specificity used to order matching rules.
+    /// </summary>
+    public SelectorSpecificity Specificity => Target.Specificity;
 
     /// <summary>
     /// Gets the compiled property and custom-variable declarations inside this rule block.
@@ -82,59 +63,22 @@ public sealed class CssRule
     public ImmutableDictionary<string, CssValue> Declarations { get; }
 
     /// <summary>
-    /// Gets the part of the matched element styled by this rule.
+    /// Initializes a new instance of the <see cref="CssRule"/> class with a compiled target selector.
     /// </summary>
-    public CssPseudoElement PseudoElement { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="CssRule"/> class.
-    /// </summary>
+    /// <param name="target">The compiled selector that determines which elements this rule matches.</param>
+    /// <param name="declarations">The compiled property and custom-variable declarations.</param>
+    /// <param name="media">The media query condition for this rule.</param>
     public CssRule(
-        string selector,
-        string? elementType,
-        ImmutableArray<string> classes,
-        bool isRoot,
-        IReadOnlyDictionary<string, CssValue> declarations,
-        CssColorSchemeCondition colorScheme = CssColorSchemeCondition.Any,
-        ImmutableArray<CompoundSelector> ancestors = default,
-        ElementStates requiredStates = ElementStates.None,
-        CssPseudoElement pseudoElement = CssPseudoElement.None,
-        ImmutableArray<AttributeSelector> attributes = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(selector);
-        ArgumentNullException.ThrowIfNull(declarations);
-
-        Selector = selector;
-        Target = new StyleSelector(
-            new CompoundSelector(elementType, classes, requiredStates, attributes),
-            ancestors);
-        IsRoot = isRoot;
-        Declarations = declarations.ToImmutableDictionary(StringComparer.Ordinal);
-        ColorScheme = colorScheme;
-        PseudoElement = pseudoElement;
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="CssRule"/> class with a pre-compiled target selector.
-    /// </summary>
-    public CssRule(
-        string selector,
         StyleSelector target,
-        bool isRoot,
         IReadOnlyDictionary<string, CssValue> declarations,
-        CssColorSchemeCondition colorScheme = CssColorSchemeCondition.Any,
-        CssPseudoElement pseudoElement = CssPseudoElement.None)
+        CssMedia media = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(selector);
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(declarations);
 
-        Selector = selector;
         Target = target;
-        IsRoot = isRoot;
         Declarations = declarations.ToImmutableDictionary(StringComparer.Ordinal);
-        ColorScheme = colorScheme;
-        PseudoElement = pseudoElement;
+        Media = media;
     }
 
     /// <summary>
@@ -144,12 +88,7 @@ public sealed class CssRule
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        if (ColorScheme != CssColorSchemeCondition.Any && ColorScheme != activeScheme)
-        {
-            return false;
-        }
-
-        if (IsRoot && element.Parent is not null)
+        if (!Media.Matches(activeScheme))
         {
             return false;
         }

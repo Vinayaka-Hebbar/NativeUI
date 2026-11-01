@@ -271,73 +271,212 @@ public static class CssEmitter
 
     private static ObjectCreationExpressionSyntax BuildRuleCreation(ValidatedCssRule rule, TypeSyntax ruleType)
     {
-        ExpressionSyntax elementTypeExpr = rule.ElementType is null
-            ? LiteralExpression(SyntaxKind.NullLiteralExpression)
-            : CssValueSyntaxBuilder.StringLiteral(rule.ElementType);
-
-        ExpressionSyntax classesExpr = BuildClassesExpression(rule.Classes);
-
-        ExpressionSyntax isRootExpr = LiteralExpression(
-            rule.IsRoot ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression);
-
+        ExpressionSyntax selectorExpr = BuildSelectorExpression(rule);
         ObjectCreationExpressionSyntax declarationsDict = BuildDeclarationsDictionary(rule.Declarations);
-
-        MemberAccessExpressionSyntax colorSchemeExpr = MemberAccessExpression(
-            SyntaxKind.SimpleMemberAccessExpression,
-            IdentifierName("CssColorSchemeCondition"),
-            IdentifierName(rule.ColorScheme.ToString()));
 
         List<ArgumentSyntax> arguments =
         [
-            Argument(CssValueSyntaxBuilder.StringLiteral(rule.Selector)),
-            Argument(elementTypeExpr),
-            Argument(classesExpr),
-            Argument(isRootExpr),
-            Argument(declarationsDict),
-            Argument(colorSchemeExpr)
+            Argument(selectorExpr),
+            Argument(declarationsDict)
         ];
+
+        if (rule.ColorScheme != CssParsedColorScheme.Any)
+        {
+            MemberAccessExpressionSyntax mediaExpr = MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                IdentifierName("CssMedia"),
+                IdentifierName(rule.ColorScheme.ToString()));
+            arguments.Add(Argument(mediaExpr)
+                .WithNameColon(NameColon("media")));
+        }
+
+        return ObjectCreationExpression(ruleType)
+            .WithArgumentList(ArgumentList(SeparatedList(arguments)));
+    }
+
+    private static ExpressionSyntax BuildSelectorExpression(ValidatedCssRule rule)
+    {
+        ExpressionSyntax subjectExpr = BuildCompoundSelectorExpression(
+            rule.ElementType,
+            rule.Classes,
+            rule.RequiredStates,
+            rule.Attributes,
+            rule.IsRoot);
+
+        ExpressionSyntax selectorExpr = subjectExpr;
 
         if (rule.Ancestors is { Count: > 0 } ancestors)
         {
-            arguments.Add(Argument(BuildAncestorsExpression(ancestors)).WithNameColon(NameColon("ancestors")));
-        }
+            if (ancestors.Count == 1)
+            {
+                ExpressionSyntax ancestorExpr = BuildCompoundSelectorExpression(
+                    ancestors[0].ElementType,
+                    ancestors[0].Classes,
+                    ancestors[0].RequiredStates,
+                    ancestors[0].Attributes,
+                    isRoot: false);
 
-        if (rule.RequiredStates is { Count: > 0 } requiredStates)
-        {
-            arguments.Add(Argument(BuildStatesExpression(requiredStates)).WithNameColon(NameColon("requiredStates")));
+                selectorExpr = InvocationExpression(
+                    MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        IdentifierName("CssSelector"),
+                        IdentifierName("Descendant")))
+                    .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
+                    [
+                        Argument(ancestorExpr),
+                        Argument(subjectExpr)
+                    ])));
+            }
+            else
+            {
+                IEnumerable<ExpressionSyntax> ancestorExpressions = ancestors.Select(a =>
+                    BuildCompoundSelectorExpression(a.ElementType, a.Classes, a.RequiredStates, a.Attributes, isRoot: false));
+
+                ExpressionSyntax ancestorArray = BuildImmutableArrayCreation(ancestorExpressions);
+
+                selectorExpr = InvocationExpression(
+                    MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        IdentifierName("CssSelector"),
+                        IdentifierName("Descendant")))
+                    .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
+                    [
+                        Argument(ancestorArray),
+                        Argument(subjectExpr)
+                    ])));
+            }
         }
 
         if (rule.PseudoElement != CssParsedPseudoElement.None)
         {
-            ExpressionSyntax pseudoElement = MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                IdentifierName("CssPseudoElement"),
-                IdentifierName(rule.PseudoElement.ToString()));
-            arguments.Add(Argument(pseudoElement).WithNameColon(NameColon("pseudoElement")));
+            string pseudoName = rule.PseudoElement.ToString().ToLowerInvariant();
+            selectorExpr = InvocationExpression(
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    selectorExpr,
+                    IdentifierName("PseudoElement")))
+                .WithArgumentList(ArgumentList(SingletonSeparatedList(
+                    Argument(CssValueSyntaxBuilder.StringLiteral(pseudoName)))));
         }
 
-        if (rule.Attributes is { Count: > 0 } attributes)
-        {
-            arguments.Add(Argument(BuildAttributesExpression(attributes)).WithNameColon(NameColon("attributes")));
-        }
-
-        ObjectCreationExpressionSyntax ruleCreation = ObjectCreationExpression(ruleType)
-            .WithArgumentList(ArgumentList(SeparatedList(arguments)));
-
-        return ruleCreation;
+        return selectorExpr;
     }
 
-    private static ExpressionSyntax BuildClassesExpression(IReadOnlyList<string> classes)
+    private static ExpressionSyntax BuildCompoundSelectorExpression(
+        string? elementType,
+        IReadOnlyList<string> classes,
+        IReadOnlyList<string>? states,
+        IReadOnlyList<CssAttributeSelectorNode>? attributes,
+        bool isRoot)
     {
-        if (classes.Count == 0)
+        if (isRoot)
         {
-            return MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                ParseTypeName("ImmutableArray<string>"),
-                IdentifierName("Empty"));
+            return InvocationExpression(
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    IdentifierName("CssSelector"),
+                    IdentifierName("Root")));
         }
 
-        return BuildImmutableArrayCreation(classes.Select(CssValueSyntaxBuilder.StringLiteral));
+        ExpressionSyntax? expr = null;
+
+        if (attributes is { Count: > 0 })
+        {
+            expr = InvocationExpression(
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    IdentifierName("CssSelector"),
+                    IdentifierName("Attribute")))
+                .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
+                [
+                    Argument(CssValueSyntaxBuilder.StringLiteral(attributes[0].Name)),
+                    Argument(CssValueSyntaxBuilder.StringLiteral(attributes[0].Value))
+                ])));
+
+            for (int i = 1; i < attributes.Count; i++)
+            {
+                expr = InvocationExpression(
+                    MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        expr,
+                        IdentifierName("Attribute")))
+                    .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
+                    [
+                        Argument(CssValueSyntaxBuilder.StringLiteral(attributes[i].Name)),
+                        Argument(CssValueSyntaxBuilder.StringLiteral(attributes[i].Value))
+                    ])));
+            }
+        }
+
+        if (elementType is not null)
+        {
+            if (expr is null)
+            {
+                expr = InvocationExpression(
+                    MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        IdentifierName("CssSelector"),
+                        IdentifierName("Type")))
+                    .WithArgumentList(ArgumentList(SingletonSeparatedList(
+                        Argument(CssValueSyntaxBuilder.StringLiteral(elementType)))));
+            }
+        }
+
+        if (classes.Count > 0)
+        {
+            int startIndex = 0;
+            if (expr is null)
+            {
+                expr = InvocationExpression(
+                    MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        IdentifierName("CssSelector"),
+                        IdentifierName("Class")))
+                    .WithArgumentList(ArgumentList(SingletonSeparatedList(
+                        Argument(CssValueSyntaxBuilder.StringLiteral(classes[0])))));
+                startIndex = 1;
+            }
+
+            for (int i = startIndex; i < classes.Count; i++)
+            {
+                expr = InvocationExpression(
+                    MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        expr,
+                        IdentifierName("Class")))
+                    .WithArgumentList(ArgumentList(SingletonSeparatedList(
+                        Argument(CssValueSyntaxBuilder.StringLiteral(classes[i])))));
+            }
+        }
+
+        if (states is { Count: > 0 })
+        {
+            ExpressionSyntax statesExpr = BuildStatesExpression(states);
+            if (expr is null)
+            {
+                expr = InvocationExpression(
+                    MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        IdentifierName("CssSelector"),
+                        IdentifierName("State")))
+                    .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(statesExpr))));
+            }
+            else
+            {
+                expr = InvocationExpression(
+                    MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        expr,
+                        IdentifierName("State")))
+                    .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(statesExpr))));
+            }
+        }
+
+        return expr ?? InvocationExpression(
+            MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                IdentifierName("CssSelector"),
+                IdentifierName("Root")));
     }
 
     private static InvocationExpressionSyntax BuildImmutableArrayCreation(IEnumerable<ExpressionSyntax> items)
@@ -360,56 +499,6 @@ public static class CssEmitter
 
         return members.Aggregate(static (left, right) =>
             BinaryExpression(SyntaxKind.BitwiseOrExpression, left, right));
-    }
-
-    private static ExpressionSyntax BuildAncestorsExpression(IReadOnlyList<CssCompoundSelectorNode> ancestors)
-    {
-        TypeSyntax compoundType = IdentifierName("CompoundSelector");
-        IEnumerable<ExpressionSyntax> parts = ancestors.Select(ancestor =>
-        {
-            ExpressionSyntax elementType = ancestor.ElementType is null
-                ? LiteralExpression(SyntaxKind.NullLiteralExpression)
-                : CssValueSyntaxBuilder.StringLiteral(ancestor.ElementType);
-
-            List<ArgumentSyntax> compoundArgs =
-            [
-                Argument(elementType),
-                Argument(BuildClassesExpression(ancestor.Classes)),
-                Argument(BuildStatesExpression(ancestor.RequiredStates))
-            ];
-
-            if (ancestor.Attributes is { Count: > 0 } attrs)
-            {
-                compoundArgs.Add(Argument(BuildAttributesExpression(attrs)).WithNameColon(NameColon("attributes")));
-            }
-
-            return (ExpressionSyntax)ObjectCreationExpression(compoundType)
-                .WithArgumentList(ArgumentList(SeparatedList(compoundArgs)));
-        });
-
-        return BuildImmutableArrayCreation(parts);
-    }
-
-    private static ExpressionSyntax BuildAttributesExpression(IReadOnlyList<CssAttributeSelectorNode> attributes)
-    {
-        if (attributes.Count == 0)
-        {
-            return MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                ParseTypeName("ImmutableArray<AttributeSelector>"),
-                IdentifierName("Empty"));
-        }
-
-        TypeSyntax attrType = IdentifierName("AttributeSelector");
-        IEnumerable<ExpressionSyntax> items = attributes.Select(attr =>
-            (ExpressionSyntax)ObjectCreationExpression(attrType)
-                .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
-                [
-                    Argument(CssValueSyntaxBuilder.StringLiteral(attr.Name)),
-                    Argument(CssValueSyntaxBuilder.StringLiteral(attr.Value))
-                ]))));
-
-        return BuildImmutableArrayCreation(items);
     }
 
     private static string SanitizeIdentifier(string raw)

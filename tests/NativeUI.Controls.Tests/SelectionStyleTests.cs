@@ -20,11 +20,11 @@ internal static class SelectionStyleTests
     {
         CssStyleRegistry.Register(new CssStyleSheet(nameof(SelectionView), string.Empty,
         [
-            new CssRule(":root", null, [], true, new Dictionary<string, CssValue>
+            new CssRule(CssSelector.Root(), new Dictionary<string, CssValue>
             {
                 ["--selection"] = new CssColorValue(Colors.Indigo)
             }),
-            new CssRule(".scoped", null, ["scoped"], false, new Dictionary<string, CssValue>
+            new CssRule(CssSelector.Class("scoped"), new Dictionary<string, CssValue>
             {
                 ["--selection"] = new CssColorValue(Colors.Green)
             }),
@@ -41,10 +41,10 @@ internal static class SelectionStyleTests
             {
                 ["background-color"] = new CssVariableReference("--selection")
             }),
-            new CssRule(".strong.weak::selection", null, ["strong", "weak"], false, new Dictionary<string, CssValue>
+            new CssRule(CssSelector.Class("strong").Class("weak").PseudoElement("selection"), new Dictionary<string, CssValue>
             {
                 ["color"] = new CssColorValue(Colors.Green)
-            }, pseudoElement: CssPseudoElement.Selection),
+            }),
             SelectionRule("weak", new Dictionary<string, CssValue>
             {
                 ["color"] = new CssColorValue(Colors.Black)
@@ -53,10 +53,10 @@ internal static class SelectionStyleTests
             {
                 ["color"] = new CssColorValue(Colors.Black)
             }),
-            new CssRule(".themed::selection", null, ["themed"], false, new Dictionary<string, CssValue>
+            new CssRule(CssSelector.Class("themed").PseudoElement("selection"), new Dictionary<string, CssValue>
             {
                 ["color"] = new CssColorValue(Colors.White)
-            }, CssColorSchemeCondition.Dark, pseudoElement: CssPseudoElement.Selection)
+            }, media: CssMedia.Dark)
         ]));
 
         using SelectionView parent = new() { Class = "parent" };
@@ -181,12 +181,8 @@ internal static class SelectionStyleTests
     private static CssRule SelectionRule(string className, Dictionary<string, CssValue> declarations)
     {
         return new CssRule(
-            $".{className}::selection",
-            null,
-            [className],
-            false,
-            declarations,
-            pseudoElement: CssPseudoElement.Selection);
+            CssSelector.Class(className).PseudoElement("selection"),
+            declarations);
     }
 
     private sealed class SelectionView : View;

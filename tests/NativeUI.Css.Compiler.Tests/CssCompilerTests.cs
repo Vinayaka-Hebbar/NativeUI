@@ -125,10 +125,10 @@ static void TestBrowserCssAndSelectorEmission()
 
     string emitted = CssEmitter.Emit(validated, "NativeUI.Sample.Shared", Accessibility.Public);
     Assert.Contains("using NativeUI.Core;", emitted);
-    Assert.Contains("requiredStates: ElementStates.Hover", emitted);
+    Assert.Contains("State(ElementStates.Hover)", emitted);
     Assert.Contains("using System.Collections.Immutable;", emitted);
-    Assert.Contains("ancestors: ImmutableArray.Create(new CompoundSelector(", emitted);
-    Assert.Contains("pseudoElement: CssPseudoElement.Selection", emitted);
+    Assert.Contains("CssSelector.Descendant(", emitted);
+    Assert.Contains(".PseudoElement(\"selection\")", emitted);
     Assert.Contains("span.title:hover", emitted);
     Assert.False(emitted.Contains("text.title:hover {", StringComparison.Ordinal), "Stylesheet text must use browser type names.");
 }
@@ -245,8 +245,8 @@ static void TestPlatformSpecificStyling()
     Assert.Equal("web", validated.Rules[2].Ancestors![0].Attributes![0].Value);
 
     string emitted = CssEmitter.Emit(validated, "NativeUI.Sample.Shared", Accessibility.Public);
-    Assert.Contains("new AttributeSelector(\"data-platform\", \"android\")", emitted);
-    Assert.Contains("new AttributeSelector(\"data-platform\", \"macos\")", emitted);
-    Assert.Contains("new AttributeSelector(\"data-platform\", \"web\")", emitted);
+    Assert.Contains("CssSelector.Attribute(\"data-platform\", \"android\")", emitted);
+    Assert.Contains("CssSelector.Attribute(\"data-platform\", \"macos\")", emitted);
+    Assert.Contains("CssSelector.Attribute(\"data-platform\", \"web\")", emitted);
 }
 

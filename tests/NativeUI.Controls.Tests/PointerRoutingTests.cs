@@ -127,18 +127,24 @@ internal static class PointerRoutingTests
     {
         CssStyleRegistry.Register(new CssStyleSheet(nameof(HoverView), string.Empty,
         [
-            new CssRule(".card", null, ["card"], false, new Dictionary<string, CssValue>
+            new CssRule(CssSelector.Class("card"), new Dictionary<string, CssValue>
             {
                 ["color"] = new CssColorValue(Colors.Green)
             }),
-            new CssRule(".card:hover .title", null, ["title"], false, new Dictionary<string, CssValue>
-            {
-                ["color"] = new CssColorValue(Colors.Blue)
-            }, ancestors: [new CompoundSelector(null, ["card"], ElementStates.Hover)]),
-            new CssRule(".title:hover", null, ["title"], false, new Dictionary<string, CssValue>
-            {
-                ["font-size"] = new CssLengthValue(20)
-            }, requiredStates: ElementStates.Hover)
+            new CssRule(
+                CssSelector.Descendant(
+                    CssSelector.Class("card").State(ElementStates.Hover),
+                    CssSelector.Class("title")),
+                new Dictionary<string, CssValue>
+                {
+                    ["color"] = new CssColorValue(Colors.Blue)
+                }),
+            new CssRule(
+                CssSelector.Class("title").State(ElementStates.Hover),
+                new Dictionary<string, CssValue>
+                {
+                    ["font-size"] = new CssLengthValue(20)
+                })
         ]));
 
         using HoverView root = new() { Class = "card" };

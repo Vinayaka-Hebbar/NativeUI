@@ -36,11 +36,6 @@ internal static class StyleSheetCss
     /// </summary>
     public const string ProgressBarAttribute = "data-nui-progress";
 
-    // Importance is what lets this zero-specificity rule override the animations authors declare, as desktop does when the system asks.
-    private const string ReducedMotionCss =
-        "@media (prefers-reduced-motion: reduce) { :where(native-ui, native-ui *) { " +
-        "transition-duration: 0s !important; animation-duration: 0s !important; animation-iteration-count: 1 !important; } }";
-
     /// <summary>
     /// The attribute marking the element of a <see cref="Portal"/>, which the base stylesheet takes out of the page flow.
     /// </summary>
@@ -55,7 +50,7 @@ internal static class StyleSheetCss
     /// <c>color-scheme</c> following <c>data-theme</c>.
     /// <c>:where</c> keeps every declaration at zero specificity.
     /// </summary>
-    public static CssStyleSheet BaseStyleSheet { get; } = CreateBaseStyleSheet();
+    public static CssStyleSheet BaseStyleSheet { get; } = new BaseCssStyleSheet();
 
     /// <summary>
     /// Writes the rules of <paramref name="styleSheet"/> in order, scoped to the <c>native-ui</c> element with <paramref name="scopeId"/>.
@@ -172,129 +167,6 @@ internal static class StyleSheetCss
         }
 
         return typeIds;
-    }
-
-
-    private static CssStyleSheet CreateBaseStyleSheet()
-    {
-        List<CssRule> rules =
-        [
-            new(":where(native-ui, native-ui *)", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["box-sizing"] = new CssStringValue("border-box"),
-                ["border"] = new CssStringValue("0 solid")
-            }),
-            new(":where(native-ui)", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["line-height"] = new CssStringValue("1.25")
-            }),
-            new(":where(native-ui, native-ui span, native-ui button)", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["display"] = new CssStringValue("block")
-            }),
-            new(":where(native-ui button)", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["margin"] = new CssStringValue("0"),
-                ["padding"] = new CssStringValue("0"),
-                ["background"] = new CssStringValue("none"),
-                ["color"] = new CssStringValue("inherit"),
-                ["font"] = new CssStringValue("inherit"),
-                ["user-select"] = new CssStringValue("none"),
-                ["width"] = new CssStringValue("fit-content")
-            }),
-            new(":where(native-ui input)", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["display"] = new CssStringValue("block"),
-                ["width"] = new CssStringValue("100%"),
-                ["margin"] = new CssStringValue("0"),
-                ["padding"] = new CssStringValue("0"),
-                ["outline"] = new CssStringValue("none"),
-                ["background"] = new CssStringValue("none"),
-                ["color"] = new CssStringValue("inherit"),
-                ["font"] = new CssStringValue("inherit")
-            }),
-            new(":where(native-ui canvas)", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["display"] = new CssStringValue("block"),
-                ["width"] = new CssStringValue("100%"),
-                ["height"] = new CssStringValue("0")
-            }),
-            new($":where([{PortalAttribute}])", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["position"] = new CssStringValue("fixed"),
-                ["inset"] = new CssStringValue("auto"),
-                ["margin"] = new CssStringValue("0"),
-                ["padding"] = new CssStringValue("0"),
-                ["width"] = new CssStringValue("fit-content"),
-                ["max-width"] = new CssStringValue("none"),
-                ["max-height"] = new CssStringValue("none"),
-                ["background"] = new CssStringValue("none"),
-                ["color"] = new CssStringValue("inherit"),
-                ["z-index"] = new CssStringValue("1000")
-            }),
-            new($":where([{ProgressBarAttribute}])", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["position"] = new CssStringValue("relative"),
-                ["overflow"] = new CssStringValue("hidden"),
-                ["height"] = new CssStringValue("8px")
-            }),
-            new(":where(native-ui dialog)::backdrop", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["background"] = new CssStringValue("rgb(0 0 0 / 0.5)")
-            }),
-            new($":where([{ScrollViewAttribute}])", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["overflow"] = new CssStringValue("auto")
-            }),
-            new(":where(native-ui, native-ui *)::-webkit-scrollbar", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["width"] = new CssStringValue("10px"),
-                ["height"] = new CssStringValue("10px")
-            }),
-            new(":where(native-ui, native-ui *)::-webkit-scrollbar-track", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["background"] = new CssStringValue("transparent")
-            }),
-            new(":where(native-ui, native-ui *)::-webkit-scrollbar-corner", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["background"] = new CssStringValue("transparent")
-            }),
-            new(":where(native-ui, native-ui *)::-webkit-scrollbar-thumb", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["border"] = new CssStringValue("2px solid transparent"),
-                ["border-radius"] = new CssStringValue("5px"),
-                ["background-clip"] = new CssStringValue("padding-box")
-            }),
-            new(":where(native-ui[data-theme=\"light\"], native-ui[data-theme=\"light\"] *)::-webkit-scrollbar-thumb", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["background-color"] = new CssStringValue("rgb(0 0 0 / 0.35)")
-            }),
-            new(":where(native-ui[data-theme=\"dark\"], native-ui[data-theme=\"dark\"] *)::-webkit-scrollbar-thumb", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["background-color"] = new CssStringValue("rgb(255 255 255 / 0.35)")
-            }),
-            new(":where(native-ui[data-theme=\"light\"])", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["color-scheme"] = new CssStringValue("light")
-            }),
-            new(":where(native-ui[data-theme=\"dark\"])", null, [], false, new Dictionary<string, CssValue>
-            {
-                ["color-scheme"] = new CssStringValue("dark")
-            })
-        ];
-
-        string css = string.Join('\n', rules.Select(WriteBaseRule)) + "\n" + ReducedMotionCss;
-        return new CssStyleSheet("NativeUI.Base", css, rules);
-    }
-
-    /// <summary>
-    /// Writes a rule of <see cref="BaseStyleSheet"/>, whose declarations are all <see cref="CssStringValue"/> instances.
-    /// </summary>
-    private static string WriteBaseRule(CssRule rule)
-    {
-        IEnumerable<string> declarations = rule.Declarations
-            .Select(static declaration => $"{declaration.Key}: {((CssStringValue)declaration.Value).Value};");
-        return $"{rule.Selector} {{ {string.Join(' ', declarations)} }}";
     }
 
     private static void AppendDeclarations(StringBuilder css, IStyle style)

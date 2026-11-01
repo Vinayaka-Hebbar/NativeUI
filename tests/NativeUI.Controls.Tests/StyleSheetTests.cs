@@ -113,14 +113,10 @@ internal static class StyleSheetTests
         Assert.True(new SelectorSpecificity(1, 2).CompareTo(new SelectorSpecificity(1, 1)) > 0);
         Assert.Equal(0, new SelectorSpecificity(1, 1).CompareTo(new SelectorSpecificity(1, 1)));
 
-        Assert.Equal(new SelectorSpecificity(1, 0), new CssRule(":root", null, [], true, new Dictionary<string, CssValue>()).Specificity);
+        Assert.Equal(new SelectorSpecificity(1, 0), new CssRule(CssSelector.Root(), new Dictionary<string, CssValue>()).Specificity);
         Assert.Equal(new SelectorSpecificity(1, 1), new CssRule(
-            ".a::selection",
-            null,
-            ["a"],
-            false,
-            new Dictionary<string, CssValue>(),
-            pseudoElement: CssPseudoElement.Selection).Specificity);
+            CssSelector.Class("a").PseudoElement("selection"),
+            new Dictionary<string, CssValue>()).Specificity);
 
         StyleSelector chained = Build(s => s.Class("a").Descendant(d => d.Class("b").Descendant(e => e.Class("c"))));
         Assert.Equal("c", chained.Subject.Classes[0]);
@@ -140,8 +136,29 @@ internal static class StyleSheetTests
         AssertThrows<ArgumentException>(() => new CompoundSelector(null, [" "]));
         AssertThrows<ArgumentNullException>(() => new StyleSelector(null!, []));
 
-        Assert.True(new CssRule(".a", null, [], false, new Dictionary<string, CssValue>()).Target.Ancestors.IsDefault);
+        Assert.True(new CssRule(CssSelector.Class("a"), new Dictionary<string, CssValue>()).Target.Ancestors.IsDefault);
         Assert.True(new StyleSelector(part, []).Matches(new Text()));
+
+        Assert.Equal("*", CssSelector.All().ToCssString());
+        CompoundSelector combined = CssSelector.And(
+            CssSelector.Attribute("data-platform", "web"),
+            CssSelector.Class("sample-dialog"));
+        Assert.Equal("[data-platform=\"web\"].sample-dialog", combined.ToCssString());
+        Assert.Equal("@media (prefers-reduced-motion: reduce)", CssMedia.ReducedMotion.ToCssString());
+        Assert.Equal(new CssMedia("prefers-reduced-motion", "reduce"), CssMedia.ReducedMotion);
+        Assert.True(CssMedia.None.Matches(CssColorSchemeCondition.Light));
+        Assert.True(CssMedia.None.Matches(CssColorSchemeCondition.Dark));
+        Assert.True(CssMedia.Dark.Matches(CssColorSchemeCondition.Dark));
+        Assert.False(CssMedia.Dark.Matches(CssColorSchemeCondition.Light));
+        Assert.True(CssMedia.Light.Matches(CssColorSchemeCondition.Light));
+        Assert.False(CssMedia.Light.Matches(CssColorSchemeCondition.Dark));
+        Assert.False(CssMedia.ReducedMotion.Matches(CssColorSchemeCondition.Dark));
+
+        StyleSelector whereSelector = CssSelector.Where(CssSelector.Class("a"), CssSelector.Class("b"));
+        Assert.Equal(new SelectorSpecificity(0, 0), whereSelector.Specificity);
+        Assert.Equal(new SelectorSpecificity(0, 1), whereSelector.PseudoElement("selection").Specificity);
+        Assert.True(whereSelector.Matches(new Text { Class = "b" }));
+        Assert.False(whereSelector.Matches(new Text { Class = "c" }));
     }
 
     internal static void VerifyCompoundSelectorDistinctions()
