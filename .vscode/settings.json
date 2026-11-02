@@ -1,7 +1,9 @@
 {
+  "csharp.wasm.debug.useVSDbg": false,
   "debug.onTaskErrors": "debugAnyway",
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.patterns": {
     "*.xaml": "${capture}.xaml.cs, ${capture}.xaml.css"
-  }
+  },
+  "debug.javascript.unmapMissingSources": true
 }

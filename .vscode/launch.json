@@ -14,12 +14,18 @@
     },
     {
       "name": "Launch Sample: Web",
-      "type": "msedge",
-      "request": "launch",
+      "type": "blazorwasm",
+      "request": "attach",
       "preLaunchTask": "sample: web",
+      "projectPath": "${workspaceFolder}/samples/NativeUI.Sample.Web/NativeUI.Sample.Web.csproj",
+      "cwd": "${workspaceFolder}/samples/NativeUI.Sample.Web",
       "url": "http://127.0.0.1:5173",
       "webRoot": "${workspaceFolder}/samples/NativeUI.Sample.Web/wwwroot",
-      "inspectUri": "{wsProtocol}://{url.hostname}:{url.port}/_framework/debug/ws-proxy?browser={browserInspectUri}",
+      "browser": "edge",
+      "browserConfig": {
+        "port": 9222
+      },
+      "trace": true,
       "timeout": 120000
     },
     {
