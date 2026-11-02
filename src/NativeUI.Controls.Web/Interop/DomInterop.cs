@@ -276,8 +276,14 @@ public static partial class DomInterop
     public static partial void RemoveStyleSheet(string id);
 
     /// <summary>
-    /// Requests an animation frame and invokes <paramref name="dispatch"/>.
+    /// Requests an animation frame and returns its cancellation identifier.
     /// </summary>
     [JSImport("requestAnimationFrame", "nativeui-dom")]
-    public static partial void RequestAnimationFrame([JSMarshalAs<JSType.Function>] Action dispatch);
+    public static partial int RequestAnimationFrame([JSMarshalAs<JSType.Function>] Action dispatch);
+
+    /// <summary>
+    /// Cancels a pending animation frame.
+    /// </summary>
+    [JSImport("cancelAnimationFrame", "nativeui-dom")]
+    public static partial void CancelAnimationFrame(int requestId);
 }

@@ -52,7 +52,7 @@ public class Portal : View, IPortalLayoutNode
         BindableProperty.Create<Portal, bool>(
             nameof(IsOpen),
             defaultValue: false,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.OnIsVisibleChanged());
 
     /// <summary>
     /// Identifies the <see cref="Side"/> bindable property.

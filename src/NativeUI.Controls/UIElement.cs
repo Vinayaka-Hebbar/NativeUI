@@ -1,6 +1,7 @@
 using NativeUI.Core;
 using NativeUI.Layout;
 using NativeUI.Media;
+using NativeUI.Media.Animation;
 using NativeUI.Styling;
 
 namespace NativeUI.Controls;
@@ -21,7 +22,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     private Rect _renderedBounds;
     private IStyleResolver? _styleResolver;
     private RoutedEventHandlerStore? _routedHandlers;
-    private ElementAnimator? _animator;
+    private StyleAnimator? _animator;
     private static readonly TimeSpan s_defaultAnimationDuration = TimeSpan.FromMilliseconds(300);
 
     /// <summary>
@@ -82,7 +83,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         BindableProperty.Create<UIElement, bool>(
             nameof(IsVisible),
             defaultValue: true,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.OnIsVisibleChanged());
 
     /// <summary>
     /// Identifies the <see cref="IsEnabled"/> bindable property.
@@ -194,6 +195,16 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// Occurs whenever a visual property or computed style on this element changes.
     /// </summary>
     public event EventHandler? VisualInvalidated;
+
+    /// <summary>
+    /// Occurs when this element's parent changes, allowing internal observers to rebind inherited tree state.
+    /// </summary>
+    internal event EventHandler? ParentChanged;
+
+    /// <summary>
+    /// Occurs when this element's own visibility changes, including visibility composed by a derived control.
+    /// </summary>
+    internal event EventHandler? VisibilityChanged;
 
     /// <summary>
     /// Occurs when a pointer button is pressed over this element or one of its descendants.
@@ -597,7 +608,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         }
         else if (AnimationClock.IsEnabled && StyleResolver?.ResolveKeyframes(name, this) is { } frames)
         {
-            _animator ??= new ElementAnimator(this);
+            _animator ??= new StyleAnimator(this);
             _animator.Start(spec, frames, animation);
         }
         else
@@ -633,7 +644,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     internal bool HasRendered { get; private set; }
 
     /// <summary>
-    /// Shows a style that <see cref="ElementAnimator"/> produced. Descendants recompute only when an inherited value changed.
+    /// Shows a style that <see cref="StyleAnimator"/> produced. Descendants recompute only when an inherited value changed.
     /// </summary>
     internal void ApplyAnimatedStyle(ComputedStyle style)
     {
@@ -757,6 +768,16 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
+    /// Notifies observers and invalidates the visual after this element's <see cref="IsVisible"/> value changes.
+    /// Derived controls whose visibility depends on additional state call this method when that state changes.
+    /// </summary>
+    protected virtual void OnIsVisibleChanged()
+    {
+        VisibilityChanged?.Invoke(this, EventArgs.Empty);
+        InvalidateVisual();
+    }
+
+    /// <summary>
     /// Invoked when the <see cref="Parent"/> of this element changes.
     /// </summary>
     protected virtual void OnParentChanged()
@@ -767,6 +788,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
             _animator?.Cancel();
         }
 
+        ParentChanged?.Invoke(this, EventArgs.Empty);
         InvalidateStyle();
     }
 
@@ -890,7 +912,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
                 return target;
             }
 
-            _animator = new ElementAnimator(this);
+            _animator = new StyleAnimator(this);
         }
 
         return _animator.Update(target);

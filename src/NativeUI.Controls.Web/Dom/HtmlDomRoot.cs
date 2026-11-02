@@ -27,7 +27,8 @@ internal sealed class HtmlDomRoot : IDisposable
     private JSObject? _container;
     private JSObject? _rootElement;
     private AdoptedStyleSheet? _styleSheet;
-    private bool _isClockTickScheduled;
+    private IDisposable? _animationRoot;
+    private int? _clockRequestId;
     private bool _disposed;
 
     /// <summary>
@@ -62,10 +63,18 @@ internal sealed class HtmlDomRoot : IDisposable
     /// </summary>
     public void Unmount()
     {
+        using IDisposable? animationRoot = _animationRoot;
+        _animationRoot = null;
         try
         {
             Application.Current.CurrentThemeChanged -= OnCurrentThemeChanged;
-            AnimationClock.AnimationStarted -= ScheduleClockTick;
+            AnimationClock.FrameRequested -= OnFrameRequested;
+            if (_root is not null)
+            {
+                _root.VisualInvalidated -= OnVisualInvalidated;
+            }
+
+            CancelClockTick();
 
             // Disconnecting the native-ui element removes its pointer listeners.
             if (_rootElement is not null)
@@ -170,6 +179,7 @@ internal sealed class HtmlDomRoot : IDisposable
         _root = root;
         try
         {
+            _animationRoot = AnimationClock.AttachRoot(root);
             if (useBrowserInterop)
             {
                 root.InvalidateStyle();
@@ -190,11 +200,9 @@ internal sealed class HtmlDomRoot : IDisposable
                 DomInterop.SetFocusDispatcher(_rootElement, OnFocus);
                 DomInterop.SetCloseDispatcher(_rootElement, OnPortalClosed);
                 DomInterop.SetResizeDispatcher(_rootElement, OnResize);
-                AnimationClock.AnimationStarted += ScheduleClockTick;
-                if (AnimationClock.HasActiveAnimations)
-                {
-                    ScheduleClockTick();
-                }
+                AnimationClock.FrameRequested += OnFrameRequested;
+                root.VisualInvalidated += OnVisualInvalidated;
+                ScheduleClockTick();
 
                 Application.Current.CurrentThemeChanged += OnCurrentThemeChanged;
                 UpdateThemeAttribute();
@@ -291,25 +299,52 @@ internal sealed class HtmlDomRoot : IDisposable
     /// Requests the next screen refresh for frame targets. The browser runs CSS animations itself, so this root never
     /// attaches as a clock driver and style animations stay off.
     /// </summary>
+    private void OnFrameRequested(UIElement root)
+    {
+        if (ReferenceEquals(root, _root))
+        {
+            ScheduleClockTick();
+        }
+    }
+
     private void ScheduleClockTick()
     {
-        if (!_isClockTickScheduled)
+        if (_disposed || _rootDom is null || _root is null || !AnimationClock.HasActiveAnimations(_root))
         {
-            _isClockTickScheduled = true;
-            DomInterop.RequestAnimationFrame(OnClockFrame);
+            CancelClockTick();
+            return;
         }
+
+        _clockRequestId ??= DomInterop.RequestAnimationFrame(OnClockFrame);
+    }
+
+    private void CancelClockTick()
+    {
+        if (_clockRequestId is int requestId)
+        {
+            DomInterop.CancelAnimationFrame(requestId);
+            _clockRequestId = null;
+        }
+    }
+
+    private void OnVisualInvalidated(object? sender, EventArgs e)
+    {
+        ScheduleClockTick();
     }
 
     private void OnClockFrame()
     {
-        _isClockTickScheduled = false;
-        if (_disposed || _rootDom is null)
+        _clockRequestId = null;
+        if (_disposed || _rootDom is null || _root is null)
         {
             return;
         }
 
-        AnimationClock.Tick();
-        if (AnimationClock.HasActiveAnimations)
+        try
+        {
+            AnimationClock.Tick(_root);
+        }
+        finally
         {
             ScheduleClockTick();
         }

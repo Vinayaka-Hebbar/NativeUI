@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using NativeUI.Core;
 using NativeUI.Layout;
 using NativeUI.Media;
+using NativeUI.Media.Animation;
 using NativeUI.Styling;
 
 namespace NativeUI.Controls.Web;

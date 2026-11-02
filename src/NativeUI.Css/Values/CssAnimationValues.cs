@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using NativeUI.Media;
+using NativeUI.Media.Animation;
 
 namespace NativeUI.Css;
 

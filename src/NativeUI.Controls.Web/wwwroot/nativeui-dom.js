@@ -943,9 +943,19 @@ export const dom = {
    * Requests an animation frame and invokes the callback.
    *
    * @param {() => void} dispatch The callback to invoke.
-   * @returns {void}
+   * @returns {number} The cancellation identifier.
    */
   requestAnimationFrame(dispatch) {
-    requestAnimationFrame(() => dispatch());
+    return requestAnimationFrame(() => dispatch());
+  },
+
+  /**
+   * Cancels a pending animation frame.
+   *
+   * @param {number} requestId The identifier returned by requestAnimationFrame.
+   * @returns {void}
+   */
+  cancelAnimationFrame(requestId) {
+    cancelAnimationFrame(requestId);
   },
 };

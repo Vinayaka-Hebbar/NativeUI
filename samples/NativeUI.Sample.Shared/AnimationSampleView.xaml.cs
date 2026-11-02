@@ -1,4 +1,5 @@
 using NativeUI.Controls;
+using NativeUI.Media.Animation;
 
 namespace NativeUI.Sample;
 

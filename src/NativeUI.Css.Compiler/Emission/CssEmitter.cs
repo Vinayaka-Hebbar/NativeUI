@@ -117,6 +117,7 @@ public static class CssEmitter
                 UsingDirective(ParseName("NativeUI.Core")),
                 UsingDirective(ParseName("NativeUI.Css")),
                 UsingDirective(ParseName("NativeUI.Media")),
+                UsingDirective(ParseName("NativeUI.Media.Animation")),
                 UsingDirective(ParseName("NativeUI.Styling"))
             ]))
             .WithMembers(SingletonList<MemberDeclarationSyntax>(namespaceDecl))

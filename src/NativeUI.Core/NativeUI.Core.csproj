@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="NativeUI.Controls" />
+    <InternalsVisibleTo Include="NativeUI.Controls.Web" />
     <InternalsVisibleTo Include="NativeUI.Core.Tests" />
   </ItemGroup>
 

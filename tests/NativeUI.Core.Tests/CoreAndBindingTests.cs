@@ -7,6 +7,8 @@ using NativeUI.Tests;
 
 int exitCode = TestRunner.RunSuite("NativeUI.Core.Tests",
 [
+    ("Animation cancellation is idempotent and completes after failure", NativeUI.Core.Tests.AnimationTests.VerifyCancellationAndCompletion),
+    ("Completed animation releases its cancellation callback", NativeUI.Core.Tests.AnimationTests.VerifyCompletedAnimationReleasesCallback),
     ("Application resolves CurrentTheme, raises changes once, and carries state to a replacement", TestApplicationTheme),
     ("Color spaces convert accurately across sRGB, HSL, Oklab, and Oklch", TestColorSpacesAndConversions),
     ("ThemeValue<T> supports literal values and CSS variable references", TestThemeValueAndCssVariables),

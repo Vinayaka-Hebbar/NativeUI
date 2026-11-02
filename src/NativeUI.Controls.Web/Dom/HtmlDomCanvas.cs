@@ -12,7 +12,7 @@ namespace NativeUI.Controls.Web;
 public sealed class HtmlDomCanvas : HtmlDomElement
 {
     private readonly CanvasView _canvasView;
-    private bool _renderScheduled;
+    private int? _renderRequestId;
 
     internal HtmlDomCanvas(CanvasView canvasView, JSObject? element)
         : base(canvasView, element, "canvas")
@@ -36,6 +36,12 @@ public sealed class HtmlDomCanvas : HtmlDomElement
     protected override void OnDisposing()
     {
         _canvasView.VisualInvalidated -= OnVisualInvalidated;
+        if (_renderRequestId is int requestId)
+        {
+            DomInterop.CancelAnimationFrame(requestId);
+            _renderRequestId = null;
+        }
+
         if (Element is JSObject element)
         {
             CanvasInterop.UnobserveResize(element);
@@ -51,18 +57,17 @@ public sealed class HtmlDomCanvas : HtmlDomElement
 
     private void ScheduleRender()
     {
-        if (IsDisposed || Element is null || _renderScheduled)
+        if (IsDisposed || Element is null || _renderRequestId is not null)
         {
             return;
         }
 
-        _renderScheduled = true;
-        DomInterop.RequestAnimationFrame(OnAnimationFrame);
+        _renderRequestId = DomInterop.RequestAnimationFrame(OnAnimationFrame);
     }
 
     private void OnAnimationFrame()
     {
-        _renderScheduled = false;
+        _renderRequestId = null;
         if (!IsDisposed)
         {
             Render();

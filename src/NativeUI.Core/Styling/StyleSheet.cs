@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using NativeUI.Core;
 using NativeUI.Media;
+using NativeUI.Media.Animation;
 
 namespace NativeUI.Styling;
 

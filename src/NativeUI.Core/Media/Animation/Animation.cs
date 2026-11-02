@@ -1,12 +1,13 @@
-namespace NativeUI.Controls;
+namespace NativeUI.Media.Animation;
 
 /// <summary>
-/// Represents a keyframe animation started by <see cref="UIElement.Animate"/>.
+/// Represents a keyframe animation playback operation with cancellation and completion state.
 /// </summary>
 public sealed class Animation
 {
     private readonly TaskCompletionSource _finished = new();
     private Action? _cancel;
+    private PlaybackState _state = PlaybackState.Active;
 
     internal Animation()
     {
@@ -19,17 +20,29 @@ public sealed class Animation
     public Task Finished => _finished.Task;
 
     /// <summary>
+    /// Gets the current playback state.
+    /// </summary>
+    public PlaybackState State => _state;
+
+    /// <summary>
     /// Stops the animation and returns the element to its style. Does nothing after the animation ends.
     /// </summary>
     public void Cancel()
     {
-        if (_finished.Task.IsCompleted)
+        if (_state != PlaybackState.Active)
         {
             return;
         }
 
-        _cancel?.Invoke();
-        Complete();
+        _state = PlaybackState.Cancelling;
+        try
+        {
+            _cancel?.Invoke();
+        }
+        finally
+        {
+            Complete();
+        }
     }
 
     /// <summary>
@@ -37,7 +50,10 @@ public sealed class Animation
     /// </summary>
     internal void SetCancelHandler(Action cancel)
     {
-        _cancel = cancel;
+        if (_state == PlaybackState.Active)
+        {
+            _cancel = cancel;
+        }
     }
 
     /// <summary>
@@ -45,6 +61,8 @@ public sealed class Animation
     /// </summary>
     internal void Complete()
     {
+        _state = PlaybackState.Completed;
+        _cancel = null;
         _finished.TrySetResult();
     }
 }

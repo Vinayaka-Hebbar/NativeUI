@@ -1,4 +1,4 @@
-namespace NativeUI.Media;
+namespace NativeUI.Media.Animation;
 
 /// <summary>
 /// Identifies the style properties that transitions and keyframes can animate.

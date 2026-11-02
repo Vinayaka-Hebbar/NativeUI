@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace NativeUI.Media;
+namespace NativeUI.Media.Animation;
 
 /// <summary>
 /// Represents a CSS timing function as the control points of a cubic Bezier curve from (0, 0) to (1, 1).

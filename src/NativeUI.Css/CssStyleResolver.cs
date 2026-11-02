@@ -1,5 +1,6 @@
 using NativeUI.Core;
 using NativeUI.Media;
+using NativeUI.Media.Animation;
 using NativeUI.Styling;
 
 namespace NativeUI.Css;

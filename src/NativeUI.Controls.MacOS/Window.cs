@@ -41,6 +41,7 @@ public sealed class Window : IDisposable, IRenderHost
     private Dialog? _hostedDialog;
     private nint _inputBlocker;
     private UIElement? _content;
+    private IDisposable? _animationRoot;
     private IStyleResolver? _styleResolver;
     private Color? _background;
     private nint _nsWindow;
@@ -196,6 +197,8 @@ public sealed class Window : IDisposable, IRenderHost
                 _content.VisualInvalidated -= OnContentVisualInvalidated;
             }
 
+            using IDisposable? previousAnimationRoot = _animationRoot;
+            _animationRoot = null;
             RemoveTextFields();
             RemoveDialogWindows();
             _activeSelectionText = null;
@@ -203,6 +206,7 @@ public sealed class Window : IDisposable, IRenderHost
             _content = value;
             if (_content is not null)
             {
+                _animationRoot = AnimationClock.AttachRoot(_content);
                 SyncContentStyle();
                 _content.VisualInvalidated += OnContentVisualInvalidated;
             }
@@ -237,9 +241,9 @@ public sealed class Window : IDisposable, IRenderHost
         // Attaching first lets the style sync below start the animations of elements styled before the window existed.
         if (AppKitInterop.IsDisplayLinkSupported())
         {
+            AnimationClock.AttachDriver();
             _isAnimationDriver = true;
-            AnimationClock.AttachDriver(AppKitInterop.IsReduceMotionEnabled());
-            AnimationClock.AnimationStarted += OnAnimationStarted;
+            AnimationClock.FrameRequested += OnFrameRequested;
         }
 
         SyncContentStyle();
@@ -272,9 +276,9 @@ public sealed class Window : IDisposable, IRenderHost
         AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setAutorecalculatesKeyViewLoop:"), true);
         _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
         _displayLink = AppKitInterop.CreateDisplayLink(_nsImageView);
-        if (AnimationClock.HasActiveAnimations)
+        if (_content is not null && AnimationClock.HasActiveAnimations(_content))
         {
-            OnAnimationStarted();
+            OnFrameRequested(_content);
         }
     }
 
@@ -284,22 +288,27 @@ public sealed class Window : IDisposable, IRenderHost
     internal void HandleDisplayRefresh()
     {
         // A tick invalidates only the windows whose content changed, so other windows draw nothing.
-        AnimationClock.Tick();
+        if (_content is not null)
+        {
+            AnimationClock.Tick(_content);
+        }
+
         if (_isFrameScheduled)
         {
             _isFrameScheduled = false;
             UpdateFrame();
         }
 
-        if (!_isFrameScheduled && !AnimationClock.HasActiveAnimations && _displayLink != nint.Zero)
+        bool hasActiveAnimations = _content is not null && AnimationClock.HasActiveAnimations(_content);
+        if (!_isFrameScheduled && !hasActiveAnimations && _displayLink != nint.Zero)
         {
             AppKitInterop.SendMessageVoid(_displayLink, AppKitInterop.GetSelector("setPaused:"), true);
         }
     }
 
-    private void OnAnimationStarted()
+    private void OnFrameRequested(UIElement root)
     {
-        if (_displayLink != nint.Zero)
+        if (_displayLink != nint.Zero && ReferenceEquals(root, _content))
         {
             AppKitInterop.SendMessageVoid(_displayLink, AppKitInterop.GetSelector("setPaused:"), false);
         }
@@ -731,13 +740,15 @@ public sealed class Window : IDisposable, IRenderHost
         }
 
         _disposed = true;
+        using IDisposable? animationRoot = _animationRoot;
+        _animationRoot = null;
         Application.Current.CurrentThemeChanged -= OnCurrentThemeChanged;
         HotReloadManager.HotReloaded -= OnHotReloaded;
 
         if (_isAnimationDriver)
         {
             _isAnimationDriver = false;
-            AnimationClock.AnimationStarted -= OnAnimationStarted;
+            AnimationClock.FrameRequested -= OnFrameRequested;
             AnimationClock.DetachDriver();
         }
 

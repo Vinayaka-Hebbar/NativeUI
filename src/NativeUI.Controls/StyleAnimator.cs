@@ -1,4 +1,5 @@
 using NativeUI.Media;
+using NativeUI.Media.Animation;
 
 namespace NativeUI.Controls;
 
@@ -6,7 +7,7 @@ namespace NativeUI.Controls;
 /// Runs the transitions and keyframe animations of one element on hosts that draw their own frames, and produces the
 /// element's effective style from its cascaded style. Operations must run on the UI thread.
 /// </summary>
-internal sealed class ElementAnimator(UIElement element) : IFrameTarget
+internal sealed class StyleAnimator(UIElement element) : IFrameTarget
 {
     private static readonly AnimatableProperty[] s_properties =
     [
@@ -26,6 +27,8 @@ internal sealed class ElementAnimator(UIElement element) : IFrameTarget
     private readonly List<RunningTransition> _transitions = [];
     private readonly List<RunningAnimation> _animations = [];
     private ComputedStyle? _target;
+
+    UIElement IFrameTarget.Target => element;
 
     /// <summary>
     /// Takes the element's new cascaded style, starts the transitions and animation it requires, and returns the effective style.
@@ -62,11 +65,11 @@ internal sealed class ElementAnimator(UIElement element) : IFrameTarget
     }
 
     /// <summary>
-    /// Advances to <paramref name="now"/>. An element that is not shown keeps its state, so a hidden animation costs no frames.
+    /// Advances to <paramref name="now"/>. Hidden animations skip evaluation and catch up to elapsed time when shown.
     /// </summary>
     public void Tick(double now)
     {
-        if (_target is null || !element.IsVisibleInTree)
+        if (_target is null)
         {
             return;
         }

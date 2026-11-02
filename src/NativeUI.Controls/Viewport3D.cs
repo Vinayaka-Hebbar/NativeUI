@@ -41,6 +41,8 @@ public class Viewport3D : CanvasView, IFrameTarget
     private double _firstFrameTime;
     private double _lastFrameTime;
 
+    UIElement IFrameTarget.Target => this;
+
     /// <summary>
     /// Occurs once per screen refresh while this viewport is shown, before it redraws. A subscription keeps the screen
     /// refresh running, so unsubscribe when the scene stops moving.
@@ -53,10 +55,10 @@ public class Viewport3D : CanvasView, IFrameTarget
             {
                 _firstFrameTime = AnimationClock.Now;
                 _lastFrameTime = _firstFrameTime;
-                AnimationClock.Add(this);
             }
 
             _rendering += value;
+            AnimationClock.Add(this);
         }
         remove
         {
@@ -92,11 +94,6 @@ public class Viewport3D : CanvasView, IFrameTarget
     /// <inheritdoc />
     void IFrameTarget.Tick(double now)
     {
-        if (!IsVisibleInTree)
-        {
-            return;
-        }
-
         TimeSpan totalTime = TimeSpan.FromMilliseconds(now - _firstFrameTime);
         TimeSpan deltaTime = TimeSpan.FromMilliseconds(now - _lastFrameTime);
         _lastFrameTime = now;
