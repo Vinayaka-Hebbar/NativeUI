@@ -12,7 +12,7 @@ namespace NativeUI.Controls.Web;
 /// Operations must run on the browser's UI thread.
 /// </summary>
 [SupportedOSPlatform("browser")]
-public class HtmlDomElement : INativePeer, IAnimationPeer, IGeometryPeer
+public class HtmlDomElement : INativeHandle, IAnimationPeer
 {
     private static readonly Dictionary<int, HtmlDomElement> s_attachedElements = [];
     private static int s_lastNodeId;
@@ -22,7 +22,7 @@ public class HtmlDomElement : INativePeer, IAnimationPeer, IGeometryPeer
     private int _nodeId;
     private Style? _inlineStyle;
     private bool _attached;
-    private bool _observingSize;
+    private HtmlResizeObserver? _resizeObserver;
     private string _className = string.Empty;
     private string? _text;
     private bool _disposed;
@@ -131,9 +131,9 @@ public class HtmlDomElement : INativePeer, IAnimationPeer, IGeometryPeer
 
     internal static HtmlDomElement Create(UIElement source, bool useBrowserInterop)
     {
-        if (source.NativePeer is not null)
+        if (source.NativeHandle is not null)
         {
-            throw new InvalidOperationException("The control already owns a native peer.");
+            throw new InvalidOperationException("The control already owns a native handle.");
         }
 
         string tagName = HtmlTagMapping.GetTag(source);
@@ -162,9 +162,9 @@ public class HtmlDomElement : INativePeer, IAnimationPeer, IGeometryPeer
             throw new InvalidOperationException("The DOM element is already attached.");
         }
 
-        if (Source.NativePeer is not null)
+        if (Source.NativeHandle is not null)
         {
-            throw new InvalidOperationException("The control already owns a native peer.");
+            throw new InvalidOperationException("The control already owns a native handle.");
         }
 
         _parent = parent;
@@ -176,11 +176,10 @@ public class HtmlDomElement : INativePeer, IAnimationPeer, IGeometryPeer
         }
 
         _attached = true;
-        Source.NativePeer = this;
+        Source.NativeHandle = this;
 
         Source.PropertyChanged += OnElementPropertyChanged;
         ReplaceInlineStyle();
-        StartObservingSize();
         Initialize();
     }
 
@@ -501,12 +500,13 @@ public class HtmlDomElement : INativePeer, IAnimationPeer, IGeometryPeer
     {
         try
         {
-            StopObservingSize();
+            _resizeObserver?.Dispose();
+            _resizeObserver = null;
+
             if (_element is not null)
             {
                 DomInterop.RemoveElement(_element);
             }
-
         }
         finally
         {
@@ -514,34 +514,47 @@ public class HtmlDomElement : INativePeer, IAnimationPeer, IGeometryPeer
             s_attachedElements.Remove(_nodeId);
             _nodeId = 0;
 
-            if (ReferenceEquals(Source.NativePeer, this))
+            if (ReferenceEquals(Source.NativeHandle, this))
             {
-                Source.NativePeer = null;
+                Source.NativeHandle = null;
             }
 
             _parent = null;
         }
     }
 
-    private void StartObservingSize()
+    /// <inheritdoc />
+    void INativeHandle.OnAttachView(UIElement element)
     {
-        if (_element is not null && _attached && !_observingSize)
+        if (element.IsSizeObserved && _element is not null)
         {
-            _observingSize = true;
-            DomInterop.ObserveResize(_element);
+            _resizeObserver ??= new HtmlResizeObserver(_element);
+            _resizeObserver.Observe();
         }
     }
 
-    private void StopObservingSize()
+    /// <inheritdoc />
+    void INativeHandle.OnDetachView(UIElement element)
     {
-        if (_element is not null && _observingSize)
-        {
-            _observingSize = false;
-            DomInterop.UnobserveResize(_element);
-        }
+        _resizeObserver?.Unobserve();
     }
 
-    Rect? IGeometryPeer.GetBounds()
+    /// <inheritdoc />
+    ResizeObserver? INativeHandle.CreateSizeObserver(UIElement element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        if (_element is null)
+        {
+            return null;
+        }
+
+        _resizeObserver ??= new HtmlResizeObserver(_element);
+        _resizeObserver.Observe();
+        return _resizeObserver;
+    }
+
+    /// <inheritdoc cref="INativeHandle.GetBounds" />
+    public Rect? GetBounds()
     {
         if (_element is not null && _attached)
         {
@@ -556,4 +569,51 @@ public class HtmlDomElement : INativePeer, IAnimationPeer, IGeometryPeer
         return null;
     }
 
+    internal bool IsObservingSize => Source.IsSizeObserved;
+}
+
+internal sealed class HtmlResizeObserver : ResizeObserver
+{
+    private readonly JSObject _element;
+    private bool _observing;
+
+    public HtmlResizeObserver(JSObject element)
+    {
+        _element = element;
+    }
+
+    public override void Observe()
+    {
+        if (_observing)
+        {
+            return;
+        }
+
+        if (OperatingSystem.IsBrowser())
+        {
+            DomInterop.ObserveResize(_element);
+        }
+
+        _observing = true;
+    }
+
+    public override void Unobserve()
+    {
+        if (!_observing)
+        {
+            return;
+        }
+
+        if (OperatingSystem.IsBrowser())
+        {
+            DomInterop.UnobserveResize(_element);
+        }
+
+        _observing = false;
+    }
+
+    public override void Dispose()
+    {
+        Unobserve();
+    }
 }

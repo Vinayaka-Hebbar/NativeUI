@@ -128,6 +128,25 @@ public abstract class BindableProperty
     }
 
     /// <summary>
+    /// Creates an owner-constrained <see cref="ComputedBindableProperty{TOwner, TValue}"/> whose compute function
+    /// is strongly typed to <typeparamref name="TOwner"/> and whose observation lifecycle is managed via an optional observer callback.
+    /// </summary>
+    /// <typeparam name="TOwner">The owning <see cref="BindableObject"/> type.</typeparam>
+    /// <typeparam name="TValue">The value type computed by the property.</typeparam>
+    /// <param name="name">The property name.</param>
+    /// <param name="compute">The function to compute the value for an owner instance.</param>
+    /// <param name="observe">An optional factory callback called when the first subscriber is registered on an owner.</param>
+    /// <returns>A new <see cref="ComputedBindableProperty{TOwner, TValue}"/> instance.</returns>
+    public static ComputedBindableProperty<TOwner, TValue> CreateComputed<TOwner, TValue>(
+        string name,
+        Func<TOwner, TValue> compute,
+        Func<TOwner, IDisposable?>? observe = null)
+        where TOwner : BindableObject
+    {
+        return new ComputedBindableProperty<TOwner, TValue>(name, compute, observe);
+    }
+
+    /// <summary>
     /// Creates an attached property declared by <paramref name="ownerType"/>, which can be a static class, and settable on any
     /// <see cref="BindableObject"/>.
     /// </summary>

@@ -100,7 +100,7 @@ public class Input : UIElement
     /// </summary>
     public void Focus()
     {
-        (NativePeer as IInputPeer)?.Focus();
+        (NativeHandle as IInputPeer)?.Focus();
     }
 
     /// <summary>

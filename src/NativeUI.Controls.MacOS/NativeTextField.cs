@@ -10,7 +10,7 @@ namespace NativeUI.Controls.MacOS;
 /// Presents an <see cref="Input"/> with an <c>NSTextField</c> placed over the window's rendered image, inside a view that
 /// applies the clipping of the element's ancestors. Operations must run on the AppKit main thread.
 /// </summary>
-internal sealed class NativeTextField : INativePeer, IInputPeer
+internal sealed class NativeTextField : INativeHandle, IInputPeer
 {
     private const string ClassName = "NativeUITextField";
     private const string DarkAppearanceName = "NSAppearanceNameDarkAqua";
@@ -34,14 +34,14 @@ internal sealed class NativeTextField : INativePeer, IInputPeer
     private bool _disposed;
 
     /// <summary>
-    /// Creates the native views as children of <paramref name="parentView"/> and becomes the peer of <paramref name="input"/>.
+    /// Creates the native views as children of <paramref name="parentView"/> and becomes the handle of <paramref name="input"/>.
     /// </summary>
-    /// <exception cref="InvalidOperationException"><paramref name="input"/> already owns a native peer.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="input"/> already owns a native handle.</exception>
     public NativeTextField(Input input, nint parentView, Window window)
     {
-        if (input.NativePeer is not null)
+        if (input.NativeHandle is not null)
         {
-            throw new InvalidOperationException("The control already owns a native peer.");
+            throw new InvalidOperationException("The control already owns a native handle.");
         }
 
         _input = input;
@@ -68,7 +68,7 @@ internal sealed class NativeTextField : INativePeer, IInputPeer
         UpdateEditable();
         UpdateEnabled();
 
-        _input.NativePeer = this;
+        _input.NativeHandle = this;
         _input.PropertyChanged += OnInputPropertyChanged;
     }
 
@@ -141,9 +141,9 @@ internal sealed class NativeTextField : INativePeer, IInputPeer
         _disposed = true;
         _input.PropertyChanged -= OnInputPropertyChanged;
         _input.SetFocused(false);
-        if (ReferenceEquals(_input.NativePeer, this))
+        if (ReferenceEquals(_input.NativeHandle, this))
         {
-            _input.NativePeer = null;
+            _input.NativeHandle = null;
         }
 
         s_fields.Remove(_field);

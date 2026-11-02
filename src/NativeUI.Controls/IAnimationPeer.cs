@@ -3,7 +3,7 @@ using NativeUI.Media;
 namespace NativeUI.Controls;
 
 /// <summary>
-/// Implemented by a <see cref="INativePeer"/> whose platform runs animations itself, such as a browser element.
+/// Implemented by a <see cref="INativeHandle"/> whose platform runs animations itself, such as a browser element.
 /// </summary>
 internal interface IAnimationPeer
 {

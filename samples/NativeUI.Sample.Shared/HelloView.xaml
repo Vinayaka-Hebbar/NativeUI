@@ -36,6 +36,7 @@
             <Button x:Name="NavDialog" Class="nav-item" Text="Dialog" />
             <Button x:Name="NavAnimation" Class="nav-item" Text="Animation" />
             <Button x:Name="NavScene3D" Class="nav-item" Text="3D" />
+            <Button x:Name="NavResize" Class="nav-item" Text="ResizeObserver" />
         </StackPanel>
 
         <ScrollView x:Name="ExamplesScroll" Grid.Column="1" Class="examples">
@@ -143,6 +144,30 @@
             <AnimationSampleView x:Name="AnimationPage" />
 
             <Scene3DSampleView x:Name="Scene3DPage" />
+
+            <View x:Name="ResizePage">
+                <Text Class="section" Value="ResizeObserver &amp; Geometry Observation" />
+                <Text Class="scroll-line" Value="Observes rendered dimensions on demand via ResizeObserver and size bindings." />
+
+                <View x:Name="ResizeTargetBox" Class="panel-box">
+                    <Text Class="scroll-line" Value="Target element observed on demand:" />
+                    <Text x:Name="ResizeStatusText" Class="status" Value="Size: Unmeasured" />
+                </View>
+
+                <Text Class="section" Value="Adjust Target Dimensions" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="ResizeCompactButton" Class="btn-action" Text="Compact (180px)" />
+                    <Button x:Name="ResizeMediumButton" Class="btn-action" Text="Medium (320px)" />
+                    <Button x:Name="ResizeWideButton" Class="btn-action" Text="Wide (460px)" />
+                    <Button x:Name="ResizeToggleHeightButton" Class="btn-action" Text="Toggle Height" />
+                </StackPanel>
+
+                <Text Class="section" Value="Observation Lifecycle" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="ToggleObserveButton" Class="btn-action" Text="Detach Observer" />
+                </StackPanel>
+                <Text x:Name="ObserverStateText" Class="scroll-status" Value="Observer Status: Active (Listening to SizeChanged)" />
+            </View>
         </ScrollView>
     </Grid>
 </View>

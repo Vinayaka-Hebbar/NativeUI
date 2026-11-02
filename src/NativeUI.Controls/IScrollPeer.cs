@@ -3,7 +3,7 @@ using NativeUI.Layout;
 namespace NativeUI.Controls;
 
 /// <summary>
-/// Implemented by a <see cref="INativePeer"/> whose platform owns scrolling, such as a browser element.
+/// Implemented by a <see cref="INativeHandle"/> whose platform owns scrolling, such as a browser element.
 /// </summary>
 internal interface IScrollPeer
 {

@@ -1,4 +1,5 @@
 using NativeUI.Controls;
+using NativeUI.Core;
 using NativeUI.Graphics;
 using NativeUI.Layout;
 using NativeUI.Media;
@@ -33,7 +34,8 @@ public partial class HelloView
             (NavInput, InputPage),
             (NavDialog, DialogPage),
             (NavAnimation, AnimationPage),
-            (NavScene3D, Scene3DPage)
+            (NavScene3D, Scene3DPage),
+            (NavResize, ResizePage)
         ];
 
         foreach ((Button nav, View page) in _pages)
@@ -42,6 +44,46 @@ public partial class HelloView
         }
 
         ShowPage(StackPage);
+
+        int resizeEvents = 0;
+        bool isObserving = true;
+        bool isTall = false;
+
+        void OnResizeChanged(object? sender, SizeChangedEventArgs e)
+        {
+            resizeEvents++;
+            ResizeStatusText.Value = $"Size: {e.NewSize.Width:0}px × {e.NewSize.Height:0}px (Events: {resizeEvents})";
+            ObserverStateText.Value = $"Observer Status: Active | IsSizeObserved = {ResizeTargetBox.IsSizeObserved}";
+        }
+
+        ResizeTargetBox.SizeChanged += OnResizeChanged;
+
+        ResizeCompactButton.Click += (_, _) => ResizeTargetBox.Width = 180;
+        ResizeMediumButton.Click += (_, _) => ResizeTargetBox.Width = 320;
+        ResizeWideButton.Click += (_, _) => ResizeTargetBox.Width = 460;
+        ResizeToggleHeightButton.Click += (_, _) =>
+        {
+            isTall = !isTall;
+            ResizeTargetBox.Height = isTall ? 140 : 80;
+        };
+
+        ToggleObserveButton.Click += (_, _) =>
+        {
+            if (isObserving)
+            {
+                ResizeTargetBox.SizeChanged -= OnResizeChanged;
+                isObserving = false;
+                ToggleObserveButton.Text = "Attach Observer";
+                ObserverStateText.Value = $"Observer Status: Inactive | IsSizeObserved = {ResizeTargetBox.IsSizeObserved}";
+            }
+            else
+            {
+                ResizeTargetBox.SizeChanged += OnResizeChanged;
+                isObserving = true;
+                ToggleObserveButton.Text = "Detach Observer";
+                ObserverStateText.Value = $"Observer Status: Active | IsSizeObserved = {ResizeTargetBox.IsSizeObserved}";
+            }
+        };
 
         ScrollTopButton.Click += (_, _) => LogScroll.ScrollTo(0, 0);
         ScrollBottomButton.Click += (_, _) => LogScroll.ScrollTo(0, LogScroll.ExtentHeight);

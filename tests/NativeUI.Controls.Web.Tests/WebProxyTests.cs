@@ -91,7 +91,7 @@ static void TestChildCollections()
     root.Children.Add(second);
     using HtmlDomRoot host = new();
     host.MountHeadless(root);
-    Assert.True(root.NativePeer is HtmlDomView);
+    Assert.True(root.NativeHandle is HtmlDomView);
     HtmlDomElement firstElement = GetElement(first);
     HtmlDomElement secondElement = GetElement(second);
 
@@ -107,13 +107,13 @@ static void TestChildCollections()
     Assert.Equal("Inserted", insertedElement.TextContent);
     Assert.Same(firstElement, GetElement(first));
     children.Remove(second);
-    Assert.Null(second.NativePeer);
+    Assert.Null(second.NativeHandle);
     Assert.Null(second.Parent);
     AssertDisposed(() => secondElement.SetTextContent("Invalid"));
 
     children.Clear();
-    Assert.Null(first.NativePeer);
-    Assert.Null(inserted.NativePeer);
+    Assert.Null(first.NativeHandle);
+    Assert.Null(inserted.NativeHandle);
     Assert.Null(first.Parent);
     Assert.Null(inserted.Parent);
     AssertDisposed(() => firstElement.SetTextContent("Invalid"));
@@ -134,24 +134,24 @@ static void TestMountLifetime()
     host.MountHeadless(original);
     HtmlDomElement originalElement = GetElement(child);
     host.MountHeadless(replacement);
-    Assert.Null(original.NativePeer);
-    Assert.Null(child.NativePeer);
+    Assert.Null(original.NativeHandle);
+    Assert.Null(child.NativeHandle);
     AssertDisposed(() => originalElement.SetTextContent("Invalid"));
     child.Value = "Detached";
     style.FontSize = 20;
     Text detachedChild = new();
     original.Children.Add(detachedChild);
-    Assert.Null(detachedChild.NativePeer);
+    Assert.Null(detachedChild.NativeHandle);
     Assert.Equal("Replacement", GetElement(replacement).TextContent);
 
     host.Unmount();
-    Assert.Null(replacement.NativePeer);
+    Assert.Null(replacement.NativeHandle);
     host.MountHeadless(original);
     Assert.False(ReferenceEquals(originalElement, GetElement(child)));
     Assert.Equal("Detached", GetElement(child).TextContent);
     host.Dispose();
-    Assert.Null(child.NativePeer);
-    Assert.Null(detachedChild.NativePeer);
+    Assert.Null(child.NativeHandle);
+    Assert.Null(detachedChild.NativeHandle);
     AssertDisposed(() => host.MountHeadless(replacement));
 }
 
@@ -191,8 +191,8 @@ static void TestControlDisposal()
 
     root.Dispose();
 
-    Assert.Null(root.NativePeer);
-    Assert.Null(child.NativePeer);
+    Assert.Null(root.NativeHandle);
+    Assert.Null(child.NativeHandle);
     AssertDisposed(() => rootElement.SetTextContent("Invalid"));
     AssertDisposed(() => childElement.SetTextContent("Invalid"));
 
@@ -209,7 +209,7 @@ static void TestPointerEventRouting()
     root.Children.Add(child);
     using HtmlDomRoot host = new();
     host.MountHeadless(root);
-    int childNode = ((HtmlDomElement)child.NativePeer!).NodeId;
+    int childNode = ((HtmlDomElement)child.NativeHandle!).NodeId;
 
     List<string> order = [];
     PointerEventArgs? pressed = null;
@@ -280,7 +280,7 @@ static void TestPointerCleanup()
     root.Children.Add(child);
     using HtmlDomRoot host = new();
     host.MountHeadless(root);
-    int childNode = ((HtmlDomElement)child.NativePeer!).NodeId;
+    int childNode = ((HtmlDomElement)child.NativeHandle!).NodeId;
     host.DispatchPointerEvent(new PointerEventData { Kind = PointerEventKind.Move, NodeId = childNode, PointerId = 1 });
     Assert.NotNull(HtmlDomElement.FindByNodeId(childNode));
 
@@ -578,6 +578,8 @@ static void TestSizeChangedSubscription()
     };
 
     view.SizeChanged += handler;
+    Assert.True(UIElement.BoundsProperty.HasSubscribers(view));
+    Assert.True(view.HasHandler(UIElement.SizeChangedEvent));
 
     view.UpdateRenderedBounds(new Rect(0, 0, 200, 100));
     Assert.Equal(1, sizeChangedCount);
@@ -605,11 +607,13 @@ static void TestSizeChangedSubscription()
 
     view.PropertyChanged -= OnPropChanged;
     view.SizeChanged -= handler;
+    Assert.False(UIElement.BoundsProperty.HasSubscribers(view));
+    Assert.False(view.HasHandler(UIElement.SizeChangedEvent));
 }
 
 static HtmlDomElement GetElement(UIElement element)
 {
-    return element.NativePeer as HtmlDomElement
+    return element.NativeHandle as HtmlDomElement
         ?? throw new InvalidOperationException("Expected a mounted HtmlDomElement.");
 }
 

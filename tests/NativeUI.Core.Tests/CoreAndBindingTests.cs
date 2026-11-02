@@ -17,7 +17,8 @@ int exitCode = TestRunner.RunSuite("NativeUI.Core.Tests",
     ("LineBreakEnumerator computes UAX #14 optional and mandatory break opportunities", TestLineBreakEnumerator),
     ("Unicode tables preserve private-use defaults and range boundaries", NativeUI.Core.Tests.UnicodeDataTablesTests.VerifyPrivateUseDefaults),
     ("Unicode bracket lookups match the pinned official data", NativeUI.Core.Tests.UnicodeDataTablesTests.VerifyBracketMappings),
-    ("ComputedBindableProperty evaluates dynamically, rejects mutations, and triggers subscriber hooks", TestComputedBindableProperty)
+    ("ComputedBindableProperty evaluates dynamically, rejects mutations, and triggers subscriber hooks", TestComputedBindableProperty),
+    ("EventManager registers routed events, traverses inheritance, and creates on-demand observers", TestEventManager)
 ]);
 
 return exitCode;
@@ -263,20 +264,127 @@ static void TestComputedBindableProperty()
 
     obj.RaiseComputedChanged(42, 100);
     Assert.Equal(1, notifications);
+
+    // Verify observation lifecycle through CreateComputed
+    Assert.False(ComputedSample.ObservedValueProperty.HasSubscribers(obj));
+    Assert.Equal(0, obj.ObserveStartCount);
+    Assert.Equal(0, obj.ObserveStopCount);
+
+    IDisposable sub1 = ComputedSample.ObservedValueProperty.Subscribe(obj);
+    Assert.True(ComputedSample.ObservedValueProperty.HasSubscribers(obj));
+    Assert.Equal(1, obj.ObserveStartCount);
+    Assert.Equal(0, obj.ObserveStopCount);
+
+    IDisposable sub2 = ComputedSample.ObservedValueProperty.Subscribe(obj);
+    Assert.Equal(1, obj.ObserveStartCount); // Shared, not called again
+    Assert.Equal(0, obj.ObserveStopCount);
+
+    sub1.Dispose();
+    Assert.True(ComputedSample.ObservedValueProperty.HasSubscribers(obj));
+    Assert.Equal(0, obj.ObserveStopCount);
+
+    sub2.Dispose();
+    Assert.False(ComputedSample.ObservedValueProperty.HasSubscribers(obj));
+    Assert.Equal(1, obj.ObserveStopCount);
+}
+
+static void TestEventManager()
+{
+    RoutedEvent<RoutedEventArgs> routedEvent = EventManager.RegisterRoutedEvent<TestEventOwnerBase, RoutedEventArgs>(
+        "TestCustom",
+        RoutingStrategy.Bubble);
+
+    int startCount = 0;
+    int stopCount = 0;
+
+    EventManager.RegisterEventObserver<TestEventOwnerBase>(
+        routedEvent,
+        _ =>
+        {
+            startCount++;
+            return new TestEventToken(() => stopCount++);
+        });
+
+    bool duplicateThrown = false;
+    try
+    {
+        EventManager.RegisterEventObserver<TestEventOwnerBase>(routedEvent, _ => null);
+    }
+    catch (InvalidOperationException)
+    {
+        duplicateThrown = true;
+    }
+    Assert.True(duplicateThrown, "Expected duplicate observer registration to throw InvalidOperationException.");
+
+    TestEventOwnerDerived derived = new();
+    Assert.Equal(0, startCount);
+
+    using (IDisposable? token = EventManager.CreateObserver(derived, routedEvent))
+    {
+        Assert.NotNull(token);
+        Assert.Equal(1, startCount);
+        Assert.Equal(0, stopCount);
+    }
+
+    Assert.Equal(1, stopCount);
+
+    RoutedEvent<RoutedEventArgs> unregisteredEvent = RoutedEvent.Register<TestEventOwnerBase, RoutedEventArgs>(
+        "Unregistered",
+        RoutingStrategy.Direct);
+
+    Assert.Null(EventManager.CreateObserver(derived, unregisteredEvent));
+}
+
+file class TestEventOwnerBase
+{
+}
+
+file sealed class TestEventOwnerDerived : TestEventOwnerBase
+{
+}
+
+file sealed class TestEventToken(Action onDispose) : IDisposable
+{
+    private readonly Action _onDispose = onDispose;
+
+    public void Dispose()
+    {
+        _onDispose();
+    }
 }
 
 file sealed class ComputedSample : BindableObject
 {
     public int BaseValue { get; set; } = 42;
+    public int ObserveStartCount;
+    public int ObserveStopCount;
 
     public static readonly ComputedBindableProperty<ComputedSample, int> ComputedValueProperty =
         new(nameof(ComputedValue), static s => s.BaseValue);
+
+    public static readonly ComputedBindableProperty<ComputedSample, int> ObservedValueProperty =
+        BindableProperty.CreateComputed<ComputedSample, int>(
+            nameof(ObservedValueProperty),
+            static s => s.BaseValue,
+            observe: static s =>
+            {
+                s.ObserveStartCount++;
+                return new ObservationToken(s);
+            });
 
     public int ComputedValue => GetValue(ComputedValueProperty);
 
     public void RaiseComputedChanged(int oldValue, int newValue)
     {
         NotifyPropertyChanged(ComputedValueProperty, oldValue, newValue);
+    }
+
+    private sealed class ObservationToken(ComputedSample owner) : IDisposable
+    {
+        public void Dispose()
+        {
+            owner.ObserveStopCount++;
+        }
     }
 }
 

@@ -110,7 +110,7 @@ public class HtmlDomPortal : HtmlDomView
         }
 
         Rect bounds = ReadBounds(element);
-        Rect? anchor = (_portal.Anchor?.NativePeer as HtmlDomElement)?.Element is JSObject anchorElement
+        Rect? anchor = (_portal.Anchor?.NativeHandle as HtmlDomElement)?.Element is JSObject anchorElement
             ? ReadBounds(anchorElement)
             : null;
 

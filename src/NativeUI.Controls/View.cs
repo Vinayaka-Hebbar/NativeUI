@@ -85,7 +85,7 @@ public class View : UIElement, IView, IScrollContainer
     /// </summary>
     public void ScrollTo(double x, double y)
     {
-        if (NativePeer is IScrollPeer peer)
+        if (NativeHandle is IScrollPeer peer)
         {
             peer.ScrollTo(x, y);
             return;
@@ -133,7 +133,7 @@ public class View : UIElement, IView, IScrollContainer
 
     private ScrollMetrics ReadScrollMetrics()
     {
-        if (NativePeer is IScrollPeer peer && peer.GetScrollMetrics() is ScrollMetrics metrics)
+        if (NativeHandle is IScrollPeer peer && peer.GetScrollMetrics() is ScrollMetrics metrics)
         {
             _scroll = metrics;
         }

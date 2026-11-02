@@ -327,6 +327,56 @@ internal static class PointerRoutingTests
         return new Point(box.BorderBox.X + 2, box.BorderBox.Y + (box.BorderBox.Height / 2));
     }
 
+    private static readonly RoutedEvent<RoutedEventArgs> s_observableEvent =
+        RoutedEvent.Register<TestObservableElement, RoutedEventArgs>("TestObservable", RoutingStrategy.Direct);
+
+    internal static void VerifyRoutedEventHandlerStoreLifecycle()
+    {
+        int observeStarts = 0;
+        int observeStops = 0;
+
+        EventManager.RegisterEventObserver<TestObservableElement>(
+            s_observableEvent,
+            _ =>
+            {
+                observeStarts++;
+                return new ObservationToken(() => observeStops++);
+            });
+
+        TestObservableElement element = new();
+        Assert.False(element.HasHandler(s_observableEvent));
+        Assert.Equal(0, observeStarts);
+
+        EventHandler<RoutedEventArgs> handler1 = (_, _) => { };
+        EventHandler<RoutedEventArgs> handler2 = (_, _) => { };
+
+        element.AddHandler(s_observableEvent, handler1);
+        Assert.True(element.HasHandler(s_observableEvent));
+        Assert.Equal(1, observeStarts);
+        Assert.Equal(0, observeStops);
+
+        element.AddHandler(s_observableEvent, handler2);
+        Assert.Equal(1, observeStarts);
+        Assert.Equal(0, observeStops);
+
+        element.RemoveHandler(s_observableEvent, handler1);
+        Assert.True(element.HasHandler(s_observableEvent));
+        Assert.Equal(1, observeStarts);
+        Assert.Equal(0, observeStops);
+
+        element.RemoveHandler(s_observableEvent, handler2);
+        Assert.False(element.HasHandler(s_observableEvent));
+        Assert.Equal(1, observeStarts);
+        Assert.Equal(1, observeStops);
+
+        element.AddHandler(s_observableEvent, handler1);
+        Assert.Equal(2, observeStarts);
+        Assert.Equal(1, observeStops);
+
+        element.Dispose();
+        Assert.Equal(2, observeStops);
+    }
+
     private static LayoutBox? FindBox(LayoutBox box, UIElement element)
     {
         if (ReferenceEquals(box.Element, element))
@@ -346,4 +396,16 @@ internal static class PointerRoutingTests
     }
 
     private sealed class HoverView : View;
+
+    private sealed class TestObservableElement : View;
+
+    private sealed class ObservationToken(Action onDispose) : IDisposable
+    {
+        private readonly Action _onDispose = onDispose;
+
+        public void Dispose()
+        {
+            _onDispose();
+        }
+    }
 }

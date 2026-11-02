@@ -17,10 +17,10 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     private SelectionStyle _selectionStyle = SelectionStyle.Default;
     private Theme _computedTheme = Theme.Light;
     private UIElement? _parent;
-    private INativePeer? _nativePeer;
+    private INativeHandle? _nativeHandle;
     private Rect _renderedBounds;
     private IStyleResolver? _styleResolver;
-    private Dictionary<RoutedEvent, RoutedHandler[]>? _routedHandlers;
+    private RoutedEventHandlerStore? _routedHandlers;
     private ElementAnimator? _animator;
     private static readonly TimeSpan s_defaultAnimationDuration = TimeSpan.FromMilliseconds(300);
 
@@ -151,25 +151,44 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// Identifies the <see cref="Bounds"/> computed bindable property.
     /// </summary>
     public static readonly ComputedBindableProperty<UIElement, Rect> BoundsProperty =
-        new(nameof(Bounds), static element => element.ComputeBounds());
+        BindableProperty.CreateComputed<UIElement, Rect>(
+            nameof(Bounds),
+            static element => element.ComputeBounds(),
+            observe: static element => element.NativeHandle?.CreateSizeObserver(element));
 
     /// <summary>
     /// Identifies the <see cref="ActualSize"/> computed bindable property.
     /// </summary>
     public static readonly ComputedBindableProperty<UIElement, Size> ActualSizeProperty =
-        new(nameof(ActualSize), static element => element.Bounds.Size);
+        BindableProperty.CreateComputed<UIElement, Size>(
+            nameof(ActualSize),
+            static element => element.Bounds.Size,
+            observe: static element => BoundsProperty.Subscribe(element));
 
     /// <summary>
     /// Identifies the <see cref="ActualWidth"/> computed bindable property.
     /// </summary>
     public static readonly ComputedBindableProperty<UIElement, double> ActualWidthProperty =
-        new(nameof(ActualWidth), static element => element.Bounds.Width);
+        BindableProperty.CreateComputed<UIElement, double>(
+            nameof(ActualWidth),
+            static element => element.Bounds.Width,
+            observe: static element => BoundsProperty.Subscribe(element));
 
     /// <summary>
     /// Identifies the <see cref="ActualHeight"/> computed bindable property.
     /// </summary>
     public static readonly ComputedBindableProperty<UIElement, double> ActualHeightProperty =
-        new(nameof(ActualHeight), static element => element.Bounds.Height);
+        BindableProperty.CreateComputed<UIElement, double>(
+            nameof(ActualHeight),
+            static element => element.Bounds.Height,
+            observe: static element => BoundsProperty.Subscribe(element));
+
+    static UIElement()
+    {
+        EventManager.RegisterEventObserver<UIElement>(
+            SizeChangedEvent,
+            static element => element.CreateSizeObserver());
+    }
 
     /// <summary>
     /// Occurs whenever a visual property or computed style on this element changes.
@@ -250,11 +269,16 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         remove => RemoveHandler(SizeChangedEvent, value);
     }
 
+    /// <summary>
+    /// Gets a value indicating whether the rendered size or bounds of this element is currently observed.
+    /// </summary>
+    public bool IsSizeObserved => BoundsProperty.HasSubscribers(this) || HasHandler(SizeChangedEvent);
+
     internal Rect ComputeBounds()
     {
-        if (_nativePeer is IGeometryPeer geometryPeer)
+        if (_nativeHandle is not null)
         {
-            Rect? bounds = geometryPeer.GetBounds();
+            Rect? bounds = _nativeHandle.GetBounds();
             if (bounds.HasValue)
             {
                 return bounds.Value;
@@ -486,9 +510,20 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// <summary>
     /// Gets the platform-owned native handle or browser DOM proxy associated with this element.
     /// </summary>
-    public INativePeer? NativePeer
+    public INativeHandle? NativeHandle
     {
-        get => _nativePeer; internal set => _nativePeer = value;
+        get => _nativeHandle;
+        internal set
+        {
+            if (ReferenceEquals(_nativeHandle, value))
+            {
+                return;
+            }
+
+            _nativeHandle?.OnDetachView(this);
+            _nativeHandle = value;
+            _nativeHandle?.OnAttachView(this);
+        }
     }
 
     /// <summary>
@@ -556,7 +591,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
             AnimationFillMode.None);
 
         Animation animation = new();
-        if (NativePeer is IAnimationPeer peer)
+        if (NativeHandle is IAnimationPeer peer)
         {
             peer.Animate(spec, animation);
         }
@@ -670,9 +705,8 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         ArgumentNullException.ThrowIfNull(routedEvent);
         ArgumentNullException.ThrowIfNull(handler);
 
-        _routedHandlers ??= [];
-        RoutedHandler[] existing = _routedHandlers.GetValueOrDefault(routedEvent, []);
-        _routedHandlers[routedEvent] = [.. existing, new RoutedHandler(handler, handledEventsToo)];
+        _routedHandlers ??= new RoutedEventHandlerStore(this);
+        _routedHandlers.Add(routedEvent, handler, handledEventsToo);
     }
 
     /// <summary>
@@ -684,24 +718,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         ArgumentNullException.ThrowIfNull(routedEvent);
         ArgumentNullException.ThrowIfNull(handler);
 
-        if (_routedHandlers is null || !_routedHandlers.TryGetValue(routedEvent, out RoutedHandler[]? existing))
-        {
-            return;
-        }
-
-        int index = Array.FindLastIndex(existing, entry => Equals(entry.Handler, handler));
-        if (index < 0)
-        {
-            return;
-        }
-
-        if (existing.Length == 1)
-        {
-            _routedHandlers.Remove(routedEvent);
-            return;
-        }
-
-        _routedHandlers[routedEvent] = [.. existing[..index], .. existing[(index + 1)..]];
+        _routedHandlers?.Remove(routedEvent, handler);
     }
 
     /// <summary>
@@ -712,7 +729,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     public bool HasHandler(RoutedEvent routedEvent)
     {
         ArgumentNullException.ThrowIfNull(routedEvent);
-        return _routedHandlers is not null && _routedHandlers.ContainsKey(routedEvent);
+        return _routedHandlers?.HasHandler(routedEvent) ?? false;
     }
 
     /// <summary>
@@ -785,12 +802,18 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         {
             _animator?.Cancel();
             _animator = null;
-            NativePeer?.Dispose();
-            NativePeer = null;
+            _nativeHandle?.Dispose();
+            _nativeHandle = null;
+            _routedHandlers?.Dispose();
             _routedHandlers = null;
         }
 
         base.Dispose(disposing);
+    }
+
+    private IDisposable? CreateSizeObserver()
+    {
+        return BoundsProperty.Subscribe(this);
     }
 
     private (UIElement Element, RoutedHandler[] Handlers)[] CreateRoute(RoutedEvent routedEvent)
@@ -816,7 +839,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
 
     private RoutedHandler[] GetHandlers(RoutedEvent routedEvent)
     {
-        return _routedHandlers?.GetValueOrDefault(routedEvent) ?? [];
+        return _routedHandlers?.GetHandlers(routedEvent) ?? [];
     }
 
     private SelectionStyle ResolveSelectionStyle()
@@ -948,9 +971,4 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         InvalidateStyle();
         InvalidateVisual();
     }
-
-    /// <summary>
-    /// Stores a typed handler delegate with its handled-event delivery option.
-    /// </summary>
-    private readonly record struct RoutedHandler(Delegate Handler, bool HandledEventsToo);
 }

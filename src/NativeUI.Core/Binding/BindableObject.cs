@@ -178,10 +178,11 @@ public abstract class BindableObject : IDisposable
             existing.Dispose();
         }
 
+        IDisposable? propertySubscription = (property as ComputedBindableProperty<TProperty>)?.Subscribe(this);
         IBindingSubscription subscription = binding.Subscribe(this, property);
         _bindings[property] = subscription;
         subscription.OnDataContextChanged(DataContext);
-        return new BindingRegistration(this, property, subscription);
+        return new BindingRegistration(this, property, subscription, propertySubscription);
     }
 
     /// <summary>
@@ -298,11 +299,13 @@ public abstract class BindableObject : IDisposable
     private sealed class BindingRegistration(
         BindableObject owner,
         BindableProperty property,
-        IBindingSubscription subscription) : IDisposable
+        IBindingSubscription subscription,
+        IDisposable? propertySubscription = null) : IDisposable
     {
         public void Dispose()
         {
             subscription.Dispose();
+            propertySubscription?.Dispose();
             if (owner._bindings.TryGetValue(property, out IBindingSubscription? current) &&
                 ReferenceEquals(current, subscription))
             {
