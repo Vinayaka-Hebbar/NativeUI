@@ -1,0 +1,70 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Resize observation lifecycle</title>
+<pre id="result">Running…</pre>
+<script type="module">
+    import { dom } from "../../../src/NativeUI.Controls.Web/wwwroot/nativeui-dom.js";
+
+    const result = document.querySelector("#result");
+    const root = document.createElement("native-ui");
+    const target = document.createElement("div");
+    const entries = [];
+    const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
+    const settle = async () => {
+        await frame();
+        await frame();
+        await frame();
+    };
+    const assert = (condition, message) => {
+        if (!condition) throw new Error(message);
+    };
+
+    try {
+        dom.setNodeId(target, 1);
+        dom.setResizeDispatcher(root, batch => entries.push(...batch));
+        target.style.cssText = "width:180px;height:80px;border:5px solid;";
+
+        // Match C# mounting: subscribe before either element is connected.
+        dom.observeResize(root, target);
+        root.append(target);
+        document.body.append(root);
+        await settle();
+        assert(entries.some(entry => entry.nodeId === 1 && entry.width === 190 && entry.height === 90),
+            "Initial border-box size was not delivered");
+
+        target.style.width = "320px";
+        await settle();
+        assert(entries.at(-1).width === 330, "Dimension change was not delivered");
+
+        target.remove();
+        dom.unobserveResize(root, target);
+        await settle();
+        const count = entries.length;
+        root.append(target);
+        target.style.width = "460px";
+        await settle();
+        assert(entries.length === count, "Observation continued after detached cleanup");
+
+        dom.observeResize(root, target);
+        await settle();
+        assert(entries.length > count && entries.at(-1).width === 470,
+            "Observation did not resume after one reattach");
+
+        const child = document.createElement("div");
+        dom.setNodeId(child, 2);
+        child.style.cssText = "width:75px;height:25px";
+        dom.observeResize(root, child);
+        target.append(child);
+        await settle();
+        assert(entries.some(entry => entry.nodeId === 2 && entry.width === 75 && entry.height === 25),
+            "Dynamically mounted child was not observed");
+        dom.unobserveResize(root, child);
+        dom.unobserveResize(root, target);
+        result.textContent = "PASS: initial mount, border box, resize, detached cleanup, reattach, dynamic child";
+    } catch (error) {
+        result.textContent = `FAIL: ${error.stack}`;
+        throw error;
+    } finally {
+        root.remove();
+    }
+</script>

@@ -20,6 +20,7 @@ int exitCode = TestRunner.RunSuite("NativeUI.Core.Tests",
     ("Unicode tables preserve private-use defaults and range boundaries", NativeUI.Core.Tests.UnicodeDataTablesTests.VerifyPrivateUseDefaults),
     ("Unicode bracket lookups match the pinned official data", NativeUI.Core.Tests.UnicodeDataTablesTests.VerifyBracketMappings),
     ("ComputedBindableProperty evaluates dynamically, rejects mutations, and triggers subscriber hooks", TestComputedBindableProperty),
+    ("Computed observation resumes when its source becomes available", TestObservationSourceLifetime),
     ("EventManager registers routed events, traverses inheritance, and creates on-demand observers", TestEventManager)
 ]);
 
@@ -290,6 +291,36 @@ static void TestComputedBindableProperty()
     Assert.Equal(1, obj.ObserveStopCount);
 }
 
+static void TestObservationSourceLifetime()
+{
+    ComputedSample obj = new() { IsObservationAvailable = false };
+    ComputedBindableProperty<ComputedSample, int> property = ComputedSample.ObservedValueProperty;
+    IDisposable subscription = property.Subscribe(obj);
+    Assert.Equal(0, obj.ObserveStartCount);
+
+    obj.IsObservationAvailable = true;
+    property.StartObservation(obj);
+    property.StartObservation(obj);
+    Assert.Equal(1, obj.ObserveStartCount);
+    subscription.Dispose();
+    Assert.Equal(1, obj.ObserveStopCount);
+
+    subscription = property.Subscribe(obj);
+    Assert.Equal(2, obj.ObserveStartCount);
+    property.StopObservation(obj);
+    property.StopObservation(obj);
+    Assert.Equal(2, obj.ObserveStopCount);
+    Assert.True(property.HasSubscribers(obj));
+
+    property.StartObservation(obj);
+    Assert.Equal(3, obj.ObserveStartCount);
+    subscription.Dispose();
+    Assert.Equal(3, obj.ObserveStopCount);
+
+    property.StartObservation(obj);
+    Assert.Equal(3, obj.ObserveStartCount);
+}
+
 static void TestEventManager()
 {
     RoutedEvent<RoutedEventArgs> routedEvent = EventManager.RegisterRoutedEvent<TestEventOwnerBase, RoutedEventArgs>(
@@ -358,6 +389,7 @@ file sealed class TestEventToken(Action onDispose) : IDisposable
 file sealed class ComputedSample : BindableObject
 {
     public int BaseValue { get; set; } = 42;
+    public bool IsObservationAvailable { get; set; } = true;
     public int ObserveStartCount;
     public int ObserveStopCount;
 
@@ -370,6 +402,11 @@ file sealed class ComputedSample : BindableObject
             static s => s.BaseValue,
             observe: static s =>
             {
+                if (!s.IsObservationAvailable)
+                {
+                    return null;
+                }
+
                 s.ObserveStartCount++;
                 return new ObservationToken(s);
             });

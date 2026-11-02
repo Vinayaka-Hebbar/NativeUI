@@ -193,13 +193,13 @@ public static partial class DomInterop
     /// Observes resize changes on the specified DOM element using <c>ResizeObserver</c>.
     /// </summary>
     [JSImport("observeResize", "nativeui-dom")]
-    public static partial void ObserveResize(JSObject element);
+    public static partial void ObserveResize(JSObject root, JSObject element);
 
     /// <summary>
     /// Stops observing resize changes on the specified DOM element.
     /// </summary>
     [JSImport("unobserveResize", "nativeui-dom")]
-    public static partial void UnobserveResize(JSObject element);
+    public static partial void UnobserveResize(JSObject root, JSObject element);
 
     /// <summary>
     /// Appends <paramref name="element"/> to the <c>native-ui</c> element containing <paramref name="parent"/>,

@@ -108,6 +108,11 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
     internal JSObject? Element => _element;
 
     /// <summary>
+    /// Gets the owning native-ui element, including while this element is detached.
+    /// </summary>
+    protected JSObject? RootElement { get; private set; }
+
+    /// <summary>
     /// Gets the DOM element of the parent proxy, or null when there is none.
     /// </summary>
     internal JSObject? ParentElement => _parent?._element;
@@ -130,7 +135,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
     /// </summary>
     protected internal UIElement Source { get; }
 
-    internal static HtmlDomElement Create(UIElement source, bool useBrowserInterop)
+    internal static HtmlDomElement Create(UIElement source, JSObject? rootElement)
     {
         if (source.NativeHandle is not null)
         {
@@ -138,8 +143,8 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
         }
 
         string tagName = HtmlTagMapping.GetTag(source);
-        JSObject? element = useBrowserInterop ? DomInterop.CreateElement(tagName) : null;
-        return source switch
+        JSObject? element = rootElement is not null ? DomInterop.CreateElement(tagName) : null;
+        HtmlDomElement proxy = source switch
         {
             CanvasView canvasView => new HtmlDomCanvas(canvasView, element),
             Button button => new HtmlDomButton(button, element),
@@ -153,6 +158,9 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
             View view => new HtmlDomView(view, element),
             _ => new HtmlDomElement(source, element, tagName)
         };
+
+        proxy.RootElement = rootElement;
+        return proxy;
     }
 
     internal void Attach(HtmlDomElement? parent = null)
@@ -527,29 +535,25 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
     /// <inheritdoc />
     void INativeHandle.OnAttachView(UIElement element)
     {
-        if (element.IsSizeObserved && _element is not null)
-        {
-            _resizeObserver ??= new HtmlResizeObserver(_element);
-            _resizeObserver.Observe();
-        }
+        UIElement.BoundsProperty.StartObservation(element);
     }
 
     /// <inheritdoc />
     void INativeHandle.OnDetachView(UIElement element)
     {
-        _resizeObserver?.Unobserve();
+        UIElement.BoundsProperty.StopObservation(element);
     }
 
     /// <inheritdoc />
     ResizeObserver? INativeHandle.CreateSizeObserver(UIElement element)
     {
         ArgumentNullException.ThrowIfNull(element);
-        if (_element is null)
+        if (_element is null || RootElement is null)
         {
             return null;
         }
 
-        _resizeObserver ??= new HtmlResizeObserver(_element);
+        _resizeObserver ??= new HtmlResizeObserver(RootElement, _element);
         _resizeObserver.Observe();
         return _resizeObserver;
     }
@@ -575,11 +579,13 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
 
 internal sealed class HtmlResizeObserver : ResizeObserver
 {
+    private readonly JSObject _rootElement;
     private readonly JSObject _element;
     private bool _observing;
 
-    public HtmlResizeObserver(JSObject element)
+    public HtmlResizeObserver(JSObject rootElement, JSObject element)
     {
+        _rootElement = rootElement;
         _element = element;
     }
 
@@ -592,7 +598,7 @@ internal sealed class HtmlResizeObserver : ResizeObserver
 
         if (OperatingSystem.IsBrowser())
         {
-            DomInterop.ObserveResize(_element);
+            DomInterop.ObserveResize(_rootElement, _element);
         }
 
         _observing = true;
@@ -607,7 +613,7 @@ internal sealed class HtmlResizeObserver : ResizeObserver
 
         if (OperatingSystem.IsBrowser())
         {
-            DomInterop.UnobserveResize(_element);
+            DomInterop.UnobserveResize(_rootElement, _element);
         }
 
         _observing = false;

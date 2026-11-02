@@ -86,6 +86,38 @@ public class ComputedBindableProperty<TValue> : BindableProperty<TValue>
         }
     }
 
+    /// <summary>
+    /// Starts observation for existing subscribers when the owner's observation source becomes available.
+    /// </summary>
+    internal void StartObservation(BindableObject owner)
+    {
+        lock (_observationStates)
+        {
+            if (!_observationStates.TryGetValue(owner, out ObservationState? state))
+            {
+                return;
+            }
+
+            state.Observation ??= _observe?.Invoke(owner);
+        }
+    }
+
+    /// <summary>
+    /// Stops observation while preserving subscriptions until the observation source becomes available again.
+    /// </summary>
+    internal void StopObservation(BindableObject owner)
+    {
+        lock (_observationStates)
+        {
+            if (_observationStates.TryGetValue(owner, out ObservationState? state))
+            {
+                IDisposable? observation = state.Observation;
+                state.Observation = null;
+                observation?.Dispose();
+            }
+        }
+    }
+
     private void Unsubscribe(BindableObject owner)
     {
         lock (_observationStates)

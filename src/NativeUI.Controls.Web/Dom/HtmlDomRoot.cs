@@ -187,9 +187,7 @@ internal sealed class HtmlDomRoot : IDisposable
                 UpdateStyleSheet();
             }
 
-            _rootDom = HtmlDomElement.Create(root, useBrowserInterop);
-            _rootDom.Attach();
-            if (_container is not null && _rootDom.Element is JSObject element)
+            if (_container is not null && useBrowserInterop)
             {
                 _rootElement = DomInterop.CreateElement("native-ui");
                 DomInterop.SetAttribute(_rootElement, StyleSheetCss.ScopeAttribute, _scopeId.ToString(CultureInfo.InvariantCulture));
@@ -202,12 +200,18 @@ internal sealed class HtmlDomRoot : IDisposable
                 DomInterop.SetResizeDispatcher(_rootElement, OnResize);
                 AnimationClock.FrameRequested += OnFrameRequested;
                 root.VisualInvalidated += OnVisualInvalidated;
-                ScheduleClockTick();
 
                 Application.Current.CurrentThemeChanged += OnCurrentThemeChanged;
                 UpdateThemeAttribute();
+            }
+
+            _rootDom = HtmlDomElement.Create(root, _rootElement);
+            _rootDom.Attach();
+            if (_container is not null && _rootElement is not null && _rootDom.Element is JSObject element)
+            {
                 DomInterop.AppendChild(_rootElement, element);
                 DomInterop.AppendChild(_container, _rootElement);
+                ScheduleClockTick();
             }
         }
         catch

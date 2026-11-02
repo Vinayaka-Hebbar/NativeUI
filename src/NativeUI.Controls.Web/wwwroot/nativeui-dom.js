@@ -516,35 +516,23 @@ export const dom = {
   /**
    * Observes an element for size changes using the shared ResizeObserver.
    *
-   * @param {Element | null} element The element to observe.
+   * @param {NativeUIRoot} root The owning root, even before the element is connected.
+   * @param {Element} element The element to observe.
    * @returns {void}
    */
-  observeResize(element) {
-    if (!element) {
-      return;
-    }
-
-    const root = element.closest("native-ui");
-    if (root instanceof NativeUIRoot) {
-      root.observeResize(element);
-    }
+  observeResize(root, element) {
+    root.observeResize(element);
   },
 
   /**
    * Stops observing an element for size changes.
    *
-   * @param {Element | null} element The element to stop observing.
+   * @param {NativeUIRoot} root The root that owns the observation.
+   * @param {Element} element The element to stop observing.
    * @returns {void}
    */
-  unobserveResize(element) {
-    if (!element) {
-      return;
-    }
-
-    const root = element.closest("native-ui");
-    if (root instanceof NativeUIRoot) {
-      root.unobserveResize(element);
-    }
+  unobserveResize(root, element) {
+    root.unobserveResize(element);
   },
 
   /**

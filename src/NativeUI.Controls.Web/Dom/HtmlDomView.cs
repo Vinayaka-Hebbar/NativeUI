@@ -167,7 +167,7 @@ public class HtmlDomView : HtmlDomElement, IScrollPeer
         {
             if (child is Portal portal && !_portals.ContainsKey(portal))
             {
-                HtmlDomElement proxy = Create(portal, Element is not null);
+                HtmlDomElement proxy = Create(portal, RootElement);
                 _portals[portal] = proxy;
                 proxy.Attach(this);
             }
@@ -221,7 +221,7 @@ public class HtmlDomView : HtmlDomElement, IScrollPeer
 
     private void InsertNewChild(UIElement source, int index)
     {
-        HtmlDomElement child = Create(source, Element is not null);
+        HtmlDomElement child = Create(source, RootElement);
         HtmlDomElement? reference = GetChildAtOrDefault(index);
         _children.Insert(index, child);
         try
