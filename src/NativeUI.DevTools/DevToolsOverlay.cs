@@ -180,10 +180,10 @@ public sealed class DevToolsOverlay : IRenderOverlay
     /// <summary>
     /// Toggles layout bounds on Command+Shift+L, or Control+Shift+L on other platforms.
     /// </summary>
-    public bool HandleKey(string key, PointerModifiers modifiers)
+    public bool HandleKey(string key, InputModifiers modifiers)
     {
-        bool hasCommand = modifiers.HasFlag(PointerModifiers.Meta) || modifiers.HasFlag(PointerModifiers.Control);
-        if (!hasCommand || !modifiers.HasFlag(PointerModifiers.Shift) ||
+        bool hasCommand = modifiers.HasFlag(InputModifiers.Meta) || modifiers.HasFlag(InputModifiers.Control);
+        if (!hasCommand || !modifiers.HasFlag(InputModifiers.Shift) ||
             !string.Equals(key, LayoutBoundsShortcutKey, StringComparison.OrdinalIgnoreCase))
         {
             return false;

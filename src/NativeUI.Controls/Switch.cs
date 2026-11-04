@@ -18,6 +18,7 @@ public class Switch : Control
     {
         WidthProperty.OverrideMetadata<Switch>(WidthValue.FitContent);
         CursorProperty.OverrideMetadata<Switch>(Cursor.Pointer);
+        FocusableProperty.OverrideMetadata<Switch>(true);
     }
 
     /// <summary>

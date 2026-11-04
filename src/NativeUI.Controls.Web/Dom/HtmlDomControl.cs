@@ -6,7 +6,7 @@ namespace NativeUI.Controls.Web;
 
 /// <summary>
 /// Synchronizes a <see cref="Control"/> that has no equivalent HTML element with an autonomous custom element. The
-/// element exposes the control's ARIA role and disabled state, and a focusable control is in the tab order while it is enabled.
+/// element exposes the control's ARIA role and disabled state. <see cref="HtmlDomElement"/> writes its <c>tabindex</c>.
 /// </summary>
 [SupportedOSPlatform("browser")]
 public abstract class HtmlDomControl : HtmlDomView
@@ -20,11 +20,6 @@ public abstract class HtmlDomControl : HtmlDomView
     /// Gets the ARIA role of the element.
     /// </summary>
     protected abstract string Role { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether the element receives keyboard focus while the control is enabled.
-    /// </summary>
-    protected virtual bool IsFocusable => true;
 
     /// <inheritdoc />
     protected override void Initialize()
@@ -46,11 +41,6 @@ public abstract class HtmlDomControl : HtmlDomView
 
     private void UpdateEnabledState()
     {
-        bool isEnabled = Source.IsEnabled;
-        SetAttribute("aria-disabled", isEnabled ? null : "true");
-        if (IsFocusable)
-        {
-            SetAttribute("tabindex", isEnabled ? "0" : null);
-        }
+        SetAttribute("aria-disabled", Source.IsEnabled ? null : "true");
     }
 }

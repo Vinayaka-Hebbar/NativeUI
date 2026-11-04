@@ -227,7 +227,7 @@ internal static class PointerRoutingTests
 
         Point point = new(5, 20);
         window.HandlePointerMoved(point, isPressed: false);
-        window.HandlePointerPressed(point, clickCount: 2, PointerModifiers.Shift);
+        window.HandlePointerPressed(point, clickCount: 2, InputModifiers.Shift);
         window.HandlePointerReleased(point);
 
         Assert.Equal(0, coveredCalls);
@@ -240,7 +240,7 @@ internal static class PointerRoutingTests
         Assert.Same(top, source!);
         Assert.Equal(2, pressedArgs!.ClickCount);
         Assert.Equal(PointerButtons.Primary, pressedArgs.Buttons);
-        Assert.Equal(PointerModifiers.Shift, pressedArgs.Modifiers);
+        Assert.Equal(InputModifiers.Shift, pressedArgs.Modifiers);
         Assert.Equal(point, pressedArgs.Position);
     }
 

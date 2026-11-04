@@ -10,7 +10,7 @@ namespace NativeUI.Controls.MacOS;
 /// Presents an <see cref="Input"/> with an <c>NSTextField</c> placed over the window's rendered image, inside a view that
 /// applies the clipping of the element's ancestors. Operations must run on the AppKit main thread.
 /// </summary>
-internal sealed class NativeTextField : INativeHandle, IInputPeer
+internal sealed class NativeTextField : INativeHandle, IFocusPeer
 {
     private const string ClassName = "NativeUITextField";
     private const string DarkAppearanceName = "NSAppearanceNameDarkAqua";
@@ -73,12 +73,25 @@ internal sealed class NativeTextField : INativeHandle, IInputPeer
     }
 
     /// <inheritdoc />
-    void IInputPeer.Focus()
+    void IFocusPeer.Focus()
     {
         nint window = AppKitInterop.SendMessage(_field, AppKitInterop.GetSelector("window"));
         if (window != nint.Zero)
         {
             _ = AppKitInterop.SendMessage(window, AppKitInterop.GetSelector("makeFirstResponder:"), _field);
+        }
+    }
+
+    /// <summary>
+    /// Ends editing by making the window's content view the first responder, which keeps keyboard events in the window.
+    /// </summary>
+    void IFocusPeer.Blur()
+    {
+        nint window = AppKitInterop.SendMessage(_field, AppKitInterop.GetSelector("window"));
+        if (window != nint.Zero)
+        {
+            nint contentView = AppKitInterop.SendMessage(window, AppKitInterop.GetSelector("contentView"));
+            _ = AppKitInterop.SendMessage(window, AppKitInterop.GetSelector("makeFirstResponder:"), contentView);
         }
     }
 
@@ -140,7 +153,7 @@ internal sealed class NativeTextField : INativeHandle, IInputPeer
 
         _disposed = true;
         _input.PropertyChanged -= OnInputPropertyChanged;
-        _input.SetFocused(false);
+        _input.FindFocusManager()?.SyncFocus(_input, isFocused: false);
         if (ReferenceEquals(_input.NativeHandle, this))
         {
             _input.NativeHandle = null;
@@ -190,7 +203,7 @@ internal sealed class NativeTextField : INativeHandle, IInputPeer
         byte accepted = AppKitInterop.SendSuperMessage(ref super, cmd);
         if (accepted != 0 && s_fields.TryGetValue(self, out NativeTextField? field))
         {
-            field._input.SetFocused(true);
+            field._input.FindFocusManager()?.SyncFocus(field._input, isFocused: true);
 
             // A press on the field reaches AppKit and not the window, which dismisses portals for its own presses.
             Portal.DismissForPress(field._input);
@@ -200,14 +213,35 @@ internal sealed class NativeTextField : INativeHandle, IInputPeer
     }
 
     /// <summary>
-    /// Lets Escape in the field editor close a modal dialog, because the editor otherwise consumes it.
+    /// Lets Escape in the field editor close a modal dialog, and Tab and Shift+Tab move focus through the
+    /// <see cref="FocusManager"/> instead of the AppKit key view loop. The field editor otherwise consumes these keys.
     /// </summary>
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static byte OnDoCommandBySelector(nint self, nint cmd, nint control, nint textView, nint selector)
     {
-        bool handled = selector == AppKitInterop.GetSelector("cancelOperation:") &&
-            s_fields.TryGetValue(self, out NativeTextField? field) &&
-            field._window.TryCloseModalDialog();
+        if (!s_fields.TryGetValue(self, out NativeTextField? field))
+        {
+            return 0;
+        }
+
+        bool handled;
+        if (selector == AppKitInterop.GetSelector("cancelOperation:"))
+        {
+            handled = field._window.TryCloseModalDialog();
+        }
+        else if (selector == AppKitInterop.GetSelector("insertTab:"))
+        {
+            handled = field._input.FindFocusManager()?.MoveFocus(FocusNavigationDirection.Next) ?? false;
+        }
+        else if (selector == AppKitInterop.GetSelector("insertBacktab:"))
+        {
+            handled = field._input.FindFocusManager()?.MoveFocus(FocusNavigationDirection.Previous) ?? false;
+        }
+        else
+        {
+            handled = false;
+        }
+
         return handled ? (byte)1 : (byte)0;
     }
 
@@ -225,7 +259,7 @@ internal sealed class NativeTextField : INativeHandle, IInputPeer
     {
         if (s_fields.TryGetValue(self, out NativeTextField? field))
         {
-            field._input.SetFocused(false);
+            field._input.FindFocusManager()?.SyncFocus(field._input, isFocused: false);
         }
     }
 

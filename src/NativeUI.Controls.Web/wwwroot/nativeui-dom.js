@@ -32,12 +32,32 @@
  */
 
 /**
- * Receives the identifier and new focus state of each input that gains or loses focus.
+ * Receives the identifier and new focus state of each attached element that gains or loses focus.
  *
  * @callback FocusDispatcher
- * @param {number} nodeId The identifier of the input.
- * @param {boolean} isFocused Whether the input now has focus.
+ * @param {number} nodeId The identifier of the element.
+ * @param {boolean} isFocused Whether the element now has focus.
+ * @param {boolean} isVisible Whether the element matches `:focus-visible`.
  * @returns {void}
+ */
+
+/**
+ * One native key event forwarded to C#. C# reads these properties by name in `HtmlDomRoot.OnKeyEvent`.
+ *
+ * @typedef {object} KeyEventEntry
+ * @property {number} nodeId The identifier of the attached element that has focus, or zero when there is none.
+ * @property {boolean} isDown Whether the key was pressed rather than released.
+ * @property {string} key The `KeyboardEvent.key` value.
+ * @property {number} modifiers The bit flags of the keyboard modifiers held during the event, from {@link Modifiers}.
+ * @property {boolean} isRepeat Whether the press repeats because the key is held down.
+ */
+
+/**
+ * Receives each forwarded key event and returns whether a handler handled it.
+ *
+ * @callback KeyDispatcher
+ * @param {KeyEventEntry} keyEvent The forwarded event.
+ * @returns {boolean}
  */
 
 /**
@@ -85,7 +105,7 @@ const PointerKind = Object.freeze({
 });
 
 /**
- * Values match `PointerModifiers` in `PointerEventArgs.cs`.
+ * Values match `InputModifiers` in `InputModifiers.cs`.
  */
 const Modifiers = Object.freeze({
   Shift: 1 << 0,
@@ -184,6 +204,9 @@ class NativeUIRoot extends HTMLElement {
 
   /** @type {FocusDispatcher | null} */
   focusDispatcher = null;
+
+  /** @type {KeyDispatcher | null} */
+  keyDispatcher = null;
 
   /** @type {ScrollDispatcher | null} */
   closeDispatcher = null;
@@ -284,15 +307,52 @@ class NativeUIRoot extends HTMLElement {
   };
 
   /**
-   * Forwards a focus change of an attached input. `focusin` and `focusout` bubble, unlike `focus` and `blur`.
+   * Forwards a focus change of an attached element. `focusin` and `focusout` bubble, unlike `focus` and `blur`. A loss
+   * of focus to another attached element is not forwarded. The `focusin` event that follows reports the move.
    *
    * @param {Event} event The native event.
    * @returns {void}
    */
   #handleFocus = (event) => {
-    const nodeId = nodeIds.get(/** @type {Node} */ (event.target));
-    if (nodeId !== undefined && event.target instanceof HTMLInputElement) {
-      this.focusDispatcher?.(nodeId, event.type === "focusin");
+    const target = /** @type {Element} */ (event.target);
+    const nodeId = nodeIds.get(target);
+    if (nodeId === undefined) {
+      return;
+    }
+
+    if (event.type === "focusin") {
+      this.focusDispatcher?.(nodeId, true, target.matches(":focus-visible"));
+      return;
+    }
+
+    const next = /** @type {FocusEvent} */ (event).relatedTarget;
+    if (!(next instanceof Node && this.contains(next) && nodeIds.has(next))) {
+      this.focusDispatcher?.(nodeId, false, false);
+    }
+  };
+
+  /**
+   * Forwards a key press or release to C# and prevents the browser's default action when a handler handled it.
+   * Keys typed into a text input belong to the input and are not forwarded.
+   *
+   * @param {Event} event The native event.
+   * @returns {void}
+   */
+  #handleKey = (event) => {
+    const keyEvent = /** @type {KeyboardEvent} */ (event);
+    if (keyEvent.target instanceof HTMLInputElement || keyEvent.isComposing) {
+      return;
+    }
+
+    const handled = this.keyDispatcher?.({
+      nodeId: findNodeId(keyEvent.target, this),
+      isDown: keyEvent.type === "keydown",
+      key: keyEvent.key,
+      modifiers: getModifiers(keyEvent),
+      isRepeat: keyEvent.repeat,
+    });
+    if (handled) {
+      keyEvent.preventDefault();
     }
   };
 
@@ -310,7 +370,7 @@ class NativeUIRoot extends HTMLElement {
   };
 
   /**
-   * Adds the delegated pointer, scroll, input, focus, and dialog close listeners.
+   * Adds the delegated pointer, scroll, input, focus, key, and dialog close listeners.
    *
    * @returns {void}
    */
@@ -326,6 +386,8 @@ class NativeUIRoot extends HTMLElement {
     this.addEventListener("input", this.#handleInput);
     this.addEventListener("focusin", this.#handleFocus);
     this.addEventListener("focusout", this.#handleFocus);
+    this.addEventListener("keydown", this.#handleKey);
+    this.addEventListener("keyup", this.#handleKey);
     this.addEventListener("close", this.#handleClose, { capture: true });
     this.#pointerHandler = (event) =>
       this.#handlePointerEvent(/** @type {MouseEvent} */ (event));
@@ -352,6 +414,8 @@ class NativeUIRoot extends HTMLElement {
     this.removeEventListener("input", this.#handleInput);
     this.removeEventListener("focusin", this.#handleFocus);
     this.removeEventListener("focusout", this.#handleFocus);
+    this.removeEventListener("keydown", this.#handleKey);
+    this.removeEventListener("keyup", this.#handleKey);
     this.removeEventListener("close", this.#handleClose, { capture: true });
     this.#resizeObserver?.disconnect();
     this.#resizeObserver = null;
@@ -481,7 +545,8 @@ export const dom = {
   },
 
   /**
-   * Sets the callback that a `native-ui` element invokes with the identifier and new state of each input that gains or loses focus.
+   * Sets the callback that a `native-ui` element invokes with the identifier and new state of each attached element that
+   * gains or loses focus.
    *
    * @param {NativeUIRoot} root The `native-ui` element.
    * @param {FocusDispatcher} dispatch The callback.
@@ -489,6 +554,17 @@ export const dom = {
    */
   setFocusDispatcher(root, dispatch) {
     root.focusDispatcher = dispatch;
+  },
+
+  /**
+   * Sets the callback that a `native-ui` element invokes with each key press and release.
+   *
+   * @param {NativeUIRoot} root The `native-ui` element.
+   * @param {KeyDispatcher} dispatch The callback.
+   * @returns {void}
+   */
+  setKeyDispatcher(root, dispatch) {
+    root.keyDispatcher = dispatch;
   },
 
   /**
@@ -658,6 +734,16 @@ export const dom = {
    */
   focus(element) {
     element.focus();
+  },
+
+  /**
+   * Removes keyboard focus from an element.
+   *
+   * @param {HTMLElement} element The element.
+   * @returns {void}
+   */
+  blur(element) {
+    element.blur();
   },
 
   /**

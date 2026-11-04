@@ -25,6 +25,7 @@ public class CheckBox : ContentControl, IStackLayoutNode
     {
         WidthProperty.OverrideMetadata<CheckBox>(WidthValue.FitContent);
         CursorProperty.OverrideMetadata<CheckBox>(Cursor.Pointer);
+        FocusableProperty.OverrideMetadata<CheckBox>(true);
     }
 
     /// <summary>

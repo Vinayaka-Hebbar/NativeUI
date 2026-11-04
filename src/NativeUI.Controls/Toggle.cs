@@ -15,6 +15,7 @@ public class Toggle : ContentControl
     {
         WidthProperty.OverrideMetadata<Toggle>(WidthValue.FitContent);
         CursorProperty.OverrideMetadata<Toggle>(Cursor.Pointer);
+        FocusableProperty.OverrideMetadata<Toggle>(true);
     }
 
     /// <summary>

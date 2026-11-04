@@ -30,7 +30,7 @@ public sealed class PointerInputRouter
         long pointerId,
         Point position,
         PointerButtons buttons = PointerButtons.None,
-        PointerModifiers modifiers = PointerModifiers.None)
+        InputModifiers modifiers = InputModifiers.None)
     {
         UIElement[] departed = _hoverPath;
         UIElement[] entered = CreatePath(target);

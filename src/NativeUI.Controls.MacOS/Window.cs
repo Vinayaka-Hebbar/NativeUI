@@ -41,6 +41,7 @@ public sealed class Window : IDisposable, IRenderHost
     private Dialog? _hostedDialog;
     private nint _inputBlocker;
     private UIElement? _content;
+    private FocusManager? _focusManager;
     private IDisposable? _animationRoot;
     private IStyleResolver? _styleResolver;
     private Color? _background;
@@ -54,7 +55,7 @@ public sealed class Window : IDisposable, IRenderHost
     private bool _overlayCapturesPointer;
     private Point? _pointerPosition;
     private PointerButtons _pointerButtons;
-    private PointerModifiers _pointerModifiers;
+    private InputModifiers _pointerModifiers;
     private int _frameBatchDepth;
     private bool _isFrameDirty;
     private bool _disposed;
@@ -201,11 +202,14 @@ public sealed class Window : IDisposable, IRenderHost
             _animationRoot = null;
             RemoveTextFields();
             RemoveDialogWindows();
+            DetachFocusManager();
             _activeSelectionText = null;
             _activeSelectionBox = null;
             _content = value;
             if (_content is not null)
             {
+                _focusManager = new FocusManager(_content);
+                _focusManager.FocusChanged += OnFocusChanged;
                 _animationRoot = AnimationClock.AttachRoot(_content);
                 SyncContentStyle();
                 _content.VisualInvalidated += OnContentVisualInvalidated;
@@ -321,7 +325,7 @@ public sealed class Window : IDisposable, IRenderHost
     public void HandlePointerPressed(
         Point viewportPoint,
         int clickCount = 1,
-        PointerModifiers modifiers = PointerModifiers.None)
+        InputModifiers modifiers = InputModifiers.None)
     {
         if (_content is null || LastLayout is null)
         {
@@ -347,8 +351,9 @@ public sealed class Window : IDisposable, IRenderHost
                 new PointerEventArgs(MousePointerId, viewportPoint, PointerButtons.Primary, modifiers, clickCount));
             BeginSelection(hoveredElement, viewportPoint, clickCount);
 
-            // The native field covers only the text line, so this press landed on the element's padding.
-            (hoveredElement as Input)?.Focus();
+            // A press on an Input reaches the window only outside its native field, which covers the text line alone.
+            // Focusing the Input moves focus to the field.
+            _focusManager?.FocusFromPointer(hoveredElement);
             Portal.DismissForPress(hoveredElement);
             UpdateCursor();
         }
@@ -404,7 +409,7 @@ public sealed class Window : IDisposable, IRenderHost
     public void HandlePointerMoved(
         Point viewportPoint,
         bool isPressed = true,
-        PointerModifiers modifiers = PointerModifiers.None)
+        InputModifiers modifiers = InputModifiers.None)
     {
         if (_content is null || _inputBlocker != nint.Zero)
         {
@@ -467,7 +472,7 @@ public sealed class Window : IDisposable, IRenderHost
     /// <summary>
     /// Routes a pointer release and ends any active selection drag.
     /// </summary>
-    public void HandlePointerReleased(Point viewportPoint, PointerModifiers modifiers = PointerModifiers.None)
+    public void HandlePointerReleased(Point viewportPoint, InputModifiers modifiers = InputModifiers.None)
     {
         if (_content is null)
         {
@@ -615,22 +620,25 @@ public sealed class Window : IDisposable, IRenderHost
     }
 
     /// <summary>
-    /// Processes keyboard shortcuts such as <c>Cmd+C</c> / <c>Ctrl+C</c> (copy selected text to <see cref="Clipboard"/>)
-    /// and <c>Cmd+A</c> / <c>Ctrl+A</c> (select all). While an <see cref="Input"/> has focus, these shortcuts belong to its native field.
+    /// Routes a key press to the focused element through <see cref="UIElement.KeyDownEvent"/>, then performs the default
+    /// action of a press that no handler handled: Tab and Shift+Tab move focus, Escape closes a modal dialog, and
+    /// <c>Cmd+C</c> / <c>Ctrl+C</c> and <c>Cmd+A</c> / <c>Ctrl+A</c> copy and select rendered text. While an
+    /// <see cref="Input"/> has focus, its native field receives keys instead, including these shortcuts.
     /// </summary>
+    /// <param name="key">The characters of the key, ignoring every modifier except Shift.</param>
+    /// <param name="commandOrControl">Whether the Command or Control key is held.</param>
+    /// <param name="modifiers">The modifier keys held.</param>
+    /// <param name="isRepeat">Whether the press repeats because the key is held down.</param>
+    /// <returns><see langword="true"/> when a handler or a default action handled the press.</returns>
     public async ValueTask<bool> HandleKeyDownAsync(
         string key,
         bool commandOrControl,
-        PointerModifiers modifiers = PointerModifiers.None)
+        InputModifiers modifiers = InputModifiers.None,
+        bool isRepeat = false)
     {
-        if (_content is null || string.IsNullOrEmpty(key) || _inputBlocker != nint.Zero)
+        if (_content is null || _focusManager is null || string.IsNullOrEmpty(key) || _inputBlocker != nint.Zero)
         {
             return false;
-        }
-
-        if (key == EscapeKey && TryCloseModalDialog())
-        {
-            return true;
         }
 
         foreach (IRenderOverlay overlay in Overlays)
@@ -644,6 +652,23 @@ public sealed class Window : IDisposable, IRenderHost
         if (_textFields.Keys.Any(static input => input.IsFocused))
         {
             return false;
+        }
+
+        (Key logicalKey, string? text) = MapKey(key);
+        if (_focusManager.RaiseKeyEvent(UIElement.KeyDownEvent, new KeyEventArgs(logicalKey, text, modifiers, isRepeat)))
+        {
+            return true;
+        }
+
+        if (logicalKey == Key.Tab && !commandOrControl)
+        {
+            _ = _focusManager.MoveFocus(modifiers.HasFlag(InputModifiers.Shift) ? FocusNavigationDirection.Previous : FocusNavigationDirection.Next);
+            return true;
+        }
+
+        if (logicalKey == Key.Escape && TryCloseModalDialog())
+        {
+            return true;
         }
 
         if (commandOrControl && string.Equals(key, "c", StringComparison.OrdinalIgnoreCase))
@@ -668,6 +693,84 @@ public sealed class Window : IDisposable, IRenderHost
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Routes a key release to the focused element through <see cref="UIElement.KeyUpEvent"/>. While an
+    /// <see cref="Input"/> has focus, its native field receives the release instead.
+    /// </summary>
+    /// <param name="key">The characters of the key, ignoring every modifier except Shift.</param>
+    /// <param name="modifiers">The modifier keys held.</param>
+    /// <returns><see langword="true"/> when a handler handled the release.</returns>
+    public bool HandleKeyUp(string key, InputModifiers modifiers = InputModifiers.None)
+    {
+        if (_focusManager is null || string.IsNullOrEmpty(key) || _inputBlocker != nint.Zero ||
+            _textFields.Keys.Any(static input => input.IsFocused))
+        {
+            return false;
+        }
+
+        (Key logicalKey, string? text) = MapKey(key);
+        return _focusManager.RaiseKeyEvent(UIElement.KeyUpEvent, new KeyEventArgs(logicalKey, text, modifiers));
+    }
+
+    /// <summary>
+    /// Maps the characters of an AppKit key event to a logical key. AppKit reports keys without text as characters in
+    /// the Unicode private use area, such as <c>NSUpArrowFunctionKey</c>.
+    /// </summary>
+    private static (Key Key, string? Text) MapKey(string key)
+    {
+        Key logicalKey = key switch
+        {
+            "\t" or "\u0019" => Key.Tab,
+            "\r" or "\u0003" => Key.Enter,
+            " " => Key.Space,
+            EscapeKey => Key.Escape,
+            "\u007f" => Key.Backspace,
+            "\uF728" => Key.Delete,
+            "\uF727" => Key.Insert,
+            "\uF700" => Key.ArrowUp,
+            "\uF701" => Key.ArrowDown,
+            "\uF702" => Key.ArrowLeft,
+            "\uF703" => Key.ArrowRight,
+            "\uF729" => Key.Home,
+            "\uF72B" => Key.End,
+            "\uF72C" => Key.PageUp,
+            "\uF72D" => Key.PageDown,
+            "\uF735" => Key.ContextMenu,
+            [char c] when c is >= '\uF704' and <= '\uF70F' => Key.F1 + (c - '\uF704'),
+            _ => Key.Character
+        };
+
+        return logicalKey switch
+        {
+            Key.Character => (Key.Character, key),
+            Key.Space => (Key.Space, key),
+            _ => (logicalKey, null)
+        };
+    }
+
+    /// <summary>
+    /// Keeps keyboard events in this window's content view while a rendered element has focus, or while no element has
+    /// focus. A focused <see cref="Input"/> keeps its native field as the first responder.
+    /// </summary>
+    private void OnFocusChanged(object? sender, EventArgs e)
+    {
+        bool isNativeFieldFocused = _focusManager?.FocusedElement is Input input && _textFields.ContainsKey(input);
+        if (!isNativeFieldFocused && _nsWindow != nint.Zero && _nsImageView != nint.Zero)
+        {
+            _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
+        }
+    }
+
+    private void DetachFocusManager()
+    {
+        if (_focusManager is not null)
+        {
+            _focusManager.FocusChanged -= OnFocusChanged;
+            _focusManager.Dispose();
+            _focusManager = null;
+        }
     }
 
     /// <summary>
@@ -773,6 +876,7 @@ public sealed class Window : IDisposable, IRenderHost
 
         RemoveTextFields();
         RemoveDialogWindows();
+        DetachFocusManager();
         if (_hostedDialog is not null && _nsWindow != nint.Zero)
         {
             _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("orderOut:"), nint.Zero);
@@ -1329,7 +1433,7 @@ public sealed class Window : IDisposable, IRenderHost
         _pointerRouter.UpdateHover(hoveredElement, MousePointerId, position, _pointerButtons, _pointerModifiers);
     }
 
-    private void StorePointerState(Point position, PointerButtons buttons, PointerModifiers modifiers)
+    private void StorePointerState(Point position, PointerButtons buttons, InputModifiers modifiers)
     {
         _pointerPosition = position;
         _pointerButtons = buttons;
@@ -1341,7 +1445,7 @@ public sealed class Window : IDisposable, IRenderHost
         UpdateHoverState(null);
         _pointerPosition = null;
         _pointerButtons = PointerButtons.None;
-        _pointerModifiers = PointerModifiers.None;
+        _pointerModifiers = InputModifiers.None;
         _isDraggingSelection = false;
         UpdateCursor();
     }

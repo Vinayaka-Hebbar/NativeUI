@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 using NativeUI.Core;
@@ -13,7 +14,7 @@ namespace NativeUI.Controls.Web;
 /// Operations must run on the browser's UI thread.
 /// </summary>
 [SupportedOSPlatform("browser")]
-public class HtmlDomElement : INativeHandle, IAnimationPeer
+public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
 {
     private static readonly Dictionary<int, HtmlDomElement> s_attachedElements = [];
     private static int s_lastNodeId;
@@ -446,7 +447,26 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
         SetClassName(Source.Class.ToString());
         UpdateTypeTokens();
         UpdateVisibility();
+        UpdateTabIndex();
         _parent?.ApplyAttachedProperties(this);
+    }
+
+    /// <inheritdoc />
+    void IFocusPeer.Focus()
+    {
+        if (_element is not null)
+        {
+            DomInterop.Focus(_element);
+        }
+    }
+
+    /// <inheritdoc />
+    void IFocusPeer.Blur()
+    {
+        if (_element is not null)
+        {
+            DomInterop.Blur(_element);
+        }
     }
 
     /// <summary>
@@ -478,6 +498,12 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
         {
             ReplaceInlineStyle();
         }
+        else if (ReferenceEquals(args.Property, UIElement.FocusableProperty) ||
+            ReferenceEquals(args.Property, UIElement.TabIndexProperty) ||
+            ReferenceEquals(args.Property, UIElement.IsEnabledProperty))
+        {
+            UpdateTabIndex();
+        }
         else if (args.Property.IsAttached)
         {
             _parent?.ApplyAttachedProperties(this);
@@ -490,6 +516,35 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
         {
             OnPropertyChanged(args);
         }
+    }
+
+    /// <summary>
+    /// Applies <see cref="UIElement.Focusable"/> and <see cref="UIElement.TabIndex"/> to the <c>tabindex</c> attribute. An
+    /// <c>&lt;input&gt;</c> or <c>&lt;button&gt;</c> is focusable without the attribute, and gets <c>-1</c> to leave the tab
+    /// order while it is not focusable. A disabled element has no <c>tabindex</c>.
+    /// </summary>
+    private void UpdateTabIndex()
+    {
+        bool isNativelyFocusable = TagName is "input" or "button";
+        string? tabIndex;
+        if (!Source.IsEnabled)
+        {
+            tabIndex = null;
+        }
+        else if (!Source.Focusable)
+        {
+            tabIndex = isNativelyFocusable ? "-1" : null;
+        }
+        else if (isNativelyFocusable && Source.TabIndex == 0)
+        {
+            tabIndex = null;
+        }
+        else
+        {
+            tabIndex = Source.TabIndex.ToString(CultureInfo.InvariantCulture);
+        }
+
+        SetAttribute("tabindex", tabIndex);
     }
 
     /// <summary>

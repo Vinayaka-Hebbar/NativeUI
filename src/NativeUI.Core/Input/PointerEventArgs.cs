@@ -30,38 +30,6 @@ public enum PointerButtons
 }
 
 /// <summary>
-/// Identifies the keyboard modifiers held during a pointer event.
-/// </summary>
-[Flags]
-public enum PointerModifiers
-{
-    /// <summary>
-    /// No modifier is held.
-    /// </summary>
-    None = 0,
-
-    /// <summary>
-    /// The Shift key is held.
-    /// </summary>
-    Shift = 1,
-
-    /// <summary>
-    /// The Control key is held.
-    /// </summary>
-    Control = 2,
-
-    /// <summary>
-    /// The Alt or Option key is held.
-    /// </summary>
-    Alt = 4,
-
-    /// <summary>
-    /// The Command or Windows key is held.
-    /// </summary>
-    Meta = 8
-}
-
-/// <summary>
 /// Describes a platform-independent pointer event.
 /// </summary>
 /// <param name="pointerId">The identity of the pointer that produced the event.</param>
@@ -73,7 +41,7 @@ public sealed class PointerEventArgs(
     long pointerId,
     Point position,
     PointerButtons buttons = PointerButtons.None,
-    PointerModifiers modifiers = PointerModifiers.None,
+    InputModifiers modifiers = InputModifiers.None,
     int clickCount = 0) : RoutedEventArgs
 {
     /// <summary>
@@ -94,7 +62,7 @@ public sealed class PointerEventArgs(
     /// <summary>
     /// Gets the keyboard modifiers held during the event.
     /// </summary>
-    public PointerModifiers Modifiers { get; } = modifiers;
+    public InputModifiers Modifiers { get; } = modifiers;
 
     /// <summary>
     /// Gets the number of consecutive clicks, or zero when the event is not part of a click.

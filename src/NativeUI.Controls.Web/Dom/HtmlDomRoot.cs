@@ -23,6 +23,7 @@ internal sealed class HtmlDomRoot : IDisposable
     private readonly PointerInputRouter _pointerRouter = new();
     private readonly int _scopeId = ++s_lastScopeId;
     private UIElement? _root;
+    private FocusManager? _focusManager;
     private HtmlDomElement? _rootDom;
     private JSObject? _container;
     private JSObject? _rootElement;
@@ -85,10 +86,12 @@ internal sealed class HtmlDomRoot : IDisposable
             _styleSheet?.Dispose();
             _styleSheet = null;
             _pointerRouter.Reset();
+            _focusManager?.Dispose();
             _rootDom?.Dispose();
         }
         finally
         {
+            _focusManager = null;
             _rootDom = null;
             _root = null;
             _rootElement?.Dispose();
@@ -179,6 +182,7 @@ internal sealed class HtmlDomRoot : IDisposable
         _root = root;
         try
         {
+            _focusManager = new FocusManager(root);
             _animationRoot = AnimationClock.AttachRoot(root);
             if (useBrowserInterop)
             {
@@ -196,6 +200,7 @@ internal sealed class HtmlDomRoot : IDisposable
                 DomInterop.SetScrollDispatcher(_rootElement, OnScroll);
                 DomInterop.SetInputDispatcher(_rootElement, OnInput);
                 DomInterop.SetFocusDispatcher(_rootElement, OnFocus);
+                DomInterop.SetKeyDispatcher(_rootElement, OnKeyEvent);
                 DomInterop.SetCloseDispatcher(_rootElement, OnPortalClosed);
                 DomInterop.SetResizeDispatcher(_rootElement, OnResize);
                 AnimationClock.FrameRequested += OnFrameRequested;
@@ -235,7 +240,7 @@ internal sealed class HtmlDomRoot : IDisposable
                 PointerId = pointerEvent.GetPropertyAsInt32("pointerId"),
                 Position = new Point(pointerEvent.GetPropertyAsDouble("x"), pointerEvent.GetPropertyAsDouble("y")),
                 Buttons = (PointerButtons)pointerEvent.GetPropertyAsInt32("buttons"),
-                Modifiers = (PointerModifiers)pointerEvent.GetPropertyAsInt32("modifiers"),
+                Modifiers = (InputModifiers)pointerEvent.GetPropertyAsInt32("modifiers"),
                 ClickCount = pointerEvent.GetPropertyAsInt32("clickCount")
             });
         }
@@ -257,12 +262,80 @@ internal sealed class HtmlDomRoot : IDisposable
         }
     }
 
-    private static void OnFocus(int nodeId, bool isFocused)
+    /// <summary>
+    /// Records a browser focus change in the <see cref="FocusManager"/>. The browser owns focus on Web.
+    /// </summary>
+    private void OnFocus(int nodeId, bool isFocused, bool isVisible)
     {
-        if (HtmlDomElement.FindByNodeId(nodeId) is HtmlDomInput input)
+        if (HtmlDomElement.FindByNodeId(nodeId)?.Source is UIElement element)
         {
-            input.OnBrowserFocus(isFocused);
+            _focusManager?.SyncFocus(element, isFocused, isVisible);
         }
+    }
+
+    /// <summary>
+    /// Reads the <c>KeyEventEntry</c> forwarded by the <c>native-ui</c> element, raises the key event on the element that
+    /// has focus or on the root, and releases its browser reference.
+    /// </summary>
+    /// <returns><see langword="true"/> when a handler handled the event, which prevents the browser's default action.</returns>
+    private bool OnKeyEvent(JSObject keyEvent)
+    {
+        using (keyEvent)
+        {
+            if (_disposed || _root is null)
+            {
+                return false;
+            }
+
+            string key = keyEvent.GetPropertyAsString("key") ?? string.Empty;
+            (Key logicalKey, string? text) = MapKey(key);
+            KeyEventArgs args = new(
+                logicalKey,
+                text,
+                (InputModifiers)keyEvent.GetPropertyAsInt32("modifiers"),
+                keyEvent.GetPropertyAsBoolean("isRepeat"));
+            UIElement target = HtmlDomElement.FindByNodeId(keyEvent.GetPropertyAsInt32("nodeId"))?.Source ?? _root;
+            target.RaiseEvent(keyEvent.GetPropertyAsBoolean("isDown") ? UIElement.KeyDownEvent : UIElement.KeyUpEvent, args);
+            return args.Handled;
+        }
+    }
+
+    /// <summary>
+    /// Maps a DOM <c>KeyboardEvent.key</c> value to a logical key. A single character is <see cref="Key.Character"/>, and
+    /// a named key without a <see cref="Key"/> member, such as a modifier key, is <see cref="Key.None"/>.
+    /// </summary>
+    private static (Key Key, string? Text) MapKey(string key)
+    {
+        if (key == " ")
+        {
+            return (Key.Space, key);
+        }
+
+        if (key.Length == 1 || (key.Length == 2 && char.IsSurrogatePair(key, 0)))
+        {
+            return (Key.Character, key);
+        }
+
+        return key switch
+        {
+            "Tab" => (Key.Tab, null),
+            "Enter" => (Key.Enter, null),
+            "Escape" => (Key.Escape, null),
+            "Backspace" => (Key.Backspace, null),
+            "Delete" => (Key.Delete, null),
+            "Insert" => (Key.Insert, null),
+            "ArrowLeft" => (Key.ArrowLeft, null),
+            "ArrowUp" => (Key.ArrowUp, null),
+            "ArrowRight" => (Key.ArrowRight, null),
+            "ArrowDown" => (Key.ArrowDown, null),
+            "Home" => (Key.Home, null),
+            "End" => (Key.End, null),
+            "PageUp" => (Key.PageUp, null),
+            "PageDown" => (Key.PageDown, null),
+            "ContextMenu" => (Key.ContextMenu, null),
+            _ when Enum.TryParse(key, ignoreCase: false, out Key functionKey) && functionKey is >= Key.F1 and <= Key.F12 => (functionKey, null),
+            _ => (Key.None, null)
+        };
     }
 
     private static void OnPortalClosed(int nodeId)

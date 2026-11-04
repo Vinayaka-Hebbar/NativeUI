@@ -5,8 +5,8 @@ using NativeUI.Media;
 namespace NativeUI.Controls;
 
 /// <summary>
-/// Represents a clickable button control supporting text, composite child content,
-/// pointer state transitions (<see cref="ElementStates.Hover"/>, <see cref="ElementStates.Pressed"/>, <see cref="ElementStates.Disabled"/>),
+/// Represents a clickable button control supporting text, composite child content, activation by pointer, Enter, and Space,
+/// state transitions (<see cref="ElementStates.Hover"/>, <see cref="ElementStates.Pressed"/>, <see cref="ElementStates.Disabled"/>),
 /// routed <see cref="ClickEvent"/>, and <see cref="ICommand"/> execution.
 /// </summary>
 public class Button : View
@@ -15,6 +15,7 @@ public class Button : View
     {
         WidthProperty.OverrideMetadata<Button>(WidthValue.FitContent);
         CursorProperty.OverrideMetadata<Button>(Cursor.Pointer);
+        FocusableProperty.OverrideMetadata<Button>(true);
     }
 
     /// <summary>
@@ -58,10 +59,7 @@ public class Button : View
     public Button()
     {
         _canExecuteChangedHandler = OnCanExecuteChanged;
-
-        PointerPressed += OnPointerPressed;
-        PointerReleased += OnPointerReleased;
-        PointerExited += OnPointerExited;
+        ClickGesture.Attach(this, PerformClick);
     }
 
     /// <inheritdoc />
@@ -126,44 +124,6 @@ public class Button : View
     protected override string? GetLayoutTextContent()
     {
         return Children.Count == 0 ? Text : null;
-    }
-
-    private void OnPointerPressed(object? sender, PointerEventArgs e)
-    {
-        if (!IsEnabled)
-        {
-            return;
-        }
-
-        SetState(ElementStates.Pressed, true);
-        InvalidateStyle();
-        InvalidateVisual();
-    }
-
-    private void OnPointerReleased(object? sender, PointerEventArgs e)
-    {
-        bool wasPressed = States.HasFlag(ElementStates.Pressed);
-        if (wasPressed)
-        {
-            SetState(ElementStates.Pressed, false);
-            InvalidateStyle();
-            InvalidateVisual();
-
-            if (States.HasFlag(ElementStates.Hover) && IsEnabled)
-            {
-                PerformClick();
-            }
-        }
-    }
-
-    private void OnPointerExited(object? sender, PointerEventArgs e)
-    {
-        if (States.HasFlag(ElementStates.Pressed))
-        {
-            SetState(ElementStates.Pressed, false);
-            InvalidateStyle();
-            InvalidateVisual();
-        }
     }
 
     private void OnTextPropertyChanged()

@@ -8,7 +8,7 @@ namespace NativeUI.Controls.Web;
 /// Synchronizes an <see cref="Input"/> with a native HTML <c>&lt;input type="text"&gt;</c> element.
 /// </summary>
 [SupportedOSPlatform("browser")]
-public sealed class HtmlDomInput : HtmlDomElement, IInputPeer
+public sealed class HtmlDomInput : HtmlDomElement
 {
     private readonly Input _input;
 
@@ -18,29 +18,12 @@ public sealed class HtmlDomInput : HtmlDomElement, IInputPeer
         _input = input;
     }
 
-    /// <inheritdoc />
-    void IInputPeer.Focus()
-    {
-        if (Element is JSObject element)
-        {
-            DomInterop.Focus(element);
-        }
-    }
-
     /// <summary>
     /// Applies an edit reported by the browser.
     /// </summary>
     internal void OnBrowserInput(string value)
     {
         _input.Value = value;
-    }
-
-    /// <summary>
-    /// Applies a focus change reported by the browser.
-    /// </summary>
-    internal void OnBrowserFocus(bool isFocused)
-    {
-        _input.SetFocused(isFocused);
     }
 
     /// <inheritdoc />
@@ -74,13 +57,6 @@ public sealed class HtmlDomInput : HtmlDomElement, IInputPeer
         {
             UpdateEnabledState();
         }
-    }
-
-    /// <inheritdoc />
-    protected override void OnDisposing()
-    {
-        _input.SetFocused(false);
-        base.OnDisposing();
     }
 
     /// <summary>

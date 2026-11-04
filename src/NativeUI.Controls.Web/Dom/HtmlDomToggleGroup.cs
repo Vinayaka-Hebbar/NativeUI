@@ -17,7 +17,4 @@ public sealed class HtmlDomToggleGroup : HtmlDomControl
 
     /// <inheritdoc />
     protected override string Role => "group";
-
-    /// <inheritdoc />
-    protected override bool IsFocusable => false;
 }

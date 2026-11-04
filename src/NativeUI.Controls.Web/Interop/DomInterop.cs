@@ -164,13 +164,24 @@ public static partial class DomInterop
         [JSMarshalAs<JSType.Function<JSType.Number, JSType.String>>] Action<int, string> dispatch);
 
     /// <summary>
-    /// Sets the callback that a <c>native-ui</c> element invokes with the node identifier and new state of each input
-    /// that gains or loses focus. The element adds its listeners when connected and removes them when disconnected.
+    /// Sets the callback that a <c>native-ui</c> element invokes with the node identifier, new state, and
+    /// <c>:focus-visible</c> match of each attached element that gains or loses focus. The element adds its listeners
+    /// when connected and removes them when disconnected.
     /// </summary>
     [JSImport("setFocusDispatcher", "nativeui-dom")]
     public static partial void SetFocusDispatcher(
         JSObject root,
-        [JSMarshalAs<JSType.Function<JSType.Number, JSType.Boolean>>] Action<int, bool> dispatch);
+        [JSMarshalAs<JSType.Function<JSType.Number, JSType.Boolean, JSType.Boolean>>] Action<int, bool, bool> dispatch);
+
+    /// <summary>
+    /// Sets the callback that a <c>native-ui</c> element invokes with each key press and release, as a
+    /// <c>KeyEventEntry</c>. The element prevents the browser's default action when the callback returns
+    /// <see langword="true"/>. The element adds its listeners when connected and removes them when disconnected.
+    /// </summary>
+    [JSImport("setKeyDispatcher", "nativeui-dom")]
+    public static partial void SetKeyDispatcher(
+        JSObject root,
+        [JSMarshalAs<JSType.Function<JSType.Object, JSType.Boolean>>] Func<JSObject, bool> dispatch);
 
     /// <summary>
     /// Sets the callback that a <c>native-ui</c> element invokes with the node identifier of each closed dialog element.
@@ -262,6 +273,12 @@ public static partial class DomInterop
     /// </summary>
     [JSImport("focus", "nativeui-dom")]
     public static partial void Focus(JSObject element);
+
+    /// <summary>
+    /// Removes keyboard focus from an element.
+    /// </summary>
+    [JSImport("blur", "nativeui-dom")]
+    public static partial void Blur(JSObject element);
 
     /// <summary>
     /// Injects or updates a <c>&lt;style&gt;</c> tag in <c>document.head</c> for a compiled <c>CssStyleSheet</c>.

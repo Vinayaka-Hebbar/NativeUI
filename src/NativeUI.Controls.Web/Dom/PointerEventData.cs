@@ -67,7 +67,7 @@ internal readonly record struct PointerEventData
     /// <summary>
     /// Gets the keyboard modifiers held during the event.
     /// </summary>
-    public PointerModifiers Modifiers { get; init; }
+    public InputModifiers Modifiers { get; init; }
 
     /// <summary>
     /// Gets the native click count, or zero when the event is not part of a click.

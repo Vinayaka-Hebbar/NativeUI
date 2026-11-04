@@ -64,6 +64,30 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         RoutedEvent.Register<UIElement, SizeChangedEventArgs>(nameof(SizeChanged), RoutingStrategy.Direct);
 
     /// <summary>
+    /// Identifies the <see cref="GotFocus"/> routed event.
+    /// </summary>
+    public static readonly RoutedEvent<RoutedEventArgs> GotFocusEvent =
+        RoutedEvent.Register<UIElement, RoutedEventArgs>(nameof(GotFocus), RoutingStrategy.Bubble);
+
+    /// <summary>
+    /// Identifies the <see cref="LostFocus"/> routed event.
+    /// </summary>
+    public static readonly RoutedEvent<RoutedEventArgs> LostFocusEvent =
+        RoutedEvent.Register<UIElement, RoutedEventArgs>(nameof(LostFocus), RoutingStrategy.Bubble);
+
+    /// <summary>
+    /// Identifies the <see cref="KeyDown"/> routed event.
+    /// </summary>
+    public static readonly RoutedEvent<KeyEventArgs> KeyDownEvent =
+        RoutedEvent.Register<UIElement, KeyEventArgs>(nameof(KeyDown), RoutingStrategy.Bubble);
+
+    /// <summary>
+    /// Identifies the <see cref="KeyUp"/> routed event.
+    /// </summary>
+    public static readonly RoutedEvent<KeyEventArgs> KeyUpEvent =
+        RoutedEvent.Register<UIElement, KeyEventArgs>(nameof(KeyUp), RoutingStrategy.Bubble);
+
+    /// <summary>
     /// Identifies the <see cref="Id"/> bindable property.
     /// </summary>
     public static readonly BindableProperty<string?> IdProperty =
@@ -95,6 +119,21 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
             nameof(IsEnabled),
             defaultValue: true,
             propertyChanged: static (owner, _, newValue) => owner.OnIsEnabledPropertyChanged(newValue));
+
+    /// <summary>
+    /// Identifies the <see cref="Focusable"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<bool> FocusableProperty =
+        BindableProperty.Create<UIElement, bool>(
+            nameof(Focusable),
+            defaultValue: false,
+            propertyChanged: static (owner, _, newValue) => owner.OnFocusablePropertyChanged(newValue));
+
+    /// <summary>
+    /// Identifies the <see cref="TabIndex"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<int> TabIndexProperty =
+        BindableProperty.Create<UIElement, int>(nameof(TabIndex), defaultValue: 0);
 
     /// <summary>
     /// Identifies the <see cref="Style"/> bindable property for inline C# styling.
@@ -289,6 +328,44 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
+    /// Occurs when this element or one of its descendants receives keyboard focus. The source is the element that received focus.
+    /// </summary>
+    public event EventHandler<RoutedEventArgs> GotFocus
+    {
+        add => AddHandler(GotFocusEvent, value);
+        remove => RemoveHandler(GotFocusEvent, value);
+    }
+
+    /// <summary>
+    /// Occurs when this element or one of its descendants loses keyboard focus. The source is the element that lost focus.
+    /// </summary>
+    public event EventHandler<RoutedEventArgs> LostFocus
+    {
+        add => AddHandler(LostFocusEvent, value);
+        remove => RemoveHandler(LostFocusEvent, value);
+    }
+
+    /// <summary>
+    /// Occurs when a key is pressed while this element or one of its descendants has keyboard focus. While no element has
+    /// focus, the root element receives the event.
+    /// </summary>
+    public event EventHandler<KeyEventArgs> KeyDown
+    {
+        add => AddHandler(KeyDownEvent, value);
+        remove => RemoveHandler(KeyDownEvent, value);
+    }
+
+    /// <summary>
+    /// Occurs when a key is released while this element or one of its descendants has keyboard focus. While no element
+    /// has focus, the root element receives the event.
+    /// </summary>
+    public event EventHandler<KeyEventArgs> KeyUp
+    {
+        add => AddHandler(KeyUpEvent, value);
+        remove => RemoveHandler(KeyUpEvent, value);
+    }
+
+    /// <summary>
     /// Gets a value indicating whether the rendered size or bounds of this element is currently observed.
     /// </summary>
     public bool IsSizeObserved => BoundsProperty.HasSubscribers(this) || HasHandler(SizeChangedEvent);
@@ -381,6 +458,64 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         get => GetValue(IsEnabledProperty);
         set => SetValue(IsEnabledProperty, value);
     }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this element can receive keyboard focus. A control type overrides the
+    /// default through <see cref="FocusableProperty"/> metadata. A disabled or hidden element cannot receive focus.
+    /// </summary>
+    public bool Focusable
+    {
+        get => GetValue(FocusableProperty);
+        set => SetValue(FocusableProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the position of this element in the keyboard navigation order. Elements with a positive value come
+    /// first in ascending order, followed by elements with zero in tree order. An element with a negative value receives
+    /// focus only from <see cref="Focus"/> or a pointer press.
+    /// </summary>
+    public int TabIndex
+    {
+        get => GetValue(TabIndexProperty);
+        set => SetValue(TabIndexProperty, value);
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether this element has keyboard focus.
+    /// </summary>
+    public bool IsFocused => States.HasFlag(ElementStates.Focus);
+
+    /// <summary>
+    /// Moves keyboard focus to this element. Focus moves only while the element is <see cref="Focusable"/>, enabled,
+    /// visible, and presented by a platform host.
+    /// </summary>
+    /// <returns><see langword="true"/> when this element has focus after the call.</returns>
+    public bool Focus()
+    {
+        return FindFocusManager()?.Focus(this) ?? false;
+    }
+
+    /// <summary>
+    /// Returns the focus manager of the nearest root that a platform host presents, or <see langword="null"/> when no host
+    /// presents this element.
+    /// </summary>
+    internal FocusManager? FindFocusManager()
+    {
+        for (UIElement? current = this; current is not null; current = current._parent)
+        {
+            if (current.FocusManager is FocusManager manager)
+            {
+                return manager;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Gets or sets the focus manager that a platform host attached to this element as its root.
+    /// </summary>
+    internal FocusManager? FocusManager { get; set; }
 
     /// <summary>
     /// Gets the mouse pointer cursor appearance resolved for this element.
@@ -519,6 +654,11 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
             if (ReferenceEquals(_parent, value))
             {
                 return;
+            }
+
+            if (States.HasFlag(ElementStates.FocusWithin))
+            {
+                FindFocusManager()?.ReleaseFocus(this);
             }
 
             _parent = value;
@@ -812,6 +952,11 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// </summary>
     protected virtual void OnIsVisibleChanged()
     {
+        if (!IsVisible && States.HasFlag(ElementStates.FocusWithin))
+        {
+            FindFocusManager()?.ReleaseFocus(this);
+        }
+
         VisibilityChanged?.Invoke(this, EventArgs.Empty);
         InvalidateVisual();
     }
@@ -861,6 +1006,11 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     {
         if (disposing)
         {
+            if (States.HasFlag(ElementStates.FocusWithin))
+            {
+                FindFocusManager()?.ReleaseFocus(this);
+            }
+
             _animator?.Cancel();
             _animator = null;
             _nativeHandle?.Dispose();
@@ -1026,8 +1176,21 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         InvalidateStyle();
     }
 
+    private void OnFocusablePropertyChanged(bool isFocusable)
+    {
+        if (!isFocusable && IsFocused)
+        {
+            FindFocusManager()?.ReleaseFocus(this);
+        }
+    }
+
     private void OnIsEnabledPropertyChanged(bool isEnabled)
     {
+        if (!isEnabled && IsFocused)
+        {
+            FindFocusManager()?.ReleaseFocus(this);
+        }
+
         SetState(ElementStates.Disabled, !isEnabled);
         InvalidateStyle();
         InvalidateVisual();

@@ -63,7 +63,7 @@ public interface IRenderOverlay
     /// <summary>
     /// Handles a key press before the host does, and returns whether the overlay consumed it.
     /// </summary>
-    bool HandleKey(string key, PointerModifiers modifiers) => false;
+    bool HandleKey(string key, InputModifiers modifiers) => false;
 }
 
 /// <summary>

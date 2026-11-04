@@ -12,17 +12,10 @@ public class Input : UIElement
     // Layout measures one line of the font and never the value, because a long value scrolls instead of wrapping.
     private const string LineMeasureText = "Mg";
 
-    /// <summary>
-    /// Identifies the <see cref="GotFocus"/> routed event.
-    /// </summary>
-    public static readonly RoutedEvent<RoutedEventArgs> GotFocusEvent =
-        RoutedEvent.Register<Input, RoutedEventArgs>(nameof(GotFocus), RoutingStrategy.Direct);
-
-    /// <summary>
-    /// Identifies the <see cref="LostFocus"/> routed event.
-    /// </summary>
-    public static readonly RoutedEvent<RoutedEventArgs> LostFocusEvent =
-        RoutedEvent.Register<Input, RoutedEventArgs>(nameof(LostFocus), RoutingStrategy.Direct);
+    static Input()
+    {
+        FocusableProperty.OverrideMetadata<Input>(true);
+    }
 
     /// <summary>
     /// Identifies the <see cref="Value"/> bindable property.
@@ -70,53 +63,6 @@ public class Input : UIElement
     {
         get => GetValue(IsReadOnlyProperty);
         set => SetValue(IsReadOnlyProperty, value);
-    }
-
-    /// <summary>
-    /// Gets a value indicating whether the platform control has keyboard focus.
-    /// </summary>
-    public bool IsFocused => States.HasFlag(ElementStates.Focus);
-
-    /// <summary>
-    /// Occurs when the platform control receives keyboard focus.
-    /// </summary>
-    public event EventHandler<RoutedEventArgs> GotFocus
-    {
-        add => AddHandler(GotFocusEvent, value);
-        remove => RemoveHandler(GotFocusEvent, value);
-    }
-
-    /// <summary>
-    /// Occurs when the platform control loses keyboard focus.
-    /// </summary>
-    public event EventHandler<RoutedEventArgs> LostFocus
-    {
-        add => AddHandler(LostFocusEvent, value);
-        remove => RemoveHandler(LostFocusEvent, value);
-    }
-
-    /// <summary>
-    /// Moves keyboard focus to this field. Does nothing until a platform host presents the field.
-    /// </summary>
-    public void Focus()
-    {
-        (NativeHandle as IInputPeer)?.Focus();
-    }
-
-    /// <summary>
-    /// Records a focus change reported by the platform control.
-    /// </summary>
-    internal void SetFocused(bool isFocused)
-    {
-        if (IsFocused == isFocused)
-        {
-            return;
-        }
-
-        SetState(ElementStates.Focus, isFocused);
-        InvalidateStyle();
-        InvalidateVisual();
-        RaiseEvent(isFocused ? GotFocusEvent : LostFocusEvent, new RoutedEventArgs());
     }
 
     /// <inheritdoc />

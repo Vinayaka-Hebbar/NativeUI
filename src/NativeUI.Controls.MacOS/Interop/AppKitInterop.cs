@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using NativeUI.Core;
@@ -40,6 +41,7 @@ internal static partial class AppKitInterop
     private const double ModalBackdropOpacity = 0.5;
 
     private static readonly ConcurrentDictionary<nint, Window> s_viewToWindow = new();
+    private static (nint Event, double Timestamp) s_unhandledKeyEvent;
     private static bool s_frameworksLoaded;
     private static nint s_interactiveViewClass;
     private static nint s_inputBlockerClass;
@@ -185,6 +187,10 @@ internal static partial class AppKitInterop
 
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
     public static partial long SendMessageInt64(nint receiver, nint selector);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    public static partial bool SendMessageBool(nint receiver, nint selector);
 
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
     public static partial CGPoint SendMessagePoint(nint receiver, nint selector);
@@ -525,6 +531,7 @@ internal static partial class AppKitInterop
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> windowWillClosePtr = &OnWindowWillClose;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> displayLinkFiredPtr = &OnDisplayLinkFired;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> keyDownPtr = &OnKeyDown;
+        delegate* unmanaged[Cdecl]<nint, nint, nint, void> keyUpPtr = &OnKeyUp;
         delegate* unmanaged[Cdecl]<nint, nint, nint, byte> performKeyEquivPtr = &OnPerformKeyEquivalent;
 
         _ = ClassAddMethod(subClass, GetSelector("acceptsFirstResponder"), (nint)acceptsFirstResponderPtr, "c@:");
@@ -542,6 +549,7 @@ internal static partial class AppKitInterop
         _ = ClassAddMethod(subClass, GetSelector("nativeUIWindowWillClose:"), (nint)windowWillClosePtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("nativeUIDisplayLinkFired:"), (nint)displayLinkFiredPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("keyDown:"), (nint)keyDownPtr, "v@:@");
+        _ = ClassAddMethod(subClass, GetSelector("keyUp:"), (nint)keyUpPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("performKeyEquivalent:"), (nint)performKeyEquivPtr, "c@:@");
 
         RegisterClassPair(subClass);
@@ -870,28 +878,28 @@ internal static partial class AppKitInterop
         return new Point(viewPoint.X - bounds.Origin.X, bounds.Origin.Y + bounds.Size.Height - viewPoint.Y);
     }
 
-    private static PointerModifiers GetModifiers(nint nsEvent)
+    private static InputModifiers GetModifiers(nint nsEvent)
     {
         ulong flags = SendMessageUInt64(nsEvent, GetSelector("modifierFlags"));
-        PointerModifiers modifiers = PointerModifiers.None;
+        InputModifiers modifiers = InputModifiers.None;
         if ((flags & EventModifierFlagShift) != 0)
         {
-            modifiers |= PointerModifiers.Shift;
+            modifiers |= InputModifiers.Shift;
         }
 
         if ((flags & EventModifierFlagControl) != 0)
         {
-            modifiers |= PointerModifiers.Control;
+            modifiers |= InputModifiers.Control;
         }
 
         if ((flags & EventModifierFlagOption) != 0)
         {
-            modifiers |= PointerModifiers.Alt;
+            modifiers |= InputModifiers.Alt;
         }
 
         if ((flags & EventModifierFlagCommand) != 0)
         {
-            modifiers |= PointerModifiers.Meta;
+            modifiers |= InputModifiers.Meta;
         }
 
         return modifiers;
@@ -900,24 +908,59 @@ internal static partial class AppKitInterop
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static void OnKeyDown(nint self, nint cmd, nint nsEvent)
     {
-        _ = TryDispatchKeyEvent(self, nsEvent);
+        _ = TryDispatchKeyDown(self, nsEvent);
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static byte OnPerformKeyEquivalent(nint self, nint cmd, nint nsEvent)
     {
-        return TryDispatchKeyEvent(self, nsEvent) ? (byte)1 : (byte)0;
+        return TryDispatchKeyDown(self, nsEvent) ? (byte)1 : (byte)0;
     }
 
-    private static bool TryDispatchKeyEvent(nint self, nint nsEvent)
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnKeyUp(nint self, nint cmd, nint nsEvent)
     {
-        if (!s_viewToWindow.TryGetValue(self, out Window? window) || nsEvent == nint.Zero)
+        if (s_viewToWindow.TryGetValue(self, out Window? window) && TryReadKey(nsEvent, out string? key))
+        {
+            _ = window.HandleKeyUp(key, GetModifiers(nsEvent));
+        }
+    }
+
+    /// <summary>
+    /// Routes a key press once. AppKit offers a press that <c>performKeyEquivalent:</c> does not handle to <c>keyDown:</c>
+    /// as the same event, which the event's address and timestamp identify.
+    /// </summary>
+    private static bool TryDispatchKeyDown(nint self, nint nsEvent)
+    {
+        if (!s_viewToWindow.TryGetValue(self, out Window? window) || !TryReadKey(nsEvent, out string? key))
+        {
+            return false;
+        }
+
+        double timestamp = SendMessageDouble(nsEvent, GetSelector("timestamp"));
+        if (s_unhandledKeyEvent == (nsEvent, timestamp))
         {
             return false;
         }
 
         ulong flags = SendMessageUInt64(nsEvent, GetSelector("modifierFlags"));
         bool hasCommandOrControl = (flags & (EventModifierFlagCommand | EventModifierFlagControl)) != 0;
+        bool isRepeat = SendMessageBool(nsEvent, GetSelector("isARepeat"));
+        bool handled = window.HandleKeyDownAsync(key, hasCommandOrControl, GetModifiers(nsEvent), isRepeat).GetAwaiter().GetResult();
+        s_unhandledKeyEvent = handled ? default : (nsEvent, timestamp);
+        return handled;
+    }
+
+    /// <summary>
+    /// Reads the characters of a key event, ignoring every modifier except Shift.
+    /// </summary>
+    private static bool TryReadKey(nint nsEvent, [NotNullWhen(true)] out string? key)
+    {
+        key = null;
+        if (nsEvent == nint.Zero)
+        {
+            return false;
+        }
 
         nint charsObj = SendMessage(nsEvent, GetSelector("charactersIgnoringModifiers"));
         if (charsObj == nint.Zero)
@@ -925,13 +968,7 @@ internal static partial class AppKitInterop
             return false;
         }
 
-        nint utf8Ptr = SendMessage(charsObj, GetSelector("UTF8String"));
-        string? key = Marshal.PtrToStringUTF8(utf8Ptr);
-        if (string.IsNullOrEmpty(key))
-        {
-            return false;
-        }
-
-        return window.HandleKeyDownAsync(key, hasCommandOrControl, GetModifiers(nsEvent)).GetAwaiter().GetResult();
+        key = Marshal.PtrToStringUTF8(SendMessage(charsObj, GetSelector("UTF8String")));
+        return !string.IsNullOrEmpty(key);
     }
 }

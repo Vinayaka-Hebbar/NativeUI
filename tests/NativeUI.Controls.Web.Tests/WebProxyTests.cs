@@ -302,7 +302,7 @@ static void TestPointerEventRouting()
         PointerId = 7,
         Position = position,
         Buttons = PointerButtons.Primary,
-        Modifiers = PointerModifiers.Shift | PointerModifiers.Meta,
+        Modifiers = InputModifiers.Shift | InputModifiers.Meta,
         ClickCount = 2
     });
     host.DispatchPointerEvent(new PointerEventData
@@ -319,7 +319,7 @@ static void TestPointerEventRouting()
     Assert.Equal(7L, pressed.PointerId);
     Assert.Equal(5.5, pressed.Position.X);
     Assert.Equal(PointerButtons.Primary, pressed.Buttons);
-    Assert.Equal(PointerModifiers.Shift | PointerModifiers.Meta, pressed.Modifiers);
+    Assert.Equal(InputModifiers.Shift | InputModifiers.Meta, pressed.Modifiers);
     Assert.Equal(2, pressed.ClickCount);
 
     order.Clear();
