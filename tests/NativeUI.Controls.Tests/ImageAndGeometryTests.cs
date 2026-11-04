@@ -13,6 +13,35 @@ namespace NativeUI.Controls.Tests;
 
 internal static class ImageAndGeometryTests
 {
+    public static void ImagePageUsesItsCompiledStylesOnDesktop()
+    {
+        Theme previous = Application.Current.RequestedTheme;
+        try
+        {
+            Application.Current.RequestedTheme = Theme.Dark;
+            using HelloView hello = new();
+            ImageSampleView page = hello.ImagePage;
+            Text title = (Text)page.Children[0];
+            Text description = (Text)page.Children[1];
+            page.RecomputeStyle();
+            title.RecomputeStyle();
+            description.RecomputeStyle();
+            page.ImageStatus.RecomputeStyle();
+            Assert.Equal(24d, title.ComputedStyle.FontSize);
+            Assert.Equal(14d, description.ComputedStyle.FontSize);
+            Assert.Equal(13d, page.ImageStatus.ComputedStyle.FontSize);
+            Assert.Equal(Color.FromRgbBytes(248, 250, 252), title.ComputedStyle.TextColor);
+            Assert.Equal(Color.FromRgbBytes(248, 250, 252), page.ImageStatus.ComputedStyle.TextColor);
+            Application.Current.RequestedTheme = Theme.Light;
+            title.RecomputeStyle();
+            Assert.Equal(Color.FromRgbBytes(15, 23, 42), title.ComputedStyle.TextColor);
+        }
+        finally
+        {
+            Application.Current.RequestedTheme = previous;
+        }
+    }
+
     public static void PercentageSizingUsesDefiniteDimensions()
     {
         SvgNode definition = SvgParser.Parse(TestRunner.ReadFixture("Images/percentages.svg"));

@@ -305,11 +305,32 @@ public sealed record CssFunctionValueNode(
 }
 
 /// <summary>
+/// Specifies how the items of a <see cref="CssValueListNode"/> are separated.
+/// </summary>
+public enum CssValueSeparator
+{
+    /// <summary>
+    /// Whitespace separates the components of one value, as in <c>padding: 12px 24px</c>.
+    /// </summary>
+    Space,
+
+    /// <summary>
+    /// Commas separate values, as in <c>transition: opacity 200ms, transform 300ms</c>. Each item is one value or a
+    /// space-separated list.
+    /// </summary>
+    Comma
+}
+
+/// <summary>
 /// Represents a space- or comma-separated list of CSS value nodes (such as <c>padding: 12px 24px</c>).
 /// </summary>
+/// <param name="Items">The listed values.</param>
+/// <param name="Span">The source span of the list.</param>
+/// <param name="Separator">The separator between <paramref name="Items"/>.</param>
 public sealed record CssValueListNode(
     IReadOnlyList<CssValueSyntaxNode> Items,
-    CssSourceSpan Span) : CssValueSyntaxNode(Span)
+    CssSourceSpan Span,
+    CssValueSeparator Separator = CssValueSeparator.Space) : CssValueSyntaxNode(Span)
 {
     /// <inheritdoc />
     public override void Accept(ICssSyntaxVisitor visitor) => visitor.VisitValueList(this);

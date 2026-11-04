@@ -11,6 +11,8 @@ namespace NativeUI.Css.Compiler;
 /// </summary>
 internal static class CssValueSyntaxBuilder
 {
+    private delegate bool SyntaxBuilder(CssValueSyntaxNode node, out ExpressionSyntax? expression);
+
     private static readonly Dictionary<string, string> s_animatableProperties = new(StringComparer.Ordinal)
     {
         ["opacity"] = "Opacity",
@@ -38,7 +40,7 @@ internal static class CssValueSyntaxBuilder
         if (valueNode is CssFunctionValueNode func &&
             string.Equals(func.Name, "var", StringComparison.OrdinalIgnoreCase))
         {
-            return TryBuildVarReference(propertyName, func, out expression);
+            return TryBuildVarReference(func, BuildFallback, out expression);
         }
 
         if (propertyName.StartsWith("--", StringComparison.Ordinal))
@@ -75,7 +77,7 @@ internal static class CssValueSyntaxBuilder
         {
             "color" or "background-color" or "background" or "border-color" => TryBuildColorSyntax(valueNode, out expression, out colorLiteral),
             "width" => TryBuildWidthSyntax(valueNode, out expression),
-            "height" => TryBuildHeightSyntax(valueNode, out expression),
+            "height" => TryBuildAutoOrLengthSyntax(valueNode, out expression),
             "font-size" or "border-radius" or "border-width" or "top" or "right" or "bottom" or "left" => TryBuildLengthSyntax(valueNode, out expression),
             "padding" or "margin" => TryBuildThicknessSyntax(valueNode, out expression),
             "font-weight" => TryBuildFontWeightSyntax(valueNode, out expression),
@@ -92,6 +94,11 @@ internal static class CssValueSyntaxBuilder
             "animation" => TryBuildAnimationSyntax(valueNode, out expression),
             _ => false
         };
+
+        bool BuildFallback(CssValueSyntaxNode fallback, out ExpressionSyntax? fallbackExpression)
+        {
+            return TryBuildValueExpression(propertyName, fallback, out fallbackExpression, out _);
+        }
     }
 
     /// <summary>
@@ -103,8 +110,9 @@ internal static class CssValueSyntaxBuilder
     }
 
     /// <summary>
-    /// Builds a transform from a translation followed by a scale, the one order that <c>StyleTransform</c>
-    /// represents, because a browser applies the listed functions in their source order.
+    /// Builds a transform from translations followed by scales, the one order that <c>StyleTransform</c> represents,
+    /// because a browser applies the listed functions in their source order. Consecutive translations add and
+    /// consecutive scales multiply, which is their composition.
     /// </summary>
     private static bool TryBuildTransformSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
     {
@@ -115,7 +123,11 @@ internal static class CssValueSyntaxBuilder
             return true;
         }
 
-        IReadOnlyList<CssValueSyntaxNode> items = node is CssValueListNode list ? list.Items : [node];
+        if (!TryGetComponents(node, out IReadOnlyList<CssValueSyntaxNode> items))
+        {
+            return false;
+        }
+
         double translateX = 0;
         double translateY = 0;
         double translateXPercent = 0;
@@ -168,8 +180,15 @@ internal static class CssValueSyntaxBuilder
 
                 double first = ((CssNumberValueNode)args[0]).Value;
                 double second = args.Count == 2 ? ((CssNumberValueNode)args[1]).Value : first;
-                scaleX = name == "scaley" ? scaleX : first;
-                scaleY = name == "scalex" ? scaleY : second;
+                if (name != "scaley")
+                {
+                    scaleX *= first;
+                }
+
+                if (name != "scalex")
+                {
+                    scaleY *= second;
+                }
             }
             else
             {
@@ -191,6 +210,9 @@ internal static class CssValueSyntaxBuilder
         return true;
     }
 
+    /// <summary>
+    /// Adds a translation length to the pixel or percentage offset.
+    /// </summary>
     private static bool TryReadTranslation(CssValueSyntaxNode node, ref double pixels, ref double percent)
     {
         switch (node)
@@ -198,10 +220,10 @@ internal static class CssValueSyntaxBuilder
             case CssNumberValueNode { Value: 0.0 }:
                 return true;
             case CssPercentageValueNode percentage:
-                percent = percentage.Value;
+                percent += percentage.Value;
                 return true;
             case CssDimensionValueNode dimension when string.Equals(dimension.Unit, "px", StringComparison.OrdinalIgnoreCase):
-                pixels = dimension.Value;
+                pixels += dimension.Value;
                 return true;
             default:
                 return false;
@@ -209,47 +231,66 @@ internal static class CssValueSyntaxBuilder
     }
 
     /// <summary>
-    /// Builds transition entries. The parser removes commas, so each property name starts a new entry.
+    /// Builds one transition entry for each comma-separated value.
     /// </summary>
     private static bool TryBuildTransitionSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
     {
         expression = null;
-        ExpressionSyntax emptyTransitions = BuildImmutableArrayEmpty("TransitionSpec");
         if (node is CssKeywordValueNode { Keyword: var keyword } && string.Equals(keyword, "none", StringComparison.OrdinalIgnoreCase))
         {
-            expression = BuildNewCssValue("CssTransitionValue", emptyTransitions);
+            expression = BuildNewCssValue("CssTransitionValue", BuildImmutableArrayEmpty("TransitionSpec"));
             return true;
         }
 
-        IReadOnlyList<CssValueSyntaxNode> items = node is CssValueListNode list ? list.Items : [node];
+        IReadOnlyList<CssValueSyntaxNode> values = node is CssValueListNode { Separator: CssValueSeparator.Comma } list
+            ? list.Items
+            : [node];
+        if (values.Count == 0)
+        {
+            return false;
+        }
+
         List<ExpressionSyntax> entries = [];
+        foreach (CssValueSyntaxNode value in values)
+        {
+            if (!TryBuildTransitionEntry(value, out ExpressionSyntax? entry) || entry is null)
+            {
+                return false;
+            }
+
+            entries.Add(entry);
+        }
+
+        expression = BuildNewCssValue("CssTransitionValue", BuildImmutableArrayCreate(entries));
+        return true;
+    }
+
+    /// <summary>
+    /// Builds a transition from at most one property, a duration followed by an optional delay, and at most one easing,
+    /// in any order.
+    /// </summary>
+    private static bool TryBuildTransitionEntry(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        expression = null;
+        if (!TryGetComponents(node, out IReadOnlyList<CssValueSyntaxNode> components))
+        {
+            return false;
+        }
+
         string? property = null;
         double? duration = null;
         double? delay = null;
         ExpressionSyntax? easing = null;
-        bool hasEntry = false;
-
-        foreach (CssValueSyntaxNode item in items)
+        foreach (CssValueSyntaxNode component in components)
         {
-            if (TryReadTime(item, out double time))
+            if (TryReadTime(component, out double time))
             {
-                if (delay is not null)
+                if (!TryAddTime(time, ref duration, ref delay))
                 {
                     return false;
                 }
-
-                if (duration is null)
-                {
-                    duration = time;
-                }
-                else
-                {
-                    delay = time;
-                }
-
-                hasEntry = true;
             }
-            else if (TryBuildEasing(item, out ExpressionSyntax? parsedEasing))
+            else if (TryBuildEasing(component, out ExpressionSyntax? parsedEasing))
             {
                 if (easing is not null)
                 {
@@ -257,23 +298,14 @@ internal static class CssValueSyntaxBuilder
                 }
 
                 easing = parsedEasing;
-                hasEntry = true;
             }
-            else if (item is CssKeywordValueNode propertyName)
+            else if (component is CssKeywordValueNode propertyName && property is null)
             {
-                if (property is not null || duration is not null)
-                {
-                    entries.Add(BuildTransitionSpec(property, duration, delay, easing));
-                    (duration, delay, easing) = (null, null, null);
-                }
-
                 property = NormalizeTransitionProperty(propertyName.Keyword);
                 if (property is null)
                 {
                     return false;
                 }
-
-                hasEntry = true;
             }
             else
             {
@@ -281,14 +313,33 @@ internal static class CssValueSyntaxBuilder
             }
         }
 
-        if (!hasEntry)
+        expression = BuildTransitionSpec(property, duration, delay, easing);
+        return true;
+    }
+
+    /// <summary>
+    /// Assigns the first time to the duration, which cannot be negative, and the second to the delay.
+    /// </summary>
+    private static bool TryAddTime(double time, ref double? duration, ref double? delay)
+    {
+        if (duration is null)
         {
-            return false;
+            if (time < 0)
+            {
+                return false;
+            }
+
+            duration = time;
+            return true;
         }
 
-        entries.Add(BuildTransitionSpec(property, duration, delay, easing));
-        expression = BuildNewCssValue("CssTransitionValue", BuildImmutableArrayCreate(entries));
-        return true;
+        if (delay is null)
+        {
+            delay = time;
+            return true;
+        }
+
+        return false;
     }
 
     private static string? NormalizeTransitionProperty(string name)
@@ -316,7 +367,10 @@ internal static class CssValueSyntaxBuilder
     }
 
     /// <summary>
-    /// Builds a single animation. A comma-separated list of animations is not supported.
+    /// Builds a single animation. As in the CSS shorthand, a component that several longhands accept is assigned to the
+    /// first unassigned one in the order easing, iteration count, direction, fill mode, and name, so
+    /// <c>reverse reverse 1s</c> runs the animation named <c>reverse</c> in reverse. A comma-separated list of animations
+    /// is not supported.
     /// </summary>
     private static bool TryBuildAnimationSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
     {
@@ -327,78 +381,47 @@ internal static class CssValueSyntaxBuilder
             return true;
         }
 
-        IReadOnlyList<CssValueSyntaxNode> items = node is CssValueListNode list ? list.Items : [node];
+        if (!TryGetComponents(node, out IReadOnlyList<CssValueSyntaxNode> components))
+        {
+            return false;
+        }
+
         string? name = null;
         double? duration = null;
         double? delay = null;
         ExpressionSyntax? easing = null;
-        double iterations = 1;
-        string direction = "Normal";
-        string fillMode = "None";
+        double? iterations = null;
+        string? direction = null;
+        string? fillMode = null;
 
-        foreach (CssValueSyntaxNode item in items)
+        foreach (CssValueSyntaxNode component in components)
         {
-            if (TryReadTime(item, out double time))
+            if (TryReadTime(component, out double time))
             {
-                if (delay is not null)
+                if (!TryAddTime(time, ref duration, ref delay))
                 {
                     return false;
                 }
-
-                if (duration is null)
-                {
-                    duration = time;
-                }
-                else
-                {
-                    delay = time;
-                }
             }
-            else if (TryBuildEasing(item, out ExpressionSyntax? parsedEasing))
+            else if (easing is null && TryBuildEasing(component, out ExpressionSyntax? parsedEasing))
             {
                 easing = parsedEasing;
             }
-            else if (item is CssNumberValueNode { Value: > 0 } count)
+            else if (iterations is null && TryReadIterationCount(component, out double count))
             {
-                iterations = count.Value;
+                iterations = count;
             }
-            else if (item is CssKeywordValueNode word)
+            else if (direction is null && TryReadAnimationDirection(component, out string? parsedDirection))
             {
-                switch (word.Keyword.ToLowerInvariant())
-                {
-                    case "infinite":
-                        iterations = double.PositiveInfinity;
-                        break;
-                    case "normal":
-                        direction = "Normal";
-                        break;
-                    case "reverse":
-                        direction = "Reverse";
-                        break;
-                    case "alternate":
-                        direction = "Alternate";
-                        break;
-                    case "alternate-reverse":
-                        direction = "AlternateReverse";
-                        break;
-                    case "forwards":
-                        fillMode = "Forwards";
-                        break;
-                    case "backwards":
-                        fillMode = "Backwards";
-                        break;
-                    case "both":
-                        fillMode = "Both";
-                        break;
-                    default:
-                        if (name is not null)
-                        {
-                            return false;
-                        }
-
-                        name = word.Keyword;
-                        break;
-                }
+                direction = parsedDirection;
+            }
+            else if (fillMode is null && TryReadAnimationFillMode(component, out string? parsedFillMode))
+            {
+                fillMode = parsedFillMode;
+            }
+            else if (component is CssKeywordValueNode animationName && name is null)
+            {
+                name = animationName.Keyword;
             }
             else
             {
@@ -411,12 +434,12 @@ internal static class CssValueSyntaxBuilder
             return false;
         }
 
-        ExpressionSyntax iterationsExpression = double.IsPositiveInfinity(iterations)
+        ExpressionSyntax iterationsExpression = iterations is double.PositiveInfinity
             ? MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
                 PredefinedType(Token(SyntaxKind.DoubleKeyword)),
                 IdentifierName(nameof(double.PositiveInfinity)))
-            : DoubleLiteral(iterations);
+            : DoubleLiteral(iterations ?? 1);
 
         ExpressionSyntax animation = ObjectCreationExpression(ParseTypeName("AnimationSpec"))
             .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
@@ -426,11 +449,78 @@ internal static class CssValueSyntaxBuilder
                 Argument(DoubleLiteral(delay ?? 0)),
                 Argument(easing ?? BuildEasingMember("Ease")),
                 Argument(iterationsExpression),
-                Argument(BuildEnumMember("AnimationDirection", direction)),
-                Argument(BuildEnumMember("AnimationFillMode", fillMode))
+                Argument(BuildEnumMember("AnimationDirection", direction ?? "Normal")),
+                Argument(BuildEnumMember("AnimationFillMode", fillMode ?? "None"))
             ])));
         expression = BuildNewCssValue("CssAnimationValue", animation);
         return true;
+    }
+
+    /// <summary>
+    /// Reads a non-negative iteration count or <c>infinite</c>.
+    /// </summary>
+    private static bool TryReadIterationCount(CssValueSyntaxNode node, out double count)
+    {
+        switch (node)
+        {
+            case CssNumberValueNode { Value: >= 0 } number:
+                count = number.Value;
+                return true;
+            case CssKeywordValueNode { Keyword: var keyword } when string.Equals(keyword, "infinite", StringComparison.OrdinalIgnoreCase):
+                count = double.PositiveInfinity;
+                return true;
+            default:
+                count = 0;
+                return false;
+        }
+    }
+
+    private static bool TryReadAnimationDirection(CssValueSyntaxNode node, out string? member)
+    {
+        member = node is CssKeywordValueNode keyword
+            ? keyword.Keyword.ToLowerInvariant() switch
+            {
+                "normal" => "Normal",
+                "reverse" => "Reverse",
+                "alternate" => "Alternate",
+                "alternate-reverse" => "AlternateReverse",
+                _ => null
+            }
+            : null;
+        return member is not null;
+    }
+
+    private static bool TryReadAnimationFillMode(CssValueSyntaxNode node, out string? member)
+    {
+        member = node is CssKeywordValueNode keyword
+            ? keyword.Keyword.ToLowerInvariant() switch
+            {
+                "forwards" => "Forwards",
+                "backwards" => "Backwards",
+                "both" => "Both",
+                _ => null
+            }
+            : null;
+        return member is not null;
+    }
+
+    /// <summary>
+    /// Gets the space-separated components of one value. Fails for an empty list and for a comma-separated list of values.
+    /// </summary>
+    private static bool TryGetComponents(CssValueSyntaxNode node, out IReadOnlyList<CssValueSyntaxNode> components)
+    {
+        switch (node)
+        {
+            case CssValueListNode { Separator: CssValueSeparator.Comma } or CssValueListNode { Items.Count: 0 }:
+                components = [];
+                return false;
+            case CssValueListNode list:
+                components = list.Items;
+                return true;
+            default:
+                components = [node];
+                return true;
+        }
     }
 
     private static bool TryReadTime(CssValueSyntaxNode node, out double milliseconds)
@@ -477,13 +567,25 @@ internal static class CssValueSyntaxBuilder
             return true;
         }
 
-        if (node is CssFunctionValueNode { Arguments.Count: 4 } function &&
-            string.Equals(function.Name, "cubic-bezier", StringComparison.OrdinalIgnoreCase) &&
-            function.Arguments.All(static arg => arg is CssNumberValueNode))
+        // The x-coordinates of both control points must lie in [0, 1].
+        if (node is CssFunctionValueNode
+            {
+                Arguments: [
+                    CssNumberValueNode { Value: >= 0 and <= 1 } x1,
+                    CssNumberValueNode y1,
+                    CssNumberValueNode { Value: >= 0 and <= 1 } x2,
+                    CssNumberValueNode y2]
+            } function &&
+            string.Equals(function.Name, "cubic-bezier", StringComparison.OrdinalIgnoreCase))
         {
             expression = ObjectCreationExpression(ParseTypeName("Easing"))
-                .WithArgumentList(ArgumentList(SeparatedList(function.Arguments.Select(
-                    static arg => Argument(DoubleLiteral(((CssNumberValueNode)arg).Value))))));
+                .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
+                [
+                    Argument(DoubleLiteral(x1.Value)),
+                    Argument(DoubleLiteral(y1.Value)),
+                    Argument(DoubleLiteral(x2.Value)),
+                    Argument(DoubleLiteral(y2.Value))
+                ])));
             return true;
         }
 
@@ -550,14 +652,18 @@ internal static class CssValueSyntaxBuilder
             CssHexColorValueNode hex => hex.Hex,
             CssStringValueNode str => str.Value,
             CssFunctionValueNode func => $"{func.Name}(...)",
+            CssValueListNode { Separator: CssValueSeparator.Comma } list => string.Join(", ", list.Items.Select(FormatValueSummary)),
             CssValueListNode list => string.Join(" ", list.Items.Select(FormatValueSummary)),
             _ => node.ToString()
         };
     }
 
+    /// <summary>
+    /// Builds a <c>var()</c> reference whose optional fallback is built by <paramref name="buildFallback"/>.
+    /// </summary>
     private static bool TryBuildVarReference(
-        string propertyName,
         CssFunctionValueNode func,
+        SyntaxBuilder buildFallback,
         out ExpressionSyntax? expression)
     {
         expression = null;
@@ -579,8 +685,7 @@ internal static class CssValueSyntaxBuilder
             return true;
         }
 
-        if (!TryBuildValueExpression(propertyName, func.Arguments[1], out ExpressionSyntax? fallbackExpr, out _) ||
-            fallbackExpr is null)
+        if (!buildFallback(func.Arguments[1], out ExpressionSyntax? fallbackExpr) || fallbackExpr is null)
         {
             return false;
         }
@@ -620,10 +725,10 @@ internal static class CssValueSyntaxBuilder
             return true;
         }
 
-        return TryBuildHeightSyntax(node, out expression);
+        return TryBuildAutoOrLengthSyntax(node, out expression);
     }
 
-    private static bool TryBuildHeightSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    private static bool TryBuildAutoOrLengthSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
     {
         if (node is CssKeywordValueNode { Keyword: var keyword } &&
             string.Equals(keyword, "auto", StringComparison.OrdinalIgnoreCase))
@@ -678,59 +783,113 @@ internal static class CssValueSyntaxBuilder
         }
     }
 
+    /// <summary>
+    /// Builds a <c>padding</c> or <c>margin</c> value of one to four edges. Edges in logical pixels build a
+    /// <c>CssThicknessValue</c>; edges with other units or <c>var()</c> references build a <c>CssEdgesValue</c>.
+    /// </summary>
     private static bool TryBuildThicknessSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
     {
         expression = null;
-        IReadOnlyList<CssValueSyntaxNode> items = node is CssValueListNode list ? list.Items : [node];
-        if (items.Count is < 1 or > 4)
+        if (!TryGetComponents(node, out IReadOnlyList<CssValueSyntaxNode> items) || items.Count is < 1 or > 4)
         {
             return false;
         }
 
-        double[] pxValues = new double[items.Count];
+        ExpressionSyntax[] edges = new ExpressionSyntax[items.Count];
+        bool allPixels = true;
         for (int i = 0; i < items.Count; i++)
         {
-            if (items[i] is CssNumberValueNode { Value: 0.0 })
-            {
-                pxValues[i] = 0.0;
-            }
-            else if (items[i] is CssDimensionValueNode dim && string.Equals(dim.Unit, "px", StringComparison.OrdinalIgnoreCase))
-            {
-                pxValues[i] = dim.Value;
-            }
-            else
+            if (!TryBuildEdgeSyntax(items[i], out ExpressionSyntax? edge) || edge is null)
             {
                 return false;
             }
+
+            edges[i] = edge;
+            allPixels &= TryReadPixels(items[i], out _);
         }
 
-        (double top, double right, double bottom, double left) = items.Count switch
+        if (allPixels)
         {
-            1 => (pxValues[0], pxValues[0], pxValues[0], pxValues[0]),
-            2 => (pxValues[0], pxValues[1], pxValues[0], pxValues[1]),
-            3 => (pxValues[0], pxValues[1], pxValues[2], pxValues[1]),
-            _ => (pxValues[0], pxValues[1], pxValues[2], pxValues[3])
-        };
+            expression = BuildThicknessValue(items);
+            return true;
+        }
 
+        (ExpressionSyntax top, ExpressionSyntax right, ExpressionSyntax bottom, ExpressionSyntax left) = ExpandEdges(edges);
+        expression = BuildNewCssValue("CssEdgesValue", top, right, bottom, left);
+        return true;
+    }
+
+    /// <summary>
+    /// Builds a length or a <c>var()</c> reference whose fallback is itself an edge.
+    /// </summary>
+    private static bool TryBuildEdgeSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        if (node is CssFunctionValueNode func && string.Equals(func.Name, "var", StringComparison.OrdinalIgnoreCase))
+        {
+            return TryBuildVarReference(func, TryBuildEdgeSyntax, out expression);
+        }
+
+        return TryBuildLengthSyntax(node, out expression);
+    }
+
+    private static bool TryReadPixels(CssValueSyntaxNode node, out double pixels)
+    {
+        switch (node)
+        {
+            case CssNumberValueNode { Value: 0.0 }:
+                pixels = 0.0;
+                return true;
+            case CssDimensionValueNode dim when string.Equals(dim.Unit, "px", StringComparison.OrdinalIgnoreCase):
+                pixels = dim.Value;
+                return true;
+            default:
+                pixels = 0.0;
+                return false;
+        }
+    }
+
+    private static ExpressionSyntax BuildThicknessValue(IReadOnlyList<CssValueSyntaxNode> items)
+    {
+        ExpressionSyntax[] pixels = new ExpressionSyntax[items.Count];
+        for (int i = 0; i < items.Count; i++)
+        {
+            TryReadPixels(items[i], out double value);
+            pixels[i] = DoubleLiteral(value);
+        }
+
+        (ExpressionSyntax top, ExpressionSyntax right, ExpressionSyntax bottom, ExpressionSyntax left) = ExpandEdges(pixels);
         ObjectCreationExpressionSyntax thicknessCreation = ObjectCreationExpression(
             ParseTypeName("Thickness"))
             .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
             [
-                Argument(DoubleLiteral(top)),
-                Argument(DoubleLiteral(right)),
-                Argument(DoubleLiteral(bottom)),
-                Argument(DoubleLiteral(left))
+                Argument(top),
+                Argument(right),
+                Argument(bottom),
+                Argument(left)
             ])));
 
-        expression = BuildNewCssValue("CssThicknessValue", thicknessCreation);
-        return true;
+        return BuildNewCssValue("CssThicknessValue", thicknessCreation);
+    }
+
+    /// <summary>
+    /// Expands one to four edge values to top, right, bottom, and left, as the CSS box shorthands do.
+    /// </summary>
+    private static (T Top, T Right, T Bottom, T Left) ExpandEdges<T>(T[] values)
+    {
+        return values.Length switch
+        {
+            1 => (values[0], values[0], values[0], values[0]),
+            2 => (values[0], values[1], values[0], values[1]),
+            3 => (values[0], values[1], values[2], values[1]),
+            _ => (values[0], values[1], values[2], values[3])
+        };
     }
 
     private static bool TryBuildFontWeightSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
     {
         string? weightMember = node switch
         {
-            CssNumberValueNode num => ((int)num.Value) switch
+            CssNumberValueNode num => num.Value switch
             {
                 100 => "Thin",
                 300 => "Light",
@@ -804,7 +963,7 @@ internal static class CssValueSyntaxBuilder
             return true;
         }
 
-        if (node is CssValueListNode { Items.Count: 2 } list &&
+        if (node is CssValueListNode { Separator: CssValueSeparator.Space, Items.Count: 2 } list &&
             TryBuildValueExpression("color", list.Items[0], out ExpressionSyntax? thumb, out _) && thumb is not null &&
             TryBuildValueExpression("color", list.Items[1], out ExpressionSyntax? track, out _) && track is not null)
         {

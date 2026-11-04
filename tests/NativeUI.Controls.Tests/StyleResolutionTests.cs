@@ -232,6 +232,133 @@ internal static class StyleResolutionTests
         Assert.Equal(0, raised.Count);
     }
 
+    internal static void VerifyVariablesResolveThroughTheCascade()
+    {
+        Theme previousTheme = Application.Current.RequestedTheme;
+        try
+        {
+            Application.Current.RequestedTheme = Theme.Light;
+            CssStyleSheet sheet = new(nameof(RootRuleView), string.Empty,
+            [
+                new CssRule(CssSelector.Root(), new Dictionary<string, CssValue>
+                {
+                    ["--primary"] = new CssColorValue(Colors.Blue),
+                    ["--cycle-a"] = new CssVariableReference("--cycle-b"),
+                    ["--cycle-b"] = new CssVariableReference("--cycle-a")
+                }),
+                Rule("parent", new Dictionary<string, CssValue> { ["--primary"] = new CssColorValue(Colors.Indigo) }),
+                Rule("parent", new Dictionary<string, CssValue> { ["--primary"] = new CssColorValue(Colors.Red) }),
+                new CssRule(CssSelector.Class("parent"), new Dictionary<string, CssValue> { ["--primary"] = new CssColorValue(Colors.White) }, media: CssMedia.Dark),
+                Rule("local", new Dictionary<string, CssValue> { ["--primary"] = new CssColorValue(Colors.Green) }),
+                Rule("child", new Dictionary<string, CssValue> { ["color"] = new CssVariableReference("--primary") })
+            ]);
+            CssStyleRegistry.Register(sheet);
+            using RootRuleView root = new();
+            View parent = new() { Class = "parent" };
+            Text child = new() { Class = "child" };
+            root.Children.Add(parent);
+            parent.Children.Add(child);
+            CssVariables lookup = sheet.CreateScopedVariables(child, CssColorSchemeCondition.Light);
+            Assert.Equal(1, lookup.Declarations.Count);
+            Assert.False(lookup.Declarations.ContainsKey("--cycle-a"), "Local environments must not copy inherited declarations.");
+            Assert.Equal<Color?>(Colors.Red, lookup.ResolveColor(new ThemeValue<Color>("--primary")));
+            Assert.Equal<Color?>(Colors.Red, child.ComputedStyle.TextColor);
+
+            parent.Class = string.Empty;
+            Assert.Equal<Color?>(Colors.Red, lookup.ResolveColor(new ThemeValue<Color>("--primary")), "An existing computed environment remains a snapshot.");
+            lookup = sheet.CreateScopedVariables(child, CssColorSchemeCondition.Light);
+            Assert.Equal<Color?>(Colors.Blue, lookup.ResolveColor(new ThemeValue<Color>("--primary")));
+            Assert.Equal<Color?>(Colors.Blue, child.ComputedStyle.TextColor);
+            child.Class = "child local";
+            lookup = sheet.CreateScopedVariables(child, CssColorSchemeCondition.Light);
+            Assert.Equal<Color?>(Colors.Green, lookup.ResolveColor(new ThemeValue<Color>("--primary")));
+            Assert.Equal<Color?>(Colors.Green, child.ComputedStyle.TextColor);
+            child.Class = "child";
+            parent.Class = "parent";
+            Application.Current.RequestedTheme = Theme.Dark;
+            root.InvalidateStyle();
+            Assert.Equal<Color?>(Colors.White, child.ComputedStyle.TextColor);
+            Assert.Equal<Color?>(Colors.White, sheet.CreateScopedVariables(child, CssColorSchemeCondition.Dark).ResolveColor(new ThemeValue<Color>("--primary")));
+
+            parent.Children.Remove(child);
+            root.Children.Add(child);
+            lookup = sheet.CreateScopedVariables(child, CssColorSchemeCondition.Light);
+            Assert.Equal<Color?>(Colors.Blue, lookup.ResolveColor(new ThemeValue<Color>("--primary")));
+            Assert.Equal<Color?>(Colors.Blue, child.ComputedStyle.TextColor);
+            Assert.Equal<Color?>(Colors.Indigo, lookup.ResolveColor(new ThemeValue<Color>("--missing", Colors.Indigo)));
+            Assert.Equal(new CssColorValue(Colors.Green), lookup.Resolve(new CssVariableReference("--cycle-a", new CssColorValue(Colors.Green))));
+            Assert.Equal(3, lookup.Declarations.Count);
+        }
+        finally
+        {
+            Application.Current.RequestedTheme = previousTheme;
+        }
+    }
+
+    internal static void VerifyInheritedVariablesKeepTheirComputedContext()
+    {
+        CssStyleSheet sheet = new(nameof(RootRuleView), string.Empty,
+        [
+            new CssRule(CssSelector.Root(), new Dictionary<string, CssValue>
+            {
+                ["--root-alias"] = new CssVariableReference("--accent"),
+                ["--accent"] = new CssColorValue(Colors.Green)
+            }),
+            Rule("parent", new Dictionary<string, CssValue>
+            {
+                ["--primary"] = new CssVariableReference("--accent"),
+                ["--accent"] = new CssColorValue(Colors.Red)
+            }),
+            Rule("child", new Dictionary<string, CssValue>
+            {
+                ["--accent"] = new CssColorValue(Colors.Blue),
+                ["color"] = new CssVariableReference("--primary")
+            }),
+            Rule("alternate", new Dictionary<string, CssValue> { ["--accent"] = new CssColorValue(Colors.Indigo) })
+        ]);
+        CssStyleRegistry.Register(sheet);
+        using RootRuleView root = new();
+        View parent = new() { Class = "parent" };
+        Text child = new() { Class = "child" };
+        root.Children.Add(parent);
+        parent.Children.Add(child);
+        Assert.Equal<Color?>(Colors.Red, child.ComputedStyle.TextColor);
+        CssVariables environment = sheet.CreateScopedVariables(child, CssColorSchemeCondition.Light);
+        Assert.Equal(new CssColorValue(Colors.Red), environment.Resolve(new CssVariableReference("--primary")));
+        Assert.Equal(new CssColorValue(Colors.Green), environment.Resolve(new CssVariableReference("--root-alias")));
+        Assert.Equal(1, environment.Declarations.Count);
+        parent.Class = "parent alternate";
+        Assert.Equal<Color?>(Colors.Indigo, child.ComputedStyle.TextColor);
+        Assert.Equal(new CssColorValue(Colors.Red), environment.Resolve(new CssVariableReference("--primary")), "Previously computed environments retain their original declarations.");
+    }
+
+    internal static void VerifyPublicVariableEnvironmentsAndCaseSensitivity()
+    {
+        CssVariables parent = new();
+        parent.Set("accent", new CssColorValue(Colors.Red));
+        parent.Set("--primary", new CssVariableReference("--accent"));
+        CssVariables child = new(parent);
+        child.Set("--accent", new CssColorValue(Colors.Blue));
+        child.Set("--Primary", new CssColorValue(Colors.White));
+        Assert.True(child.TryGetValue("--primary", out CssValue? inherited));
+        Assert.Equal(new CssColorValue(Colors.Red), inherited);
+        Assert.Equal<Color?>(Colors.Red, child.ResolveColor(new ThemeValue<Color>("--primary")));
+        Assert.Equal<Color?>(Colors.White, child.ResolveColor(new ThemeValue<Color>("--Primary")));
+        Assert.Equal<Color?>(Colors.Blue, child.ResolveColor(new ThemeValue<Color>("accent")));
+        Assert.False(child.Declarations.ContainsKey("--primary"));
+        int localNotifications = 0;
+        int parentNotifications = 0;
+        child.VariableChanged += (_, _) => localNotifications++;
+        parent.VariableChanged += (_, _) => parentNotifications++;
+        parent.Set("--accent", new CssColorValue(Colors.Green));
+        Assert.Equal(1, parentNotifications);
+        Assert.Equal(0, localNotifications, "VariableChanged reports only Set calls on that environment.");
+        Assert.Equal<Color?>(Colors.Green, child.ResolveColor(new ThemeValue<Color>("--primary")));
+        child.Set("--accent", new CssColorValue(Colors.Indigo));
+        child.Set("--accent", new CssColorValue(Colors.Indigo));
+        Assert.Equal(1, localNotifications);
+    }
+
     internal static void VerifyRootRuleMatching()
     {
         CssStyleRegistry.Register(new CssStyleSheet(nameof(RootRuleView), string.Empty,

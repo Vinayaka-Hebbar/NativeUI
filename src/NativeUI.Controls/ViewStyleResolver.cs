@@ -14,7 +14,7 @@ internal static class ViewStyleResolver
         List<(View OwningView, StyleSheet Sheet)>? sheets = null;
         for (UIElement? current = element; current is not null; current = current.Parent)
         {
-            if (current is View { StyleSheet: StyleSheet sheet } view && sheet.Rules.Count > 0)
+            if (current is View { StyleSheet: StyleSheet sheet } view && sheet.HasRules)
             {
                 sheets ??= [];
                 sheets.Add((view, sheet));

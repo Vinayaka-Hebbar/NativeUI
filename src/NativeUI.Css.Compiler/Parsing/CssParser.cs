@@ -506,7 +506,7 @@ public sealed class CssParser
             }
 
             Advance(); // Consume ':'
-            CssValueSyntaxNode? valueNode = ParseDeclarationValue();
+            CssValueSyntaxNode? valueNode = ParseValue(isFunctionArgument: false);
             if (valueNode is null)
             {
                 _errors.Add(($"Missing value for CSS property '{propToken.Text}'.", propToken.Span));
@@ -526,39 +526,81 @@ public sealed class CssParser
         return declarations;
     }
 
-    private CssValueSyntaxNode? ParseDeclarationValue()
+    /// <summary>
+    /// Parses a declaration value, or a <c>var()</c> fallback when <paramref name="isFunctionArgument"/> is
+    /// <see langword="true"/>. Comma-separated values become a <see cref="CssValueSeparator.Comma"/> list whose items
+    /// are the individual values.
+    /// </summary>
+    private CssValueSyntaxNode? ParseValue(bool isFunctionArgument)
     {
-        List<CssValueSyntaxNode> items = [];
-        while (Current.Kind is not (CssTokenKind.Semicolon or CssTokenKind.CloseBrace or CssTokenKind.EndOfFile))
+        List<CssValueSyntaxNode> values = [];
+        List<CssValueSyntaxNode> components = [];
+        while (!IsValueEnd(isFunctionArgument))
         {
             if (Current.Kind == CssTokenKind.Comma)
             {
+                if (components.Count == 0)
+                {
+                    _errors.Add(("Expected a value before ','.", Current.Span));
+                }
+                else
+                {
+                    values.Add(CreateValue(components));
+                    components.Clear();
+                }
+
                 Advance();
                 continue;
             }
 
-            CssValueSyntaxNode? item = ParseSingleValueComponent();
-            if (item is null)
+            CssValueSyntaxNode? component = ParseSingleValueComponent();
+            if (component is null)
             {
                 Advance();
                 continue;
             }
 
-            items.Add(item);
+            components.Add(component);
         }
 
-        if (items.Count == 0)
+        if (components.Count > 0)
+        {
+            values.Add(CreateValue(components));
+        }
+
+        if (values.Count == 0)
         {
             return null;
         }
 
-        if (items.Count == 1)
+        if (values.Count == 1)
         {
-            return items[0];
+            return values[0];
         }
 
-        CssSourceSpan span = CombineSpans(items[0].Span, items[^1].Span);
-        return new CssValueListNode(items, span);
+        CssSourceSpan span = CombineSpans(values[0].Span, values[^1].Span);
+        return new CssValueListNode(values, span, CssValueSeparator.Comma);
+    }
+
+    /// <summary>
+    /// Determines whether the current token ends a value. A function argument also ends at the end of its declaration,
+    /// which leaves an unclosed function to be reported.
+    /// </summary>
+    private bool IsValueEnd(bool isFunctionArgument)
+    {
+        return Current.Kind is CssTokenKind.Semicolon or CssTokenKind.CloseBrace or CssTokenKind.EndOfFile ||
+            (isFunctionArgument && Current.Kind == CssTokenKind.CloseParen);
+    }
+
+    private static CssValueSyntaxNode CreateValue(List<CssValueSyntaxNode> components)
+    {
+        if (components.Count == 1)
+        {
+            return components[0];
+        }
+
+        CssSourceSpan span = CombineSpans(components[0].Span, components[^1].Span);
+        return new CssValueListNode([.. components], span);
     }
 
     private CssValueSyntaxNode? ParseSingleValueComponent()
@@ -603,8 +645,32 @@ public sealed class CssParser
     private CssFunctionValueNode ParseFunctionValue(CssToken nameToken)
     {
         Advance(); // Consume '('
-        List<CssValueSyntaxNode> args = [];
         CssValueSyntaxNode? slashArg = null;
+        List<CssValueSyntaxNode> args = string.Equals(nameToken.Text, "var", StringComparison.OrdinalIgnoreCase)
+            ? ParseVarArguments()
+            : ParseFunctionArguments(out slashArg);
+
+        CssSourceSpan endSpan = Current.Span;
+        if (Current.Kind == CssTokenKind.CloseParen)
+        {
+            endSpan = Advance().Span;
+        }
+        else
+        {
+            _errors.Add(($"Missing closing ')' for function '{nameToken.Text}'.", nameToken.Span));
+        }
+
+        return new CssFunctionValueNode(nameToken.Text, args, slashArg, CombineSpans(nameToken.Span, endSpan));
+    }
+
+    /// <summary>
+    /// Parses comma-, space-, and slash-separated function arguments into one flat list, with the component after a
+    /// slash returned separately.
+    /// </summary>
+    private List<CssValueSyntaxNode> ParseFunctionArguments(out CssValueSyntaxNode? slashArg)
+    {
+        List<CssValueSyntaxNode> args = [];
+        slashArg = null;
         bool afterSlash = false;
 
         while (Current.Kind is not (CssTokenKind.CloseParen or CssTokenKind.EndOfFile))
@@ -639,17 +705,41 @@ public sealed class CssParser
             }
         }
 
-        CssSourceSpan endSpan = Current.Span;
-        if (Current.Kind == CssTokenKind.CloseParen)
+        return args;
+    }
+
+    /// <summary>
+    /// Parses the arguments of <c>var()</c>: the custom-property name and an optional fallback. Everything after the
+    /// first comma is one fallback value, which can contain spaces and further commas, as in
+    /// <c>var(--font, Arial, sans-serif)</c>.
+    /// </summary>
+    private List<CssValueSyntaxNode> ParseVarArguments()
+    {
+        List<CssValueSyntaxNode> args = [];
+        if (ParseSingleValueComponent() is CssValueSyntaxNode name)
         {
-            endSpan = Advance().Span;
-        }
-        else
-        {
-            _errors.Add(($"Missing closing ')' for function '{nameToken.Text}'.", nameToken.Span));
+            args.Add(name);
         }
 
-        return new CssFunctionValueNode(nameToken.Text, args, slashArg, CombineSpans(nameToken.Span, endSpan));
+        if (Current.Kind == CssTokenKind.Comma)
+        {
+            Advance();
+            if (ParseValue(isFunctionArgument: true) is CssValueSyntaxNode fallback)
+            {
+                args.Add(fallback);
+            }
+        }
+
+        if (!IsValueEnd(isFunctionArgument: true))
+        {
+            _errors.Add(("Expected ',' or ')' after the custom-property name in var().", Current.Span));
+            while (!IsValueEnd(isFunctionArgument: true))
+            {
+                Advance();
+            }
+        }
+
+        return args;
     }
 
     private void RecoverToNextDeclaration()

@@ -12,6 +12,7 @@ using NativeUI.Tests;
 
 int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
 [
+    ("Nested image page applies its compiled desktop CSS in both themes", ImageAndGeometryTests.ImagePageUsesItsCompiledStylesOnDesktop),
     ("Image/vector PercentageSizingUsesDefiniteDimensions", ImageAndGeometryTests.PercentageSizingUsesDefiniteDimensions),
     ("Image/vector SvgTextKeepsDocumentOrder", ImageAndGeometryTests.SvgTextKeepsDocumentOrder),
     ("Image/vector CompiledFactoryIsRetainedAndInvalidatesOnce", ImageAndGeometryTests.CompiledFactoryIsRetainedAndInvalidatesOnce),
@@ -52,6 +53,9 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("C# stylesheets respond to hover and descendant selectors", NativeUI.Controls.Tests.StyleSheetTests.VerifyHoverAndDescendants),
     ("Typed selectors compute complete specificity and ancestor order", NativeUI.Controls.Tests.StyleSheetTests.VerifySelectorSpecificity),
     ("Selector constructors reject uninitialized and null values", NativeUI.Controls.Tests.StyleSheetTests.VerifySelectorValidation),
+    ("CSS variables resolve through the cascade without copied scopes", NativeUI.Controls.Tests.StyleResolutionTests.VerifyVariablesResolveThroughTheCascade),
+    ("Inherited CSS aliases resolve in their declaring environment", NativeUI.Controls.Tests.StyleResolutionTests.VerifyInheritedVariablesKeepTheirComputedContext),
+    ("Public variable environments preserve names and local change notifications", NativeUI.Controls.Tests.StyleResolutionTests.VerifyPublicVariableEnvironmentsAndCaseSensitivity),
     (":root rules supply global variables and style only the root element", NativeUI.Controls.Tests.StyleResolutionTests.VerifyRootRuleMatching),
     ("Platform specific styling rules match based on Application.Current.Platform", NativeUI.Controls.Tests.StyleResolutionTests.VerifyPlatformSpecificStyling),
     ("Compound selector distinguishes elementType, attributes, and clrType", NativeUI.Controls.Tests.StyleSheetTests.VerifyCompoundSelectorDistinctions),

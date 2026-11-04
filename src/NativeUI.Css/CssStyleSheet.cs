@@ -13,11 +13,6 @@ namespace NativeUI.Css;
 /// </summary>
 public class CssStyleSheet : StyleSheet
 {
-    // Rules declaring custom properties, in cascade order, which is the only part of the stylesheet that inheritance reads.
-    private readonly CssRule[] _variableRules;
-    private readonly CssVariables _lightRootVariables;
-    private readonly CssVariables _darkRootVariables;
-
     /// <summary>
     /// Gets the unique identifier of this compiled stylesheet (typically the view or file name).
     /// </summary>
@@ -33,6 +28,9 @@ public class CssStyleSheet : StyleSheet
     /// empty for a compiled stylesheet.
     /// </summary>
     public IReadOnlyList<CssRule> CssRules { get; }
+
+    /// <inheritdoc />
+    public override bool HasRules => CssRules.Count > 0 || base.HasRules;
 
     /// <summary>
     /// Gets the compiled <c>@keyframes</c> rules in this stylesheet.
@@ -52,9 +50,6 @@ public class CssStyleSheet : StyleSheet
         RawCss = rawCss;
         CssRules = [.. rules];
         Keyframes = keyframes.IsDefault ? [] : keyframes;
-        _variableRules = CreateVariableRules(CssRules);
-        _lightRootVariables = CreateRootVariables(CssColorSchemeCondition.Light);
-        _darkRootVariables = CreateRootVariables(CssColorSchemeCondition.Dark);
     }
 
     /// <inheritdoc />
@@ -127,24 +122,21 @@ public class CssStyleSheet : StyleSheet
     }
 
     /// <summary>
-    /// Creates the custom properties in effect on <paramref name="element"/> for <paramref name="colorScheme"/>: the
-    /// <c>:root</c> properties, overridden by those matching each ancestor from the outermost in, then by its own.
+    /// Creates the read-only custom properties computed for <paramref name="element"/>: its winning declarations under
+    /// <paramref name="colorScheme"/>, inheriting the computed custom properties of its parent's
+    /// <see cref="IUIElement.ComputedStyle"/>.
     /// </summary>
     public CssVariables CreateScopedVariables(IUIElement element, CssColorSchemeCondition colorScheme)
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        CssVariables variables = new(colorScheme == CssColorSchemeCondition.Dark ? _darkRootVariables : _lightRootVariables);
-        if (_variableRules.Length > 0)
-        {
-            ApplyVariableRules(element, colorScheme, variables);
-        }
-
-        return variables;
+        List<(CssRule Rule, int Order)> matching = CollectMatchingRules(element, colorScheme, pseudoElement: null);
+        return CreateCustomProperties(element, matching);
     }
 
     /// <summary>
     /// Computes the cascaded <see cref="ComputedStyle"/> for an element using its CSS classes, theme, and inherited and inline styles.
+    /// Custom properties and other declarations share one cascade over the application stylesheet and this stylesheet.
     /// </summary>
     /// <param name="element">The element whose style is being computed.</param>
     public ComputedStyle ComputeStyle(IUIElement element)
@@ -153,9 +145,8 @@ public class CssStyleSheet : StyleSheet
 
         CssColorSchemeCondition colorScheme = GetActiveColorScheme();
         List<(CssRule Rule, int Order)> matching = CollectMatchingRules(element, colorScheme, pseudoElement: null);
-        CssVariables variables = CreateScopedVariables(element, colorScheme);
-
-        ComputedStyle style = ComputedStyle.CreateInitial(element);
+        CssVariables variables = CreateCustomProperties(element, matching);
+        ComputedStyle style = ComputedStyle.CreateInitial(element) with { CustomProperties = variables };
         double fontSize = ResolveFontSize(element, matching, variables, style.FontSize);
         style = style with { FontSize = fontSize };
 
@@ -163,7 +154,7 @@ public class CssStyleSheet : StyleSheet
         {
             foreach (KeyValuePair<string, CssValue> declaration in rule.Declarations)
             {
-                if (!declaration.Key.StartsWith("--", StringComparison.Ordinal) &&
+                if (!IsCustomProperty(declaration.Key) &&
                     variables.Resolve(declaration.Value) is CssValue resolved)
                 {
                     style = ApplyDeclaration(style, declaration.Key, resolved, fontSize, variables);
@@ -223,40 +214,47 @@ public class CssStyleSheet : StyleSheet
             : CssColorSchemeCondition.Light;
     }
 
-    private static CssRule[] CreateVariableRules(IReadOnlyList<CssRule> rules)
+    private static bool IsCustomProperty(string property)
     {
-        List<(CssRule Rule, int Order)> variableRules = [];
-        for (int i = 0; i < rules.Count; i++)
-        {
-            CssRule rule = rules[i];
-            if (!rule.IsRoot && rule.PseudoElementName is null && DeclaresVariables(rule))
-            {
-                variableRules.Add((rule, i));
-            }
-        }
-
-        variableRules.Sort(CompareCascadeOrder);
-
-        CssRule[] ordered = new CssRule[variableRules.Count];
-        for (int i = 0; i < ordered.Length; i++)
-        {
-            ordered[i] = variableRules[i].Rule;
-        }
-
-        return ordered;
+        return property.StartsWith("--", StringComparison.Ordinal);
     }
 
-    private static bool DeclaresVariables(CssRule rule)
+    /// <summary>
+    /// Creates the element's custom properties from its winning declarations, or returns the inherited ones when it
+    /// declares none. Returns the element's current custom properties when they are unchanged, which keeps an
+    /// unchanged <see cref="ComputedStyle"/> equal to its previous snapshot.
+    /// </summary>
+    /// <param name="element">The element whose custom properties are computed.</param>
+    /// <param name="matching">The element's matching rules in ascending cascade order.</param>
+    private static CssVariables CreateCustomProperties(IUIElement element, List<(CssRule Rule, int Order)> matching)
     {
-        foreach (string property in rule.Declarations.Keys)
+        CssVariables inherited = element.Parent?.ComputedStyle.CustomProperties as CssVariables ?? CssVariables.Empty;
+        CssVariables? declared = null;
+
+        // Visiting rules from the highest precedence lets the first declaration of each name win.
+        for (int i = matching.Count - 1; i >= 0; i--)
         {
-            if (property.StartsWith("--", StringComparison.Ordinal))
+            foreach (KeyValuePair<string, CssValue> declaration in matching[i].Rule.Declarations)
             {
-                return true;
+                if (IsCustomProperty(declaration.Key))
+                {
+                    declared ??= new CssVariables(inherited, isReadOnly: true);
+                    declared.Declare(declaration.Key, declaration.Value);
+                }
             }
         }
 
-        return false;
+        if (declared is null)
+        {
+            return inherited;
+        }
+
+        if (element.ComputedStyle.CustomProperties is CssVariables current && current.HasSameDeclarations(declared))
+        {
+            return current;
+        }
+
+        return declared;
     }
 
     /// <summary>
@@ -272,7 +270,7 @@ public class CssStyleSheet : StyleSheet
     {
         foreach (KeyValuePair<string, CssValue> declaration in rule.Declarations)
         {
-            if (declaration.Key.StartsWith("--", StringComparison.Ordinal))
+            if (IsCustomProperty(declaration.Key))
             {
                 variables.Set(declaration.Key, declaration.Value);
             }
@@ -367,10 +365,14 @@ public class CssStyleSheet : StyleSheet
                 return style with { Padding = padding.Thickness };
             case ("padding", CssLengthValue padding):
                 return style with { Padding = new Thickness(padding.ToLogicalPixels(fontSize)) };
+            case ("padding", CssEdgesValue padding) when TryResolveThickness(padding, fontSize, variables, out Thickness thickness):
+                return style with { Padding = thickness };
             case ("margin", CssThicknessValue margin):
                 return style with { Margin = margin.Thickness };
             case ("margin", CssLengthValue margin):
                 return style with { Margin = new Thickness(margin.ToLogicalPixels(fontSize)) };
+            case ("margin", CssEdgesValue margin) when TryResolveThickness(margin, fontSize, variables, out Thickness thickness):
+                return style with { Margin = thickness };
             case ("border-radius", CssLengthValue borderRadius):
                 return style with { BorderRadius = borderRadius.ToLogicalPixels(fontSize) };
             case ("border-width", CssLengthValue borderWidth):
@@ -426,6 +428,29 @@ public class CssStyleSheet : StyleSheet
         }
     }
 
+    /// <summary>
+    /// Resolves each edge to a length in logical pixels. Fails when any edge is invalid or is not a length, which makes
+    /// the declaration invalid at computed-value time.
+    /// </summary>
+    private static bool TryResolveThickness(CssEdgesValue edges, double fontSize, CssVariables variables, out Thickness thickness)
+    {
+        if (variables.Resolve(edges.Top) is CssLengthValue top &&
+            variables.Resolve(edges.Right) is CssLengthValue right &&
+            variables.Resolve(edges.Bottom) is CssLengthValue bottom &&
+            variables.Resolve(edges.Left) is CssLengthValue left)
+        {
+            thickness = new Thickness(
+                top.ToLogicalPixels(fontSize),
+                right.ToLogicalPixels(fontSize),
+                bottom.ToLogicalPixels(fontSize),
+                left.ToLogicalPixels(fontSize));
+            return true;
+        }
+
+        thickness = default;
+        return false;
+    }
+
     private static WidthValue ToWidth(CssLengthValue length, double fontSize)
     {
         return length.Unit == CssLengthUnit.Percent
@@ -434,26 +459,10 @@ public class CssStyleSheet : StyleSheet
     }
 
     /// <summary>
-    /// Sets the custom properties of <paramref name="element"/>'s ancestors, outermost first, and then its own.
-    /// </summary>
-    private void ApplyVariableRules(IUIElement element, CssColorSchemeCondition colorScheme, CssVariables variables)
-    {
-        if (element.Parent is IUIElement parent)
-        {
-            ApplyVariableRules(parent, colorScheme, variables);
-        }
-
-        foreach (CssRule rule in _variableRules)
-        {
-            if (rule.Matches(element, colorScheme))
-            {
-                SetVariables(rule, variables);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Returns rules for <paramref name="pseudoElement"/> that match the element, ordered by ascending specificity and then source order.
+    /// Returns rules for <paramref name="pseudoElement"/> that match the element, ordered by ascending specificity and
+    /// then source order. The rules of the application stylesheet, which <see cref="IUIElement.StyleSheetId"/> names,
+    /// precede this stylesheet's rules in source order, so this stylesheet wins ties as it does when both are adopted
+    /// by the browser.
     /// </summary>
     private List<(CssRule Rule, int Order)> CollectMatchingRules(
         IUIElement element,
@@ -461,20 +470,38 @@ public class CssStyleSheet : StyleSheet
         string? pseudoElement)
     {
         List<(CssRule Rule, int Order)> matching = [];
-        for (int i = 0; i < CssRules.Count; i++)
+        int order = 0;
+        if (element.StyleSheetId is string scopeId &&
+            CssStyleRegistry.GetOrDefault(scopeId) is CssStyleSheet applicationSheet &&
+            !ReferenceEquals(applicationSheet, this))
         {
-            CssRule rule = CssRules[i];
+            applicationSheet.AddMatchingRules(element, colorScheme, pseudoElement, matching, ref order);
+        }
+
+        AddMatchingRules(element, colorScheme, pseudoElement, matching, ref order);
+        matching.Sort(CompareCascadeOrder);
+        return matching;
+    }
+
+    private void AddMatchingRules(
+        IUIElement element,
+        CssColorSchemeCondition colorScheme,
+        string? pseudoElement,
+        List<(CssRule Rule, int Order)> matching,
+        ref int order)
+    {
+        foreach (CssRule rule in CssRules)
+        {
             bool pseudoMatch = pseudoElement is null
                 ? rule.PseudoElementName is null
                 : string.Equals(rule.PseudoElementName?.TrimStart(':'), pseudoElement, StringComparison.OrdinalIgnoreCase);
 
             if (pseudoMatch && rule.Matches(element, colorScheme))
             {
-                matching.Add((rule, i));
+                matching.Add((rule, order));
             }
-        }
 
-        matching.Sort(CompareCascadeOrder);
-        return matching;
+            order++;
+        }
     }
 }

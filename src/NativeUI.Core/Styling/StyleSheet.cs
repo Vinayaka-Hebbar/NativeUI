@@ -183,6 +183,9 @@ public class StyleSheet : IStyleResolver
     /// </summary>
     public IList<StyleRule> Rules { get; } = [];
 
+    /// <summary>Gets whether this stylesheet contains rules, including rules stored by derived implementations.</summary>
+    public virtual bool HasRules => Rules.Count > 0;
+
     /// <inheritdoc />
     public virtual ComputedStyle ResolveStyle(IUIElement element)
     {

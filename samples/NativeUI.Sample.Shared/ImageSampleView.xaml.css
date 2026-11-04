@@ -1,0 +1,101 @@
+.image-page {
+  color: var(--color-text, #0f172a);
+  font-family: Arial;
+  font-size: 14px;
+}
+
+.image-title {
+  color: var(--color-text, #0f172a);
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.image-description {
+  color: var(--color-muted, #64748b);
+  font-size: 14px;
+  margin: 0 0 20px 0;
+}
+
+.image-section {
+  background-color: var(--color-muted-surface, #e2e8f0);
+  padding: 20px;
+  margin: 0 0 16px 0;
+  border-radius: 12px;
+}
+
+.image-heading {
+  color: var(--color-text, #0f172a);
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.image-preview {
+  margin: 0 0 12px 0;
+}
+
+.image-status {
+  color: var(--color-text, #0f172a);
+  font-size: 13px;
+  margin: 0 0 12px 0;
+}
+
+.image-label {
+  color: var(--color-text, #0f172a);
+  font-size: 13px;
+  font-weight: 600;
+  margin: 16px 0 8px 0;
+}
+
+.image-code {
+  color: var(--color-text, #0f172a);
+  font-family: monospace;
+  font-size: 12px;
+  margin: 0 0 16px 0;
+}
+
+.image-logo-frame {
+  background-color: #f8fafc;
+  border-radius: 10px;
+}
+
+.image-gallery {
+  background-color: var(--color-surface, #f8fafc);
+  padding: 12px;
+  margin: 0 0 12px 0;
+  border-radius: 8px;
+}
+
+.image-button {
+  background-color: var(--color-primary, #2563eb);
+  color: #ffffff;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.image-secondary {
+  background-color: var(--color-surface, #f8fafc);
+  color: var(--color-text, #0f172a);
+}
+
+.image-button:hover {
+  opacity: 0.9;
+}
+
+.image-button:active {
+  opacity: 0.75;
+}
+
+@media (prefers-color-scheme: dark) {
+  .image-button {
+    color: #0f172a;
+  }
+
+  .image-secondary {
+    color: var(--color-text, #f8fafc);
+  }
+}

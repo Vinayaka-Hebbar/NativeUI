@@ -167,6 +167,12 @@ public sealed record ComputedStyle
     public AnimationSpec? Animation { get; init; }
 
     /// <summary>
+    /// Gets the computed custom properties, which descendants inherit, or <see langword="null"/> when none are defined.
+    /// Theme colors in inline styles resolve against these properties before the <see cref="IStyleResolver"/>.
+    /// </summary>
+    public ICustomProperties? CustomProperties { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether this element establishes a positioned context (<c>relative</c>, <c>absolute</c>, or <c>fixed</c>).
     /// </summary>
     public bool IsPositioned => Position is not Position.Static;
@@ -214,6 +220,7 @@ public sealed record ComputedStyle
             Cursor = parent is null ? Default.Cursor : parent.Cursor,
             ScrollbarThumbColor = parent is null ? Default.ScrollbarThumbColor : parent.ScrollbarThumbColor,
             ScrollbarTrackColor = parent is null ? Default.ScrollbarTrackColor : parent.ScrollbarTrackColor,
+            CustomProperties = parent?.CustomProperties,
             Width = element.Width ?? WidthValue.Auto,
             Height = element.Height,
             OverflowX = element.OverflowX,
@@ -270,7 +277,7 @@ public sealed record ComputedStyle
         };
     }
 
-    private static Color? ResolveColor(
+    private Color? ResolveColor(
         ThemeValue<Color>? value,
         Color? fallback,
         IStyleResolver? resolver,
@@ -279,6 +286,11 @@ public sealed record ComputedStyle
         if (value is not ThemeValue<Color> specified)
         {
             return fallback;
+        }
+
+        if (specified.Key is string key && CustomProperties is not null && CustomProperties.TryGetValue(key, out Color color))
+        {
+            return color;
         }
 
         if (specified.IsThemeKey && resolver is not null && element is not null)
