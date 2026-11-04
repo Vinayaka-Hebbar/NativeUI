@@ -381,6 +381,8 @@ public class CssStyleSheet : StyleSheet
                 return style with { BorderWidth = borderWidth.ToLogicalPixels(fontSize) };
             case ("border-color", CssColorValue borderColor):
                 return style with { BorderColor = borderColor.Color };
+            case ("z-index", CssNumberValue zIndex):
+                return style with { ZIndex = (int)zIndex.Value };
             case ("opacity", CssNumberValue opacity):
                 return style with { Opacity = Math.Clamp(opacity.Value, 0.0, 1.0) };
             case ("scrollbar-color", CssScrollbarColorValue scrollbarColor):

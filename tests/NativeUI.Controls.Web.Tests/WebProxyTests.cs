@@ -520,7 +520,7 @@ static void TestBaseStyleSheetCss()
 {
     string[] lines = StyleSheetCss.BaseStyleSheet.RawCss.TrimEnd().Split('\n');
 
-    Assert.Equal(22, lines.Length);
+    Assert.Equal(26, lines.Length);
     Assert.True(lines[0].StartsWith(":where(native-ui, native-ui *) { "));
     Assert.Contains("box-sizing: border-box;", lines[0]);
     Assert.Contains("border: 0 solid;", lines[0]);
@@ -550,6 +550,10 @@ static void TestBaseStyleSheetCss()
     Assert.Contains("display: flex;", lines[20]);
     Assert.True(lines[21].StartsWith(":where(native-ui nui-togglegroup) { "));
     Assert.Contains("flex-direction: row;", lines[21]);
+    Assert.True(lines[22].StartsWith(":where(native-ui nui-list) { "));
+    Assert.Contains("overflow-y: auto;", lines[22]);
+    Assert.True(lines[23].StartsWith(":where(native-ui nui-virtualizedlist) { "));
+    Assert.Contains("overflow-y: auto;", lines[23]);
 }
 
 static void TestViewStyleSheetTransitions()

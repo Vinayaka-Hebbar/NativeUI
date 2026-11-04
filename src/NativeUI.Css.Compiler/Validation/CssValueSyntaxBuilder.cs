@@ -83,6 +83,7 @@ internal static class CssValueSyntaxBuilder
             "font-weight" => TryBuildFontWeightSyntax(valueNode, out expression),
             "text-align" => TryBuildTextAlignSyntax(valueNode, out expression),
             "opacity" => TryBuildOpacitySyntax(valueNode, out expression),
+            "z-index" => TryBuildZIndexSyntax(valueNode, out expression),
             "font-family" => TryBuildFontFamilySyntax(valueNode, out expression),
             "cursor" => TryBuildCursorSyntax(valueNode, out expression),
             "overflow" or "overflow-x" or "overflow-y" => TryBuildOverflowSyntax(valueNode, out expression),
@@ -1086,6 +1087,27 @@ internal static class CssValueSyntaxBuilder
         if (node is CssNumberValueNode num && num.Value is >= 0.0 and <= 1.0)
         {
             expression = BuildNewCssValue("CssNumberValue", DoubleLiteral(num.Value));
+            return true;
+        }
+
+        expression = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Builds an integer <c>z-index</c>, or zero for <c>auto</c>.
+    /// </summary>
+    private static bool TryBuildZIndexSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        if (node is CssNumberValueNode num && num.Value == Math.Floor(num.Value))
+        {
+            expression = BuildNewCssValue("CssNumberValue", DoubleLiteral(num.Value));
+            return true;
+        }
+
+        if (node is CssKeywordValueNode { Keyword: var keyword } && string.Equals(keyword, "auto", StringComparison.OrdinalIgnoreCase))
+        {
+            expression = BuildNewCssValue("CssNumberValue", DoubleLiteral(0));
             return true;
         }
 

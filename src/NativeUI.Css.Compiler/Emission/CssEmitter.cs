@@ -116,6 +116,7 @@ public static class CssEmitter
                 UsingDirective(ParseName("System.Runtime.CompilerServices")),
                 UsingDirective(ParseName("NativeUI.Core")),
                 UsingDirective(ParseName("NativeUI.Css")),
+                UsingDirective(ParseName("NativeUI.Layout")),
                 UsingDirective(ParseName("NativeUI.Media")),
                 UsingDirective(ParseName("NativeUI.Media.Animation")),
                 UsingDirective(ParseName("NativeUI.Styling"))

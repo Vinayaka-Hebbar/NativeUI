@@ -1,0 +1,154 @@
+.collection-page {
+  --selected: #dbeafe;
+  --selected-text: #1e3a8a;
+  color: var(--color-text, #0f172a);
+  font-family: Arial;
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .collection-page {
+    --selected: #1e3a8a;
+    --selected-text: #dbeafe;
+  }
+}
+
+.collection-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.collection-description {
+  color: var(--color-muted, #64748b);
+  margin: 0 0 20px 0;
+}
+
+.collection-section {
+  border-width: 1px;
+  border-color: var(--color-muted-surface, #e2e8f0);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 0 0 16px 0;
+}
+
+.collection-heading {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.collection-status {
+  color: var(--color-muted, #64748b);
+  font-size: 13px;
+  margin: 8px 0 0 0;
+}
+
+.user-list {
+  height: 200px;
+  border-width: 1px;
+  border-color: var(--color-muted-surface, #e2e8f0);
+  border-radius: 8px;
+}
+
+List::part(item) {
+  padding: 8px 12px;
+}
+
+List::part(item):hover {
+  background-color: var(--color-muted-surface, #f1f5f9);
+}
+
+List::part(item):selected {
+  background-color: var(--selected);
+  color: var(--selected-text);
+}
+
+.user-name {
+  font-weight: 600;
+}
+
+.user-email {
+  color: var(--color-muted, #64748b);
+  font-size: 12px;
+}
+
+.large-list {
+  height: 240px;
+  border-width: 1px;
+  border-color: var(--color-muted-surface, #e2e8f0);
+  border-radius: 8px;
+}
+
+VirtualizedList::part(item) {
+  padding: 8px 12px;
+}
+
+VirtualizedList::part(item):selected {
+  background-color: var(--selected);
+  color: var(--selected-text);
+}
+
+.data-table {
+  border-width: 1px;
+  border-color: var(--color-muted-surface, #e2e8f0);
+  border-radius: 8px;
+}
+
+.tall-table {
+  height: 320px;
+}
+
+Table::part(column-header) {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--color-surface, #f8fafc);
+}
+
+VirtualizedTable::part(column-header) {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--color-surface, #f8fafc);
+}
+
+TableCell {
+  padding: 8px 12px;
+}
+
+Table::part(header-cell) {
+  font-weight: 600;
+}
+
+VirtualizedTable::part(header-cell) {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+TableCell[data-sort="ascending"] {
+  color: #2563eb;
+}
+
+TableCell[data-sort="descending"] {
+  color: #7c3aed;
+}
+
+VirtualizedTable::part(row):hover {
+  background-color: var(--color-muted-surface, #f1f5f9);
+}
+
+VirtualizedTable::part(row):selected {
+  background-color: var(--selected);
+  color: var(--selected-text);
+}
+
+Table::part(row):selected {
+  background-color: var(--selected);
+  color: var(--selected-text);
+}
+
+.table-footer {
+  padding: 8px 12px;
+  color: var(--color-muted, #64748b);
+}

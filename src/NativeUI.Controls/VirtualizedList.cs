@@ -1,23 +1,17 @@
 using System.Collections.Specialized;
 using NativeUI.Core;
-using NativeUI.Layout;
 
 namespace NativeUI.Controls;
 
 /// <summary>
 /// Represents a vertical list of selectable items that creates elements only for the visible items plus
-/// <see cref="Overscan"/> items on each side. Every item has the height <see cref="ItemHeight"/>. Each element is hosted by a
-/// <see cref="ListItem"/>, the <c>item</c> template part, as in <see cref="List"/>. Selection holds item indices, so it is
-/// kept for items without elements. A height and CSS <c>overflow</c> let the list scroll.
+/// <see cref="Overscan"/> items on each side. Every item has the height <see cref="ItemHeight"/>. The <c>items</c> part holds
+/// the created elements, and a <see cref="ListItem"/>, the <c>item</c> part, hosts each one, as in <see cref="List"/>. The
+/// selection keeps items that have no element. A height and CSS <c>overflow</c> let the list scroll.
 /// </summary>
 public class VirtualizedList : Selector
 {
     private const string ItemPartName = "item";
-
-    static VirtualizedList()
-    {
-        PositionProperty.OverrideMetadata<VirtualizedList>(NativeUI.Layout.Position.Relative);
-    }
 
     /// <summary>
     /// Identifies the <see cref="ItemHeight"/> bindable property.
@@ -46,14 +40,15 @@ public class VirtualizedList : Selector
             defaultValue: 3,
             propertyChanged: static (owner, _, _) => owner.UpdateLayoutSettings());
 
-    private readonly ItemRealizer _realizer;
+    private readonly VirtualizingStackPanel _panel;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="VirtualizedList"/> class.
     /// </summary>
     public VirtualizedList()
     {
-        _realizer = new ItemRealizer(this, this, CreateRealizedElement);
+        _panel = (VirtualizingStackPanel)ItemsHost;
+        _panel.Attach(this, CreateRealizedElement);
         UpdateLayoutSettings();
     }
 
@@ -89,28 +84,34 @@ public class VirtualizedList : Selector
     }
 
     /// <inheritdoc />
+    protected override void BuildTemplate()
+    {
+        Children.Add(DefinePart(new VirtualizingStackPanel(), ItemsPartName));
+    }
+
+    /// <inheritdoc />
     public override UIElement? GetItemElement(int index)
     {
-        return _realizer.GetElement(index);
+        return _panel.GetElement(index);
     }
 
     /// <inheritdoc />
     public override int IndexOfItemElement(UIElement element)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return _realizer.IndexOf(element);
+        return _panel.IndexOf(element);
     }
 
     /// <inheritdoc />
     protected override void UpdateItemElements(NotifyCollectionChangedEventArgs args)
     {
-        _realizer.Reset();
+        _panel.Reset();
     }
 
     /// <inheritdoc />
     protected override bool TryGetItemExtent(int index, out double top, out double height)
     {
-        top = _realizer.GetItemTop(index);
+        top = _panel.GetItemTop(index);
         height = ItemHeight;
         return true;
     }
@@ -138,15 +139,15 @@ public class VirtualizedList : Selector
 
     private void UpdateLayoutSettings()
     {
-        // The realizer is null while the base constructor sets property defaults.
-        if (_realizer is null)
+        // The panel is null while the base constructors set property defaults.
+        if (_panel is null)
         {
             return;
         }
 
-        _realizer.ItemHeight = Math.Max(1, ItemHeight);
-        _realizer.ItemSpacing = ItemSpacing;
-        _realizer.Overscan = Math.Max(0, Overscan);
-        _realizer.Reset();
+        _panel.ItemHeight = Math.Max(1, ItemHeight);
+        _panel.ItemSpacing = ItemSpacing;
+        _panel.Overscan = Math.Max(0, Overscan);
+        _panel.Reset();
     }
 }

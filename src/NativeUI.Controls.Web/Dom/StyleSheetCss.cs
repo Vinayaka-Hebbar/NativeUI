@@ -54,6 +54,7 @@ internal static class StyleSheetCss
     /// <see cref="Button"/> and <see cref="Input"/>, matching desktop rendering; scrolling on each <see cref="ScrollView"/>; fixed positioning on each <see cref="Portal"/>, with a modal backdrop of the same color as on desktop; and a
     /// <c>color-scheme</c> following <c>data-theme</c>. Each <see cref="Switch"/> and <see cref="Toggle"/> is a block, and
     /// each <see cref="CheckBox"/> and <see cref="ToggleGroup"/> is a row flex container. All four are as wide as their content.
+    /// Each <see cref="List"/> is a scrolling column flex container, each <see cref="VirtualizedList"/> is a scrolling block, and each table scrolls on both axes.
     /// <c>:where</c> keeps every declaration at zero specificity.
     /// </summary>
     public static CssStyleSheet BaseStyleSheet { get; } = new BaseCssStyleSheet();

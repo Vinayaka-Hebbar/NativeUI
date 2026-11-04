@@ -38,6 +38,7 @@ internal static class StyleCssDeclarations
             ("scrollbar-color", FormatScrollbarColor(style)),
             ("scrollbar-width", FormatScrollbarWidth(style?.ScrollbarWidth)),
             ("transform", FormatTransform(style?.Transform)),
+            ("z-index", style?.ZIndex?.ToString(CultureInfo.InvariantCulture)),
             ("position", FormatPosition(style?.Position)),
             ("top", FormatLength(style?.Top)),
             ("right", FormatLength(style?.Right)),

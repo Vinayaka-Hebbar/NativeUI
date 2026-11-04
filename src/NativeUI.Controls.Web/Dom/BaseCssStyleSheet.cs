@@ -323,6 +323,43 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
                 ["align-items"] = "flex-start",
                 ["width"] = "fit-content"
             }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-list"))),
+            new()
+            {
+                ["display"] = "flex",
+                ["flex-direction"] = "column",
+                ["overflow-y"] = "auto"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-virtualizedlist"))),
+            new()
+            {
+                ["display"] = "block",
+                ["overflow-y"] = "auto"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-table")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-virtualizedtable"))),
+            new()
+            {
+                ["display"] = "block",
+                ["overflow"] = "auto"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-listitem")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-tablecell"))),
+            new()
+            {
+                ["display"] = "block",
+                ["min-width"] = "0"
+            }));
     }
 
     private static CssRule Rule(

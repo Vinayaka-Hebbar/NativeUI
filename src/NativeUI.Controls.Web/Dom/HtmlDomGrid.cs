@@ -66,7 +66,10 @@ public sealed class HtmlDomGrid : HtmlDomView
         return string.Create(CultureInfo.InvariantCulture, $"{start + 1} / span {span}");
     }
 
-    private static string FormatTracks(IReadOnlyList<GridLength> tracks)
+    /// <summary>
+    /// Formats grid tracks for <c>grid-template-columns</c> or <c>grid-template-rows</c>.
+    /// </summary>
+    internal static string FormatTracks(IReadOnlyList<GridLength> tracks)
     {
         return tracks.Count == 0 ? "minmax(0, 1fr)" : string.Join(' ', tracks.Select(FormatTrack));
     }

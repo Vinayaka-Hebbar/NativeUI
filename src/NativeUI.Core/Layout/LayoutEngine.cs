@@ -614,6 +614,38 @@ public sealed class LayoutEngine
     }
 
     /// <summary>
+    /// Returns the boxes in CSS paint order: positioned boxes with a negative <c>z-index</c>, then boxes in normal flow,
+    /// then the other positioned boxes by ascending <c>z-index</c>. Boxes with equal values keep tree order.
+    /// </summary>
+    private static List<LayoutBox> OrderForPainting(List<LayoutBox> boxes)
+    {
+        List<LayoutBox> below = [];
+        List<LayoutBox> inFlow = [];
+        List<LayoutBox> above = [];
+        foreach (LayoutBox box in boxes)
+        {
+            if (!box.Style.IsPositioned)
+            {
+                inFlow.Add(box);
+            }
+            else if (box.Style.ZIndex < 0)
+            {
+                below.Add(box);
+            }
+            else
+            {
+                above.Add(box);
+            }
+        }
+
+        List<LayoutBox> ordered = new(boxes.Count);
+        ordered.AddRange(below.OrderBy(static box => box.Style.ZIndex));
+        ordered.AddRange(inFlow);
+        ordered.AddRange(above.OrderBy(static box => box.Style.ZIndex));
+        return ordered;
+    }
+
+    /// <summary>
     /// Moves a sticky box vertically to stay within the scrollport, inset by its <c>top</c> and <c>bottom</c>, without
     /// leaving the scroll content.
     /// </summary>
@@ -856,25 +888,7 @@ public sealed class LayoutEngine
             }
         }
 
-        // CSS paints positioned children after the children in normal flow, which places them above.
-        List<LayoutBox> paintOrder = new(childBoxes.Count);
-        foreach (LayoutBox childBox in childBoxes)
-        {
-            if (!childBox.Style.IsPositioned)
-            {
-                paintOrder.Add(childBox);
-            }
-        }
-
-        foreach (LayoutBox childBox in childBoxes)
-        {
-            if (childBox.Style.IsPositioned)
-            {
-                paintOrder.Add(childBox);
-            }
-        }
-
-        childBoxes = paintOrder;
+        childBoxes = OrderForPainting(childBoxes);
 
         return new LayoutBox(
             node,

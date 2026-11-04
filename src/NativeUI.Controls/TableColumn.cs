@@ -158,7 +158,7 @@ public class TableColumn : BindableObject
 
     /// <summary>
     /// Gets or sets the order in which the column sorts the rows. Setting it from code sorts the table without raising
-    /// <see cref="Table.SortingEvent"/>.
+    /// <see cref="TableBase.SortingEvent"/>.
     /// </summary>
     public SortDirection SortDirection
     {

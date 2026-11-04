@@ -106,13 +106,15 @@ public class TableRow : View, IGridLayoutNode
     }
 
     /// <summary>
-    /// Returns the columns that <paramref name="child"/> occupies, after the columns of the cells before it.
+    /// Returns the columns that <paramref name="child"/> occupies: from its <see cref="TableCell.ColumnIndex"/> when set,
+    /// and otherwise after the columns of the cells before it.
     /// </summary>
     internal GridPlacement GetPlacement(ILayoutNode child)
     {
         int column = 0;
         foreach (TableCell cell in _cells)
         {
+            column = cell.ColumnIndex ?? column;
             int span = Math.Max(1, cell.ColumnSpan);
             if (ReferenceEquals(cell, child))
             {

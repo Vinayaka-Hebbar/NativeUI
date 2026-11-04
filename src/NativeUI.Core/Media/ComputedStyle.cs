@@ -162,6 +162,12 @@ public sealed record ComputedStyle
     public StyleTransform? Transform { get; init; }
 
     /// <summary>
+    /// Gets the paint order of a positioned element among its positioned siblings. Zero is the CSS <c>auto</c> value.
+    /// Elements with a negative value paint below the siblings in normal flow, and higher values paint above lower ones.
+    /// </summary>
+    public int ZIndex { get; init; }
+
+    /// <summary>
     /// Gets how changes to this element's properties transition.
     /// </summary>
     public ImmutableArray<TransitionSpec> Transitions { get; init; } = [];
@@ -279,7 +285,8 @@ public sealed record ComputedStyle
             Right = inlineStyle.Right ?? Right,
             Bottom = inlineStyle.Bottom ?? Bottom,
             Left = inlineStyle.Left ?? Left,
-            Transform = inlineStyle.Transform ?? Transform
+            Transform = inlineStyle.Transform ?? Transform,
+            ZIndex = inlineStyle.ZIndex ?? ZIndex
         };
     }
 

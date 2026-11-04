@@ -175,6 +175,12 @@ public sealed class Style : BindableObject, IStyle
         BindableProperty.Create<Style, StyleTransform?>(nameof(Transform));
 
     /// <summary>
+    /// Identifies the <see cref="ZIndex"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<int?> ZIndexProperty =
+        BindableProperty.Create<Style, int?>(nameof(ZIndex));
+
+    /// <summary>
     /// Gets or sets the foreground text color or theme color token.
     /// </summary>
     public ThemeValue<Color>? Color
@@ -415,5 +421,15 @@ public sealed class Style : BindableObject, IStyle
     {
         get => GetValue(TransformProperty);
         set => SetValue(TransformProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the paint order of a positioned element among its positioned siblings. Higher values paint later, above
+    /// lower ones, and equal values paint in tree order.
+    /// </summary>
+    public int? ZIndex
+    {
+        get => GetValue(ZIndexProperty);
+        set => SetValue(ZIndexProperty, value);
     }
 }

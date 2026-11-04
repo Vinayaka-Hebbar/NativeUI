@@ -88,4 +88,7 @@ public interface IStyle
 
     /// <summary>Gets the specified transform.</summary>
     StyleTransform? Transform { get; }
+
+    /// <summary>Gets the specified paint order of a positioned element among its positioned siblings.</summary>
+    int? ZIndex { get; }
 }

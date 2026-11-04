@@ -89,6 +89,7 @@ public sealed class CssValidator : CssSyntaxVisitor
         "bottom",
         "left",
         "transform",
+        "z-index",
         "transition",
         "animation"
     };
@@ -369,6 +370,13 @@ public sealed class CssValidator : CssSyntaxVisitor
             "checkbox" => "nui-checkbox",
             "toggle" => "nui-toggle",
             "togglegroup" => "nui-togglegroup",
+            "list" => "nui-list",
+            "virtualizedlist" => "nui-virtualizedlist",
+            "listitem" => "nui-listitem",
+            "table" => "nui-table",
+            "virtualizedtable" => "nui-virtualizedtable",
+            "tablerow" => "nui-tablerow",
+            "tablecell" => "nui-tablecell",
             _ => null
         };
     }

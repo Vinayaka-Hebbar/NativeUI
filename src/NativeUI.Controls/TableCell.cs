@@ -30,6 +30,12 @@ public class TableCell : ContentControl
     public override string TagName => "tablecell";
 
     /// <summary>
+    /// Gets or sets the visible column that the cell starts in, or <see langword="null"/> to follow the cells before it in
+    /// its row. A table that creates cells only for visible columns sets it.
+    /// </summary>
+    internal int? ColumnIndex { get; set; }
+
+    /// <summary>
     /// Gets or sets the sort direction that this cell shows as a column header.
     /// </summary>
     internal SortDirection SortDirection

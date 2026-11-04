@@ -16,6 +16,13 @@ internal static class HtmlTagMapping
     private const string CheckBoxTag = "nui-checkbox";
     private const string ToggleTag = "nui-toggle";
     private const string ToggleGroupTag = "nui-togglegroup";
+    private const string ListTag = "nui-list";
+    private const string VirtualizedListTag = "nui-virtualizedlist";
+    private const string ListItemTag = "nui-listitem";
+    private const string TableTag = "nui-table";
+    private const string VirtualizedTableTag = "nui-virtualizedtable";
+    private const string TableRowTag = "nui-tablerow";
+    private const string TableCellTag = "nui-tablecell";
 
     /// <summary>
     /// Gets the tag created for <paramref name="element"/>.
@@ -68,6 +75,41 @@ internal static class HtmlTagMapping
         if (element is ToggleGroup)
         {
             return ToggleGroupTag;
+        }
+
+        if (element is List)
+        {
+            return ListTag;
+        }
+
+        if (element is VirtualizedList)
+        {
+            return VirtualizedListTag;
+        }
+
+        if (element is ListItem)
+        {
+            return ListItemTag;
+        }
+
+        if (element is Table)
+        {
+            return TableTag;
+        }
+
+        if (element is VirtualizedTable)
+        {
+            return VirtualizedTableTag;
+        }
+
+        if (element is TableRow)
+        {
+            return TableRowTag;
+        }
+
+        if (element is TableCell)
+        {
+            return TableCellTag;
         }
 
         return ContainerTag;
@@ -126,6 +168,41 @@ internal static class HtmlTagMapping
             return ToggleGroupTag;
         }
 
+        if (typeof(List).IsAssignableFrom(type))
+        {
+            return ListTag;
+        }
+
+        if (typeof(VirtualizedList).IsAssignableFrom(type))
+        {
+            return VirtualizedListTag;
+        }
+
+        if (typeof(ListItem).IsAssignableFrom(type))
+        {
+            return ListItemTag;
+        }
+
+        if (typeof(Table).IsAssignableFrom(type))
+        {
+            return TableTag;
+        }
+
+        if (typeof(VirtualizedTable).IsAssignableFrom(type))
+        {
+            return VirtualizedTableTag;
+        }
+
+        if (typeof(TableRow).IsAssignableFrom(type))
+        {
+            return TableRowTag;
+        }
+
+        if (typeof(TableCell).IsAssignableFrom(type))
+        {
+            return TableCellTag;
+        }
+
         // A base type or interface of Text also covers controls rendered with the container tag.
         return type.IsAssignableFrom(typeof(Text)) ? $":is({TextTag}, {ContainerTag})" : ContainerTag;
     }
@@ -150,6 +227,13 @@ internal static class HtmlTagMapping
             "checkbox" => CheckBoxTag,
             "toggle" => ToggleTag,
             "togglegroup" => ToggleGroupTag,
+            "list" => ListTag,
+            "virtualizedlist" => VirtualizedListTag,
+            "listitem" => ListItemTag,
+            "table" => TableTag,
+            "virtualizedtable" => VirtualizedTableTag,
+            "tablerow" => TableRowTag,
+            "tablecell" => TableCellTag,
             _ => throw new NotSupportedException($"The element type '{elementType}' has no HTML element mapping.")
         };
     }

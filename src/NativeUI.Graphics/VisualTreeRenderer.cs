@@ -99,6 +99,7 @@ public sealed class VisualTreeRenderer : IDisposable
 
         context.Save();
         _currentRoot = root;
+        _pixelScale = scaleFactor > 0 ? scaleFactor : 1;
         try
         {
             context.Scale(scaleFactor, scaleFactor);
@@ -218,6 +219,8 @@ public sealed class VisualTreeRenderer : IDisposable
     }
 
     private UIElement? _currentRoot;
+    // TODO: Use the actual pixel scale of the drawing context instead of a fixed value. This is needed for snapping to device pixels.
+    private double _pixelScale = 1;
 
     private void DrawBoxRecursive(DrawingContext context, LayoutBox box)
     {
@@ -273,17 +276,24 @@ public sealed class VisualTreeRenderer : IDisposable
             if (style.BackgroundColor is Color bgColor && bgColor.Alpha > 0)
             {
                 Paint bgPaint = new(bgColor, drawOpacity);
+                Rect background = SnapToPixels(box.BorderBox);
                 if (style.BorderRadius > 0)
                 {
-                    context.DrawRoundedRectangle(box.BorderBox, style.BorderRadius, bgPaint);
+                    context.DrawRoundedRectangle(background, style.BorderRadius, bgPaint);
                 }
                 else
                 {
-                    context.DrawRectangle(box.BorderBox, bgPaint);
+                    context.DrawRectangle(background, bgPaint);
                 }
             }
 
-            DrawBorder(context, box, drawOpacity);
+            // An element that clips its children draws its border after them. The clip edge and the border's inner edge
+            // share an anti-aliased pixel, which the border then covers.
+            bool drawsBorderLast = box.Children.Count > 0 && ShouldClipChildren(box);
+            if (!drawsBorderLast)
+            {
+                DrawBorder(context, box, drawOpacity);
+            }
 
             if (box.Element is Image image)
             {
@@ -369,6 +379,11 @@ public sealed class VisualTreeRenderer : IDisposable
                 }
             }
 
+            if (drawsBorderLast)
+            {
+                DrawBorder(context, box, drawOpacity);
+            }
+
             DrawScrollIndicators(context, box, drawOpacity);
         }
         finally
@@ -383,17 +398,13 @@ public sealed class VisualTreeRenderer : IDisposable
     /// <summary>
     /// Clips to the padding box, the area inside the border, as CSS clips overflow. The corner radius of the clip is
     /// <see cref="ComputedStyle.BorderRadius"/> reduced by the border width, which follows the inner edge of the border.
+    /// The clip edges lie on device pixels, as do the backgrounds and border edges they meet.
     /// </summary>
-    private static void ClipToPaddingBox(DrawingContext context, LayoutBox box)
+    private void ClipToPaddingBox(DrawingContext context, LayoutBox box)
     {
         ComputedStyle style = box.Style;
-        double width = Math.Max(0, style.BorderWidth);
-        Rect paddingBox = new(
-            box.BorderBox.X + width,
-            box.BorderBox.Y + width,
-            Math.Max(0, box.BorderBox.Width - (width * 2)),
-            Math.Max(0, box.BorderBox.Height - (width * 2)));
-        double radius = Math.Max(0, style.BorderRadius - width);
+        Rect paddingBox = GetPaddingBox(box);
+        double radius = Math.Max(0, style.BorderRadius - Math.Max(0, style.BorderWidth));
         if (radius > 0)
         {
             context.ClipRoundedRectangle(paddingBox, radius);
@@ -405,25 +416,54 @@ public sealed class VisualTreeRenderer : IDisposable
     }
 
     /// <summary>
-    /// Strokes the border inside the border box, so its outer edge follows <see cref="ComputedStyle.BorderRadius"/>.
+    /// Strokes the border between the border box and the padding box, so its outer edge follows
+    /// <see cref="ComputedStyle.BorderRadius"/>. Both edges lie on device pixels.
     /// </summary>
-    private static void DrawBorder(DrawingContext context, LayoutBox box, double opacity)
+    private void DrawBorder(DrawingContext context, LayoutBox box, double opacity)
     {
         ComputedStyle style = box.Style;
-        double width = style.BorderWidth;
-        if (width <= 0)
+        if (style.BorderWidth <= 0)
         {
             return;
         }
 
+        Rect outer = SnapToPixels(box.BorderBox);
+        Rect inner = GetPaddingBox(box);
+        double width = Math.Max(1 / _pixelScale, inner.Y - outer.Y);
         double inset = width / 2.0;
         Rect outline = new(
-            box.BorderBox.X + inset,
-            box.BorderBox.Y + inset,
-            Math.Max(0, box.BorderBox.Width - width),
-            Math.Max(0, box.BorderBox.Height - width));
+            outer.X + inset,
+            outer.Y + inset,
+            Math.Max(0, outer.Width - width),
+            Math.Max(0, outer.Height - width));
         Paint paint = new(style.BorderColor ?? style.TextColor ?? Colors.Black, opacity);
         context.StrokeRoundedRectangle(outline, Math.Max(0, style.BorderRadius - inset), width, paint);
+    }
+
+    /// <summary>
+    /// Returns the padding box of <paramref name="box"/> with its edges on device pixels.
+    /// </summary>
+    private Rect GetPaddingBox(LayoutBox box)
+    {
+        double width = Math.Max(0, box.Style.BorderWidth);
+        return SnapToPixels(new Rect(
+            box.BorderBox.X + width,
+            box.BorderBox.Y + width,
+            Math.Max(0, box.BorderBox.Width - (width * 2)),
+            Math.Max(0, box.BorderBox.Height - (width * 2))));
+    }
+
+    /// <summary>
+    /// Rounds each edge of <paramref name="rect"/> to the nearest device pixel. Two boxes that share an edge in layout then
+    /// share it on screen, without an anti-aliased pixel that shows what lies beneath both.
+    /// </summary>
+    private Rect SnapToPixels(Rect rect)
+    {
+        double left = Math.Round(rect.X * _pixelScale) / _pixelScale;
+        double top = Math.Round(rect.Y * _pixelScale) / _pixelScale;
+        double right = Math.Round(rect.Right * _pixelScale) / _pixelScale;
+        double bottom = Math.Round(rect.Bottom * _pixelScale) / _pixelScale;
+        return new Rect(left, top, Math.Max(0, right - left), Math.Max(0, bottom - top));
     }
 
     private static void AttachImages(UIElement element, IImageDecoder? decoder, HashSet<Image> images)

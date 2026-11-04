@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 
 namespace NativeUI.Core;
 
@@ -199,12 +200,18 @@ public class BindableProperty<TValue> : BindableProperty
     /// <summary>Gets an optional conversion from a bound source value to this property's value type.</summary>
     public Func<object?, TValue>? ValueConverter { get; init; }
 
-    /// <summary>Converts a binding value using the property's declared conversion policy.</summary>
+    /// <summary>
+    /// Converts a binding value using the property's declared conversion policy. A <see cref="string"/> property without
+    /// a <see cref="ValueConverter"/> receives the value's string form in the current culture.
+    /// </summary>
+    /// <exception cref="InvalidCastException">The value has no conversion to the property's value type.</exception>
     public TValue ConvertValue(object? value)
     {
         if (value is TValue typed) return typed;
         if (value is null) return default!;
-        return ValueConverter is not null ? ValueConverter(value) : (TValue)value;
+        if (ValueConverter is not null) return ValueConverter(value);
+        if (typeof(TValue) == typeof(string)) return (TValue)(object)(Convert.ToString(value, CultureInfo.CurrentCulture) ?? string.Empty);
+        return (TValue)value;
     }
 
 

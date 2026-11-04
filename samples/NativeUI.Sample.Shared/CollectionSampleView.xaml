@@ -1,0 +1,91 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:models="using:NativeUI.Sample"
+      x:Class="NativeUI.Sample.CollectionSampleView"
+      Class="collection-page">
+    <Text Class="collection-title" Value="List and Table" />
+    <Text Class="collection-description" Value="Data templates, selection, sorting, sticky headers, and virtualization." />
+
+    <View Class="collection-section">
+        <Text Class="collection-heading" Value="List" />
+        <List x:Name="UserList" Class="user-list" SelectionMode="Single">
+            <List.ItemTemplate>
+                <DataTemplate DataType="models:SampleUser">
+                    <View Class="user-item">
+                        <Text Class="user-name" Value="{Binding Name}" />
+                        <Text Class="user-email" Value="{Binding Email}" />
+                    </View>
+                </DataTemplate>
+            </List.ItemTemplate>
+        </List>
+        <Text x:Name="ListStatus" Class="collection-status" Value="No user selected" />
+    </View>
+
+    <View Class="collection-section">
+        <Text Class="collection-heading" Value="VirtualizedList with 10,000 items" />
+        <VirtualizedList x:Name="LargeList" Class="large-list" ItemHeight="32" Overscan="5" SelectionMode="Multiple" />
+        <Text x:Name="LargeListStatus" Class="collection-status" Value="Selected: 0" />
+    </View>
+
+    <View Class="collection-section">
+        <Text Class="collection-heading" Value="Table with explicit rows" />
+        <Table Class="data-table">
+            <Table.Columns>
+                <TableColumn Header="Name" Width="2*" />
+                <TableColumn Header="Status" Width="*" />
+            </Table.Columns>
+            <Table.Rows>
+                <TableRow>
+                    <TableCell>Alice</TableCell>
+                    <TableCell>Active</TableCell>
+                </TableRow>
+                <TableRow>
+                    <TableCell>Bob</TableCell>
+                    <TableCell>Pending</TableCell>
+                </TableRow>
+            </Table.Rows>
+            <Table.Footer>
+                <Text Class="table-footer" Value="Total: 2" />
+            </Table.Footer>
+        </Table>
+    </View>
+
+    <View Class="collection-section">
+        <Text Class="collection-heading" Value="Sortable VirtualizedTable" />
+        <VirtualizedTable x:Name="UserTable" Class="data-table tall-table" RowHeight="36" CanSortColumns="True" CanReorderColumns="True">
+            <VirtualizedTable.Columns>
+                <TableColumn Header="Name" Width="2*" SortMemberPath="Name">
+                    <TableColumn.CellTemplate>
+                        <DataTemplate DataType="models:SampleUser">
+                            <Text Value="{Binding Name}" />
+                        </DataTemplate>
+                    </TableColumn.CellTemplate>
+                </TableColumn>
+                <TableColumn Header="Email" Width="3*" SortMemberPath="Email">
+                    <TableColumn.CellTemplate>
+                        <DataTemplate DataType="models:SampleUser">
+                            <Text Value="{Binding Email}" />
+                        </DataTemplate>
+                    </TableColumn.CellTemplate>
+                </TableColumn>
+                <TableColumn Header="Status" Width="120" SortMemberPath="Status">
+                    <TableColumn.CellTemplate>
+                        <DataTemplate DataType="models:SampleUser">
+                            <Text Value="{Binding Status}" />
+                        </DataTemplate>
+                    </TableColumn.CellTemplate>
+                </TableColumn>
+                <TableColumn Header="Age" Width="80" SortMemberPath="Age">
+                    <TableColumn.CellTemplate>
+                        <DataTemplate DataType="models:SampleUser">
+                            <Text Value="{Binding Age}" />
+                        </DataTemplate>
+                    </TableColumn.CellTemplate>
+                </TableColumn>
+            </VirtualizedTable.Columns>
+            <VirtualizedTable.Footer>
+                <Text Class="table-footer" Value="End of records" />
+            </VirtualizedTable.Footer>
+        </VirtualizedTable>
+    </View>
+</View>
