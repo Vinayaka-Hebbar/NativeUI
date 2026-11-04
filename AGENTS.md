@@ -71,5 +71,6 @@ Detailed domain workflows and checklists are organized as modular skills under `
 - [`code-comments-xmldoc`](.agents/skills/code-comments-xmldoc/SKILL.md) — XML documentation rules and inline comment guidelines.
 - [`git-commit-messages`](.agents/skills/git-commit-messages/SKILL.md) — Commit message formatting and scope conventions.
 - [`architecture-organization`](.agents/skills/architecture-organization/SKILL.md) — Project boundaries, dependency rules, Skia desktop rendering, and native/Web interop design.
+- [`architecture-decisions`](.agents/skills/architecture-decisions/SKILL.md) — Required before new structural changes: inspect existing patterns, make folder/API/dependency choices reviewable, obtain approval for unapproved architecture, and verify each slice.
 - [`testing`](.agents/skills/testing/SKILL.md) — Unit, compiler, and platform testing conventions.
 - [`documentation`](.agents/skills/documentation/SKILL.md) — Technical documentation, architecture notes, and platform limitation reporting.

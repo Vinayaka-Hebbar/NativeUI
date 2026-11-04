@@ -12,6 +12,14 @@ using NativeUI.Tests;
 
 int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
 [
+    ("Image/vector PercentageSizingUsesDefiniteDimensions", ImageAndGeometryTests.PercentageSizingUsesDefiniteDimensions),
+    ("Image/vector SvgTextKeepsDocumentOrder", ImageAndGeometryTests.SvgTextKeepsDocumentOrder),
+    ("Image/vector CompiledFactoryIsRetainedAndInvalidatesOnce", ImageAndGeometryTests.CompiledFactoryIsRetainedAndInvalidatesOnce),
+    ("Image/vector HelloViewContainsWorkingImagePage", ImageAndGeometryTests.HelloViewContainsWorkingImagePage),
+    ("Compiled gradient SVG matches runtime rendering", NativeUI.Controls.Tests.ImageAndGeometryTests.CompiledGradientMatchesRuntimeSvg),
+    ("Typed SVG definitions render local references, clipping, masks, and text", NativeUI.Controls.Tests.ImageAndGeometryTests.TypedDefinitionsRenderReferencesClipsMasksAndText),
+    ("Google SVG resource compiles, embeds, and renders", ImageAndGeometryTests.GoogleSvgResourceIsCompiledAndEmbedded),
+    ("Image/vector SvgAndArcsRenderWithActualSkia", ImageAndGeometryTests.SvgAndArcsRenderWithActualSkia),
     ("Animation roots notify only on idle-to-active transitions", AnimationClockLifecycleTests.VerifyRootActivationNotifications),
     ("Animation registration rolls back after frame notification fails", AnimationClockLifecycleTests.VerifyRegistrationNotificationFailure),
     ("Animation rollback preserves a reentrant replacement registration", AnimationClockLifecycleTests.VerifyRollbackPreservesReplacement),

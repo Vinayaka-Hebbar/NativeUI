@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <defs>
+    <linearGradient id="paint">
+      <stop offset="0" stop-color="#4285F4" />
+      <stop offset="1" stop-color="rgba(255, 0, 0, 0.5)" />
+    </linearGradient>
+  </defs>
+  <g fill="#4285F4" color="#00ff00" transform="translate(1, 1)">
+    <path d="M0 0 L10 0 L10 10 Z" stroke="rgb(0, 0, 255)" />
+    <path d="M12 0 L22 0 L22 10 Z" fill="none" stroke="currentColor" />
+    <path d="M0 12 L10 12 L10 22 Z" fill="url(#paint)" />
+  </g>
+</svg>

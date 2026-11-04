@@ -88,7 +88,13 @@ public static class XamlParser
             pos,
             attributes,
             children,
-            innerText);
+            innerText)
+        {
+            SvgMarkup = element.Name.NamespaceName == "http://www.w3.org/2000/svg" ||
+                (element.Name.LocalName == "Svg" && element.Elements().Any(static child => child.Name.NamespaceName == "http://www.w3.org/2000/svg"))
+                ? element.ToString(SaveOptions.DisableFormatting)
+                : null
+        };
     }
 
     private static XamlSourcePosition GetPosition(IXmlLineInfo lineInfo)

@@ -78,16 +78,28 @@ public static class XamlEmitter
                 SeparatedList<ExpressionSyntax>([IdentifierName("CS1591")]),
                 true)));
 
+        List<UsingDirectiveSyntax> usings =
+        [
+            UsingDirective(ParseName("System.Collections.Generic")),
+            UsingDirective(ParseName("System.Collections.Immutable")),
+            UsingDirective(ParseName("System.Numerics")),
+            UsingDirective(ParseName("NativeUI.Controls")),
+            UsingDirective(ParseName("NativeUI.Graphics3D")),
+            UsingDirective(ParseName("NativeUI.Core")),
+            UsingDirective(ParseName("NativeUI.Layout")),
+            UsingDirective(ParseName("NativeUI.Media")),
+            UsingDirective(ParseName("NativeUI.Xaml"))
+        ];
+        bool usesGeneratedSvgAssets = classDecl.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Any(static member => member.Expression is IdentifierNameSyntax { Identifier.ValueText: "GeneratedSvgAssets" });
+        if (usesGeneratedSvgAssets)
+        {
+            usings.Add(UsingDirective(ParseName("NativeUI.Generated")));
+        }
+
         return CompilationUnit()
-            .WithUsings(List(
-            [
-                UsingDirective(ParseName("NativeUI.Controls")),
-                UsingDirective(ParseName("NativeUI.Graphics3D")),
-                UsingDirective(ParseName("NativeUI.Core")),
-                UsingDirective(ParseName("NativeUI.Layout")),
-                UsingDirective(ParseName("NativeUI.Media")),
-                UsingDirective(ParseName("NativeUI.Xaml"))
-            ]))
+            .WithUsings(List(usings))
             .WithMembers(SingletonList<MemberDeclarationSyntax>(namespaceDecl))
             .WithLeadingTrivia(leadingTrivia);
     }
@@ -258,7 +270,7 @@ public static class XamlEmitter
         string? dataType,
         string viewNamespace)
     {
-        foreach (ValidatedXamlProperty prop in element.Properties)
+        foreach (ValidatedXamlProperty prop in element.Properties.OrderBy(static property => property.Kind == XamlPropertyKind.Event ? 0 : 1))
         {
             if (prop.Binding is BindingExpressionNode binding)
             {
@@ -281,6 +293,12 @@ public static class XamlEmitter
         XamlPropertyKind kind,
         string rawLiteral)
     {
+        if (kind == XamlPropertyKind.Event)
+        {
+            ExpressionSyntax target = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, targetExpr, IdentifierName(propertyName));
+            return ExpressionStatement(AssignmentExpression(SyntaxKind.AddAssignmentExpression, target, IdentifierName(rawLiteral)));
+        }
+
         if (kind == XamlPropertyKind.AttachedInt32)
         {
             return BuildAttachedSetterStatement(targetExpr, propertyName, rawLiteral);

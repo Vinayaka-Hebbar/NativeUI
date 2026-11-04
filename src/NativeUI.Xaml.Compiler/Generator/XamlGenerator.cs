@@ -17,6 +17,20 @@ public sealed class XamlGenerator : IIncrementalGenerator
     /// <inheritdoc />
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
+        IncrementalValueProvider<ImmutableArray<SvgAsset>> svgAssets = context.AdditionalTextsProvider
+            .Where(static file => file.Path.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
+            .Combine(context.AnalyzerConfigOptionsProvider)
+            .Select(static (input, token) => SvgAssetCompiler.Read(input.Left, input.Right, token))
+            .Collect();
+        context.RegisterSourceOutput(svgAssets, static (output, assets) =>
+        {
+            foreach (SvgAsset asset in assets)
+            {
+                if (asset.Diagnostic is not null) output.ReportDiagnostic(asset.Diagnostic);
+            }
+            if (!assets.IsEmpty) output.AddSource("GeneratedSvgAssets.g.cs", SourceText.From(SvgAssetCompiler.Emit(assets), Encoding.UTF8));
+        });
+
         IncrementalValuesProvider<(string FilePath, string Content, string DefaultNamespace, Compilation Compilation)> xamlInputs = context
             .AdditionalTextsProvider
             .Where(static file => file.Path.EndsWith(".xaml", StringComparison.OrdinalIgnoreCase))
@@ -45,14 +59,14 @@ public sealed class XamlGenerator : IIncrementalGenerator
             .Where(static view => view is not null)
             .Collect();
 
-        context.RegisterSourceOutput(xamlInputs.Combine(knownViews), static (productionContext, input) =>
+        context.RegisterSourceOutput(xamlInputs.Combine(knownViews).Combine(svgAssets), static (productionContext, input) =>
         {
-            (string FilePath, string Content, string DefaultNamespace, Compilation Compilation) item = input.Left;
+            (string FilePath, string Content, string DefaultNamespace, Compilation Compilation) item = input.Left.Left;
             XamlDocumentNode ast = XamlParser.Parse(item.FilePath, item.Content);
             ValidatedXamlDocument validated = XamlValidator.Validate(
                 ast,
                 defaultNamespace: item.DefaultNamespace,
-                knownViews: [.. input.Right.OfType<XamlViewReference>()],
+                knownViews: [.. input.Left.Right.OfType<XamlViewReference>()],
                 compilation: item.Compilation);
 
             foreach (Diagnostic diagnostic in validated.Diagnostics)
@@ -65,6 +79,7 @@ public sealed class XamlGenerator : IIncrementalGenerator
                 return;
             }
 
+            validated = SvgAssetCompiler.Rewrite(validated, input.Right, item.Compilation);
             Accessibility viewAccess = InspectViewAccessibility(item.Compilation, validated.ClassName);
             string generatedCSharp = XamlEmitter.Emit(validated, viewAccess);
             if (!string.IsNullOrEmpty(generatedCSharp))

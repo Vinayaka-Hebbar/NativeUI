@@ -1,0 +1,9 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:svg="http://www.w3.org/2000/svg"
+      x:Class="Tests.InlineView">
+    <Svg x:Name="Artwork" ViewBox="0 0 100 40" Width="100" Height="40">
+        <svg:path d="M0 0 L24 0 L12 24 Z" fill="red" />
+        <svg:text x="0" y="35">before<svg:tspan fill="blue">middle</svg:tspan>after</svg:text>
+    </Svg>
+</View>

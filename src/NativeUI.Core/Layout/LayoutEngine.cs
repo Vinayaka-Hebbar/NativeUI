@@ -67,6 +67,13 @@ public sealed class LayoutEngine
     {
         ComputedStyle style = node.ComputedStyle;
         double fillWidth = Math.Max(0, availableWidth - style.Margin.Horizontal);
+        if (style.Width.IsAuto && node is IIntrinsicSize intrinsic)
+        {
+            Size natural = intrinsic.GetIntrinsicSize(new Size(fillWidth, double.PositiveInfinity));
+            double width = style.Height is double h && natural.Height > 0 ? Math.Max(0, h - style.ContentInsets.Vertical) * natural.Width / natural.Height : natural.Width;
+            return Math.Min(fillWidth, width + style.ContentInsets.Horizontal);
+        }
+
         return style.Width switch
         {
             { IsPixels: true } pixels => pixels.Value,
@@ -106,6 +113,11 @@ public sealed class LayoutEngine
         if (style.Width is { IsPixels: true } fixedWidth)
         {
             return fixedWidth.Value;
+        }
+
+        if (node is IIntrinsicSize intrinsic)
+        {
+            return intrinsic.GetIntrinsicSize().Width + style.ContentInsets.Horizontal;
         }
 
         if (node.TextContent is string text)
@@ -619,6 +631,15 @@ public sealed class LayoutEngine
         double contentMaxWidth = Math.Max(0, borderWidth - padding.Horizontal);
 
         double? specifiedHeight = ResolveSpecifiedHeight(style, availableSize.Height);
+
+        if (node is IIntrinsicSize intrinsic)
+        {
+            Size natural = intrinsic.GetIntrinsicSize(new Size(availableSize.Width, specifiedHeight ?? double.PositiveInfinity));
+            double height = specifiedHeight ?? ((natural.Width > 0 ? contentMaxWidth * natural.Height / natural.Width : natural.Height) + padding.Vertical);
+            return new LayoutBox(node, style,
+                new Rect(borderX, borderY, borderWidth, height),
+                new Rect(contentX, contentY, contentMaxWidth, Math.Max(0, height - padding.Vertical)), []);
+        }
 
         if (node.TextContent is string text)
         {

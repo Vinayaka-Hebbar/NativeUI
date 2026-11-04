@@ -31,6 +31,7 @@ public partial class HelloView
             (NavGrid, GridPage),
             (NavScroll, ScrollPage),
             (NavCanvas, CanvasPage),
+            (NavImages, ImagePage),
             (NavInput, InputPage),
             (NavDialog, DialogPage),
             (NavAnimation, AnimationPage),

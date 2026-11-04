@@ -11,6 +11,11 @@ description: >-
 
 Use this guide whenever designing or modifying components, projects, or platform implementations in NativeUI.
 
+Before introducing new folders, public APIs, dependencies, or architectural patterns,
+also follow [architecture-decisions](../architecture-decisions/SKILL.md). Reuse
+existing repository implementations and preserve structural choices already approved
+by the user.
+
 ## 1. Core Architectural Mandates
 
 1. **Hybrid Rendering Model (SkiaSharp Desktop + Real HTML DOM Web)**:

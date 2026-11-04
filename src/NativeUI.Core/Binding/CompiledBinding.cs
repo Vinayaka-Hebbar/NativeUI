@@ -247,7 +247,7 @@ public sealed class CompiledBinding<TSource, TValue>
                 }
                 else
                 {
-                    _target.SetValue(_targetProperty, (TProperty)(object)value);
+                    _target.SetValue(_targetProperty, _targetProperty.ConvertValue(value));
                 }
             }
             finally

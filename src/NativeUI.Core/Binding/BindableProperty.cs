@@ -196,6 +196,18 @@ public class BindableProperty<TValue> : BindableProperty
     /// </summary>
     public TValue DefaultValue { get; }
 
+    /// <summary>Gets an optional conversion from a bound source value to this property's value type.</summary>
+    public Func<object?, TValue>? ValueConverter { get; init; }
+
+    /// <summary>Converts a binding value using the property's declared conversion policy.</summary>
+    public TValue ConvertValue(object? value)
+    {
+        if (value is TValue typed) return typed;
+        if (value is null) return default!;
+        return ValueConverter is not null ? ValueConverter(value) : (TValue)value;
+    }
+
+
     /// <summary>
     /// Initializes a new instance of the <see cref="BindableProperty{TValue}"/> class.
     /// </summary>

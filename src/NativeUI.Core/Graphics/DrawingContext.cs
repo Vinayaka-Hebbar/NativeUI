@@ -22,8 +22,42 @@ public enum ClipMode
 /// <summary>
 /// Provides a platform- and graphics-backend-agnostic 2D drawing abstraction for rendering laid-out UI elements.
 /// </summary>
-public abstract class DrawingContext
+public abstract class DrawingContext : IDisposable
 {
+    private DrawingResourceCache _resources = new();
+    private bool _ownsResources = true;
+
+    /// <summary>Gets the backend resource cache used by the current drawing pass.</summary>
+    public DrawingResourceCache Resources => _resources;
+
+    /// <summary>Uses externally owned resources retained by a visual tree renderer.</summary>
+    public void UseResources(DrawingResourceCache resources)
+    {
+        if (ReferenceEquals(_resources, resources)) return;
+        if (_ownsResources) _resources.Dispose();
+        _resources = resources;
+        _ownsResources = false;
+    }
+
+    /// <summary>Gets the decoder for this backend, if image presentation is supported.</summary>
+    public virtual IImageDecoder? ImageDecoder => null;
+
+    /// <summary>Draws an owned decoded image into a logical destination rectangle.</summary>
+    public virtual void DrawImage(IDecodedImage image, Rect destination, double opacity = 1) => throw new NotSupportedException("Image drawing is unavailable on this backend.");
+
+    /// <summary>Draws immutable path geometry using independent fill and stroke brushes.</summary>
+    public virtual void DrawGeometry(PathGeometry geometry, Brush? fill, Brush? stroke, double strokeThickness, double opacity = 1) => throw new NotSupportedException("Vector drawing is unavailable on this backend.");
+
+    /// <summary>Draws an immutable SVG definition in its native vector coordinate system.</summary>
+    public virtual void DrawSvg(SvgNode definition, Rect viewport, double opacity = 1) => throw new NotSupportedException("SVG drawing is unavailable on this backend.");
+
+    /// <summary>Releases resources owned directly by this context.</summary>
+    public virtual void Dispose()
+    {
+        if (_ownsResources) _resources.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
     /// <summary>
     /// Saves the current transform and clip state onto the internal stack.
     /// Every call to <see cref="Save"/> must be balanced by a matching call to <see cref="Restore"/>.

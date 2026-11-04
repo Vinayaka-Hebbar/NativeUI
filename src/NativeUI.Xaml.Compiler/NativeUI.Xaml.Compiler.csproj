@@ -21,4 +21,9 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../NativeUI.Core/Media/Geometry/PathDataParser.cs" Link="Parsing/PathDataParser.cs" />
+    <Compile Include="../NativeUI.Core/Media/Svg/SvgValueParser.cs" Link="Parsing/SvgValueParser.cs" />
+    <Compile Include="../NativeUI.Core/Media/Svg/SvgDocumentParser.cs" Link="Parsing/SvgDocumentParser.cs" />
+  </ItemGroup>
 </Project>

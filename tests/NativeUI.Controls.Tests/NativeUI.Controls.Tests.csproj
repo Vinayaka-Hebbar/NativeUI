@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Include="..\TestHarness.cs" Link="TestHarness.cs" />
+    <None Include="Fixtures/**/*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -10,6 +10,9 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />
+    <EmbeddedResource Include="Assets/logo.svg" LogicalName="Assets/logo.svg" />
+    <EmbeddedResource Include="Assets/google.svg" LogicalName="Assets/google.svg" />
+    <EmbeddedResource Include="Assets/logo.png" LogicalName="Assets/logo.png" />
   </ItemGroup>
 
   <ItemGroup>

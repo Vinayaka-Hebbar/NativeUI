@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="../NativeUI.Controls.Tests/Fixtures/Images/logo.svg" LogicalName="Assets/logo.svg" />
     <Compile Include="..\TestHarness.cs" Link="TestHarness.cs" />
     <None Include="../../tools/Unicode/17.0.0/BidiBrackets.txt" Link="Fixtures/Unicode/BidiBrackets.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

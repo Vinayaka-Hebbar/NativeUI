@@ -56,6 +56,9 @@ public sealed record XamlElementNode(
     IReadOnlyList<XamlElementNode> Children,
     string? InnerText = null) : XamlSyntaxNode(Position)
 {
+    /// <summary>Gets the original XML for an inline SVG subtree compiled as a vector definition.</summary>
+    public string? SvgMarkup { get; init; }
+
     /// <inheritdoc />
     public override void Accept(IXamlSyntaxVisitor visitor) => visitor.VisitElement(this);
 }

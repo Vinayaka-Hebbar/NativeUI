@@ -18,7 +18,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
     private static readonly Dictionary<int, HtmlDomElement> s_attachedElements = [];
     private static int s_lastNodeId;
 
-    private readonly JSObject? _element;
+    private JSObject? _element;
     private HtmlDomElement? _parent;
     private int _nodeId;
     private Style? _inlineStyle;
@@ -48,12 +48,12 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
     /// <summary>
     /// Gets the HTML tag represented by this proxy, such as <c>span</c> or <c>div</c>.
     /// </summary>
-    public string TagName { get; }
+    public string TagName { get; private set; }
 
     /// <summary>
     /// Gets the current CSS class names.
     /// </summary>
-    public string ClassName
+    public virtual string ClassName
     {
         get
         {
@@ -107,6 +107,25 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
 
     internal JSObject? Element => _element;
 
+    /// <summary>Replaces a presentation node while retaining its owning control and DOM position.</summary>
+    protected void ReplaceElement(JSObject replacement, string tagName)
+    {
+        if (_element is null) return;
+        _resizeObserver?.Dispose();
+        _resizeObserver = null;
+        ImageInterop.ReplaceElement(_element, replacement);
+        _element.Dispose();
+        _element = replacement;
+        TagName = tagName;
+        if (_nodeId != 0) DomInterop.SetNodeId(replacement, _nodeId);
+        if (Source.IsSizeObserved && RootElement is not null)
+        {
+            _resizeObserver = new HtmlResizeObserver(RootElement, replacement);
+            _resizeObserver.Observe();
+        }
+    }
+
+
     /// <summary>
     /// Gets the owning native-ui element, including while this element is detached.
     /// </summary>
@@ -143,9 +162,12 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
         }
 
         string tagName = HtmlTagMapping.GetTag(source);
-        JSObject? element = rootElement is not null ? DomInterop.CreateElement(tagName) : null;
+        JSObject? element = rootElement is not null ? tagName == "svg" ? ImageInterop.CreateSvgElement(tagName) : DomInterop.CreateElement(tagName) : null;
         HtmlDomElement proxy = source switch
         {
+            Image image => new HtmlDomImage(image, element),
+            Svg svg => new HtmlDomVector(svg, element),
+            Shapes.Shape shape => new HtmlDomVector(shape, element),
             CanvasView canvasView => new HtmlDomCanvas(canvasView, element),
             Button button => new HtmlDomButton(button, element),
             Input input => new HtmlDomInput(input, element),
@@ -254,7 +276,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
     /// <summary>
     /// Replaces the space-separated CSS class names.
     /// </summary>
-    public void SetClassName(string className)
+    public virtual void SetClassName(string className)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(className);

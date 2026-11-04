@@ -17,6 +17,9 @@ internal static class HtmlTagMapping
     /// </summary>
     public static string GetTag(UIElement element)
     {
+        if (element is Image) return "img";
+        if (element is Svg or Shapes.Shape) return "svg";
+
         if (element is Text)
         {
             return TextTag;
@@ -50,6 +53,9 @@ internal static class HtmlTagMapping
     /// </summary>
     public static string GetTagSelector(Type type)
     {
+        if (typeof(Image).IsAssignableFrom(type)) return ":is(img, svg)";
+        if (typeof(Svg).IsAssignableFrom(type) || typeof(Shapes.Shape).IsAssignableFrom(type)) return "svg";
+
         if (typeof(Text).IsAssignableFrom(type))
         {
             return TextTag;
@@ -87,6 +93,8 @@ internal static class HtmlTagMapping
     {
         return elementType.ToLowerInvariant() switch
         {
+            "image" => ":is(img, svg)",
+            "svg" or "path" or "rectangle" or "ellipse" or "line" or "polygon" or "polyline" => "svg",
             "text" => TextTag,
             "view" or "portal" or "progressbar" => ContainerTag,
             "dialog" => DialogTag,

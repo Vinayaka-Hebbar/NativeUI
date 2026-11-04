@@ -26,6 +26,8 @@ public sealed class VisualTreeRenderer : IDisposable
     private readonly RetainedTextMeasurer _textMeasurer;
     private readonly ITextMeasurer _overlayTextMeasurer;
     private bool _disposed;
+    private readonly DrawingResourceCache _resources = new();
+    private readonly HashSet<Image> _images = [];
 
     /// <summary>
     /// Initializes a new instance of the <see cref="VisualTreeRenderer"/> class.
@@ -65,6 +67,13 @@ public sealed class VisualTreeRenderer : IDisposable
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(root);
 
+        HashSet<Image> currentImages = [];
+        AttachImages(root, context.ImageDecoder, currentImages);
+        foreach (Image previous in _images.Where(image => !currentImages.Contains(image))) previous.Detach();
+        _images.Clear();
+        _images.UnionWith(currentImages);
+        context.UseResources(_resources);
+        _resources.BeginPass();
         long layoutStart = Stopwatch.GetTimestamp();
         _textMeasurer.BeginPass();
         LayoutBox rootBox;
@@ -110,6 +119,7 @@ public sealed class VisualTreeRenderer : IDisposable
         finally
         {
             context.Restore();
+            _resources.EndPass();
         }
 
         return rootBox;
@@ -127,6 +137,9 @@ public sealed class VisualTreeRenderer : IDisposable
 
         _disposed = true;
         _textMeasurer.Dispose();
+        foreach (Image image in _images) image.Detach();
+        _images.Clear();
+        _resources.Dispose();
     }
 
     /// <summary>
@@ -272,7 +285,19 @@ public sealed class VisualTreeRenderer : IDisposable
 
             DrawBorder(context, box, drawOpacity);
 
-            if (box.Element is Text textControl && !string.IsNullOrEmpty(textControl.Value))
+            if (box.Element is Image image)
+            {
+                DrawImageControl(context, image, box.ContentBox, drawOpacity);
+            }
+            else if (box.Element is Controls.Shapes.Shape path)
+            {
+                DrawPathControl(context, path, box.ContentBox, drawOpacity);
+            }
+            else if (box.Element is Svg svg)
+            {
+                DrawSvgControl(context, svg, box.ContentBox, svg.Stretch, drawOpacity);
+            }
+            else if (box.Element is Text textControl && !string.IsNullOrEmpty(textControl.Value))
             {
                 ITextLayout textLayout = box.TextLayout ?? _textMeasurer.CreateTextLayout(
                     textControl.Value,
@@ -382,6 +407,76 @@ public sealed class VisualTreeRenderer : IDisposable
             Math.Max(0, box.BorderBox.Height - width));
         Paint paint = new(style.BorderColor ?? style.TextColor ?? Colors.Black, opacity);
         context.StrokeRoundedRectangle(outline, Math.Max(0, style.BorderRadius - inset), width, paint);
+    }
+
+    private static void AttachImages(UIElement element, IImageDecoder? decoder, HashSet<Image> images)
+    {
+        if (!element.IsVisible)
+        {
+            return;
+        }
+
+        if (element is Image image && decoder is not null)
+        {
+            images.Add(image);
+            if (ReferenceEquals(image.Dispatcher, ImmediateDispatcher.Instance)) image.Dispatcher = Application.Current.Dispatcher;
+            image.Attach(decoder);
+        }
+        if (element is View view)
+        {
+            foreach (UIElement child in view.Children) AttachImages(child, decoder, images);
+        }
+    }
+
+    private static void DrawImageControl(DrawingContext context, Image image, Rect bounds, double opacity)
+    {
+        context.Save();
+        try
+        {
+            context.ClipRect(bounds);
+            if (image.VectorImage is Svg svg) DrawSvgControl(context, svg, bounds, image.Stretch, opacity);
+            else if (image.DecodedImage is IDecodedImage decoded)
+            {
+                Rect target = StretchLayout.Fit(decoded.Size, bounds, image.Stretch);
+                if (target.Width > 0 && target.Height > 0) context.DrawImage(decoded, target, opacity);
+            }
+        }
+        finally { context.Restore(); }
+    }
+
+    private static void DrawPathControl(DrawingContext context, Controls.Shapes.Shape path, Rect bounds, double opacity)
+    {
+        PathGeometry geometry = path.GetGeometry(bounds.Size);
+        Rect source = path.GetGeometryBounds(bounds.Size);
+        Rect target = StretchLayout.Fit(source.Size, bounds, path.Stretch);
+        if (source.Width <= 0 || source.Height <= 0 || target.Width <= 0 || target.Height <= 0) return;
+        context.Save();
+        try
+        {
+            context.ClipRect(bounds);
+            context.Translate(target.X, target.Y);
+            context.Scale((float)(target.Width / source.Width), (float)(target.Height / source.Height));
+            context.Translate(-source.X, -source.Y);
+            context.DrawGeometry(geometry, path.Fill, path.Stroke, path.StrokeThickness, opacity);
+        }
+        finally { context.Restore(); }
+    }
+
+    private static void DrawSvgControl(DrawingContext context, Svg svg, Rect bounds, Stretch stretch, double opacity)
+    {
+        Rect source = svg.GetViewBox(bounds.Size);
+        Rect target = StretchLayout.Fit(source.Size, bounds, stretch);
+        if (source.Width <= 0 || source.Height <= 0 || target.Width <= 0 || target.Height <= 0) return;
+        context.Save();
+        try
+        {
+            context.ClipRect(bounds);
+            context.Translate(target.X, target.Y);
+            context.Scale((float)(target.Width / source.Width), (float)(target.Height / source.Height));
+            context.Translate(-source.X, -source.Y);
+            if (svg.Definition is SvgNode definition) context.DrawSvg(definition, source, opacity);
+        }
+        finally { context.Restore(); }
     }
 
     private static bool ShouldClipChildren(LayoutBox box)

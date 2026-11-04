@@ -7,6 +7,9 @@ using NativeUI.Tests;
 
 int exitCode = TestRunner.RunSuite("NativeUI.Core.Tests",
 [
+    ("Image resource URIs reject ambiguous and encoded traversal forms", NativeUI.Core.Tests.ImageResourceTests.VerifyResources),
+    ("Image asset resolution enforces roots, symlinks, limits, and cancellation", NativeUI.Core.Tests.ImageResourceTests.VerifyResolution),
+    ("SVG detection recognizes secure roots without bypassing content validation", NativeUI.Core.Tests.ImageResourceTests.VerifySvgDetection),
     ("Animation cancellation is idempotent and completes after failure", NativeUI.Core.Tests.AnimationTests.VerifyCancellationAndCompletion),
     ("Completed animation releases its cancellation callback", NativeUI.Core.Tests.AnimationTests.VerifyCompletedAnimationReleasesCallback),
     ("Application resolves CurrentTheme, raises changes once, and carries state to a replacement", TestApplicationTheme),

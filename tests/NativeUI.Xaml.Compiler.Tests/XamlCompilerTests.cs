@@ -3,6 +3,14 @@ using NativeUI.Xaml.Compiler;
 
 int exitCode = TestRunner.RunSuite("NativeUI.Xaml.Compiler.Tests",
 [
+    ("SVG factories create fresh typed definitions without retained instances", NativeUI.Xaml.Compiler.Tests.VectorEmissionTests.TypedPaintsCompileAndFactoriesCreateDefinitions),
+    ("SVG compilation leaves unrelated Source properties unchanged", NativeUI.Xaml.Compiler.Tests.VectorEmissionTests.LeavesNonImageSourcesUnchanged),
+    ("Inline SVG compiles and preserves mixed text order", NativeUI.Xaml.Compiler.Tests.VectorEmissionTests.InlineSvgCompilesAndKeepsTextOrder),
+    ("SVG compilation rejects invalid viewBoxes and transforms", NativeUI.Xaml.Compiler.Tests.VectorEmissionTests.RejectsInvalidSvgAttributes),
+    ("Vector geometry emits typed constructors that compile", NativeUI.Xaml.Compiler.Tests.VectorEmissionTests.GeometryConstructorsCompile),
+    ("Vector literals use parsed invariant values", NativeUI.Xaml.Compiler.Tests.VectorEmissionTests.LiteralsUseParsedValues),
+    ("SVG factories share definitions and import short type names", NativeUI.Xaml.Compiler.Tests.VectorEmissionTests.FactoriesShareDefinitionsAndImportTypes),
+    ("XAML views import generated assets only when referenced", NativeUI.Xaml.Compiler.Tests.VectorEmissionTests.ViewsImportGeneratedAssetsOnlyWhenUsed),
     ("XamlParser builds structured AST with attributes and children from XAML file", TestXamlParserAst),
     ("BindingExpressionParser parses shorthand and named Mode parameters", TestBindingExpressionParser),
     ("XamlValidator reports diagnostics for unknown elements, properties, and CSS classes", TestXamlValidatorDiagnostics),

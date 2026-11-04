@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Xml.Linq;
+using NativeUI.Media;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -13,6 +15,9 @@ public enum XamlPropertyKind
     /// The literal is assigned as a string, whatever its text.
     /// </summary>
     String,
+
+    /// <summary>A direct CLR event handler subscription.</summary>
+    Event,
 
     /// <summary>
     /// The literal must be <c>true</c> or <c>false</c>, in any letter case.
@@ -387,6 +392,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     private readonly string _filePath;
     private readonly IReadOnlySet<string>? _knownCssClasses;
     private readonly XamlTypeResolver? _types;
+    private readonly Compilation? _compilation;
     private readonly Dictionary<string, XamlViewReference> _knownViews = new(StringComparer.Ordinal);
     private readonly List<Diagnostic> _diagnostics = [];
     private string _fullClassName = string.Empty;
@@ -398,6 +404,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     {
         _filePath = filePath;
         _knownCssClasses = knownCssClasses;
+        _compilation = compilation;
         _types = compilation is null ? null : new XamlTypeResolver(compilation);
     }
 
@@ -503,6 +510,11 @@ public sealed class XamlValidator : XamlSyntaxVisitor
 
     private ValidatedXamlElement? ValidateElementRecursive(XamlElementNode element, bool isRoot)
     {
+        if (element.SvgMarkup is not null && element.LocalName is "Svg" or "svg")
+        {
+            return ValidateInlineSvg(element, isRoot);
+        }
+
         if (!TryResolveControl(element, isRoot, out ResolvedControl control))
         {
             _diagnostics.Add(Diagnostic.Create(
@@ -544,6 +556,20 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                         break;
                 }
 
+                continue;
+            }
+
+            IEventSymbol? eventSymbol = FindEvent(control.Type, attr.LocalName);
+            if (eventSymbol is not null)
+            {
+                INamedTypeSymbol? view = _compilation?.GetTypeByMetadataName(_fullClassName);
+                IMethodSymbol? invoke = (eventSymbol.Type as INamedTypeSymbol)?.DelegateInvokeMethod;
+                bool valid = view is not null && invoke is not null && FindMethods(view, attr.Value).Any(method =>
+                    !method.IsStatic && method.ReturnsVoid && method.Parameters.Length == invoke.Parameters.Length &&
+                    method.Parameters.Zip(invoke.Parameters).All(pair => pair.First.RefKind == RefKind.None &&
+                        _compilation!.ClassifyCommonConversion(pair.Second.Type, pair.First.Type).IsImplicit));
+                if (valid) validProps.Add(new ValidatedXamlProperty(attr.LocalName, XamlPropertyKind.Event, attr.Value, null));
+                else _diagnostics.Add(Diagnostic.Create(XamlDiagnostics.InvalidPropertyValue, XamlDiagnostics.CreateLocation(_filePath, attr.Position), attr.Value, attr.LocalName, element.LocalName));
                 continue;
             }
 
@@ -763,6 +789,72 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         }
 
         return string.Empty;
+    }
+
+    private ValidatedXamlElement? ValidateInlineSvg(XamlElementNode element, bool isRoot)
+    {
+        try
+        {
+            XElement markup = XElement.Parse(element.SvgMarkup ?? throw new InvalidOperationException("Inline SVG markup is missing."), LoadOptions.PreserveWhitespace);
+            bool nativeControl = element.NamespaceUri != "http://www.w3.org/2000/svg";
+            XNamespace svgNamespace = "http://www.w3.org/2000/svg";
+            markup.Name = svgNamespace + "svg";
+            foreach (XAttribute attribute in markup.Attributes().ToArray())
+            {
+                if (attribute.IsNamespaceDeclaration || attribute.Name.NamespaceName == XamlParser.XamlDirectiveNamespace ||
+                    (nativeControl && attribute.Name.LocalName != "ViewBox"))
+                {
+                    attribute.Remove();
+                }
+                else if (attribute.Name.LocalName == "ViewBox")
+                {
+                    markup.SetAttributeValue("viewBox", attribute.Value);
+                    attribute.Remove();
+                }
+            }
+
+            SvgNodeData definition = SvgDocumentParser.Parse(markup.ToString(SaveOptions.DisableFormatting));
+            XamlAttributeNode[] controlAttributes = element.Attributes.Where(attribute =>
+                attribute.NamespaceUri == XamlParser.XamlDirectiveNamespace ||
+                (nativeControl && attribute.LocalName != "ViewBox")).ToArray();
+            XamlElementNode control = element with
+            {
+                LocalName = "Svg",
+                NamespaceUri = XamlParser.NativeUINamespace,
+                Attributes = controlAttributes,
+                Children = [],
+                SvgMarkup = null
+            };
+            ValidatedXamlElement? validated = ValidateElementRecursive(control, isRoot);
+            return validated is null ? null : validated with
+            {
+                Properties = [.. validated.Properties, new ValidatedXamlProperty("Definition", XamlPropertyKind.Converted, null, null, VectorCodeEmitter.Node(definition))]
+            };
+        }
+        catch (Exception exception) when (exception is FormatException or System.Xml.XmlException or ArgumentException)
+        {
+            _diagnostics.Add(Diagnostic.Create(XamlDiagnostics.XmlSyntaxError,
+                XamlDiagnostics.CreateLocation(_filePath, element.Position), exception.Message));
+            return null;
+        }
+    }
+
+    private static IEventSymbol? FindEvent(INamedTypeSymbol? type, string name)
+    {
+        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+        {
+            IEventSymbol? result = current.GetMembers(name).OfType<IEventSymbol>().FirstOrDefault();
+            if (result is not null) return result;
+        }
+        return null;
+    }
+
+    private static IEnumerable<IMethodSymbol> FindMethods(INamedTypeSymbol type, string name)
+    {
+        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+        {
+            foreach (IMethodSymbol method in current.GetMembers(name).OfType<IMethodSymbol>()) yield return method;
+        }
     }
 
     private static bool HasMember(INamedTypeSymbol? type, string name)

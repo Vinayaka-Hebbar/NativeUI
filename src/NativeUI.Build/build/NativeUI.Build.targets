@@ -10,4 +10,28 @@
                        Condition="'%(Extension)' == '.css' and !Exists('%(RootDir)%(Directory)%(Filename)')" />
     </ItemGroup>
   </Target>
+  <Target Name="PrepareNativeUISvgInputs">
+    <ItemGroup>
+      <NativeUISvg Include="@(EmbeddedResource)" Condition="'%(Extension)' == '.svg'">
+        <NativeUIResource Condition="'%(LogicalName)' != ''">resource://$(AssemblyName)/%(LogicalName)</NativeUIResource>
+        <NativeUIResource Condition="'%(LogicalName)' == ''">resource://$(AssemblyName)/%(Identity)</NativeUIResource>
+      </NativeUISvg>
+      <NativeUISvg Include="@(Content)" Condition="'%(Extension)' == '.svg'" />
+      <_NativeUISvgInput Include="@(NativeUISvg->'%(FullPath)')">
+        <NativeUIResource Condition="'%(NativeUISvg.NativeUIResource)' != ''">%(NativeUISvg.NativeUIResource)</NativeUIResource>
+        <NativeUIResource Condition="'%(NativeUISvg.NativeUIResource)' == ''">%(NativeUISvg.Identity)</NativeUIResource>
+      </_NativeUISvgInput>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="GetNativeUISvgInputs" DependsOnTargets="PrepareNativeUISvgInputs" Returns="@(_NativeUISvgInput)" />
+
+  <Target Name="CollectNativeUISvgInputs" BeforeTargets="GenerateMSBuildEditorConfigFileShouldRun;CoreCompile" DependsOnTargets="PrepareNativeUISvgInputs">
+    <MSBuild Projects="@(ProjectReference)" Targets="GetNativeUISvgInputs" SkipNonexistentTargets="true" BuildInParallel="true">
+      <Output TaskParameter="TargetOutputs" ItemName="_ReferencedNativeUISvgInput" />
+    </MSBuild>
+    <ItemGroup>
+      <AdditionalFiles Include="@(_NativeUISvgInput);@(_ReferencedNativeUISvgInput)" />
+    </ItemGroup>
+  </Target>
 </Project>

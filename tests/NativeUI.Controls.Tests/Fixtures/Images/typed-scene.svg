@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="24" viewBox="0 0 64 24">
+  <defs>
+    <rect id="tile" width="24" height="24" />
+    <clipPath id="left"><rect width="12" height="24" /></clipPath>
+    <mask id="bottom" mask-type="alpha"><rect y="12" width="24" height="12" fill="white" /></mask>
+    <linearGradient id="gradient"><stop offset="0" stop-color="red" /><stop offset="1" stop-color="blue" /></linearGradient>
+  </defs>
+  <g transform="translate(2 0)" color="#00ff00">
+    <use href="#tile" fill="currentColor" clip-path="url(#left)" mask="url(#bottom)" />
+  </g>
+  <rect x="26" width="24" height="4" fill="url(#gradient)" />
+  <text x="30" y="20" font-size="10" fill="red">A<tspan fill="blue">B</tspan>C</text>
+</svg>

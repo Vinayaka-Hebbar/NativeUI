@@ -43,17 +43,17 @@ public sealed class PathBinding
             property,
             new CompiledBinding<object, TValue>(
                 path,
-                source => ReadProperty(source, path, property.DefaultValue),
+                source => ReadProperty(source, path, property),
                 mode == BindingMode.TwoWay ? (source, val) => WriteProperty(source, path, val) : null,
                 mode));
     }
 
-    private static TValue ReadProperty<TValue>(object source, string propertyName, TValue fallback)
+    private static TValue ReadProperty<TValue>(object source, string propertyName, BindableProperty<TValue> property)
     {
         PropertyInfo? prop = source.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
         if (prop is null || !prop.CanRead)
         {
-            return fallback;
+            return property.DefaultValue;
         }
 
         object? raw = prop.GetValue(source);
@@ -67,7 +67,7 @@ public sealed class PathBinding
             return (TValue)(object)(raw.ToString() ?? string.Empty);
         }
 
-        return fallback;
+        return property.ValueConverter is null ? property.DefaultValue : property.ConvertValue(raw);
     }
 
     private static void WriteProperty<TValue>(object source, string propertyName, TValue value)

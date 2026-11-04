@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <Compile Include="..\TestHarness.cs" Link="TestHarness.cs" />
+    <None Include="../NativeUI.Controls.Tests/Fixtures/Images/typed-scene.svg" Link="Fixtures/Vector/typed-scene.svg" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\Vector\*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Fixtures\**\*.xaml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
@@ -25,6 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\NativeUI.Controls\NativeUI.Controls.csproj" />
     <ProjectReference Include="..\..\src\NativeUI.Core\NativeUI.Core.csproj" />
     <ProjectReference Include="..\..\src\NativeUI.Xaml\NativeUI.Xaml.csproj" />
     <ProjectReference Include="..\..\src\NativeUI.Xaml.Compiler\NativeUI.Xaml.Compiler.csproj" />

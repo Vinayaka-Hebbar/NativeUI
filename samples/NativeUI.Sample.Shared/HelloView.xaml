@@ -31,6 +31,7 @@
             <Button x:Name="NavStack" Class="nav-item" Text="StackPanel" />
             <Button x:Name="NavGrid" Class="nav-item" Text="Grid" />
             <Button x:Name="NavScroll" Class="nav-item" Text="Scrolling" />
+            <Button x:Name="NavImages" Class="nav-item" Text="Images &amp; SVG" />
             <Button x:Name="NavCanvas" Class="nav-item" Text="Canvas" />
             <Button x:Name="NavInput" Class="nav-item" Text="Input" />
             <Button x:Name="NavDialog" Class="nav-item" Text="Dialog" />
@@ -138,6 +139,8 @@
                 <Text Class="section" Value="Disabled" />
                 <Input Class="field" IsEnabled="false" Value="This field does not respond" />
             </View>
+
+            <ImageSampleView x:Name="ImagePage" />
 
             <DialogSampleView x:Name="DialogPage" />
 

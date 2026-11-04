@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="HarfBuzzSharp" />
+    <PackageReference Include="Svg.Skia" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.HarfBuzz" />
   </ItemGroup>

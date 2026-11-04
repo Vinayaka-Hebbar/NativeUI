@@ -13,6 +13,12 @@ using NativeUI.Tests;
 // Verifies proxy state and ownership on the .NET host without creating browser DOM elements.
 int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
 [
+    ("SVG updates emit only changed attributes", NativeUI.Controls.Web.Tests.SvgDomBuilderTests.AttributeChangesAreTargeted),
+    ("Immutable SVG edits update only affected attributes", NativeUI.Controls.Web.Tests.SvgDomBuilderTests.ImmutableDefinitionsProduceLocalChanges),
+    ("SVG attributes are applied when added and removed when unset", NativeUI.Controls.Web.Tests.SvgDomBuilderTests.AddedAndRemovedAttributesAreApplied),
+    ("SVG aspect ratios and definition references use explicit browser syntax", NativeUI.Controls.Web.Tests.SvgDomBuilderTests.AspectAndReferencesAreScoped),
+    ("Browser image formats use validated signatures instead of a JPEG fallback", TestImageContentTypes),
+    ("SVG snapshots reflect live geometry and retain unchanged geometry definitions", TestSvgSnapshots),
     ("HelloView mounts its proxy hierarchy and performs targeted incremental updates", TestIncrementalUpdates),
     ("DOM proxies synchronize text and keep their identity across property changes", TestPropertyChanges),
     ("View proxies reconcile children without recreating unchanged proxies", TestChildCollections),
@@ -34,6 +40,55 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
 ]);
 
 return exitCode;
+
+static void TestImageContentTypes()
+{
+    Assert.Equal("image/png", ImageResourceResolver.GetContentType([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]));
+    Assert.Equal("image/jpeg", ImageResourceResolver.GetContentType([0xFF, 0xD8, 0xFF, 0xE0]));
+    Assert.Equal("image/svg+xml", ImageResourceResolver.GetContentType(System.Text.Encoding.UTF8.GetBytes("<svg/>")));
+    bool rejected = false;
+    try
+    {
+        ImageResourceResolver.GetContentType([0x89, 0x00]);
+    }
+    catch (InvalidDataException)
+    {
+        rejected = true;
+    }
+
+    Assert.True(rejected, "An incomplete PNG signature must not be treated as PNG or JPEG.");
+}
+
+static void TestSvgSnapshots()
+{
+    using ImageSampleView page = new();
+    CompiledSvgSource compiled = page.GoogleLogo.Source as CompiledSvgSource
+        ?? throw new InvalidOperationException("Google SVG must be compiled.");
+    using Svg logo = compiled.Factory();
+    SvgNode snapshot = SvgDomBuilder.Definition(logo);
+    Assert.Equal(new SolidColorBrush(Color.FromRgbBytes(66, 133, 244)), snapshot.Children[0].Fill);
+    Assert.True(ReferenceEquals(snapshot, SvgDomBuilder.Definition(logo)));
+
+    PathGeometry first = Geometry.Parse("M0 0 L24 0 L12 24 Z");
+    using NativeUI.Controls.Shapes.Path shape = new() { Data = first, Fill = Brushes.Blue };
+    SvgNode before = SvgDomBuilder.CreateShapeDefinition(shape, new Size(24, 24));
+    Assert.True(ReferenceEquals(first, before.Children[0].Geometry));
+    PathGeometry replacement = Geometry.Parse("M0 0 H24 V24 H0 Z");
+    shape.Data = replacement;
+    SvgNode after = SvgDomBuilder.CreateShapeDefinition(shape, new Size(24, 24));
+    Assert.True(ReferenceEquals(replacement, after.Children[0].Geometry));
+    Assert.True(ReferenceEquals(first, before.Children[0].Geometry));
+    shape.Fill = new LinearGradientBrush
+    {
+        Start = new Point(0, 0),
+        End = new Point(24, 24),
+        Stops = [new GradientStop(0, Colors.Blue), new GradientStop(1, Colors.Green)]
+    };
+    SvgNode gradient = SvgDomBuilder.CreateShapeDefinition(shape, new Size(24, 24));
+    Assert.Equal(SvgNodeKind.Definitions, gradient.Children[0].Kind);
+    Assert.Equal(SvgNodeKind.LinearGradient, gradient.Children[0].Children[0].Kind);
+    Assert.True(ReferenceEquals(replacement, gradient.Children[1].Geometry));
+}
 
 static void TestIncrementalUpdates()
 {

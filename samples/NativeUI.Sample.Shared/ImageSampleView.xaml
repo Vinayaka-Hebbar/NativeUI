@@ -1,0 +1,55 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:svg="http://www.w3.org/2000/svg"
+      x:Class="NativeUI.Sample.ImageSampleView">
+    <Text Class="section" Value="Images and vector shapes" />
+    <Text Value="Switch between compiled SVG and an embedded PNG. Image identity and events stay the same." />
+    <Image x:Name="Preview"
+           Source="resource://NativeUI.Sample.Shared/Assets/logo.svg"
+           Width="180" Height="100" AltText="NativeUI logo"
+           ImageOpened="OnImageOpened" ImageFailed="OnImageFailed" />
+    <Text x:Name="ImageStatus" Value="Waiting for image presentation." />
+    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8">
+        <Button Class="btn-action" x:Name="ShowSvgButton" Text="Compiled SVG" />
+        <Button Class="btn-action" x:Name="ShowBitmapButton" Text="Embedded PNG" />
+        <Button Class="btn-action" x:Name="ShowFailureButton" Text="Missing image" />
+        <Button Class="btn-action" x:Name="ClearImageButton" Text="Clear" />
+    </StackPanel>
+    <Text x:Name="StretchStatus" Value="Stretch: Uniform" />
+    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8">
+        <Button Class="btn-action" x:Name="StretchNoneButton" Text="None" />
+        <Button Class="btn-action" x:Name="StretchFillButton" Text="Fill" />
+        <Button Class="btn-action" x:Name="StretchUniformButton" Text="Uniform" />
+        <Button Class="btn-action" x:Name="StretchCoverButton" Text="UniformToFill" />
+    </StackPanel>
+    <Text Class="section" Value="Embedded SVG resource: Google" />
+    <Text Value="resource://NativeUI.Sample.Shared/Assets/google.svg" />
+    <View Class="panel-box" Width="180" Height="80" Padding="16">
+        <Image x:Name="GoogleLogo"
+               Source="resource://NativeUI.Sample.Shared/Assets/google.svg"
+               Width="148" Height="48" Stretch="Uniform" AltText="Google logo" />
+    </View>
+    <Text Class="section" Value="Live path geometry" />
+    <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,8">
+        <Path x:Name="LivePath" Data="M0 0 L48 0 L24 48 Z" Fill="Blue"
+              Stroke="Black" StrokeThickness="1" Width="64" Height="64" />
+        <Rectangle Fill="Green" Width="64" Height="48" />
+        <Ellipse Fill="Red" Width="64" Height="48" />
+        <Path Data="M0 24 Q24 0 48 24 A24 24 0 0 1 0 24 Z" Fill="Indigo" Width="64" Height="48" />
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,8">
+        <Line X1="0" Y1="0" X2="48" Y2="32" Stroke="Blue" StrokeThickness="3" Width="64" Height="48" />
+        <Polygon Points="0,0 48,0 40,32 8,32" Fill="Green" Width="64" Height="48" />
+        <Polyline Points="0,32 12,4 24,24 48,0" Fill="None" Stroke="Red" StrokeThickness="3" Width="64" Height="48" />
+    </StackPanel>
+    <Button Class="btn-action" x:Name="ChangePathButton" Text="Change geometry" />
+    <Text Class="section" Value="Inline SVG markup" Margin="8,0" />
+    <Svg x:Name="InlineArtwork" ViewBox="0 0 160 60" Width="240" Height="90">
+        <svg:rect x="2" y="2" width="156" height="56" rx="10" fill="#dbeafe" />
+        <svg:path d="M16 42 L32 14 L48 42 Z" fill="#2563eb" />
+        <svg:text x="58" y="36" font-size="14" fill="#172554">Native<svg:tspan fill="#2563eb">UI</svg:tspan> SVG</svg:text>
+    </Svg>
+    <Text Class="section" Value="Editable SVG inside Image" Margin="8,0" />
+    <Image x:Name="EditableImage" Width="100" Height="70" AltText="Editable vector icon" />
+    <Button Class="btn-action" x:Name="ChangeSvgButton" Text="Change SVG path without reloading" />
+</View>
