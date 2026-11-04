@@ -554,12 +554,27 @@ public sealed class VisualTreeRenderer : IDisposable
     /// </summary>
     private static void DrawScrollIndicators(DrawingContext context, LayoutBox box, double opacity)
     {
+        foreach (ScrollbarGeometry scrollbar in GetScrollbars(box))
+        {
+            DrawScrollIndicator(context, box.Style, scrollbar.Track, scrollbar.Thumb, opacity);
+        }
+    }
+
+    /// <summary>
+    /// Returns the overlay scrollbars of <paramref name="box"/>: one along the right edge while its content scrolls
+    /// vertically, and one along the bottom edge while it scrolls horizontally.
+    /// </summary>
+    /// <param name="box">The laid-out box of a view.</param>
+    public static IReadOnlyList<ScrollbarGeometry> GetScrollbars(LayoutBox box)
+    {
+        ArgumentNullException.ThrowIfNull(box);
         ComputedStyle style = box.Style;
         if (box.Element is not View view || !style.ClipsOverflow || style.ScrollbarWidth == ScrollbarWidth.None)
         {
-            return;
+            return [];
         }
 
+        List<ScrollbarGeometry> scrollbars = [];
         double thickness = style.ScrollbarWidth == ScrollbarWidth.Thin ? ThinScrollIndicatorThickness : ScrollIndicatorThickness;
         Rect bounds = box.BorderBox;
 
@@ -568,12 +583,11 @@ public sealed class VisualTreeRenderer : IDisposable
             double trackX = bounds.X + bounds.Width - thickness - (2 * ScrollIndicatorInset);
             double length = GetScrollIndicatorLength(view.ViewportHeight, view.ExtentHeight);
             double travel = view.VerticalOffset / (view.ExtentHeight - view.ViewportHeight) * (view.ViewportHeight - length);
-            DrawScrollIndicator(
-                context,
-                style,
+            scrollbars.Add(new ScrollbarGeometry(
+                view,
+                Orientation.Vertical,
                 new Rect(trackX, bounds.Y, thickness + (2 * ScrollIndicatorInset), bounds.Height),
-                new Rect(trackX + ScrollIndicatorInset, bounds.Y + travel, thickness, length),
-                opacity);
+                new Rect(trackX + ScrollIndicatorInset, bounds.Y + travel, thickness, length)));
         }
 
         if (style.IsUserScrollableX && view.ExtentWidth > view.ViewportWidth)
@@ -581,13 +595,53 @@ public sealed class VisualTreeRenderer : IDisposable
             double trackY = bounds.Y + bounds.Height - thickness - (2 * ScrollIndicatorInset);
             double length = GetScrollIndicatorLength(view.ViewportWidth, view.ExtentWidth);
             double travel = view.HorizontalOffset / (view.ExtentWidth - view.ViewportWidth) * (view.ViewportWidth - length);
-            DrawScrollIndicator(
-                context,
-                style,
+            scrollbars.Add(new ScrollbarGeometry(
+                view,
+                Orientation.Horizontal,
                 new Rect(bounds.X, trackY, bounds.Width, thickness + (2 * ScrollIndicatorInset)),
-                new Rect(bounds.X + travel, trackY + ScrollIndicatorInset, length, thickness),
-                opacity);
+                new Rect(bounds.X + travel, trackY + ScrollIndicatorInset, length, thickness)));
         }
+
+        return scrollbars;
+    }
+
+    /// <summary>
+    /// Returns the topmost scrollbar whose track contains <paramref name="point"/>, or <see langword="null"/> when there is
+    /// none. A view's scrollbars lie above its children, and later siblings lie above earlier ones, as they are drawn.
+    /// </summary>
+    /// <param name="box">The laid-out box to search, with its descendants.</param>
+    /// <param name="point">The point in the coordinates of the layout.</param>
+    public static ScrollbarGeometry? HitTestScrollbar(LayoutBox box, Point point)
+    {
+        ArgumentNullException.ThrowIfNull(box);
+        if (box.Element is UIElement { IsVisible: false })
+        {
+            return null;
+        }
+
+        IReadOnlyList<ScrollbarGeometry> scrollbars = GetScrollbars(box);
+        for (int i = scrollbars.Count - 1; i >= 0; i--)
+        {
+            if (scrollbars[i].Track.Contains(point))
+            {
+                return scrollbars[i];
+            }
+        }
+
+        if (ShouldClipChildren(box) && !box.BorderBox.Contains(point))
+        {
+            return null;
+        }
+
+        for (int i = box.Children.Count - 1; i >= 0; i--)
+        {
+            if (HitTestScrollbar(box.Children[i], point) is ScrollbarGeometry hit)
+            {
+                return hit;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

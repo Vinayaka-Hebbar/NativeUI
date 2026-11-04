@@ -53,6 +53,7 @@ public sealed class Window : IDisposable, IRenderHost
     private int _selectionAnchorPosition;
     private bool _isDraggingSelection;
     private bool _overlayCapturesPointer;
+    private ScrollbarDrag? _scrollbarDrag;
     private Point? _pointerPosition;
     private PointerButtons _pointerButtons;
     private InputModifiers _pointerModifiers;
@@ -344,6 +345,12 @@ public sealed class Window : IDisposable, IRenderHost
                 return;
             }
 
+            if (VisualTreeRenderer.HitTestScrollbar(LastLayout, viewportPoint) is ScrollbarGeometry scrollbar)
+            {
+                BeginScrollbarDrag(scrollbar, viewportPoint);
+                return;
+            }
+
             UIElement? hoveredElement = HitTest(viewportPoint);
             UpdateHoverState(hoveredElement);
             hoveredElement?.RaiseEvent(
@@ -360,6 +367,44 @@ public sealed class Window : IDisposable, IRenderHost
         finally
         {
             EndFrameBatch();
+        }
+    }
+
+    /// <summary>
+    /// Starts dragging the thumb of <paramref name="scrollbar"/>. A press on the track outside the thumb first scrolls so
+    /// that the thumb is centered on the pointer, then drags from there.
+    /// </summary>
+    private void BeginScrollbarDrag(ScrollbarGeometry scrollbar, Point viewportPoint)
+    {
+        View view = scrollbar.View;
+        bool isVertical = scrollbar.Orientation == Orientation.Vertical;
+        double pointer = isVertical ? viewportPoint.Y : viewportPoint.X;
+        double trackStart = isVertical ? scrollbar.Track.Y : scrollbar.Track.X;
+        double trackLength = isVertical ? scrollbar.Track.Height : scrollbar.Track.Width;
+        double thumbStart = isVertical ? scrollbar.Thumb.Y : scrollbar.Thumb.X;
+        double thumbLength = isVertical ? scrollbar.Thumb.Height : scrollbar.Thumb.Width;
+        double range = isVertical ? view.ExtentHeight - view.ViewportHeight : view.ExtentWidth - view.ViewportWidth;
+        double travel = trackLength - thumbLength;
+        double offsetPerPixel = travel > 0 ? range / travel : 0;
+
+        if (pointer < thumbStart || pointer > thumbStart + thumbLength)
+        {
+            ScrollAlong(view, isVertical, (pointer - trackStart - (thumbLength / 2)) * offsetPerPixel);
+        }
+
+        double startOffset = isVertical ? view.VerticalOffset : view.HorizontalOffset;
+        _scrollbarDrag = new ScrollbarDrag(view, isVertical, pointer, startOffset, offsetPerPixel);
+    }
+
+    private static void ScrollAlong(View view, bool isVertical, double offset)
+    {
+        if (isVertical)
+        {
+            view.ScrollTo(view.HorizontalOffset, offset);
+        }
+        else
+        {
+            view.ScrollTo(offset, view.VerticalOffset);
         }
     }
 
@@ -433,6 +478,18 @@ public sealed class Window : IDisposable, IRenderHost
                 return;
             }
 
+            if (_scrollbarDrag is ScrollbarDrag drag)
+            {
+                if (isPressed)
+                {
+                    double pointer = drag.IsVertical ? viewportPoint.Y : viewportPoint.X;
+                    ScrollAlong(drag.View, drag.IsVertical, drag.StartOffset + ((pointer - drag.StartPointer) * drag.OffsetPerPixel));
+                    return;
+                }
+
+                _scrollbarDrag = null;
+            }
+
             UIElement? hoveredElement = HitTest(viewportPoint);
             UpdateHoverState(hoveredElement);
             hoveredElement?.RaiseEvent(
@@ -488,6 +545,12 @@ public sealed class Window : IDisposable, IRenderHost
                 _overlayCapturesPointer = false;
                 DispatchOverlayPointer(OverlayPointerAction.Released, viewportPoint);
                 UpdateCursor();
+                return;
+            }
+
+            if (_scrollbarDrag is not null)
+            {
+                _scrollbarDrag = null;
                 return;
             }
 
@@ -1600,4 +1663,10 @@ public sealed class Window : IDisposable, IRenderHost
         AppKitInterop.SendMessageVoid(_nsImageView, AppKitInterop.GetSelector("setImage:"), nsImage);
         _ = AppKitInterop.SendMessage(nsImage, AppKitInterop.GetSelector("release"));
     }
+
+    /// <summary>
+    /// Holds a drag of a scrollbar thumb: the scrolled view, its axis, the pointer position and scroll offset where the drag
+    /// started, and the scroll distance for each logical pixel the pointer moves.
+    /// </summary>
+    private readonly record struct ScrollbarDrag(View View, bool IsVertical, double StartPointer, double StartOffset, double OffsetPerPixel);
 }
