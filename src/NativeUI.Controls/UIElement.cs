@@ -667,6 +667,17 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
+    /// Returns the value of the attribute <paramref name="name"/> that attribute selectors match, or
+    /// <see langword="null"/> when the element has no such attribute. A control overrides this to expose the attributes
+    /// that it also writes on Web, such as <c>data-sort</c>. The base implementation returns <see langword="null"/>.
+    /// </summary>
+    /// <param name="name">The attribute name.</param>
+    public virtual string? GetAttribute(string name)
+    {
+        return null;
+    }
+
+    /// <summary>
     /// Gets the name that <c>::part()</c> selectors use for this element within its <see cref="TemplatedParent"/>'s
     /// template, or <see langword="null"/> when the element is not a template part.
     /// </summary>
@@ -691,6 +702,19 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         _templatedParent = owner;
         _partName = name;
         InvalidateStyle();
+    }
+
+    /// <summary>
+    /// Records that this element is no longer a part of its templated parent's template.
+    /// </summary>
+    internal void ClearTemplatePart()
+    {
+        if (_templatedParent is not null)
+        {
+            _templatedParent = null;
+            _partName = null;
+            InvalidateStyle();
+        }
     }
 
     /// <summary>

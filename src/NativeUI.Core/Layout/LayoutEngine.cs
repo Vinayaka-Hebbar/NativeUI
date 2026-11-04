@@ -159,7 +159,7 @@ public sealed class LayoutEngine
             }
 
             ComputedStyle style = child.ComputedStyle;
-            if (style.Position is not (Position.Static or Position.Relative))
+            if (style.IsOutOfFlow)
             {
                 continue;
             }
@@ -262,7 +262,7 @@ public sealed class LayoutEngine
             }
 
             ComputedStyle style = child.ComputedStyle;
-            if (style.Position is not (Position.Static or Position.Relative))
+            if (style.IsOutOfFlow)
             {
                 continue;
             }
@@ -305,7 +305,7 @@ public sealed class LayoutEngine
             }
 
             ComputedStyle style = child.ComputedStyle;
-            if (style.Position is not (Position.Static or Position.Relative))
+            if (style.IsOutOfFlow)
             {
                 continue;
             }
@@ -549,7 +549,7 @@ public sealed class LayoutEngine
                 continue;
             }
 
-            if (child.ComputedStyle.Position is not (Position.Static or Position.Relative))
+            if (child.ComputedStyle.IsOutOfFlow)
             {
                 continue;
             }
@@ -611,6 +611,26 @@ public sealed class LayoutEngine
         double dx = style.Left.HasValue ? style.Left.Value : (style.Right.HasValue ? -style.Right.Value : 0);
         double dy = style.Top.HasValue ? style.Top.Value : (style.Bottom.HasValue ? -style.Bottom.Value : 0);
         return (dx != 0 || dy != 0) ? box.Translated(dx, dy) : box;
+    }
+
+    /// <summary>
+    /// Moves a sticky box vertically to stay within the scrollport, inset by its <c>top</c> and <c>bottom</c>, without
+    /// leaving the scroll content.
+    /// </summary>
+    private static LayoutBox ApplyStickyOffset(LayoutBox box, double scrollportTop, double scrollportBottom, double contentTop, double contentBottom)
+    {
+        ComputedStyle style = box.Style;
+        double dy = 0;
+        if (style.Top is double top && box.BorderBox.Y < scrollportTop + top)
+        {
+            dy = Math.Min(scrollportTop + top - box.BorderBox.Y, contentBottom - box.BorderBox.Bottom);
+        }
+        else if (style.Bottom is double bottom && box.BorderBox.Bottom > scrollportBottom - bottom)
+        {
+            dy = Math.Max(scrollportBottom - bottom - box.BorderBox.Bottom, contentTop - box.BorderBox.Y);
+        }
+
+        return dy != 0 ? box.Translated(0, dy) : box;
     }
 
     private readonly record struct ContentLayout(List<LayoutBox> Boxes, double Width, double Height);
@@ -822,7 +842,39 @@ public sealed class LayoutEngine
                     }
                 }
             }
+
+            double scrollportTop = borderY + style.BorderWidth;
+            double scrollportBottom = borderY + resolvedBorderHeight - style.BorderWidth;
+            double contentTop = scrollportTop - offset.Y;
+            double contentBottom = borderY + extent.Height - offset.Y;
+            for (int i = 0; i < childBoxes.Count; i++)
+            {
+                if (childBoxes[i].Style.Position == Position.Sticky)
+                {
+                    childBoxes[i] = ApplyStickyOffset(childBoxes[i], scrollportTop, scrollportBottom, contentTop, contentBottom);
+                }
+            }
         }
+
+        // CSS paints positioned children after the children in normal flow, which places them above.
+        List<LayoutBox> paintOrder = new(childBoxes.Count);
+        foreach (LayoutBox childBox in childBoxes)
+        {
+            if (!childBox.Style.IsPositioned)
+            {
+                paintOrder.Add(childBox);
+            }
+        }
+
+        foreach (LayoutBox childBox in childBoxes)
+        {
+            if (childBox.Style.IsPositioned)
+            {
+                paintOrder.Add(childBox);
+            }
+        }
+
+        childBoxes = paintOrder;
 
         return new LayoutBox(
             node,

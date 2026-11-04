@@ -110,7 +110,7 @@ public class ToggleGroup : ItemsControl, IStackLayoutNode
             return true;
         }
 
-        foreach (UIElement item in Items)
+        foreach (object? item in Items)
         {
             if (item is Toggle { IsPressed: true } other && !ReferenceEquals(other, toggle))
             {
@@ -151,7 +151,7 @@ public class ToggleGroup : ItemsControl, IStackLayoutNode
             if (SelectionMode == ToggleSelectionMode.Single)
             {
                 Toggle? kept = pressed;
-                foreach (UIElement item in Items)
+                foreach (object? item in Items)
                 {
                     if (item is not Toggle { IsPressed: true } toggle)
                     {
@@ -180,7 +180,7 @@ public class ToggleGroup : ItemsControl, IStackLayoutNode
     private void UpdateSelectedValues()
     {
         List<object?> values = [];
-        foreach (UIElement item in Items)
+        foreach (object? item in Items)
         {
             if (item is Toggle { IsPressed: true } toggle)
             {

@@ -7,7 +7,7 @@ namespace NativeUI.Xaml;
 /// <remarks>
 /// A property or field uses a pattern without a placeholder. A method uses a pattern with one <c>{0}</c> placeholder and takes
 /// one <see cref="string"/>, <see cref="bool"/>, <see cref="int"/>, <see cref="long"/>, or <see cref="double"/> parameter,
-/// or a pattern without a placeholder and no parameters. The member must be public, static, and return its declaring type.
+/// or a pattern without a placeholder and only optional parameters, which keep their default values. The member must be public, static, and return its declaring type.
 /// </remarks>
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
 public sealed class XamlLiteralAttribute : Attribute

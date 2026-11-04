@@ -20,7 +20,8 @@ public sealed class CssParser
         ["pressed"] = "On",
         ["unpressed"] = "Off",
         ["first-child"] = "FirstChild",
-        ["last-child"] = "LastChild"
+        ["last-child"] = "LastChild",
+        ["selected"] = "Selected"
     };
 
     private readonly IReadOnlyList<CssToken> _tokens;
@@ -421,6 +422,7 @@ public sealed class CssParser
         List<string> classes = [];
         List<string> requiredStates = [];
         List<CssAttributeSelectorNode> attributes = [];
+        List<string> partStates = [];
         bool hasContent = false;
         int start = index;
 
@@ -450,7 +452,8 @@ public sealed class CssParser
                 tokens[index].Kind == CssTokenKind.Colon &&
                 s_pseudoClassStates.TryGetValue(tokens[index + 1].Text, out string? state))
             {
-                requiredStates.Add(state);
+                // A pseudo-class after ::part() requires its state on the part element.
+                (part is null ? requiredStates : partStates).Add(state);
                 pseudoClasses.Add(new CssPseudoClassNode(state, CombineSpans(tokens[index].Span, tokens[index + 1].Span)));
                 hasContent = true;
                 index += 2;
@@ -480,7 +483,7 @@ public sealed class CssParser
             }
             else if (IsPartPseudoElement(tokens, index))
             {
-                part = new CssPartSelectorNode(tokens[index + 4].Text, CombineSpans(tokens[index].Span, tokens[index + 5].Span));
+                part = new CssPartSelectorNode(tokens[index + 4].Text, CombineSpans(tokens[index].Span, tokens[index + 5].Span), []);
                 hasContent = true;
                 index += 6;
             }
@@ -489,6 +492,11 @@ public sealed class CssParser
                 isValid = false;
                 index = tokens.Count;
             }
+        }
+
+        if (part is not null && partStates.Count > 0)
+        {
+            part = part with { States = partStates };
         }
 
         compound = new CssCompoundSelectorNode(elementType, classes, requiredStates, attributes);

@@ -132,13 +132,16 @@ public sealed record ValidatedXamlProperty(
 /// <param name="Children">The child elements, added to the collection named by <paramref name="ContentProperty"/>.</param>
 /// <param name="ContentProperty">The collection property that receives <paramref name="Children"/>.</param>
 /// <param name="PropertyElements">The property elements such as <c>&lt;Dialog.Footer&gt;</c>.</param>
+/// <param name="TemplateDataType">For a <c>DataTemplate</c>, the full name of the item type, whose single child in
+/// <paramref name="Children"/> is the element tree built for each item. Otherwise <see langword="null"/>.</param>
 public sealed record ValidatedXamlElement(
     string ControlTypeName,
     string? XName,
     IReadOnlyList<ValidatedXamlProperty> Properties,
     IReadOnlyList<ValidatedXamlElement> Children,
     string ContentProperty,
-    IReadOnlyList<ValidatedXamlPropertyElement> PropertyElements);
+    IReadOnlyList<ValidatedXamlPropertyElement> PropertyElements,
+    string? TemplateDataType = null);
 
 /// <summary>
 /// Represents a validated property element, whose child elements are assigned to a control property.
@@ -180,6 +183,7 @@ public sealed record ValidatedXamlDocument(
 public sealed class XamlValidator : XamlSyntaxVisitor
 {
     private const string ContentPropertyAttributeName = "NativeUI.Xaml.ContentPropertyAttribute";
+    private const string DataTemplateElementName = "DataTemplate";
 
     private static readonly Dictionary<string, Dictionary<string, XamlPropertyKind>> s_controlProperties =
         new(StringComparer.Ordinal)
@@ -401,6 +405,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     private string? _dataType;
     private string? _explicitStyleSheetId;
     private ValidatedXamlElement? _validatedRoot;
+    private int _templateDepth;
 
     private XamlValidator(string filePath, IReadOnlySet<string>? knownCssClasses, Compilation? compilation)
     {
@@ -517,6 +522,12 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             return ValidateInlineSvg(element, isRoot);
         }
 
+        if (IsDataTemplate(element))
+        {
+            ReportPropertyElement(element, "a DataTemplate can only be the value of a property element");
+            return null;
+        }
+
         if (!TryResolveControl(element, isRoot, out ResolvedControl control))
         {
             _diagnostics.Add(Diagnostic.Create(
@@ -545,6 +556,13 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                         break;
                     case "DataType" when isRoot:
                         _dataType = attr.Value.Trim();
+                        break;
+                    case "Name" when _templateDepth > 0:
+                        _diagnostics.Add(Diagnostic.Create(
+                            XamlDiagnostics.UnknownProperty,
+                            XamlDiagnostics.CreateLocation(_filePath, attr.Position),
+                            "x:Name inside a DataTemplate",
+                            element.LocalName));
                         break;
                     case "Name":
                         xName = attr.Value.Trim();
@@ -704,7 +722,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         {
             if (child.LocalName.Contains('.'))
             {
-                ValidatedXamlPropertyElement? propertyElement = ValidatePropertyElement(element, child, validProps, seenPropertyElements);
+                ValidatedXamlPropertyElement? propertyElement = ValidatePropertyElement(element, control.Type, child, validProps, seenPropertyElements);
                 if (propertyElement is not null)
                 {
                     propertyElements.Add(propertyElement);
@@ -960,8 +978,14 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     /// Validates a property element such as <c>&lt;Dialog.Footer&gt;</c> on <paramref name="owner"/>. Returns null after
     /// reporting a diagnostic.
     /// </summary>
+    /// <summary>
+    /// Validates a property element such as <c>&lt;Dialog.Footer&gt;</c>. Built-in controls list their property elements.
+    /// Other types accept a property element for any property: one that holds a collection receives each child, and
+    /// one with a setter receives a single child.
+    /// </summary>
     private ValidatedXamlPropertyElement? ValidatePropertyElement(
         XamlElementNode owner,
+        INamedTypeSymbol? ownerType,
         XamlElementNode element,
         List<ValidatedXamlProperty> ownerProperties,
         HashSet<string> seenPropertyElements)
@@ -969,8 +993,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         string[] parts = element.LocalName.Split('.');
         if (parts.Length != 2 ||
             !string.Equals(parts[0], owner.LocalName, StringComparison.Ordinal) ||
-            !s_propertyElements.TryGetValue(owner.LocalName, out Dictionary<string, PropertyElementTarget>? targets) ||
-            !targets.TryGetValue(parts[1], out PropertyElementTarget target))
+            !TryGetPropertyElementTarget(owner.LocalName, ownerType, parts[1], out PropertyElementTarget target))
         {
             ReportPropertyElement(element, $"<{owner.LocalName}> has no such property element");
             return null;
@@ -1003,7 +1026,9 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         List<ValidatedXamlElement> children = [];
         foreach (XamlElementNode child in element.Children)
         {
-            ValidatedXamlElement? validatedChild = ValidateElementRecursive(child, isRoot: false);
+            ValidatedXamlElement? validatedChild = IsDataTemplate(child)
+                ? ValidateDataTemplate(child)
+                : ValidateElementRecursive(child, isRoot: false);
             if (validatedChild is not null)
             {
                 children.Add(validatedChild);
@@ -1011,6 +1036,112 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         }
 
         return new ValidatedXamlPropertyElement(target.PropertyName, target.IsCollection, children);
+    }
+
+    private bool TryGetPropertyElementTarget(
+        string ownerName,
+        INamedTypeSymbol? ownerType,
+        string propertyName,
+        out PropertyElementTarget target)
+    {
+        if (s_propertyElements.TryGetValue(ownerName, out Dictionary<string, PropertyElementTarget>? targets))
+        {
+            return targets.TryGetValue(propertyName, out target);
+        }
+
+        if (FindProperty(ownerType, propertyName) is IPropertySymbol property)
+        {
+            bool isCollection = IsCollectionType(property.Type);
+            target = new PropertyElementTarget(propertyName, isCollection);
+            return isCollection || property.SetMethod is not null;
+        }
+
+        target = default;
+        return false;
+    }
+
+    private static bool IsDataTemplate(XamlElementNode element)
+    {
+        return string.Equals(element.LocalName, DataTemplateElementName, StringComparison.Ordinal) &&
+            (string.IsNullOrEmpty(element.NamespaceUri) ||
+             string.Equals(element.NamespaceUri, XamlParser.NativeUINamespace, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Validates <c>&lt;DataTemplate DataType="prefix:Type"&gt;</c> with exactly one child element, the tree built for each
+    /// item. <c>DataType</c> takes a prefixed type name or a full CLR type name, and bindings in the tree compile against it.
+    /// </summary>
+    private ValidatedXamlElement? ValidateDataTemplate(XamlElementNode element)
+    {
+        XamlAttributeNode? dataTypeAttribute = element.Attributes.FirstOrDefault(static attr =>
+            string.Equals(attr.LocalName, "DataType", StringComparison.Ordinal) && string.IsNullOrEmpty(attr.Prefix));
+        if (dataTypeAttribute is null || element.Attributes.Count != 1)
+        {
+            ReportPropertyElement(element, "a DataTemplate needs exactly one attribute, DataType");
+            return null;
+        }
+
+        INamedTypeSymbol? dataType = ResolveTypeReference(element, dataTypeAttribute.Value.Trim());
+        if (dataType is null)
+        {
+            _diagnostics.Add(Diagnostic.Create(
+                XamlDiagnostics.InvalidPropertyValue,
+                XamlDiagnostics.CreateLocation(_filePath, dataTypeAttribute.Position),
+                dataTypeAttribute.Value,
+                "DataType",
+                element.LocalName));
+            return null;
+        }
+
+        if (element.Children.Count != 1)
+        {
+            ReportPropertyElement(element, "a DataTemplate must contain exactly one element");
+            return null;
+        }
+
+        _templateDepth++;
+        ValidatedXamlElement? body;
+        try
+        {
+            body = ValidateElementRecursive(element.Children[0], isRoot: false);
+        }
+        finally
+        {
+            _templateDepth--;
+        }
+
+        return body is null
+            ? null
+            : new ValidatedXamlElement(
+                DataTemplateElementName,
+                null,
+                [],
+                [body],
+                string.Empty,
+                [],
+                dataType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+    }
+
+    /// <summary>
+    /// Resolves <c>prefix:Type</c> through the namespace prefixes in scope, or a full CLR type name, to a type in the compilation.
+    /// </summary>
+    private INamedTypeSymbol? ResolveTypeReference(XamlElementNode element, string reference)
+    {
+        if (_types is null || _compilation is null)
+        {
+            return null;
+        }
+
+        int separator = reference.IndexOf(':');
+        if (separator < 0)
+        {
+            return _compilation.GetTypeByMetadataName(reference);
+        }
+
+        string prefix = reference[..separator];
+        return element.NamespacePrefixes.TryGetValue(prefix, out string? xmlNamespace)
+            ? _types.Resolve(xmlNamespace, reference[(separator + 1)..])
+            : null;
     }
 
     private void ReportPropertyElement(XamlElementNode element, string reason)

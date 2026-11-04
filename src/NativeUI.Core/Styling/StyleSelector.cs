@@ -66,7 +66,8 @@ public record CompoundSelector
         (ElementStates.On, "pressed"),
         (ElementStates.Off, "unpressed"),
         (ElementStates.FirstChild, "first-child"),
-        (ElementStates.LastChild, "last-child")
+        (ElementStates.LastChild, "last-child"),
+        (ElementStates.Selected, "selected")
     ];
 
     /// <summary>
@@ -272,6 +273,34 @@ public record CompoundSelector
     }
 
     /// <summary>
+    /// Converts this compound selector to a <see cref="StyleSelector"/> matching the template part named <paramref name="name"/>
+    /// while the part has <paramref name="states"/>, such as <c>::part(item):selected</c>.
+    /// </summary>
+    /// <param name="name">The part name.</param>
+    /// <param name="states">The states the part element must have.</param>
+    public StyleSelector Part(string name, ElementStates states)
+    {
+        return ((StyleSelector)this).Part(name, states);
+    }
+
+    /// <summary>
+    /// Formats <paramref name="states"/> as the pseudo-classes that select them, such as <c>:hover:checked</c>.
+    /// </summary>
+    internal static string FormatPseudoClasses(ElementStates states)
+    {
+        System.Text.StringBuilder sb = new();
+        foreach ((ElementStates state, string name) in s_pseudoClasses)
+        {
+            if (states.HasFlag(state))
+            {
+                sb.Append(':').Append(name);
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// Returns the state that the pseudo-class <paramref name="name"/>, without its colon, selects.
     /// </summary>
     /// <param name="name">The pseudo-class name, such as <c>checked</c>.</param>
@@ -327,13 +356,7 @@ public record CompoundSelector
             }
         }
 
-        foreach ((ElementStates state, string name) in s_pseudoClasses)
-        {
-            if (RequiredStates.HasFlag(state))
-            {
-                sb.Append(':').Append(name);
-            }
-        }
+        sb.Append(FormatPseudoClasses(RequiredStates));
 
         return sb.ToString();
     }
@@ -396,7 +419,8 @@ public record CompoundSelector
                         return false;
                     }
                 }
-                else
+                else if (element.GetAttribute(attr.Name) is not string value ||
+                    (attr.Value is not null && !string.Equals(value, attr.Value, StringComparison.Ordinal)))
                 {
                     return false;
                 }
@@ -544,13 +568,15 @@ public sealed record StyleSelector
     /// <param name="platform">The target platform name, or <see langword="null"/> if unconstrained.</param>
     /// <param name="pseudoElementName">The optional pseudo-element name attached to this selector.</param>
     /// <param name="partName">The name of the template part this selector matches, or <see langword="null"/> to match the subject itself.</param>
+    /// <param name="partStates">The states the part element must have. Ignored without <paramref name="partName"/>.</param>
     /// <exception cref="ArgumentNullException"><paramref name="subject"/> is null.</exception>
     public StyleSelector(
         CompoundSelector subject,
         ImmutableArray<CompoundSelector> ancestors = default,
         string? platform = null,
         string? pseudoElementName = null,
-        string? partName = null)
+        string? partName = null,
+        ElementStates partStates = ElementStates.None)
     {
         ArgumentNullException.ThrowIfNull(subject);
         Subject = subject;
@@ -558,6 +584,7 @@ public sealed record StyleSelector
         Platform = string.IsNullOrWhiteSpace(platform) ? subject.Platform : platform.Trim().ToLowerInvariant();
         PseudoElementName = pseudoElementName;
         PartName = partName;
+        PartStates = partName is null ? ElementStates.None : partStates;
         WhereSelectors = ImmutableArray<StyleSelector>.Empty;
     }
 
@@ -616,11 +643,29 @@ public sealed record StyleSelector
     public string? PartName { get; }
 
     /// <summary>
+    /// Gets the states the part element must have, such as <see cref="ElementStates.Selected"/> in
+    /// <c>list::part(item):selected</c>.
+    /// </summary>
+    public ElementStates PartStates { get; }
+
+    /// <summary>
     /// Returns a new selector matching the template part named <paramref name="name"/> of the elements this selector matches.
     /// </summary>
     /// <param name="name">The part name.</param>
     /// <exception cref="InvalidOperationException">This selector is a <c>:where(...)</c> list.</exception>
     public StyleSelector Part(string name)
+    {
+        return Part(name, ElementStates.None);
+    }
+
+    /// <summary>
+    /// Returns a new selector matching the template part named <paramref name="name"/> of the elements this selector
+    /// matches, while the part has <paramref name="states"/>.
+    /// </summary>
+    /// <param name="name">The part name.</param>
+    /// <param name="states">The states the part element must have.</param>
+    /// <exception cref="InvalidOperationException">This selector is a <c>:where(...)</c> list.</exception>
+    public StyleSelector Part(string name, ElementStates states)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (IsWhere)
@@ -628,7 +673,7 @@ public sealed record StyleSelector
             throw new InvalidOperationException("A :where(...) selector list cannot select a template part.");
         }
 
-        return new StyleSelector(Subject, Ancestors, Platform, PseudoElementName, name);
+        return new StyleSelector(Subject, Ancestors, Platform, PseudoElementName, name, states);
     }
 
     /// <summary>
@@ -643,7 +688,7 @@ public sealed record StyleSelector
             return new StyleSelector(WhereSelectors, name);
         }
 
-        return new StyleSelector(Subject, Ancestors, Platform, name, PartName);
+        return new StyleSelector(Subject, Ancestors, Platform, name, PartName, PartStates);
     }
 
     /// <summary>
@@ -670,7 +715,7 @@ public sealed record StyleSelector
             sb.Append(Subject.ToCssString());
             if (PartName is not null)
             {
-                sb.Append("::part(").Append(PartName).Append(')');
+                sb.Append("::part(").Append(PartName).Append(')').Append(CompoundSelector.FormatPseudoClasses(PartStates));
             }
 
             baseSelector = sb.ToString();
@@ -715,7 +760,7 @@ public sealed record StyleSelector
 
             if (PartName is not null)
             {
-                specificity += new SelectorSpecificity(0, 1);
+                specificity += new SelectorSpecificity(int.PopCount((int)PartStates), 1);
             }
 
             return specificity;
@@ -753,6 +798,7 @@ public sealed record StyleSelector
         if (PartName is not null)
         {
             if (!string.Equals(element.PartName, PartName, StringComparison.Ordinal) ||
+                (element.States & PartStates) != PartStates ||
                 element.TemplatedParent is not IUIElement templatedParent)
             {
                 return false;

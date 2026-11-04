@@ -350,13 +350,18 @@ public static class CssEmitter
 
         if (rule.PartName is not null)
         {
+            List<ArgumentSyntax> partArguments = [Argument(CssValueSyntaxBuilder.StringLiteral(rule.PartName))];
+            if (rule.PartStates is { Count: > 0 } partStates)
+            {
+                partArguments.Add(Argument(BuildStatesExpression(partStates)));
+            }
+
             selectorExpr = InvocationExpression(
                 MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
                     selectorExpr,
                     IdentifierName("Part")))
-                .WithArgumentList(ArgumentList(SingletonSeparatedList(
-                    Argument(CssValueSyntaxBuilder.StringLiteral(rule.PartName)))));
+                .WithArgumentList(ArgumentList(SeparatedList(partArguments)));
         }
 
         if (rule.PseudoElement != CssParsedPseudoElement.None)
@@ -392,45 +397,34 @@ public static class CssEmitter
 
         ExpressionSyntax? expr = null;
 
-        if (attributes is { Count: > 0 })
+        if (elementType is not null)
         {
             expr = InvocationExpression(
                 MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
                     IdentifierName("CssSelector"),
-                    IdentifierName("Attribute")))
-                .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
-                [
-                    Argument(CssValueSyntaxBuilder.StringLiteral(attributes[0].Name)),
-                    Argument(CssValueSyntaxBuilder.StringLiteral(attributes[0].Value))
-                ])));
-
-            for (int i = 1; i < attributes.Count; i++)
-            {
-                expr = InvocationExpression(
-                    MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        expr,
-                        IdentifierName("Attribute")))
-                    .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
-                    [
-                        Argument(CssValueSyntaxBuilder.StringLiteral(attributes[i].Name)),
-                        Argument(CssValueSyntaxBuilder.StringLiteral(attributes[i].Value))
-                    ])));
-            }
+                    IdentifierName("Type")))
+                .WithArgumentList(ArgumentList(SingletonSeparatedList(
+                    Argument(CssValueSyntaxBuilder.StringLiteral(elementType)))));
         }
 
-        if (elementType is not null)
+        if (attributes is { Count: > 0 })
         {
-            if (expr is null)
+            foreach (CssAttributeSelectorNode attribute in attributes)
             {
-                expr = InvocationExpression(
-                    MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        IdentifierName("CssSelector"),
-                        IdentifierName("Type")))
-                    .WithArgumentList(ArgumentList(SingletonSeparatedList(
-                        Argument(CssValueSyntaxBuilder.StringLiteral(elementType)))));
+                ArgumentListSyntax attributeArguments = ArgumentList(SeparatedList<ArgumentSyntax>(
+                [
+                    Argument(CssValueSyntaxBuilder.StringLiteral(attribute.Name)),
+                    Argument(CssValueSyntaxBuilder.StringLiteral(attribute.Value))
+                ]));
+
+                expr = expr is null
+                    ? InvocationExpression(
+                        MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, IdentifierName("CssSelector"), IdentifierName("Attribute")))
+                        .WithArgumentList(attributeArguments)
+                    : InvocationExpression(
+                        MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, expr, IdentifierName("Attribute")))
+                        .WithArgumentList(attributeArguments);
             }
         }
 

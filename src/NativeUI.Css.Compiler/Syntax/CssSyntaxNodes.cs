@@ -99,9 +99,11 @@ public sealed record CssPseudoClassNode(
 /// </summary>
 /// <param name="Name">The part name.</param>
 /// <param name="Span">The source span of the pseudo-element, from its first colon to its closing parenthesis.</param>
+/// <param name="States">The <c>ElementStates</c> member names that pseudo-classes after the pseudo-element require on the part.</param>
 public sealed record CssPartSelectorNode(
     string Name,
-    CssSourceSpan Span);
+    CssSourceSpan Span,
+    IReadOnlyList<string> States);
 
 /// <summary>
 /// Represents one compound part of a selector, such as <c>text.title:hover</c>.

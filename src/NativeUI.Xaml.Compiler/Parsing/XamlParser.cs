@@ -90,11 +90,33 @@ public static class XamlParser
             children,
             innerText)
         {
+            NamespacePrefixes = ReadNamespacePrefixes(element),
             SvgMarkup = element.Name.NamespaceName == "http://www.w3.org/2000/svg" ||
                 (element.Name.LocalName == "Svg" && element.Elements().Any(static child => child.Name.NamespaceName == "http://www.w3.org/2000/svg"))
                 ? element.ToString(SaveOptions.DisableFormatting)
                 : null
         };
+    }
+
+    /// <summary>
+    /// Returns the namespace of each prefix in scope on <paramref name="element"/>. A declaration on an element replaces
+    /// a declaration of the same prefix on its ancestors.
+    /// </summary>
+    private static Dictionary<string, string> ReadNamespacePrefixes(XElement element)
+    {
+        Dictionary<string, string> prefixes = new(StringComparer.Ordinal);
+        foreach (XElement scope in element.AncestorsAndSelf())
+        {
+            foreach (XAttribute attribute in scope.Attributes())
+            {
+                if (attribute.IsNamespaceDeclaration && attribute.Name.Namespace == XNamespace.Xmlns)
+                {
+                    prefixes.TryAdd(attribute.Name.LocalName, attribute.Value);
+                }
+            }
+        }
+
+        return prefixes;
     }
 
     private static XamlSourcePosition GetPosition(IXmlLineInfo lineInfo)

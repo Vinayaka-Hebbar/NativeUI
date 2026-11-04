@@ -71,8 +71,9 @@ internal sealed class XamlLiteralConverter : XamlValueConverter
             IPropertySymbol property => !hasPlaceholder && SymbolEqualityComparer.Default.Equals(property.Type, type),
             IFieldSymbol field => !hasPlaceholder && SymbolEqualityComparer.Default.Equals(field.Type, type),
             IMethodSymbol method => SymbolEqualityComparer.Default.Equals(method.ReturnType, type) &&
-                method.Parameters.Length == (hasPlaceholder ? 1 : 0) &&
-                (!hasPlaceholder || XamlValueConverters.ForPrimitive(method.Parameters[0].Type) is not null),
+                (hasPlaceholder
+                    ? method.Parameters.Length == 1 && XamlValueConverters.ForPrimitive(method.Parameters[0].Type) is not null
+                    : method.Parameters.All(static parameter => parameter.IsOptional)),
             _ => false
         };
     }

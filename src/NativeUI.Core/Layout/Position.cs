@@ -23,5 +23,12 @@ public enum Position
     /// <summary>
     /// The element is removed from normal flow and positioned relative to the viewport.
     /// </summary>
-    Fixed
+    Fixed,
+
+    /// <summary>
+    /// The element participates in normal layout flow, and stays within the visible area of its scroll container while the
+    /// container scrolls: no closer than <c>top</c> to the top edge and no closer than <c>bottom</c> to the bottom edge.
+    /// On desktop, only an element whose parent is the scroll container sticks.
+    /// </summary>
+    Sticky
 }

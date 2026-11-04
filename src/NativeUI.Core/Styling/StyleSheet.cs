@@ -15,6 +15,7 @@ public sealed class SelectorBuilder
     private ImmutableArray<string>.Builder _classes = ImmutableArray.CreateBuilder<string>();
     private ElementStates _states;
     private string? _partName;
+    private ElementStates _partStates;
 
     internal SelectorBuilder()
     {
@@ -86,12 +87,14 @@ public sealed class SelectorBuilder
     }
 
     /// <summary>
-    /// Makes the selector match the template part named <paramref name="name"/> of the element described so far.
+    /// Makes the selector match the template part named <paramref name="name"/> of the element described so far, while the
+    /// part has <paramref name="states"/>.
     /// </summary>
-    public SelectorBuilder Part(string name)
+    public SelectorBuilder Part(string name, ElementStates states = ElementStates.None)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         _partName = name;
+        _partStates = states;
         return this;
     }
 
@@ -114,12 +117,13 @@ public sealed class SelectorBuilder
         _classes = selector.Subject.Classes.ToBuilder();
         _states = selector.Subject.RequiredStates;
         _partName = selector.PartName;
+        _partStates = selector.PartStates;
         return this;
     }
 
     internal StyleSelector Build()
     {
-        return new StyleSelector(CreateCompound(), [.. _ancestors], partName: _partName);
+        return new StyleSelector(CreateCompound(), [.. _ancestors], partName: _partName, partStates: _partStates);
     }
 
     private CompoundSelector CreateCompound()

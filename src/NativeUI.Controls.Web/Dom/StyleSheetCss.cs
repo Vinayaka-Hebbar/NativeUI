@@ -226,7 +226,7 @@ internal static class StyleSheetCss
     private static string WritePart(StyleSelector selector)
     {
         return selector.PartName is string partName
-            ? $" :is(*, div):where([{PartAttribute}=\"{EscapeAttributeValue(partName)}\"])"
+            ? $" :is(*, div):where([{PartAttribute}=\"{EscapeAttributeValue(partName)}\"]){WriteStates(selector.PartStates)}"
             : string.Empty;
     }
 
@@ -290,6 +290,7 @@ internal static class StyleSheetCss
         AppendState(builder, states, ElementStates.Off, "[aria-pressed=\"false\"]");
         AppendState(builder, states, ElementStates.FirstChild, ":first-child");
         AppendState(builder, states, ElementStates.LastChild, ":last-child");
+        AppendState(builder, states, ElementStates.Selected, "[aria-selected=\"true\"]");
         return builder.ToString();
     }
 

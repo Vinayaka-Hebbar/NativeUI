@@ -1013,6 +1013,7 @@ internal static class CssValueSyntaxBuilder
             "relative" => "Relative",
             "absolute" => "Absolute",
             "fixed" => "Fixed",
+            "sticky" => "Sticky",
             _ => null
         };
 

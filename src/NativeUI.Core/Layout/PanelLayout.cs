@@ -1,4 +1,5 @@
 using System.Globalization;
+using NativeUI.Xaml;
 
 namespace NativeUI.Layout;
 
@@ -42,6 +43,7 @@ public readonly record struct GridLength
     /// <summary>
     /// Gets a length that sizes to its content.
     /// </summary>
+    [XamlLiteral("Auto")]
     public static GridLength Auto { get; } = new(Unit.Auto, 0);
 
     /// <summary>
@@ -67,6 +69,8 @@ public readonly record struct GridLength
     /// <summary>
     /// Creates a length that takes <paramref name="weight"/> shares of the remaining space.
     /// </summary>
+    [XamlLiteral("*")]
+    [XamlLiteral("{0}*")]
     public static GridLength Star(double weight = 1)
     {
         return new GridLength(Unit.Star, weight);
@@ -75,6 +79,7 @@ public readonly record struct GridLength
     /// <summary>
     /// Creates a length of a fixed number of logical pixels.
     /// </summary>
+    [XamlLiteral("{0}")]
     public static GridLength Pixels(double pixels)
     {
         return new GridLength(Unit.Pixels, pixels);

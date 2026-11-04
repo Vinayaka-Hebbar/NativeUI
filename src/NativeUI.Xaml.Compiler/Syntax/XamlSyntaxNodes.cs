@@ -59,6 +59,9 @@ public sealed record XamlElementNode(
     /// <summary>Gets the original XML for an inline SVG subtree compiled as a vector definition.</summary>
     public string? SvgMarkup { get; init; }
 
+    /// <summary>Gets the XML namespace of each prefix declared on this element or its ancestors.</summary>
+    public IReadOnlyDictionary<string, string> NamespacePrefixes { get; init; } = new Dictionary<string, string>();
+
     /// <inheritdoc />
     public override void Accept(IXamlSyntaxVisitor visitor) => visitor.VisitElement(this);
 }

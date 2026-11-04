@@ -100,6 +100,7 @@ internal static class StyleCssDeclarations
             Position.Relative => "relative",
             Position.Absolute => "absolute",
             Position.Fixed => "fixed",
+            Position.Sticky => "sticky",
             Position.Static => "static",
             _ => null
         };

@@ -186,6 +186,14 @@ public class View : UIElement, IView, IScrollContainer
     /// </summary>
     public IList<UIElement> Children => _children;
 
+    /// <summary>
+    /// Moves the child at <paramref name="oldIndex"/> to <paramref name="newIndex"/> without detaching it.
+    /// </summary>
+    internal void MoveChild(int oldIndex, int newIndex)
+    {
+        _children.Move(oldIndex, newIndex);
+    }
+
     /// <inheritdoc />
     public override void RecomputeStyle()
     {

@@ -41,6 +41,13 @@ public interface IUIElement
     IUIElement? TemplatedParent { get; }
 
     /// <summary>
+    /// Returns the value of the attribute <paramref name="name"/> that attribute selectors such as
+    /// <c>[data-sort="ascending"]</c> match, or <see langword="null"/> when the element has no such attribute.
+    /// </summary>
+    /// <param name="name">The attribute name.</param>
+    string? GetAttribute(string name);
+
+    /// <summary>
     /// Gets the specified inline style applied after matching CSS declarations.
     /// </summary>
     IStyle? Style { get; }

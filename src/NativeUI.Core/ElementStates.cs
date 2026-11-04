@@ -76,5 +76,10 @@ public enum ElementStates
     /// <summary>
     /// The element is the last child of its parent, selected by the <c>:last-child</c> pseudo-class.
     /// </summary>
-    LastChild = 1 << 12
+    LastChild = 1 << 12,
+
+    /// <summary>
+    /// The element is a selected item, selected by the <c>:selected</c> pseudo-class.
+    /// </summary>
+    Selected = 1 << 13
 }

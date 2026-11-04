@@ -153,6 +153,11 @@ public static class XamlEmitter
         bool isRoot,
         List<(string Name, string ControlType)> results)
     {
+        if (element.TemplateDataType is not null)
+        {
+            return;
+        }
+
         if (!isRoot && !string.IsNullOrWhiteSpace(element.XName))
         {
             results.Add((element.XName!, element.ControlTypeName));
@@ -207,6 +212,60 @@ public static class XamlEmitter
         string viewNamespace,
         ref int counter)
     {
+        ExpressionSyntax parentMember = parentExpr is ThisExpressionSyntax
+            ? IdentifierName(parentProperty)
+            : MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                parentExpr,
+                IdentifierName(parentProperty));
+
+        if (element.TemplateDataType is string templateDataType)
+        {
+            ExpressionSyntax template = BuildDataTemplateExpression(element.Children[0], templateDataType, viewNamespace, ref counter);
+            statements.Add(BuildAttachStatement(parentMember, isCollection, template));
+            return;
+        }
+
+        IdentifierNameSyntax currentVarExpr = EmitElementCreation(statements, element, dataType, viewNamespace, ref counter);
+        statements.Add(BuildAttachStatement(parentMember, isCollection, currentVarExpr));
+        EmitNestedElements(statements, currentVarExpr, element, dataType, viewNamespace, ref counter);
+    }
+
+    /// <summary>
+    /// Emits <c>new DataTemplate&lt;T&gt;(item =&gt; { ...; return root; })</c>. The lambda builds <paramref name="root"/>
+    /// and its descendants, and their bindings compile against <paramref name="templateDataType"/>.
+    /// </summary>
+    private static ObjectCreationExpressionSyntax BuildDataTemplateExpression(
+        ValidatedXamlElement root,
+        string templateDataType,
+        string viewNamespace,
+        ref int counter)
+    {
+        List<StatementSyntax> body = [];
+        IdentifierNameSyntax rootExpr = EmitElementCreation(body, root, templateDataType, viewNamespace, ref counter);
+        EmitNestedElements(body, rootExpr, root, templateDataType, viewNamespace, ref counter);
+        body.Add(ReturnStatement(rootExpr));
+
+        SimpleLambdaExpressionSyntax factory = SimpleLambdaExpression(Parameter(Identifier("item")))
+            .WithBlock(Block(body));
+
+        return ObjectCreationExpression(
+                GenericName(Identifier("DataTemplate"))
+                    .WithTypeArgumentList(TypeArgumentList(SingletonSeparatedList(ParseTypeName(templateDataType)))))
+            .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(factory))));
+    }
+
+    /// <summary>
+    /// Emits the creation of <paramref name="element"/> into a local or named field, followed by its property assignments,
+    /// and returns the variable that holds it.
+    /// </summary>
+    private static IdentifierNameSyntax EmitElementCreation(
+        List<StatementSyntax> statements,
+        ValidatedXamlElement element,
+        string? dataType,
+        string viewNamespace,
+        ref int counter)
+    {
         counter++;
         string varName = !string.IsNullOrWhiteSpace(element.XName)
             ? element.XName!
@@ -235,32 +294,19 @@ public static class XamlEmitter
 
         IdentifierNameSyntax currentVarExpr = IdentifierName(varName);
         EmitElementPropertyStatements(statements, currentVarExpr, element, dataType, viewNamespace);
+        return currentVarExpr;
+    }
 
-        ExpressionSyntax parentMember = parentExpr is ThisExpressionSyntax
-            ? IdentifierName(parentProperty)
-            : MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                parentExpr,
-                IdentifierName(parentProperty));
-
+    private static ExpressionStatementSyntax BuildAttachStatement(ExpressionSyntax parentMember, bool isCollection, ExpressionSyntax child)
+    {
         if (isCollection)
         {
-            MemberAccessExpressionSyntax addMethod = MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                parentMember,
-                IdentifierName("Add"));
-
-            statements.Add(ExpressionStatement(
-                InvocationExpression(addMethod)
-                    .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(currentVarExpr))))));
-        }
-        else
-        {
-            statements.Add(ExpressionStatement(
-                AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, parentMember, currentVarExpr)));
+            return ExpressionStatement(
+                InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, parentMember, IdentifierName("Add")))
+                    .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(child)))));
         }
 
-        EmitNestedElements(statements, currentVarExpr, element, dataType, viewNamespace, ref counter);
+        return ExpressionStatement(AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, parentMember, child));
     }
 
     private static void EmitElementPropertyStatements(

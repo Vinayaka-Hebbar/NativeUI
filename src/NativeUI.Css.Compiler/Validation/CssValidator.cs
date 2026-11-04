@@ -26,7 +26,8 @@ public sealed record ValidatedCssRule(
     IReadOnlyList<CssCompoundSelectorNode>? Ancestors = null,
     CssParsedPseudoElement PseudoElement = CssParsedPseudoElement.None,
     IReadOnlyList<CssAttributeSelectorNode>? Attributes = null,
-    string? PartName = null);
+    string? PartName = null,
+    IReadOnlyList<string>? PartStates = null);
 
 /// <summary>
 /// Represents one validated keyframe of a <c>@keyframes</c> rule.
@@ -263,7 +264,8 @@ public sealed class CssValidator : CssSyntaxVisitor
                 selector.Ancestors,
                 selector.PseudoElement,
                 selector.Attributes,
-                selector.Part?.Name));
+                selector.Part?.Name,
+                selector.Part?.States));
         }
     }
 
@@ -385,6 +387,7 @@ public sealed class CssValidator : CssSyntaxVisitor
             "Indeterminate" => "[aria-checked=\"mixed\"]",
             "On" => "[aria-pressed=\"true\"]",
             "Off" => "[aria-pressed=\"false\"]",
+            "Selected" => "[aria-selected=\"true\"]",
             _ => null
         };
     }
