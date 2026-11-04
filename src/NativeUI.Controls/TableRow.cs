@@ -9,12 +9,18 @@ namespace NativeUI.Controls;
 /// <summary>
 /// Represents one row of a <see cref="Table"/>: a grid of <see cref="Cells"/> whose columns are the visible columns of the
 /// table. Every row of a table has the same column widths, so pixel and star columns line up across rows. A table presents
-/// its rows as the <c>row</c> template part. The row has <see cref="ElementStates.Selected"/>, selected by <c>:selected</c>,
+/// its rows as the <c>row</c> template part. A row is positioned, so absolutely positioned children that are not cells
+/// lie within it. The row has <see cref="ElementStates.Selected"/>, selected by <c>:selected</c>,
 /// while the table has it selected.
 /// </summary>
 [ContentProperty(nameof(Cells))]
 public class TableRow : View, IGridLayoutNode
 {
+    static TableRow()
+    {
+        PositionProperty.OverrideMetadata<TableRow>(NativeUI.Layout.Position.Relative);
+    }
+
     /// <summary>
     /// Identifies the <see cref="IsSelected"/> bindable property.
     /// </summary>

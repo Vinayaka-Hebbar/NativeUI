@@ -55,6 +55,7 @@ internal static class StyleSheetCss
     /// <c>color-scheme</c> following <c>data-theme</c>. Each <see cref="Switch"/> and <see cref="Toggle"/> is a block, and
     /// each <see cref="CheckBox"/> and <see cref="ToggleGroup"/> is a row flex container. All four are as wide as their content.
     /// Each <see cref="List"/> is a scrolling column flex container, each <see cref="VirtualizedList"/> is a scrolling block, and each table scrolls on both axes.
+    /// Text breaks inside a word that does not fit its line, as on desktop.
     /// <c>:where</c> keeps every declaration at zero specificity.
     /// </summary>
     public static CssStyleSheet BaseStyleSheet { get; } = new BaseCssStyleSheet();

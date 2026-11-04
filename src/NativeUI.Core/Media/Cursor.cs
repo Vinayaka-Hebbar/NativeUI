@@ -36,5 +36,11 @@ public enum Cursor
     Wait = 7,
 
     /// <summary>Alias for <see cref="Pointer"/>.</summary>
-    Hand = Pointer
+    Hand = Pointer,
+
+    /// <summary>
+    /// A horizontal double arrow for resizing a column.
+    /// Corresponds to CSS cursor: col-resize.
+    /// </summary>
+    ColumnResize = 8
 }

@@ -87,6 +87,7 @@ internal static class StyleCssDeclarations
             Cursor.IBeam => "text",
             Cursor.NotAllowed => "not-allowed",
             Cursor.Crosshair => "crosshair",
+            Cursor.ColumnResize => "col-resize",
             Cursor.Wait => "wait",
             Cursor.Arrow or Cursor.Default => "default",
             Cursor.Auto => "auto",

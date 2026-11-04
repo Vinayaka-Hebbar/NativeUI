@@ -603,6 +603,7 @@ internal static partial class AppKitInterop
             Cursor.IBeam => "IBeamCursor",
             Cursor.NotAllowed => "operationNotAllowedCursor",
             Cursor.Crosshair => "crosshairCursor",
+            Cursor.ColumnResize => "resizeLeftRightCursor",
             _ => "arrowCursor"
         };
         nint nsCursor = SendMessage(GetClass("NSCursor"), GetSelector(selector));

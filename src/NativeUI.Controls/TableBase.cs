@@ -30,9 +30,12 @@ namespace NativeUI.Controls;
 /// <c>data-sort="descending"</c>.
 /// </para>
 /// <para>
-/// While <see cref="CanResizeColumns"/> is <see langword="true"/>, dragging the right edge of a header cell sets the
+/// While <see cref="CanResizeColumns"/> is <see langword="true"/>, each header cell of a resizable column has a
+/// <c>column-resizer</c> part along its right edge, with the <see cref="Cursor.ColumnResize"/> cursor. Dragging it sets the
 /// column's <see cref="TableColumn.Width"/> to pixels within its minimum and maximum. While <see cref="CanReorderColumns"/>
-/// is <see langword="true"/>, dragging a header cell onto another moves its column there.
+/// is <see langword="true"/>, dragging a header cell moves its column. During the drag the column header row has a
+/// <c>column-drag</c> part that shows the column's header and follows the pointer, and a <c>drop-indicator</c> part at the
+/// boundary where the column goes. These parts have no appearance until a stylesheet gives them one.
 /// </para>
 /// </remarks>
 public abstract class TableBase : Selector
@@ -43,7 +46,11 @@ public abstract class TableBase : Selector
     private const string RowPartName = "row";
     private const string CellPartName = "cell";
     private const string HeaderCellPartName = "header-cell";
-    private const double ResizeEdgeWidth = 6;
+    private const string ColumnResizerPartName = "column-resizer";
+    private const string ColumnDragPartName = "column-drag";
+    private const string DropIndicatorPartName = "drop-indicator";
+    private const double ColumnResizerWidth = 6;
+    private const double DropIndicatorWidth = 2;
     private const double DragThreshold = 4;
 
     static TableBase()
@@ -115,7 +122,10 @@ public abstract class TableBase : Selector
     /// Identifies the <see cref="CanResizeColumns"/> bindable property.
     /// </summary>
     public static readonly BindableProperty<bool> CanResizeColumnsProperty =
-        BindableProperty.Create<TableBase, bool>(nameof(CanResizeColumns), defaultValue: true);
+        BindableProperty.Create<TableBase, bool>(
+            nameof(CanResizeColumns),
+            defaultValue: true,
+            propertyChanged: static (owner, _, _) => owner.UpdateColumnResizers());
 
     /// <summary>
     /// Identifies the <see cref="CanReorderColumns"/> bindable property.
@@ -132,6 +142,7 @@ public abstract class TableBase : Selector
     private readonly ObservableCollection<TableColumn> _columns = [];
     private readonly List<TableColumn> _sortColumns = [];
     private readonly Dictionary<TableCell, TableColumn> _headerCells = [];
+    private readonly Dictionary<View, TableColumn> _columnResizers = [];
     private readonly List<TableColumn> _visibleColumns = [];
     private readonly Dictionary<(Type Type, string Path), PropertyInfo?> _sortProperties = [];
     private View _header = null!;
@@ -144,6 +155,8 @@ public abstract class TableBase : Selector
     private bool _isSortedBySource;
     private bool _isUpdatingSort;
     private HeaderDrag? _drag;
+    private View? _columnDrag;
+    private View? _dropIndicator;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TableBase"/> class.
@@ -603,6 +616,10 @@ public abstract class TableBase : Selector
         {
             UpdateColumns();
         }
+        else if (ReferenceEquals(args.Property, TableColumn.IsResizableProperty))
+        {
+            UpdateColumnResizers();
+        }
         else if (ReferenceEquals(args.Property, TableColumn.SortDirectionProperty) && !_isUpdatingSort)
         {
             UpdateSortColumn(column);
@@ -623,6 +640,7 @@ public abstract class TableBase : Selector
     {
         List<GridLength> widths = [];
         _headerCells.Clear();
+        _columnResizers.Clear();
         _visibleColumns.Clear();
         _columnHeader.Cells.Clear();
         foreach (TableColumn column in _columns)
@@ -637,11 +655,22 @@ public abstract class TableBase : Selector
             TableCell cell = new()
             {
                 Content = column.HeaderTemplate is DataTemplate template ? template.Build(column.Header) : column.Header,
-                SortDirection = column.SortDirection
+                SortDirection = column.SortDirection,
+                Position = NativeUI.Layout.Position.Relative
             };
+            View resizer = CreateOverlayPart(ColumnResizerPartName);
+            resizer.Top = 0;
+            resizer.Bottom = 0;
+            resizer.Right = 0;
+            resizer.Width = ColumnResizerWidth;
+            resizer.SetValue(CursorProperty, Cursor.ColumnResize);
+            cell.Children.Add(resizer);
+            _columnResizers[resizer] = column;
             _headerCells[cell] = column;
             _columnHeader.Cells.Add(cell);
         }
+
+        UpdateColumnResizers();
 
         _columnWidths = widths;
         _columnHeader.ColumnWidths = widths;
@@ -793,18 +822,45 @@ public abstract class TableBase : Selector
         return null;
     }
 
+    /// <summary>
+    /// Creates an absolutely positioned view that is the template part <paramref name="name"/> and paints above the
+    /// column header cells.
+    /// </summary>
+    private View CreateOverlayPart(string name)
+    {
+        View part = DefinePart(new View { Style = new Style { ZIndex = 1 } }, name);
+        part.Position = NativeUI.Layout.Position.Absolute;
+        return part;
+    }
+
+    private void UpdateColumnResizers()
+    {
+        foreach ((View resizer, TableColumn column) in _columnResizers)
+        {
+            resizer.IsVisible = CanResizeColumns && column.IsResizable;
+        }
+    }
+
     private void OnHeaderPointerPressed(object? sender, PointerEventArgs args)
     {
-        if (!IsEnabled || FindHeaderCell(args.Source as UIElement) is not TableCell cell)
+        if (!IsEnabled || args.Source is not UIElement source)
         {
             return;
         }
 
-        TableColumn column = _headerCells[cell];
-        bool isOnEdge = args.Position.X >= cell.Bounds.Right - ResizeEdgeWidth;
-        bool isResizing = isOnEdge && CanResizeColumns && column.IsResizable;
-        _drag = new HeaderDrag(column, args.Position.X, cell.ActualWidth, isResizing, args.Modifiers);
-        args.Handled = true;
+        if (source is View resizer && _columnResizers.TryGetValue(resizer, out TableColumn? resizedColumn) &&
+            FindHeaderCell(resizer) is TableCell resizedCell)
+        {
+            _drag = new HeaderDrag(resizedColumn, resizedCell, args.Position.X, resizedCell.ActualWidth, IsResizing: true, args.Modifiers);
+            args.Handled = true;
+            return;
+        }
+
+        if (FindHeaderCell(source) is TableCell cell)
+        {
+            _drag = new HeaderDrag(_headerCells[cell], cell, args.Position.X, cell.ActualWidth, IsResizing: false, args.Modifiers);
+            args.Handled = true;
+        }
     }
 
     private void OnTablePointerMoved(object? sender, PointerEventArgs args)
@@ -814,15 +870,33 @@ public abstract class TableBase : Selector
             return;
         }
 
+        // The release ends the drag only when it reaches the table. A move without the button ends a drag whose release
+        // happened elsewhere.
+        if (!args.Buttons.HasFlag(PointerButtons.Primary))
+        {
+            _drag = null;
+            HideColumnDrag();
+            return;
+        }
+
         double delta = args.Position.X - drag.StartX;
         if (drag.IsResizing)
         {
             double width = Math.Clamp(drag.StartWidth + delta, drag.Column.MinWidth, drag.Column.MaxWidth);
             drag.Column.Width = GridLength.Pixels(width);
+            return;
         }
-        else if (!drag.IsMoving && Math.Abs(delta) > DragThreshold && CanReorderColumns)
+
+        if (!drag.IsMoving && Math.Abs(delta) > DragThreshold && CanReorderColumns)
         {
-            _drag = drag with { IsMoving = true };
+            drag = drag with { IsMoving = true };
+            _drag = drag;
+            ShowColumnDrag(drag);
+        }
+
+        if (drag.IsMoving)
+        {
+            UpdateColumnDrag(drag, args.Position.X);
         }
     }
 
@@ -841,7 +915,8 @@ public abstract class TableBase : Selector
 
         if (drag.IsMoving)
         {
-            MoveColumnTo(drag.Column, args.Position.X);
+            HideColumnDrag();
+            MoveColumn(drag.Column, GetInsertionIndex(args.Position.X));
         }
         else if (CanSortColumns && drag.Column.CanSort)
         {
@@ -850,17 +925,97 @@ public abstract class TableBase : Selector
     }
 
     /// <summary>
-    /// Moves <paramref name="column"/> to the position of the visible column whose header contains <paramref name="x"/>.
+    /// Adds the <c>column-drag</c> part, which shows the dragged column's header and follows the pointer, and the
+    /// <c>drop-indicator</c> part, which marks where the column moves on release, to the column header row.
     /// </summary>
-    private void MoveColumnTo(TableColumn column, double x)
+    private void ShowColumnDrag(HeaderDrag drag)
     {
-        foreach ((TableCell cell, TableColumn target) in _headerCells)
+        _columnDrag = CreateOverlayPart(ColumnDragPartName);
+        _columnDrag.Top = 0;
+        _columnDrag.Bottom = 0;
+        _columnDrag.Width = drag.StartWidth;
+        if (drag.Column.Header is not UIElement)
         {
-            if (x >= cell.Bounds.X && x < cell.Bounds.Right && !ReferenceEquals(target, column))
+            _columnDrag.Children.Add(new Text
             {
-                _columns.Move(_columns.IndexOf(column), _columns.IndexOf(target));
-                return;
+                Value = Convert.ToString(drag.Column.Header, CultureInfo.CurrentCulture) ?? string.Empty,
+                IsTextSelectionEnabled = false
+            });
+        }
+
+        _dropIndicator = CreateOverlayPart(DropIndicatorPartName);
+        _dropIndicator.Top = 0;
+        _dropIndicator.Bottom = 0;
+        _dropIndicator.Width = DropIndicatorWidth;
+        _columnHeader.Children.Add(_columnDrag);
+        _columnHeader.Children.Add(_dropIndicator);
+    }
+
+    private void UpdateColumnDrag(HeaderDrag drag, double pointerX)
+    {
+        if (_columnDrag is null || _dropIndicator is null)
+        {
+            return;
+        }
+
+        double headerX = _columnHeader.Bounds.X;
+        _columnDrag.Left = drag.Cell.Bounds.X - headerX + (pointerX - drag.StartX);
+
+        int index = GetInsertionIndex(pointerX);
+        IList<TableCell> cells = _columnHeader.Cells;
+        double boundary = index < cells.Count ? cells[index].Bounds.X : cells[^1].Bounds.Right;
+        _dropIndicator.Left = boundary - headerX - (DropIndicatorWidth / 2);
+    }
+
+    private void HideColumnDrag()
+    {
+        if (_columnDrag is not null)
+        {
+            _columnHeader.Children.Remove(_columnDrag);
+            _columnDrag = null;
+        }
+
+        if (_dropIndicator is not null)
+        {
+            _columnHeader.Children.Remove(_dropIndicator);
+            _dropIndicator = null;
+        }
+    }
+
+    /// <summary>
+    /// Returns the position among the visible columns where a column dropped at <paramref name="x"/> goes: before the first
+    /// header cell whose center lies right of <paramref name="x"/>, or after the last cell.
+    /// </summary>
+    private int GetInsertionIndex(double x)
+    {
+        IList<TableCell> cells = _columnHeader.Cells;
+        for (int i = 0; i < cells.Count; i++)
+        {
+            if (x < cells[i].Bounds.X + (cells[i].ActualWidth / 2))
+            {
+                return i;
             }
+        }
+
+        return cells.Count;
+    }
+
+    /// <summary>
+    /// Moves <paramref name="column"/> before the visible column at <paramref name="visibleIndex"/>, or after the last
+    /// column when <paramref name="visibleIndex"/> is past the end.
+    /// </summary>
+    private void MoveColumn(TableColumn column, int visibleIndex)
+    {
+        int oldIndex = _columns.IndexOf(column);
+        int newIndex = visibleIndex < _visibleColumns.Count ? _columns.IndexOf(_visibleColumns[visibleIndex]) : _columns.Count;
+        if (newIndex > oldIndex)
+        {
+            newIndex--;
+        }
+
+        if (newIndex != oldIndex)
+        {
+            _columns.Move(oldIndex, newIndex);
         }
     }
 
@@ -869,6 +1024,7 @@ public abstract class TableBase : Selector
     /// </summary>
     private readonly record struct HeaderDrag(
         TableColumn Column,
+        TableCell Cell,
         double StartX,
         double StartWidth,
         bool IsResizing,

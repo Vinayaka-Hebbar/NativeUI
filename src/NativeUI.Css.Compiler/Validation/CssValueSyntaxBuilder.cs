@@ -1065,6 +1065,7 @@ internal static class CssValueSyntaxBuilder
                 "text" => "IBeam",
                 "not-allowed" => "NotAllowed",
                 "crosshair" => "Crosshair",
+                "col-resize" => "ColumnResize",
                 "wait" => "Wait",
                 _ => null
             };

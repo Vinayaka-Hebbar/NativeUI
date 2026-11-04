@@ -28,6 +28,11 @@ public sealed class HtmlDomTableRow : HtmlDomView
     /// <inheritdoc />
     internal override void ApplyAttachedProperties(HtmlDomElement child)
     {
+        if (child.Source is not TableCell)
+        {
+            return;
+        }
+
         GridPlacement placement = _row.GetPlacement(child.Source);
         child.SetStyleProperty(
             "grid-column",

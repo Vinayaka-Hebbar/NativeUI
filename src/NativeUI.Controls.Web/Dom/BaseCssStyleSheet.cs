@@ -80,6 +80,7 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
         AddThemeRules(rules);
         AddReducedMotionRules(rules);
         AddCustomElementRules(rules);
+        AddTextRules(rules);
         return rules;
     }
 
@@ -288,6 +289,19 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
             media: CssMedia.ReducedMotion));
     }
 
+    /// <summary>
+    /// Lets text break inside a word that does not fit its line, as the desktop line breaker does.
+    /// </summary>
+    private static void AddTextRules(List<CssRule> rules)
+    {
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("span"))),
+            new()
+            {
+                ["overflow-wrap"] = "anywhere"
+            }));
+    }
+
     private static void AddCustomElementRules(List<CssRule> rules)
     {
         rules.Add(Rule(
@@ -359,6 +373,13 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
             {
                 ["display"] = "block",
                 ["min-width"] = "0"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-tablerow"))),
+            new()
+            {
+                ["position"] = "relative"
             }));
     }
 
