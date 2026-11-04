@@ -17,6 +17,7 @@ public class Switch : Control
     static Switch()
     {
         WidthProperty.OverrideMetadata<Switch>(WidthValue.FitContent);
+        CursorProperty.OverrideMetadata<Switch>(Cursor.Pointer);
     }
 
     /// <summary>
@@ -39,9 +40,6 @@ public class Switch : Control
 
     /// <inheritdoc />
     public override string TagName => "switch";
-
-    /// <inheritdoc />
-    public override Cursor Cursor => ComputedStyle.Cursor != Cursor.Default ? ComputedStyle.Cursor : Cursor.Pointer;
 
     /// <summary>
     /// Gets or sets a value indicating whether the switch is on.

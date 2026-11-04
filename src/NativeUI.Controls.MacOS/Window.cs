@@ -1350,11 +1350,13 @@ public sealed class Window : IDisposable, IRenderHost
     {
         Cursor cursor = _isDraggingSelection
             ? Cursor.IBeam
-            : (_pointerRouter.HoveredElement?.ComputedStyle.Cursor ?? Cursor.Default);
+            : (_pointerRouter.HoveredElement?.ComputedStyle.Cursor ?? Cursor.Auto);
 
-        if (_pointerRouter.HoveredElement is Text { IsTextSelectionEnabled: true } or Input { IsEnabled: true } && cursor == Cursor.Default)
+        if (cursor == Cursor.Auto)
         {
-            cursor = Cursor.IBeam;
+            cursor = _pointerRouter.HoveredElement is Text { IsTextSelectionEnabled: true } or Input { IsEnabled: true }
+                ? Cursor.IBeam
+                : Cursor.Default;
         }
 
         IsTextCursorActive = cursor == Cursor.IBeam;

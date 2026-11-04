@@ -126,6 +126,7 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
                 ["background"] = "none",
                 ["color"] = "inherit",
                 ["font"] = "inherit",
+                ["cursor"] = "pointer",
                 ["user-select"] = "none",
                 ["width"] = "fit-content"
             }));

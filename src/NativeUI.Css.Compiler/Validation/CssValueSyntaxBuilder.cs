@@ -1057,6 +1057,7 @@ internal static class CssValueSyntaxBuilder
         {
             string? cursor = kw.Keyword.ToLowerInvariant() switch
             {
+                "auto" => "Auto",
                 "pointer" or "hand" => "Pointer",
                 "default" or "arrow" => "Default",
                 "text" => "IBeam",

@@ -14,6 +14,7 @@ public class Button : View
     static Button()
     {
         WidthProperty.OverrideMetadata<Button>(WidthValue.FitContent);
+        CursorProperty.OverrideMetadata<Button>(Cursor.Pointer);
     }
 
     /// <summary>
@@ -65,9 +66,6 @@ public class Button : View
 
     /// <inheritdoc />
     public override string TagName => "button";
-
-    /// <inheritdoc />
-    public override Cursor Cursor => ComputedStyle.Cursor != Cursor.Default ? ComputedStyle.Cursor : Cursor.Pointer;
 
     /// <summary>
     /// Gets or sets the button text content displayed when no child elements are added.

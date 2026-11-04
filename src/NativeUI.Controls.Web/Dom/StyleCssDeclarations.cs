@@ -88,6 +88,7 @@ internal static class StyleCssDeclarations
             Cursor.Crosshair => "crosshair",
             Cursor.Wait => "wait",
             Cursor.Arrow or Cursor.Default => "default",
+            Cursor.Auto => "auto",
             _ => null
         };
     }

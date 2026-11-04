@@ -14,6 +14,7 @@ public class Toggle : ContentControl
     static Toggle()
     {
         WidthProperty.OverrideMetadata<Toggle>(WidthValue.FitContent);
+        CursorProperty.OverrideMetadata<Toggle>(Cursor.Pointer);
     }
 
     /// <summary>
@@ -45,9 +46,6 @@ public class Toggle : ContentControl
 
     /// <inheritdoc />
     public override string TagName => "toggle";
-
-    /// <inheritdoc />
-    public override Cursor Cursor => ComputedStyle.Cursor != Cursor.Default ? ComputedStyle.Cursor : Cursor.Pointer;
 
     /// <summary>
     /// Gets or sets a value indicating whether the toggle is pressed.

@@ -24,6 +24,7 @@ public class CheckBox : ContentControl, IStackLayoutNode
     static CheckBox()
     {
         WidthProperty.OverrideMetadata<CheckBox>(WidthValue.FitContent);
+        CursorProperty.OverrideMetadata<CheckBox>(Cursor.Pointer);
     }
 
     /// <summary>
@@ -55,9 +56,6 @@ public class CheckBox : ContentControl, IStackLayoutNode
 
     /// <inheritdoc />
     public override string TagName => "checkbox";
-
-    /// <inheritdoc />
-    public override Cursor Cursor => ComputedStyle.Cursor != Cursor.Default ? ComputedStyle.Cursor : Cursor.Pointer;
 
     /// <summary>
     /// Gets or sets a value indicating whether the check box is checked, or <see langword="null"/> when it is indeterminate.

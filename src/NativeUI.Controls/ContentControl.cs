@@ -29,7 +29,7 @@ public abstract class ContentControl : Control
 
     /// <summary>
     /// Gets or sets the content. A <see cref="UIElement"/> is presented as it is. Any other value is presented as a
-    /// <see cref="Text"/> showing its string form in the current culture.
+    /// <see cref="Text"/> showing its string form in the current culture. The user cannot select that text.
     /// </summary>
     public object? Content
     {
@@ -49,7 +49,11 @@ public abstract class ContentControl : Control
         {
             null => null,
             UIElement element => element,
-            object value => new Text { Value = Convert.ToString(value, CultureInfo.CurrentCulture) ?? string.Empty }
+            object value => new Text
+            {
+                Value = Convert.ToString(value, CultureInfo.CurrentCulture) ?? string.Empty,
+                IsTextSelectionEnabled = false
+            }
         };
 
         if (_presentedContent is not null)

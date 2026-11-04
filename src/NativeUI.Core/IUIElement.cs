@@ -46,6 +46,12 @@ public interface IUIElement
     IStyle? Style { get; }
 
     /// <summary>
+    /// Gets the element's cursor: its inline value, or the default for its control type, or <see langword="null"/> to
+    /// inherit the cursor of the parent. Stylesheets override a default.
+    /// </summary>
+    Cursor? Cursor { get; }
+
+    /// <summary>
     /// Gets the element's width: its inline value, or the default for its control type. Stylesheets override a default.
     /// </summary>
     WidthValue? Width { get; }

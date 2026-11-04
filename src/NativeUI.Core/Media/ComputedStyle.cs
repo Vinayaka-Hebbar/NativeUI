@@ -102,9 +102,9 @@ public sealed record ComputedStyle
     public double? Height { get; init; }
 
     /// <summary>
-    /// Gets the resolved pointer cursor appearance (defaults to <see cref="Cursor.Default"/>).
+    /// Gets the resolved pointer cursor appearance (defaults to <see cref="Cursor.Auto"/>).
     /// </summary>
-    public Cursor Cursor { get; init; } = Cursor.Default;
+    public Cursor Cursor { get; init; } = Cursor.Auto;
 
     /// <summary>
     /// Gets the specified horizontal overflow, or <see langword="null"/> when none is specified.
@@ -206,8 +206,8 @@ public sealed record ComputedStyle
     public bool IsUserScrollableY => ClipsOverflow && OverflowY is not Overflow.Hidden;
 
     /// <summary>
-    /// Creates an element's initial style before stylesheets apply. Text properties inherit from its parent, sizes and
-    /// overflow start from the element's own values, and other box geometry, background, and opacity start at their initial values.
+    /// Creates an element's initial style before stylesheets apply. Text properties inherit from its parent, sizes,
+    /// overflow, and the cursor start from the element's own values, and other box geometry, background, and opacity start at their initial values.
     /// </summary>
     /// <param name="element">The element being styled.</param>
     public static ComputedStyle CreateInitial(IUIElement element)
@@ -222,7 +222,7 @@ public sealed record ComputedStyle
             FontWeight = parent is null ? Default.FontWeight : parent.FontWeight,
             FontFamily = parent is null ? Default.FontFamily : parent.FontFamily,
             TextAlign = parent is null ? Default.TextAlign : parent.TextAlign,
-            Cursor = parent is null ? Default.Cursor : parent.Cursor,
+            Cursor = element.Cursor ?? (parent is null ? Default.Cursor : parent.Cursor),
             ScrollbarThumbColor = parent is null ? Default.ScrollbarThumbColor : parent.ScrollbarThumbColor,
             ScrollbarTrackColor = parent is null ? Default.ScrollbarTrackColor : parent.ScrollbarTrackColor,
             CustomProperties = parent?.CustomProperties,

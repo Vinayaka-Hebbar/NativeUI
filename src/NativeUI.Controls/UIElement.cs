@@ -131,6 +131,12 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     public static readonly BindableProperty<Position?> PositionProperty = Style.PositionProperty.AddOwner<UIElement>();
 
     /// <summary>
+    /// Identifies the inline cursor of an element, which is <see cref="Style.CursorProperty"/>. A control type overrides
+    /// its default to set the cursor that the element and its descendants show while no stylesheet sets one.
+    /// </summary>
+    public static readonly BindableProperty<Cursor?> CursorProperty = Style.CursorProperty.AddOwner<UIElement>();
+
+    /// <summary>
     /// Identifies the <see cref="Top"/> property, which is <see cref="Style.TopProperty"/>.
     /// </summary>
     public static readonly BindableProperty<double?> TopProperty = Style.TopProperty.AddOwner<UIElement>();
@@ -595,6 +601,8 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     Overflow? IUIElement.OverflowY => OverflowY;
 
     Position? IUIElement.Position => Position;
+
+    Cursor? IUIElement.Cursor => GetValue(CursorProperty);
 
     double? IUIElement.Top => Top;
 
