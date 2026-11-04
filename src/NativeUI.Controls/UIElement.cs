@@ -18,6 +18,8 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     private SelectionStyle _selectionStyle = SelectionStyle.Default;
     private Theme _computedTheme = Theme.Light;
     private UIElement? _parent;
+    private Control? _templatedParent;
+    private string? _partName;
     private INativeHandle? _nativeHandle;
     private Rect _renderedBounds;
     private IStyleResolver? _styleResolver;
@@ -519,6 +521,33 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
+    /// Gets the name that <c>::part()</c> selectors use for this element within its <see cref="TemplatedParent"/>'s
+    /// template, or <see langword="null"/> when the element is not a template part.
+    /// </summary>
+    public string? PartName => _partName;
+
+    /// <summary>
+    /// Gets the control whose template created this element, or <see langword="null"/> when the element is not a template part.
+    /// </summary>
+    public Control? TemplatedParent => _templatedParent;
+
+    /// <summary>
+    /// Records that <paramref name="owner"/>'s template created this element as the part named <paramref name="name"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The element is already a template part.</exception>
+    internal void SetTemplatePart(Control owner, string name)
+    {
+        if (_templatedParent is not null)
+        {
+            throw new InvalidOperationException("The element is already a part of a control template.");
+        }
+
+        _templatedParent = owner;
+        _partName = name;
+        InvalidateStyle();
+    }
+
+    /// <summary>
     /// Gets the platform-owned native handle or browser DOM proxy associated with this element.
     /// </summary>
     public INativeHandle? NativeHandle
@@ -552,6 +581,8 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     public string StyleSheetId => FindScopeTypeName();
 
     IUIElement? IUIElement.Parent => Parent;
+
+    IUIElement? IUIElement.TemplatedParent => TemplatedParent;
 
     IStyle? IUIElement.Style => Style;
 

@@ -25,6 +25,7 @@ internal static class StyleCssDeclarations
             ("text-align", FormatTextAlign(style?.TextAlign)),
             ("padding", FormatThickness(style?.Padding)),
             ("margin", FormatThickness(style?.Margin)),
+            ("gap", FormatLength(style?.Gap)),
             ("border-radius", FormatLength(style?.BorderRadius)),
             ("border-width", FormatLength(style?.BorderWidth)),
             ("border-color", FormatColor(style?.BorderColor)),

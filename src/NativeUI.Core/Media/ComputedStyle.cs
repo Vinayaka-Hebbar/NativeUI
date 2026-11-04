@@ -58,6 +58,11 @@ public sealed record ComputedStyle
     public Thickness Margin { get; init; } = Thickness.Zero;
 
     /// <summary>
+    /// Gets the resolved spacing between adjacent children of a stack container in logical pixels.
+    /// </summary>
+    public double Gap { get; init; }
+
+    /// <summary>
     /// Gets the resolved corner border radius in logical pixels.
     /// </summary>
     public double BorderRadius { get; init; }
@@ -256,6 +261,7 @@ public sealed record ComputedStyle
             TextAlign = inlineStyle.TextAlign ?? TextAlign,
             Padding = inlineStyle.Padding ?? Padding,
             Margin = inlineStyle.Margin ?? Margin,
+            Gap = inlineStyle.Gap ?? Gap,
             BorderRadius = inlineStyle.BorderRadius ?? BorderRadius,
             BorderWidth = inlineStyle.BorderWidth ?? BorderWidth,
             BorderColor = ResolveColor(inlineStyle.BorderColor, BorderColor, resolver, element),

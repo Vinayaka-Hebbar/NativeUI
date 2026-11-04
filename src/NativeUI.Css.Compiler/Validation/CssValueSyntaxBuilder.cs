@@ -78,7 +78,7 @@ internal static class CssValueSyntaxBuilder
             "color" or "background-color" or "background" or "border-color" => TryBuildColorSyntax(valueNode, out expression, out colorLiteral),
             "width" => TryBuildWidthSyntax(valueNode, out expression),
             "height" => TryBuildAutoOrLengthSyntax(valueNode, out expression),
-            "font-size" or "border-radius" or "border-width" or "top" or "right" or "bottom" or "left" => TryBuildLengthSyntax(valueNode, out expression),
+            "font-size" or "gap" or "border-radius" or "border-width" or "top" or "right" or "bottom" or "left" => TryBuildLengthSyntax(valueNode, out expression),
             "padding" or "margin" => TryBuildThicknessSyntax(valueNode, out expression),
             "font-weight" => TryBuildFontWeightSyntax(valueNode, out expression),
             "text-align" => TryBuildTextAlignSyntax(valueNode, out expression),

@@ -373,6 +373,8 @@ public class CssStyleSheet : StyleSheet
                 return style with { Margin = new Thickness(margin.ToLogicalPixels(fontSize)) };
             case ("margin", CssEdgesValue margin) when TryResolveThickness(margin, fontSize, variables, out Thickness thickness):
                 return style with { Margin = thickness };
+            case ("gap", CssLengthValue gap):
+                return style with { Gap = gap.ToLogicalPixels(fontSize) };
             case ("border-radius", CssLengthValue borderRadius):
                 return style with { BorderRadius = borderRadius.ToLogicalPixels(fontSize) };
             case ("border-width", CssLengthValue borderWidth):

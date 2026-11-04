@@ -147,7 +147,7 @@ public interface IStackLayoutNode : ILayoutNode
     Orientation Orientation { get; }
 
     /// <summary>
-    /// Gets the logical pixels between adjacent children.
+    /// Gets the logical pixels between adjacent children. A value of zero applies the computed <c>gap</c>.
     /// </summary>
     double Spacing { get; }
 

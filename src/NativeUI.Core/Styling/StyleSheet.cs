@@ -14,6 +14,7 @@ public sealed class SelectorBuilder
     private Type? _type;
     private ImmutableArray<string>.Builder _classes = ImmutableArray.CreateBuilder<string>();
     private ElementStates _states;
+    private string? _partName;
 
     internal SelectorBuilder()
     {
@@ -76,11 +77,35 @@ public sealed class SelectorBuilder
     }
 
     /// <summary>
+    /// Requires the element to have all of the specified <paramref name="states"/>.
+    /// </summary>
+    public SelectorBuilder State(ElementStates states)
+    {
+        _states |= states;
+        return this;
+    }
+
+    /// <summary>
+    /// Makes the selector match the template part named <paramref name="name"/> of the element described so far.
+    /// </summary>
+    public SelectorBuilder Part(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        _partName = name;
+        return this;
+    }
+
+    /// <summary>
     /// Makes the selector match a descendant described by <paramref name="descendant"/> of the element described so far.
     /// </summary>
+    /// <exception cref="InvalidOperationException">The selector already selects a template part.</exception>
     public SelectorBuilder Descendant(Func<SelectorBuilder, SelectorBuilder> descendant)
     {
         ArgumentNullException.ThrowIfNull(descendant);
+        if (_partName is not null)
+        {
+            throw new InvalidOperationException("A template part cannot have descendants in a selector.");
+        }
 
         StyleSelector selector = descendant(new SelectorBuilder()).Build();
         _ancestors.Add(CreateCompound());
@@ -88,12 +113,13 @@ public sealed class SelectorBuilder
         _type = selector.Subject.ClrType;
         _classes = selector.Subject.Classes.ToBuilder();
         _states = selector.Subject.RequiredStates;
+        _partName = selector.PartName;
         return this;
     }
 
     internal StyleSelector Build()
     {
-        return new StyleSelector(CreateCompound(), [.. _ancestors]);
+        return new StyleSelector(CreateCompound(), [.. _ancestors], partName: _partName);
     }
 
     private CompoundSelector CreateCompound()

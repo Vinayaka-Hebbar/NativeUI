@@ -520,12 +520,12 @@ static void TestBaseStyleSheetCss()
 {
     string[] lines = StyleSheetCss.BaseStyleSheet.RawCss.TrimEnd().Split('\n');
 
-    Assert.Equal(19, lines.Length);
+    Assert.Equal(22, lines.Length);
     Assert.True(lines[0].StartsWith(":where(native-ui, native-ui *) { "));
     Assert.Contains("box-sizing: border-box;", lines[0]);
     Assert.Contains("border: 0 solid;", lines[0]);
     Assert.Equal(":where(native-ui) { line-height: 1.25; }", lines[1]);
-    Assert.Equal(":where(native-ui, native-ui span, native-ui button) { display: block; }", lines[2]);
+    Assert.Equal(":where(native-ui, native-ui span, native-ui button, native-ui img, native-ui svg) { display: block; }", lines[2]);
     Assert.True(lines[3].StartsWith(":where(native-ui button) { "));
     Assert.Contains("margin: 0;", lines[3]);
     Assert.Contains("padding: 0;", lines[3]);
@@ -544,6 +544,12 @@ static void TestBaseStyleSheetCss()
     Assert.Contains("height: 10px;", lines[10]);
     Assert.Equal(":where(native-ui[data-theme=\"dark\"], native-ui[data-theme=\"dark\"] *)::-webkit-scrollbar-thumb { background-color: rgb(255 255 255 / 0.35); }", lines[15]);
     Assert.Equal(":where(native-ui[data-theme=\"dark\"]) { color-scheme: dark; }", lines[17]);
+    Assert.True(lines[19].StartsWith(":where(native-ui nui-switch, native-ui nui-toggle) { "));
+    Assert.Contains("display: block;", lines[19]);
+    Assert.True(lines[20].StartsWith(":where(native-ui nui-checkbox) { "));
+    Assert.Contains("display: flex;", lines[20]);
+    Assert.True(lines[21].StartsWith(":where(native-ui nui-togglegroup) { "));
+    Assert.Contains("flex-direction: row;", lines[21]);
 }
 
 static void TestViewStyleSheetTransitions()

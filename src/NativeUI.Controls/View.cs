@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using NativeUI.Core;
@@ -235,8 +236,41 @@ public class View : UIElement, IView, IScrollContainer
         base.Dispose(disposing);
     }
 
+    /// <summary>
+    /// Sets <see cref="ElementStates.FirstChild"/> and <see cref="ElementStates.LastChild"/> on each child and clears them on
+    /// <paramref name="removedItems"/>. An attached child whose states change recomputes its style. A child that is not
+    /// attached yet computes its style when it attaches.
+    /// </summary>
+    private void UpdateChildPositionStates(IList? removedItems)
+    {
+        if (removedItems is not null)
+        {
+            foreach (object item in removedItems)
+            {
+                if (item is UIElement removed && !_children.Contains(removed))
+                {
+                    removed.SetState(ElementStates.FirstChild | ElementStates.LastChild, false);
+                }
+            }
+        }
+
+        int lastIndex = _children.Count - 1;
+        for (int i = 0; i <= lastIndex; i++)
+        {
+            UIElement child = _children[i];
+            ElementStates previous = child.States;
+            child.SetState(ElementStates.FirstChild, i == 0);
+            child.SetState(ElementStates.LastChild, i == lastIndex);
+            if (child.States != previous && ReferenceEquals(child.Parent, this))
+            {
+                child.InvalidateStyle();
+            }
+        }
+    }
+
     private void OnChildrenCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        UpdateChildPositionStates(e.OldItems);
         if (e.Action == NotifyCollectionChangedAction.Move)
         {
             InvalidateVisual();
@@ -248,6 +282,11 @@ public class View : UIElement, IView, IScrollContainer
         {
             foreach (UIElement child in _attachedChildren)
             {
+                if (!_children.Contains(child))
+                {
+                    child.SetState(ElementStates.FirstChild | ElementStates.LastChild, false);
+                }
+
                 if (ReferenceEquals(child.Parent, this))
                 {
                     child.Parent = null;

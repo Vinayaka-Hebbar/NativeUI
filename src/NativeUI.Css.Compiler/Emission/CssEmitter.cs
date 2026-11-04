@@ -348,6 +348,17 @@ public static class CssEmitter
             }
         }
 
+        if (rule.PartName is not null)
+        {
+            selectorExpr = InvocationExpression(
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    selectorExpr,
+                    IdentifierName("Part")))
+                .WithArgumentList(ArgumentList(SingletonSeparatedList(
+                    Argument(CssValueSyntaxBuilder.StringLiteral(rule.PartName)))));
+        }
+
         if (rule.PseudoElement != CssParsedPseudoElement.None)
         {
             string pseudoName = rule.PseudoElement.ToString().ToLowerInvariant();

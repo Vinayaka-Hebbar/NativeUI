@@ -61,6 +61,12 @@ public sealed class Style : BindableObject, IStyle
         BindableProperty.Create<Style, Thickness?>(nameof(Margin));
 
     /// <summary>
+    /// Identifies the <see cref="Gap"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double?> GapProperty =
+        BindableProperty.Create<Style, double?>(nameof(Gap));
+
+    /// <summary>
     /// Identifies the <see cref="BorderRadius"/> bindable property.
     /// </summary>
     public static readonly BindableProperty<double?> BorderRadiusProperty =
@@ -238,6 +244,15 @@ public sealed class Style : BindableObject, IStyle
     {
         get => GetValue(MarginProperty);
         set => SetValue(MarginProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the spacing between adjacent children of a stack container in logical pixels.
+    /// </summary>
+    public double? Gap
+    {
+        get => GetValue(GapProperty);
+        set => SetValue(GapProperty, value);
     }
 
     /// <summary>

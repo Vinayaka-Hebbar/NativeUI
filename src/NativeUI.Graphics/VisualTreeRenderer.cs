@@ -291,7 +291,7 @@ public sealed class VisualTreeRenderer : IDisposable
             }
             else if (box.Element is Controls.Shapes.Shape path)
             {
-                DrawPathControl(context, path, box.ContentBox, drawOpacity);
+                DrawPathControl(context, path, box.ContentBox, box.Style, drawOpacity);
             }
             else if (box.Element is Svg svg)
             {
@@ -348,14 +348,7 @@ public sealed class VisualTreeRenderer : IDisposable
                     context.Save();
                     try
                     {
-                        if (style.BorderRadius > 0)
-                        {
-                            context.ClipRoundedRectangle(box.BorderBox, style.BorderRadius);
-                        }
-                        else
-                        {
-                            context.ClipRect(box.BorderBox);
-                        }
+                        ClipToPaddingBox(context, box);
 
                         foreach (LayoutBox child in box.Children)
                         {
@@ -384,6 +377,30 @@ public sealed class VisualTreeRenderer : IDisposable
             {
                 context.Restore();
             }
+        }
+    }
+
+    /// <summary>
+    /// Clips to the padding box, the area inside the border, as CSS clips overflow. The corner radius of the clip is
+    /// <see cref="ComputedStyle.BorderRadius"/> reduced by the border width, which follows the inner edge of the border.
+    /// </summary>
+    private static void ClipToPaddingBox(DrawingContext context, LayoutBox box)
+    {
+        ComputedStyle style = box.Style;
+        double width = Math.Max(0, style.BorderWidth);
+        Rect paddingBox = new(
+            box.BorderBox.X + width,
+            box.BorderBox.Y + width,
+            Math.Max(0, box.BorderBox.Width - (width * 2)),
+            Math.Max(0, box.BorderBox.Height - (width * 2)));
+        double radius = Math.Max(0, style.BorderRadius - width);
+        if (radius > 0)
+        {
+            context.ClipRoundedRectangle(paddingBox, radius);
+        }
+        else
+        {
+            context.ClipRect(paddingBox);
         }
     }
 
@@ -444,7 +461,7 @@ public sealed class VisualTreeRenderer : IDisposable
         finally { context.Restore(); }
     }
 
-    private static void DrawPathControl(DrawingContext context, Controls.Shapes.Shape path, Rect bounds, double opacity)
+    private static void DrawPathControl(DrawingContext context, Controls.Shapes.Shape path, Rect bounds, ComputedStyle style, double opacity)
     {
         PathGeometry geometry = path.GetGeometry(bounds.Size);
         Rect source = path.GetGeometryBounds(bounds.Size);
@@ -457,9 +474,17 @@ public sealed class VisualTreeRenderer : IDisposable
             context.Translate(target.X, target.Y);
             context.Scale((float)(target.Width / source.Width), (float)(target.Height / source.Height));
             context.Translate(-source.X, -source.Y);
-            context.DrawGeometry(geometry, path.Fill, path.Stroke, path.StrokeThickness, opacity);
+            context.DrawGeometry(geometry, ResolveCurrentColor(path.Fill, style), ResolveCurrentColor(path.Stroke, style), path.StrokeThickness, opacity);
         }
         finally { context.Restore(); }
+    }
+
+    /// <summary>
+    /// Resolves <see cref="SvgCurrentColorBrush"/> to the element's computed text color, as <c>currentColor</c> does in the browser.
+    /// </summary>
+    private static Brush? ResolveCurrentColor(Brush? brush, ComputedStyle style)
+    {
+        return brush is SvgCurrentColorBrush ? new SolidColorBrush(style.TextColor ?? Colors.Black) : brush;
     }
 
     private static void DrawSvgControl(DrawingContext context, Svg svg, Rect bounds, Stretch stretch, double opacity)

@@ -50,6 +50,12 @@ internal static class XamlValueConverters
             type = nullable.TypeArguments[0];
         }
 
+        // XAML text assigned to an object property is a string.
+        if (type.SpecialType == SpecialType.System_Object)
+        {
+            return s_converters[XamlPropertyKind.String];
+        }
+
         XamlValueConverter? primitive = ForPrimitive(type);
         if (primitive is not null)
         {

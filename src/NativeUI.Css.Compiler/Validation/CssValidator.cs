@@ -25,7 +25,8 @@ public sealed record ValidatedCssRule(
     IReadOnlyList<string>? RequiredStates = null,
     IReadOnlyList<CssCompoundSelectorNode>? Ancestors = null,
     CssParsedPseudoElement PseudoElement = CssParsedPseudoElement.None,
-    IReadOnlyList<CssAttributeSelectorNode>? Attributes = null);
+    IReadOnlyList<CssAttributeSelectorNode>? Attributes = null,
+    string? PartName = null);
 
 /// <summary>
 /// Represents one validated keyframe of a <c>@keyframes</c> rule.
@@ -68,6 +69,7 @@ public sealed class CssValidator : CssSyntaxVisitor
         "text-align",
         "padding",
         "margin",
+        "gap",
         "border-radius",
         "border-width",
         "border-color",
@@ -260,7 +262,8 @@ public sealed class CssValidator : CssSyntaxVisitor
                 selector.RequiredStates,
                 selector.Ancestors,
                 selector.PseudoElement,
-                selector.Attributes));
+                selector.Attributes,
+                selector.Part?.Name));
         }
     }
 
@@ -310,8 +313,10 @@ public sealed class CssValidator : CssSyntaxVisitor
     }
 
     /// <summary>
-    /// Maps a selector to browser CSS: NativeUI type names become the HTML elements created on Web, and rules in a
-    /// color-scheme block match only under a <c>native-ui</c> root with that theme. <c>:where</c> preserves specificity.
+    /// Maps a selector to browser CSS: NativeUI type names become the HTML elements created on Web, pseudo-classes that
+    /// browsers apply only to native form controls become the ARIA attributes that Web sets, <c>::part()</c> becomes a
+    /// descendant carrying <c>data-nui-part</c>, and rules in a color-scheme block match only under a <c>native-ui</c> root
+    /// with that theme. <c>:where</c> preserves specificity.
     /// </summary>
     private void AddBrowserSelectorEdits(CssSelectorNode selector)
     {
@@ -333,6 +338,23 @@ public sealed class CssValidator : CssSyntaxVisitor
                 _browserCssEdits.Add(new BrowserCssEdit(span.StartPos, span.Length, htmlTag));
             }
         }
+
+        if (selector.PseudoClasses is not null)
+        {
+            foreach (CssPseudoClassNode pseudoClass in selector.PseudoClasses)
+            {
+                string? browserSelector = GetBrowserPseudoClass(pseudoClass.State);
+                if (browserSelector is not null)
+                {
+                    _browserCssEdits.Add(new BrowserCssEdit(pseudoClass.Span.StartPos, pseudoClass.Span.Length, browserSelector));
+                }
+            }
+        }
+
+        if (selector.Part is CssPartSelectorNode part)
+        {
+            _browserCssEdits.Add(new BrowserCssEdit(part.Span.StartPos, part.Span.Length, GetBrowserPart(part.Name)));
+        }
     }
 
     private static string? GetHtmlTag(string typeName)
@@ -341,8 +363,40 @@ public sealed class CssValidator : CssSyntaxVisitor
         {
             "text" => "span",
             "view" => "div",
+            "switch" => "nui-switch",
+            "checkbox" => "nui-checkbox",
+            "toggle" => "nui-toggle",
+            "togglegroup" => "nui-togglegroup",
             _ => null
         };
+    }
+
+    /// <summary>
+    /// Returns the browser selector for a pseudo-class whose state Web exposes through ARIA attributes, or null when
+    /// browsers match the pseudo-class natively. <c>:disabled</c> also matches elements that are not form controls.
+    /// </summary>
+    private static string? GetBrowserPseudoClass(string state)
+    {
+        return state switch
+        {
+            "Disabled" => ":is(:disabled, [aria-disabled=\"true\"])",
+            "Checked" => "[aria-checked=\"true\"]",
+            "Unchecked" => "[aria-checked=\"false\"]",
+            "Indeterminate" => "[aria-checked=\"mixed\"]",
+            "On" => "[aria-pressed=\"true\"]",
+            "Off" => "[aria-pressed=\"false\"]",
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Returns the browser selector for <c>::part(name)</c>: a descendant of the subject whose <c>data-nui-part</c> is
+    /// <paramref name="name"/>. <c>:is(*, div)</c> matches any element and has the specificity of one type selector, which
+    /// equals the specificity of <c>::part()</c>.
+    /// </summary>
+    private static string GetBrowserPart(string name)
+    {
+        return $" :is(*, div):where([data-nui-part=\"{name}\"])";
     }
 
     private void ValidateSelectionDeclarations(IReadOnlyList<CssDeclarationNode> declarations)

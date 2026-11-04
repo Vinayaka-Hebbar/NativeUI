@@ -1,0 +1,233 @@
+.toggle-page {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --primary: oklch(0.55 0.22 255);
+  --primary-foreground: #ffffff;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --accent: #f5f5f5;
+  --accent-foreground: #171717;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #a3a3a3;
+  --radius: 8px;
+  color: var(--foreground);
+  font-family: Arial;
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .toggle-page {
+    --background: #0a0a0a;
+    --foreground: #fafafa;
+    --primary: oklch(0.72 0.18 250);
+    --primary-foreground: #0f172a;
+    --muted: #262626;
+    --muted-foreground: #a3a3a3;
+    --accent: #262626;
+    --accent-foreground: #fafafa;
+    --border: rgb(255 255 255 / 0.1);
+    --input: rgb(255 255 255 / 0.15);
+    --ring: #737373;
+  }
+}
+
+.toggle-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.toggle-description {
+  color: var(--muted-foreground);
+  margin: 0 0 20px 0;
+}
+
+.toggle-section {
+  background-color: var(--background);
+  border-width: 1px;
+  border-color: var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 0 0 16px 0;
+}
+
+.toggle-heading {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.toggle-row {
+  gap: 12px;
+  margin: 0 0 12px 0;
+}
+
+.toggle-nested {
+  padding: 0 0 0 24px;
+}
+
+.toggle-muted {
+  color: var(--muted-foreground);
+}
+
+.toggle-status {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  margin: 8px 0 16px 0;
+}
+
+Switch::part(track) {
+  width: 32px;
+  height: 18px;
+  padding: 0;
+  border-width: 1px;
+  border-color: transparent;
+  border-radius: 9px;
+  background-color: var(--input);
+  transition: background-color 150ms ease;
+}
+
+Switch:checked::part(track) {
+  background-color: var(--primary);
+}
+
+Switch:focus-visible::part(track) {
+  border-color: var(--ring);
+}
+
+Switch::part(thumb) {
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background-color: var(--background);
+  transition: transform 150ms ease;
+}
+
+Switch:checked::part(thumb) {
+  transform: translateX(14px);
+  background-color: var(--primary-foreground);
+}
+
+Switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+CheckBox {
+  gap: 8px;
+  margin: 0 0 12px 0;
+}
+
+CheckBox::part(indicator) {
+  width: 16px;
+  height: 16px;
+  padding: 1px;
+  border-width: 1px;
+  border-color: var(--input);
+  border-radius: 4px;
+  background-color: var(--background);
+  transition: background-color 150ms ease;
+}
+
+CheckBox:checked::part(indicator) {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+CheckBox:indeterminate::part(indicator) {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+CheckBox:focus-visible::part(indicator) {
+  border-color: var(--ring);
+}
+
+CheckBox::part(icon) {
+  width: 12px;
+  height: 12px;
+  color: var(--primary-foreground);
+}
+
+CheckBox:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+Toggle {
+  padding: 8px 10px;
+  border-width: 1px;
+  border-color: transparent;
+  border-radius: var(--radius);
+  background-color: transparent;
+  font-weight: 500;
+  transition: background-color 150ms ease;
+}
+
+Toggle:hover {
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+}
+
+Toggle:pressed {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+Toggle.outline {
+  border-color: var(--input);
+}
+
+Toggle.small {
+  padding: 5px 8px;
+  font-size: 13px;
+}
+
+Toggle:focus-visible {
+  border-color: var(--ring);
+}
+
+Toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+ToggleGroup.joined {
+  gap: 0;
+  border-width: 1px;
+  border-color: transparent;
+  border-radius: var(--radius);
+  background-color: var(--input);
+  overflow: hidden;
+}
+
+ToggleGroup.joined Toggle {
+  margin: 0 0 0 1px;
+  border-radius: 0;
+  background-color: var(--background);
+}
+
+ToggleGroup.joined Toggle:hover {
+  background-color: var(--muted);
+}
+
+ToggleGroup.joined Toggle:first-child {
+  margin: 0;
+}
+
+ToggleGroup.joined Toggle:pressed {
+  background-color: var(--accent);
+}
+
+ToggleGroup.toolbar {
+  gap: 4px;
+}
+
+ToggleGroup.toolbar Toggle:last-child {
+  margin: 0 0 0 12px;
+}
+
+ToggleGroup:disabled {
+  opacity: 0.5;
+}

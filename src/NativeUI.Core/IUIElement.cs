@@ -30,6 +30,17 @@ public interface IUIElement
     IUIElement? Parent { get; }
 
     /// <summary>
+    /// Gets the name that <c>::part()</c> selectors use for this element within its <see cref="TemplatedParent"/>'s
+    /// template, or <see langword="null"/> when the element is not a template part.
+    /// </summary>
+    string? PartName { get; }
+
+    /// <summary>
+    /// Gets the control whose template created this element, or <see langword="null"/> when the element is not a template part.
+    /// </summary>
+    IUIElement? TemplatedParent { get; }
+
+    /// <summary>
     /// Gets the specified inline style applied after matching CSS declarations.
     /// </summary>
     IStyle? Style { get; }

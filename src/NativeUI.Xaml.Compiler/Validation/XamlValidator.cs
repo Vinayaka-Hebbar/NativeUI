@@ -179,6 +179,8 @@ public sealed record ValidatedXamlDocument(
 /// </summary>
 public sealed class XamlValidator : XamlSyntaxVisitor
 {
+    private const string ContentPropertyAttributeName = "NativeUI.Xaml.ContentPropertyAttribute";
+
     private static readonly Dictionary<string, Dictionary<string, XamlPropertyKind>> s_controlProperties =
         new(StringComparer.Ordinal)
         {
@@ -666,12 +668,25 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             }
         }
 
+        string contentProperty = s_contentProperties.GetValueOrDefault(controlDefinition) ?? FindContentProperty(control.Type) ?? "Children";
+        string? singleContentProperty = s_singleContentProperties.GetValueOrDefault(controlDefinition) ??
+            (FindProperty(control.Type, contentProperty) is IPropertySymbol { SetMethod: not null } property && !IsCollectionType(property.Type)
+                ? contentProperty
+                : null);
+
         // Support <Text>Hello</Text> inner text syntax when Value attribute is not explicitly provided.
         if (string.Equals(element.LocalName, "Text", StringComparison.Ordinal) &&
             !string.IsNullOrEmpty(element.InnerText) &&
             !validProps.Any(static p => p.PropertyName == "Value"))
         {
             validProps.Add(new ValidatedXamlProperty("Value", XamlPropertyKind.String, element.InnerText, null));
+        }
+        else if (!string.IsNullOrEmpty(element.InnerText) &&
+            singleContentProperty is not null &&
+            FindProperty(control.Type, singleContentProperty)?.Type.SpecialType is SpecialType.System_Object or SpecialType.System_String &&
+            !validProps.Any(p => p.PropertyName == singleContentProperty))
+        {
+            validProps.Add(new ValidatedXamlProperty(singleContentProperty, XamlPropertyKind.String, element.InnerText, null));
         }
 
         if (isRoot && string.IsNullOrWhiteSpace(_fullClassName))
@@ -704,7 +719,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 continue;
             }
 
-            if (!s_singleContentProperties.TryGetValue(controlDefinition, out string? singleContentProperty))
+            if (singleContentProperty is null)
             {
                 validChildren.Add(validatedChild);
             }
@@ -718,7 +733,6 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             }
         }
 
-        string contentProperty = s_contentProperties.GetValueOrDefault(controlDefinition, "Children");
         if (validChildren.Count > 0 && controlDefinition.Length == 0 && !HasMember(control.Type, contentProperty))
         {
             ReportPropertyElement(element, $"<{element.LocalName}> has no {contentProperty} property");
@@ -855,6 +869,70 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         {
             foreach (IMethodSymbol method in current.GetMembers(name).OfType<IMethodSymbol>()) yield return method;
         }
+    }
+
+    /// <summary>
+    /// Returns the property that <c>NativeUI.Xaml.ContentPropertyAttribute</c> names on <paramref name="type"/> or its
+    /// nearest attributed base type, or null when no type in the hierarchy has the attribute.
+    /// </summary>
+    private static string? FindContentProperty(INamedTypeSymbol? type)
+    {
+        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+        {
+            foreach (AttributeData attribute in current.GetAttributes())
+            {
+                if (attribute.AttributeClass?.ToDisplayString() == ContentPropertyAttributeName &&
+                    attribute.ConstructorArguments.Length == 1 &&
+                    attribute.ConstructorArguments[0].Value is string name)
+                {
+                    return name;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static IPropertySymbol? FindProperty(INamedTypeSymbol? type, string name)
+    {
+        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+        {
+            foreach (ISymbol member in current.GetMembers(name))
+            {
+                if (member is IPropertySymbol { IsStatic: false } property)
+                {
+                    return property;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Returns whether <paramref name="type"/> is a collection that child elements are added to, rather than a single value.
+    /// </summary>
+    private static bool IsCollectionType(ITypeSymbol type)
+    {
+        if (type.SpecialType == SpecialType.System_String)
+        {
+            return false;
+        }
+
+        if (type.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_ICollection_T)
+        {
+            return true;
+        }
+
+        foreach (INamedTypeSymbol implemented in type.AllInterfaces)
+        {
+            if (implemented.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_ICollection_T)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool HasMember(INamedTypeSymbol? type, string name)

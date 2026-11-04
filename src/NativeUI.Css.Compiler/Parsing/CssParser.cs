@@ -11,7 +11,16 @@ public sealed class CssParser
         ["hover"] = "Hover",
         ["active"] = "Pressed",
         ["disabled"] = "Disabled",
-        ["focus"] = "Focus"
+        ["focus"] = "Focus",
+        ["focus-visible"] = "FocusVisible",
+        ["focus-within"] = "FocusWithin",
+        ["checked"] = "Checked",
+        ["unchecked"] = "Unchecked",
+        ["indeterminate"] = "Indeterminate",
+        ["pressed"] = "On",
+        ["unpressed"] = "Off",
+        ["first-child"] = "FirstChild",
+        ["last-child"] = "LastChild"
     };
 
     private readonly IReadOnlyList<CssToken> _tokens;
@@ -352,13 +361,15 @@ public sealed class CssParser
 
         List<CssCompoundSelectorNode> compounds = [];
         List<CssSourceSpan> typeSpans = [];
+        List<CssPseudoClassNode> pseudoClasses = [];
         CssParsedPseudoElement pseudoElement = CssParsedPseudoElement.None;
+        CssPartSelectorNode? part = null;
         bool isValid = true;
         int i = 0;
 
         while (i < selectorTokens.Count && isValid)
         {
-            if (pseudoElement != CssParsedPseudoElement.None)
+            if (pseudoElement != CssParsedPseudoElement.None || part is not null)
             {
                 // A pseudo-element must terminate the selector.
                 isValid = false;
@@ -369,7 +380,9 @@ public sealed class CssParser
                 selectorTokens,
                 ref i,
                 typeSpans,
+                pseudoClasses,
                 ref pseudoElement,
+                ref part,
                 out CssCompoundSelectorNode compound);
             compounds.Add(compound);
         }
@@ -386,7 +399,9 @@ public sealed class CssParser
             IsRoot: false,
             isValid,
             fullSpan,
-            subject.Attributes);
+            subject.Attributes,
+            pseudoClasses,
+            part);
     }
 
     /// <summary>
@@ -397,7 +412,9 @@ public sealed class CssParser
         List<CssToken> tokens,
         ref int index,
         List<CssSourceSpan> typeSpans,
+        List<CssPseudoClassNode> pseudoClasses,
         ref CssParsedPseudoElement pseudoElement,
+        ref CssPartSelectorNode? part,
         out CssCompoundSelectorNode compound)
     {
         string? elementType = null;
@@ -434,6 +451,7 @@ public sealed class CssParser
                 s_pseudoClassStates.TryGetValue(tokens[index + 1].Text, out string? state))
             {
                 requiredStates.Add(state);
+                pseudoClasses.Add(new CssPseudoClassNode(state, CombineSpans(tokens[index].Span, tokens[index + 1].Span)));
                 hasContent = true;
                 index += 2;
             }
@@ -460,6 +478,12 @@ public sealed class CssParser
                 hasContent = true;
                 index += 3;
             }
+            else if (IsPartPseudoElement(tokens, index))
+            {
+                part = new CssPartSelectorNode(tokens[index + 4].Text, CombineSpans(tokens[index].Span, tokens[index + 5].Span));
+                hasContent = true;
+                index += 6;
+            }
             else
             {
                 isValid = false;
@@ -469,6 +493,24 @@ public sealed class CssParser
 
         compound = new CssCompoundSelectorNode(elementType, classes, requiredStates, attributes);
         return isValid && hasContent;
+    }
+
+    /// <summary>
+    /// Returns whether the tokens at <paramref name="index"/> form <c>::part(name)</c> with no whitespace inside it.
+    /// </summary>
+    private static bool IsPartPseudoElement(List<CssToken> tokens, int index)
+    {
+        return index + 5 < tokens.Count &&
+            tokens[index].Kind == CssTokenKind.Colon &&
+            tokens[index + 1].Kind == CssTokenKind.Colon &&
+            !tokens[index + 1].PrecededByWhitespace &&
+            IsAttachedIdentifier(tokens, index + 2) &&
+            string.Equals(tokens[index + 2].Text, "part", StringComparison.OrdinalIgnoreCase) &&
+            tokens[index + 3].Kind == CssTokenKind.OpenParen &&
+            !tokens[index + 3].PrecededByWhitespace &&
+            IsAttachedIdentifier(tokens, index + 4) &&
+            tokens[index + 5].Kind == CssTokenKind.CloseParen &&
+            !tokens[index + 5].PrecededByWhitespace;
     }
 
     private static bool IsAttachedIdentifier(List<CssToken> tokens, int index)

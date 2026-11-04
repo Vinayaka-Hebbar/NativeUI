@@ -34,6 +34,7 @@
             <Button x:Name="NavImages" Class="nav-item" Text="Images &amp; SVG" />
             <Button x:Name="NavCanvas" Class="nav-item" Text="Canvas" />
             <Button x:Name="NavInput" Class="nav-item" Text="Input" />
+            <Button x:Name="NavToggles" Class="nav-item" Text="Toggles" />
             <Button x:Name="NavDialog" Class="nav-item" Text="Dialog" />
             <Button x:Name="NavAnimation" Class="nav-item" Text="Animation" />
             <Button x:Name="NavScene3D" Class="nav-item" Text="3D" />
@@ -141,6 +142,8 @@
             </View>
 
             <ImageSampleView x:Name="ImagePage" />
+
+            <ToggleSampleView x:Name="TogglePage" />
 
             <DialogSampleView x:Name="DialogPage" />
 

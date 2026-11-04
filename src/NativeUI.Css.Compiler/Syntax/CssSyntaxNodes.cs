@@ -86,6 +86,24 @@ public sealed record CssAttributeSelectorNode(
     string Value);
 
 /// <summary>
+/// Represents a pseudo-class in a selector, such as <c>:checked</c>.
+/// </summary>
+/// <param name="State">The <c>ElementStates</c> member name the pseudo-class requires.</param>
+/// <param name="Span">The source span of the pseudo-class, including its colon.</param>
+public sealed record CssPseudoClassNode(
+    string State,
+    CssSourceSpan Span);
+
+/// <summary>
+/// Represents a <c>::part()</c> pseudo-element that selects a named template part, such as <c>::part(thumb)</c>.
+/// </summary>
+/// <param name="Name">The part name.</param>
+/// <param name="Span">The source span of the pseudo-element, from its first colon to its closing parenthesis.</param>
+public sealed record CssPartSelectorNode(
+    string Name,
+    CssSourceSpan Span);
+
+/// <summary>
 /// Represents one compound part of a selector, such as <c>text.title:hover</c>.
 /// </summary>
 /// <param name="ElementType">The required lowercase element type, or <see langword="null"/> if unconstrained.</param>
@@ -113,6 +131,8 @@ public sealed record CssCompoundSelectorNode(
 /// <param name="IsValid">Whether the selector uses only supported syntax.</param>
 /// <param name="Span">The source span of the selector.</param>
 /// <param name="Attributes">The attribute selectors required on the subject.</param>
+/// <param name="PseudoClasses">The pseudo-classes in every compound part of the selector, in source order.</param>
+/// <param name="Part">The template part the selector styles, or <see langword="null"/> when it styles the subject.</param>
 public sealed record CssSelectorNode(
     string RawText,
     string? ElementType,
@@ -124,7 +144,9 @@ public sealed record CssSelectorNode(
     bool IsRoot,
     bool IsValid,
     CssSourceSpan Span,
-    IReadOnlyList<CssAttributeSelectorNode>? Attributes = null) : CssSyntaxNode(Span)
+    IReadOnlyList<CssAttributeSelectorNode>? Attributes = null,
+    IReadOnlyList<CssPseudoClassNode>? PseudoClasses = null,
+    CssPartSelectorNode? Part = null) : CssSyntaxNode(Span)
 {
     /// <inheritdoc />
     public override void Accept(ICssSyntaxVisitor visitor) => visitor.VisitSelector(this);

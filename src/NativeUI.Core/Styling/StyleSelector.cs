@@ -52,6 +52,23 @@ public readonly record struct AttributeSelector(string Name, string? Value = nul
 /// </summary>
 public record CompoundSelector
 {
+    private static readonly (ElementStates State, string Name)[] s_pseudoClasses =
+    [
+        (ElementStates.Hover, "hover"),
+        (ElementStates.Pressed, "active"),
+        (ElementStates.Disabled, "disabled"),
+        (ElementStates.Focus, "focus"),
+        (ElementStates.FocusVisible, "focus-visible"),
+        (ElementStates.FocusWithin, "focus-within"),
+        (ElementStates.Checked, "checked"),
+        (ElementStates.Unchecked, "unchecked"),
+        (ElementStates.Indeterminate, "indeterminate"),
+        (ElementStates.On, "pressed"),
+        (ElementStates.Off, "unpressed"),
+        (ElementStates.FirstChild, "first-child"),
+        (ElementStates.LastChild, "last-child")
+    ];
+
     /// <summary>
     /// Initializes a new instance of the <see cref="CompoundSelector"/> class.
     /// </summary>
@@ -245,6 +262,38 @@ public record CompoundSelector
     }
 
     /// <summary>
+    /// Converts this compound selector to a <see cref="StyleSelector"/> matching the template part named <paramref name="name"/>
+    /// of the elements this compound selector matches.
+    /// </summary>
+    /// <param name="name">The part name.</param>
+    public StyleSelector Part(string name)
+    {
+        return ((StyleSelector)this).Part(name);
+    }
+
+    /// <summary>
+    /// Returns the state that the pseudo-class <paramref name="name"/>, without its colon, selects.
+    /// </summary>
+    /// <param name="name">The pseudo-class name, such as <c>checked</c>.</param>
+    /// <param name="state">The selected state, or <see cref="ElementStates.None"/> when the name is unknown.</param>
+    /// <returns><see langword="true"/> when <paramref name="name"/> is a supported pseudo-class.</returns>
+    public static bool TryGetPseudoClassState(string name, out ElementStates state)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        foreach ((ElementStates pseudoState, string pseudoName) in s_pseudoClasses)
+        {
+            if (string.Equals(pseudoName, name, StringComparison.OrdinalIgnoreCase))
+            {
+                state = pseudoState;
+                return true;
+            }
+        }
+
+        state = ElementStates.None;
+        return false;
+    }
+
+    /// <summary>
     /// Formats this compound selector as CSS text.
     /// </summary>
     public virtual string ToCssString()
@@ -278,12 +327,12 @@ public record CompoundSelector
             }
         }
 
-        if (RequiredStates != ElementStates.None)
+        foreach ((ElementStates state, string name) in s_pseudoClasses)
         {
-            if (RequiredStates.HasFlag(ElementStates.Hover)) sb.Append(":hover");
-            if (RequiredStates.HasFlag(ElementStates.Pressed)) sb.Append(":active");
-            if (RequiredStates.HasFlag(ElementStates.Disabled)) sb.Append(":disabled");
-            if (RequiredStates.HasFlag(ElementStates.Focus)) sb.Append(":focus");
+            if (RequiredStates.HasFlag(state))
+            {
+                sb.Append(':').Append(name);
+            }
         }
 
         return sb.ToString();
@@ -483,6 +532,7 @@ public sealed record RootClassSelector : CompoundSelector
 /// <summary>
 /// Represents a complete selector shared by every styling source: a subject and the parts required on its ancestors.
 /// Every relationship is a descendant relationship; other combinators are rejected where selectors are compiled.
+/// A selector with a <see cref="PartName"/> matches a template part, and its subject and ancestors match the part's templated parent.
 /// </summary>
 public sealed record StyleSelector
 {
@@ -493,18 +543,21 @@ public sealed record StyleSelector
     /// <param name="ancestors">The compound parts required on ancestors of the element, outermost first.</param>
     /// <param name="platform">The target platform name, or <see langword="null"/> if unconstrained.</param>
     /// <param name="pseudoElementName">The optional pseudo-element name attached to this selector.</param>
+    /// <param name="partName">The name of the template part this selector matches, or <see langword="null"/> to match the subject itself.</param>
     /// <exception cref="ArgumentNullException"><paramref name="subject"/> is null.</exception>
     public StyleSelector(
         CompoundSelector subject,
         ImmutableArray<CompoundSelector> ancestors = default,
         string? platform = null,
-        string? pseudoElementName = null)
+        string? pseudoElementName = null,
+        string? partName = null)
     {
         ArgumentNullException.ThrowIfNull(subject);
         Subject = subject;
         Ancestors = ancestors;
         Platform = string.IsNullOrWhiteSpace(platform) ? subject.Platform : platform.Trim().ToLowerInvariant();
         PseudoElementName = pseudoElementName;
+        PartName = partName;
         WhereSelectors = ImmutableArray<StyleSelector>.Empty;
     }
 
@@ -557,6 +610,28 @@ public sealed record StyleSelector
     public string? PseudoElementName { get; }
 
     /// <summary>
+    /// Gets the name of the template part this selector matches (such as <c>thumb</c> in <c>switch::part(thumb)</c>),
+    /// or <see langword="null"/> when the selector matches its subject.
+    /// </summary>
+    public string? PartName { get; }
+
+    /// <summary>
+    /// Returns a new selector matching the template part named <paramref name="name"/> of the elements this selector matches.
+    /// </summary>
+    /// <param name="name">The part name.</param>
+    /// <exception cref="InvalidOperationException">This selector is a <c>:where(...)</c> list.</exception>
+    public StyleSelector Part(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (IsWhere)
+        {
+            throw new InvalidOperationException("A :where(...) selector list cannot select a template part.");
+        }
+
+        return new StyleSelector(Subject, Ancestors, Platform, PseudoElementName, name);
+    }
+
+    /// <summary>
     /// Returns a new selector with the specified pseudo-element name attached.
     /// </summary>
     /// <param name="name">The pseudo-element name.</param>
@@ -568,7 +643,7 @@ public sealed record StyleSelector
             return new StyleSelector(WhereSelectors, name);
         }
 
-        return new StyleSelector(Subject, Ancestors, Platform, name);
+        return new StyleSelector(Subject, Ancestors, Platform, name, PartName);
     }
 
     /// <summary>
@@ -593,6 +668,11 @@ public sealed record StyleSelector
             }
 
             sb.Append(Subject.ToCssString());
+            if (PartName is not null)
+            {
+                sb.Append("::part(").Append(PartName).Append(')');
+            }
+
             baseSelector = sb.ToString();
         }
 
@@ -633,6 +713,11 @@ public sealed record StyleSelector
                 specificity += new SelectorSpecificity(0, 1);
             }
 
+            if (PartName is not null)
+            {
+                specificity += new SelectorSpecificity(0, 1);
+            }
+
             return specificity;
         }
     }
@@ -664,7 +749,19 @@ public sealed record StyleSelector
             return false;
         }
 
-        if (!Subject.Matches(element))
+        IUIElement subject = element;
+        if (PartName is not null)
+        {
+            if (!string.Equals(element.PartName, PartName, StringComparison.Ordinal) ||
+                element.TemplatedParent is not IUIElement templatedParent)
+            {
+                return false;
+            }
+
+            subject = templatedParent;
+        }
+
+        if (!Subject.Matches(subject))
         {
             return false;
         }
@@ -674,12 +771,12 @@ public sealed record StyleSelector
             return true;
         }
 
-        if (container is not null && ReferenceEquals(element, container))
+        if (container is not null && ReferenceEquals(subject, container))
         {
             return false;
         }
 
-        IUIElement? current = element.Parent;
+        IUIElement? current = subject.Parent;
         for (int i = Ancestors.Length - 1; i >= 0; i--)
         {
             CompoundSelector ancestor = Ancestors[i];
@@ -800,25 +897,9 @@ public sealed record StyleSelector
                     index++;
                 }
 
-                if (index > start)
+                if (index > start && CompoundSelector.TryGetPseudoClassState(text[start..index], out ElementStates state))
                 {
-                    string pseudo = text[start..index];
-                    if (string.Equals(pseudo, "hover", StringComparison.OrdinalIgnoreCase))
-                    {
-                        states |= ElementStates.Hover;
-                    }
-                    else if (string.Equals(pseudo, "active", StringComparison.OrdinalIgnoreCase))
-                    {
-                        states |= ElementStates.Pressed;
-                    }
-                    else if (string.Equals(pseudo, "disabled", StringComparison.OrdinalIgnoreCase))
-                    {
-                        states |= ElementStates.Disabled;
-                    }
-                    else if (string.Equals(pseudo, "focus", StringComparison.OrdinalIgnoreCase))
-                    {
-                        states |= ElementStates.Focus;
-                    }
+                    states |= state;
                 }
             }
             else if (text[index] == '[')

@@ -172,6 +172,10 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
             Button button => new HtmlDomButton(button, element),
             Input input => new HtmlDomInput(input, element),
             ProgressBar progressBar => new HtmlDomProgressBar(progressBar, element),
+            Switch toggleSwitch => new HtmlDomSwitch(toggleSwitch, element, tagName),
+            CheckBox checkBox => new HtmlDomCheckBox(checkBox, element, tagName),
+            Toggle toggle => new HtmlDomToggle(toggle, element, tagName),
+            ToggleGroup toggleGroup => new HtmlDomToggleGroup(toggleGroup, element, tagName),
             Dialog dialog => new HtmlDomDialog(dialog, element, tagName),
             Portal portal => new HtmlDomPortal(portal, element, tagName),
             StackPanel stackPanel => new HtmlDomStackPanel(stackPanel, element),
@@ -438,6 +442,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer
     protected virtual void Initialize()
     {
         SetAttribute("id", Source.Id);
+        SetAttribute(StyleSheetCss.PartAttribute, Source.PartName);
         SetClassName(Source.Class.ToString());
         UpdateTypeTokens();
         UpdateVisibility();

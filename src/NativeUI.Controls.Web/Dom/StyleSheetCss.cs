@@ -42,12 +42,18 @@ internal static class StyleSheetCss
     public const string PortalAttribute = "data-nui-portal";
 
     /// <summary>
+    /// The attribute carrying <see cref="UIElement.PartName"/>, which <c>::part()</c> selectors match.
+    /// </summary>
+    public const string PartAttribute = "data-nui-part";
+
+    /// <summary>
     /// The base style shared by all <c>native-ui</c> elements, matching desktop rendering where CSS allows: border-box
     /// sizing; a solid border of zero width, which <c>border-width</c> on an element makes visible; the minimum line height of the desktop text shaper; a scrollbar with the size and colors of the desktop
-    /// indicator, which <c>scrollbar-color</c> or <c>scrollbar-width</c> on an element replaces; block display for the root, each <see cref="Text"/>, and
-    /// each <see cref="Button"/>, none of which is block-level by default; no browser control appearance on
+    /// indicator, which <c>scrollbar-color</c> or <c>scrollbar-width</c> on an element replaces; block display for the root, each <see cref="Text"/>,
+    /// each <see cref="Button"/>, and each <see cref="Image"/>, <see cref="Svg"/>, and shape, none of which is block-level by default; no browser control appearance on
     /// <see cref="Button"/> and <see cref="Input"/>, matching desktop rendering; scrolling on each <see cref="ScrollView"/>; fixed positioning on each <see cref="Portal"/>, with a modal backdrop of the same color as on desktop; and a
-    /// <c>color-scheme</c> following <c>data-theme</c>.
+    /// <c>color-scheme</c> following <c>data-theme</c>. Each <see cref="Switch"/> and <see cref="Toggle"/> is a block, and
+    /// each <see cref="CheckBox"/> and <see cref="ToggleGroup"/> is a row flex container. All four are as wide as their content.
     /// <c>:where</c> keeps every declaration at zero specificity.
     /// </summary>
     public static CssStyleSheet BaseStyleSheet { get; } = new BaseCssStyleSheet();
@@ -188,7 +194,7 @@ internal static class StyleSheetCss
             css.Append(' ').Append(WriteCompound(ancestor, typeIds));
         }
 
-        return css.Append(' ').Append(WriteCompound(selector.Subject, typeIds)).ToString();
+        return css.Append(' ').Append(WriteCompound(selector.Subject, typeIds)).Append(WritePart(selector)).ToString();
     }
 
     private static string WriteScopedSelector(StyleSelector selector, string viewScopeId, Dictionary<Type, string> typeIds)
@@ -196,10 +202,11 @@ internal static class StyleSheetCss
         // The selector matching from the view places the scope after a compound, because CSS requires a type selector first.
         string scope = $":where([{ViewScopeAttribute}=\"{viewScopeId}\"])";
         string subject = WriteCompound(selector.Subject, typeIds);
+        string part = WritePart(selector);
 
-        if (selector.Ancestors.Length == 0)
+        if (selector.Ancestors.IsDefaultOrEmpty)
         {
-            return $"{scope} {subject}, {subject}{scope}";
+            return $"{scope} {subject}{part}, {subject}{scope}{part}";
         }
 
         string firstAncestor = WriteCompound(selector.Ancestors[0], typeIds);
@@ -209,7 +216,18 @@ internal static class StyleSheetCss
             otherAncestors.Append(WriteCompound(ancestor, typeIds)).Append(' ');
         }
 
-        return $"{scope} {firstAncestor} {otherAncestors}{subject}, {firstAncestor}{scope} {otherAncestors}{subject}";
+        return $"{scope} {firstAncestor} {otherAncestors}{subject}{part}, {firstAncestor}{scope} {otherAncestors}{subject}{part}";
+    }
+
+    /// <summary>
+    /// Writes the descendant that a <c>::part()</c> selector matches, or nothing when the selector has no part.
+    /// <c>:is(*, div)</c> matches any element and has the specificity of one type selector, which equals the specificity of <c>::part()</c>.
+    /// </summary>
+    private static string WritePart(StyleSelector selector)
+    {
+        return selector.PartName is string partName
+            ? $" :is(*, div):where([{PartAttribute}=\"{EscapeAttributeValue(partName)}\"])"
+            : string.Empty;
     }
 
     private static string WriteCompound(CompoundSelector part, Dictionary<Type, string> typeIds)
@@ -252,30 +270,40 @@ internal static class StyleSheetCss
             : tag;
     }
 
+    /// <summary>
+    /// Writes the browser form of each required state. States that browsers track only for native form controls are
+    /// written as the ARIA attributes that Web sets, and <c>:disabled</c> also matches elements that are not form controls.
+    /// </summary>
     private static string WriteStates(ElementStates states)
     {
         StringBuilder builder = new();
-        if (states.HasFlag(ElementStates.Hover))
-        {
-            builder.Append(":hover");
-        }
-
-        if (states.HasFlag(ElementStates.Pressed))
-        {
-            builder.Append(":active");
-        }
-
-        if (states.HasFlag(ElementStates.Disabled))
-        {
-            builder.Append(":disabled");
-        }
-
-        if (states.HasFlag(ElementStates.Focus))
-        {
-            builder.Append(":focus");
-        }
-
+        AppendState(builder, states, ElementStates.Hover, ":hover");
+        AppendState(builder, states, ElementStates.Pressed, ":active");
+        AppendState(builder, states, ElementStates.Disabled, ":is(:disabled, [aria-disabled=\"true\"])");
+        AppendState(builder, states, ElementStates.Focus, ":focus");
+        AppendState(builder, states, ElementStates.FocusVisible, ":focus-visible");
+        AppendState(builder, states, ElementStates.FocusWithin, ":focus-within");
+        AppendState(builder, states, ElementStates.Checked, "[aria-checked=\"true\"]");
+        AppendState(builder, states, ElementStates.Unchecked, "[aria-checked=\"false\"]");
+        AppendState(builder, states, ElementStates.Indeterminate, "[aria-checked=\"mixed\"]");
+        AppendState(builder, states, ElementStates.On, "[aria-pressed=\"true\"]");
+        AppendState(builder, states, ElementStates.Off, "[aria-pressed=\"false\"]");
+        AppendState(builder, states, ElementStates.FirstChild, ":first-child");
+        AppendState(builder, states, ElementStates.LastChild, ":last-child");
         return builder.ToString();
+    }
+
+    private static void AppendState(StringBuilder builder, ElementStates states, ElementStates state, string selector)
+    {
+        if (states.HasFlag(state))
+        {
+            builder.Append(selector);
+        }
+    }
+
+    private static string EscapeAttributeValue(string value)
+    {
+        return value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
     }
 
     private static string EscapeIdentifier(string value)

@@ -33,6 +33,7 @@ public partial class HelloView
             (NavCanvas, CanvasPage),
             (NavImages, ImagePage),
             (NavInput, InputPage),
+            (NavToggles, TogglePage),
             (NavDialog, DialogPage),
             (NavAnimation, AnimationPage),
             (NavScene3D, Scene3DPage),

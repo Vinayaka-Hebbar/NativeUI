@@ -129,6 +129,16 @@ public sealed class LayoutEngine
         return MeasureMaxContentOfChildren(node) + style.ContentInsets.Horizontal;
     }
 
+    /// <summary>
+    /// Returns the logical pixels between adjacent children of <paramref name="stack"/>. A positive
+    /// <see cref="IStackLayoutNode.Spacing"/> overrides the computed <c>gap</c>.
+    /// </summary>
+    private static double GetStackSpacing(IStackLayoutNode stack)
+    {
+        double spacing = stack.Spacing > 0 ? stack.Spacing : stack.ComputedStyle.Gap;
+        return double.IsFinite(spacing) ? Math.Max(0, spacing) : 0;
+    }
+
     private double MeasureMaxContentOfChildren(ILayoutNode node)
     {
         if (node is IGridLayoutNode grid)
@@ -161,8 +171,7 @@ public sealed class LayoutEngine
 
         if (horizontal && count > 1 && node is IStackLayoutNode stack)
         {
-            double spacing = double.IsFinite(stack.Spacing) ? Math.Max(0, stack.Spacing) : 0;
-            width += spacing * (count - 1);
+            width += GetStackSpacing(stack) * (count - 1);
         }
 
         return width;
@@ -285,7 +294,7 @@ public sealed class LayoutEngine
         List<LayoutBox> boxes = [];
         double currentX = x;
         double maxHeight = 0;
-        double spacing = double.IsFinite(stack.Spacing) ? Math.Max(0, stack.Spacing) : 0;
+        double spacing = GetStackSpacing(stack);
         IReadOnlyList<ILayoutNode> children = stack.LayoutChildren;
         for (int i = 0; i < children.Count; i++)
         {
@@ -672,7 +681,7 @@ public sealed class LayoutEngine
         {
             IGridLayoutNode grid => LayoutGrid(grid, contentX, contentY, contentMaxWidth, contentDefiniteHeight, inFlowContainingBlock, viewport),
             IStackLayoutNode { Orientation: Orientation.Horizontal } stack => LayoutHorizontalStack(stack, contentX, contentY, contentMaxWidth, inFlowContainingBlock, viewport),
-            IStackLayoutNode stack => LayoutVerticalChildren(stack, stack.Spacing, contentX, contentY, contentMaxWidth, inFlowContainingBlock, viewport),
+            IStackLayoutNode stack => LayoutVerticalChildren(stack, GetStackSpacing(stack), contentX, contentY, contentMaxWidth, inFlowContainingBlock, viewport),
             _ => LayoutVerticalChildren(node, 0, contentX, contentY, contentMaxWidth, inFlowContainingBlock, viewport)
         };
 

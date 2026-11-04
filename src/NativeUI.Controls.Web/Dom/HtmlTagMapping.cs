@@ -2,6 +2,7 @@ namespace NativeUI.Controls.Web;
 
 /// <summary>
 /// Defines the HTML element created for each control, so DOM creation and generated CSS selectors cannot disagree.
+/// A control without an equivalent HTML element is an autonomous custom element named <c>nui-</c> followed by its tag name.
 /// </summary>
 internal static class HtmlTagMapping
 {
@@ -11,6 +12,10 @@ internal static class HtmlTagMapping
     private const string CanvasTag = "canvas";
     private const string InputTag = "input";
     private const string DialogTag = "dialog";
+    private const string SwitchTag = "nui-switch";
+    private const string CheckBoxTag = "nui-checkbox";
+    private const string ToggleTag = "nui-toggle";
+    private const string ToggleGroupTag = "nui-togglegroup";
 
     /// <summary>
     /// Gets the tag created for <paramref name="element"/>.
@@ -43,6 +48,26 @@ internal static class HtmlTagMapping
         if (element is CanvasView)
         {
             return CanvasTag;
+        }
+
+        if (element is Switch)
+        {
+            return SwitchTag;
+        }
+
+        if (element is CheckBox)
+        {
+            return CheckBoxTag;
+        }
+
+        if (element is Toggle)
+        {
+            return ToggleTag;
+        }
+
+        if (element is ToggleGroup)
+        {
+            return ToggleGroupTag;
         }
 
         return ContainerTag;
@@ -81,6 +106,26 @@ internal static class HtmlTagMapping
             return DialogTag;
         }
 
+        if (typeof(Switch).IsAssignableFrom(type))
+        {
+            return SwitchTag;
+        }
+
+        if (typeof(CheckBox).IsAssignableFrom(type))
+        {
+            return CheckBoxTag;
+        }
+
+        if (typeof(Toggle).IsAssignableFrom(type))
+        {
+            return ToggleTag;
+        }
+
+        if (typeof(ToggleGroup).IsAssignableFrom(type))
+        {
+            return ToggleGroupTag;
+        }
+
         // A base type or interface of Text also covers controls rendered with the container tag.
         return type.IsAssignableFrom(typeof(Text)) ? $":is({TextTag}, {ContainerTag})" : ContainerTag;
     }
@@ -101,6 +146,10 @@ internal static class HtmlTagMapping
             "button" => ButtonTag,
             "canvas" or "canvasview" or "viewport3d" => CanvasTag,
             "input" => InputTag,
+            "switch" => SwitchTag,
+            "checkbox" => CheckBoxTag,
+            "toggle" => ToggleTag,
+            "togglegroup" => ToggleGroupTag,
             _ => throw new NotSupportedException($"The element type '{elementType}' has no HTML element mapping.")
         };
     }

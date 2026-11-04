@@ -1,0 +1,66 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.ToggleSampleView"
+      Class="toggle-page">
+    <Text Class="toggle-title" Value="Switch, CheckBox, and Toggle" />
+    <Text Class="toggle-description" Value="State pseudo-classes and ::part() style every control from the stylesheet. The theme button switches between the light and dark variables." />
+
+    <View Class="toggle-section">
+        <Text Class="toggle-heading" Value="Switch" />
+        <StackPanel Class="toggle-row" Orientation="Horizontal">
+            <Switch x:Name="AirplaneSwitch" IsChecked="True" />
+            <Text x:Name="AirplaneStatus" Value="Airplane mode is on" />
+        </StackPanel>
+        <StackPanel Class="toggle-row" Orientation="Horizontal">
+            <Switch IsEnabled="False" />
+            <Text Class="toggle-muted" Value="Disabled" />
+        </StackPanel>
+    </View>
+
+    <View Class="toggle-section">
+        <Text Class="toggle-heading" Value="CheckBox" />
+        <View>
+            <CheckBox x:Name="SelectAllCheckBox">Select all notifications</CheckBox>
+            <View Class="toggle-nested">
+                <CheckBox x:Name="EmailCheckBox" IsChecked="True">Email notifications</CheckBox>
+                <CheckBox x:Name="PushCheckBox">Push notifications</CheckBox>
+            </View>
+            <CheckBox IsThreeState="True">Three states: click to cycle</CheckBox>
+            <CheckBox IsChecked="True" IsEnabled="False">Disabled</CheckBox>
+        </View>
+    </View>
+
+    <View Class="toggle-section">
+        <Text Class="toggle-heading" Value="Toggle" />
+        <StackPanel Class="toggle-row" Orientation="Horizontal">
+            <Toggle IsPressed="True">Bold</Toggle>
+            <Toggle Class="outline">Italic</Toggle>
+            <Toggle Class="outline small">Underline</Toggle>
+            <Toggle IsEnabled="False">Disabled</Toggle>
+        </StackPanel>
+    </View>
+
+    <View Class="toggle-section">
+        <Text Class="toggle-heading" Value="ToggleGroup" />
+        <ToggleGroup x:Name="AlignmentGroup" Class="joined" SelectionMode="Single" IsRequired="True">
+            <Toggle Value="left" IsPressed="True">Left</Toggle>
+            <Toggle Value="center">Center</Toggle>
+            <Toggle Value="right">Right</Toggle>
+        </ToggleGroup>
+        <Text x:Name="AlignmentStatus" Class="toggle-status" Value="Alignment: left" />
+
+        <ToggleGroup x:Name="FormatGroup" Class="toolbar" SelectionMode="Multiple">
+            <Toggle Class="outline" Value="bold">Bold</Toggle>
+            <Toggle Class="outline" Value="italic">Italic</Toggle>
+            <Toggle Class="outline" Value="strikethrough">Strikethrough</Toggle>
+            <Toggle Class="outline" Value="code">Code</Toggle>
+        </ToggleGroup>
+        <Text x:Name="FormatStatus" Class="toggle-status" Value="Formats: none" />
+
+        <ToggleGroup Class="joined" IsEnabled="False">
+            <Toggle Value="day" IsPressed="True">Day</Toggle>
+            <Toggle Value="week">Week</Toggle>
+            <Toggle Value="month">Month</Toggle>
+        </ToggleGroup>
+    </View>
+</View>

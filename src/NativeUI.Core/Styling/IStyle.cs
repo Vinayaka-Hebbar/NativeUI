@@ -32,6 +32,9 @@ public interface IStyle
     /// <summary>Gets the specified outer box spacing.</summary>
     Thickness? Margin { get; }
 
+    /// <summary>Gets the specified spacing between adjacent children of a stack container.</summary>
+    double? Gap { get; }
+
     /// <summary>Gets the specified corner radius.</summary>
     double? BorderRadius { get; }
 

@@ -79,6 +79,7 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
         AddScrollbarRules(rules);
         AddThemeRules(rules);
         AddReducedMotionRules(rules);
+        AddCustomElementRules(rules);
         return rules;
     }
 
@@ -105,7 +106,9 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
             CssSelector.Where(
                 CssSelector.Type("native-ui"),
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("span")),
-                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("button"))),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("button")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("img")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("svg"))),
             new()
             {
                 ["display"] = "block"
@@ -282,6 +285,43 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
                 ["animation-iteration-count"] = "1 !important"
             },
             media: CssMedia.ReducedMotion));
+    }
+
+    private static void AddCustomElementRules(List<CssRule> rules)
+    {
+        rules.Add(Rule(
+            CssSelector.Where(
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-switch")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-toggle"))),
+            new()
+            {
+                ["display"] = "block",
+                ["width"] = "fit-content",
+                ["cursor"] = "pointer",
+                ["user-select"] = "none"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-checkbox"))),
+            new()
+            {
+                ["display"] = "flex",
+                ["flex-direction"] = "row",
+                ["align-items"] = "flex-start",
+                ["width"] = "fit-content",
+                ["cursor"] = "pointer",
+                ["user-select"] = "none"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-togglegroup"))),
+            new()
+            {
+                ["display"] = "flex",
+                ["flex-direction"] = "row",
+                ["align-items"] = "flex-start",
+                ["width"] = "fit-content"
+            }));
     }
 
     private static CssRule Rule(
