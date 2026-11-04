@@ -377,6 +377,12 @@ public sealed class CssValidator : CssSyntaxVisitor
             "virtualizedtable" => "nui-virtualizedtable",
             "tablerow" => "nui-tablerow",
             "tablecell" => "nui-tablecell",
+            "separator" => "nui-separator",
+            "badge" => "nui-badge",
+            "avatar" => "nui-avatar",
+            "breadcrumb" => "nui-breadcrumb",
+            "breadcrumbitem" => "nui-breadcrumbitem",
+            "buttongroup" => "nui-buttongroup",
             _ => null
         };
     }

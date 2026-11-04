@@ -86,6 +86,7 @@ internal static class XamlValueConverters
         {
             "NativeUI.Media.Geometry" or "NativeUI.Media.PathGeometry" or "NativeUI.Media.Brush" or "NativeUI.Media.ImageSource" or "NativeUI.Layout.Rect" or "NativeUI.Layout.Point" or "NativeUI.Layout.Size" or "System.Collections.Immutable.ImmutableArray<NativeUI.Layout.Point>" => new VectorValueConverter(typeName),
             "NativeUI.Media.Color" => s_converters[XamlPropertyKind.Color],
+            "NativeUI.Styling.StyleClass" => s_converters[XamlPropertyKind.ClassList],
             "System.Numerics.Vector3" => s_converters[XamlPropertyKind.Vector3],
             _ => XamlLiteralConverter.Create(namedType)
         };

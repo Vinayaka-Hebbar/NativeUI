@@ -520,7 +520,7 @@ static void TestBaseStyleSheetCss()
 {
     string[] lines = StyleSheetCss.BaseStyleSheet.RawCss.TrimEnd().Split('\n');
 
-    Assert.Equal(28, lines.Length);
+    Assert.Equal(33, lines.Length);
     Assert.True(lines[0].StartsWith(":where(native-ui, native-ui *) { "));
     Assert.Contains("box-sizing: border-box;", lines[0]);
     Assert.Contains("border: 0 solid;", lines[0]);

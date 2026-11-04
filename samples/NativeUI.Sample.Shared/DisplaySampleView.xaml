@@ -1,0 +1,62 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.DisplaySampleView"
+      Class="display-page">
+    <Text Class="display-title" Value="Separator, Badge, Avatar, Breadcrumb, and ButtonGroup" />
+    <Text Class="display-description" Value="Classes, ::part(), and data-* attribute selectors style every control from the stylesheet." />
+
+    <View Class="display-section">
+        <Text Class="display-heading" Value="Separator" />
+        <Text Value="NativeUI" />
+        <Text Class="display-muted" Value="A cross-platform .NET UI framework." />
+        <Separator Class="display-separator" />
+        <StackPanel Orientation="Horizontal">
+            <Text Value="Blog" />
+            <Separator Orientation="Vertical" />
+            <Text Value="Docs" />
+            <Separator Orientation="Vertical" />
+            <Text Value="Source" />
+        </StackPanel>
+    </View>
+
+    <View Class="display-section">
+        <Text Class="display-heading" Value="Badge" />
+        <StackPanel Class="display-row" Orientation="Horizontal">
+            <Badge>Badge</Badge>
+            <Badge Class="secondary">Secondary</Badge>
+            <Badge Class="destructive">Destructive</Badge>
+            <Badge Class="outline">Outline</Badge>
+            <Badge Class="count">8</Badge>
+        </StackPanel>
+    </View>
+
+    <View Class="display-section">
+        <Text Class="display-heading" Value="Avatar" />
+        <StackPanel Class="display-row" Orientation="Horizontal">
+            <Avatar Source="resource://NativeUI.Sample.Shared/Assets/logo.png" Fallback="NU" AltText="NativeUI logo" />
+            <Avatar Fallback="VH" />
+            <Avatar Class="large" Fallback="AB" />
+        </StackPanel>
+    </View>
+
+    <View Class="display-section">
+        <Text Class="display-heading" Value="Breadcrumb" />
+        <Breadcrumb x:Name="PathBreadcrumb" />
+        <Breadcrumb x:Name="ChevronBreadcrumb" Separator="›" />
+        <Text x:Name="BreadcrumbStatus" Class="display-status" Value="Click an item that is not the current page." />
+    </View>
+
+    <View Class="display-section">
+        <Text Class="display-heading" Value="ButtonGroup" />
+        <ButtonGroup>
+            <Button Text="Archive" />
+            <Button Text="Report" />
+            <Button Text="Snooze" />
+        </ButtonGroup>
+        <ButtonGroup Class="display-vertical" Orientation="Vertical">
+            <Button Text="Top" />
+            <Button Text="Middle" />
+            <Button Text="Bottom" />
+        </ButtonGroup>
+    </View>
+</View>

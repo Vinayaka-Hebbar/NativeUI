@@ -23,6 +23,12 @@ internal static class HtmlTagMapping
     private const string VirtualizedTableTag = "nui-virtualizedtable";
     private const string TableRowTag = "nui-tablerow";
     private const string TableCellTag = "nui-tablecell";
+    private const string SeparatorTag = "nui-separator";
+    private const string BadgeTag = "nui-badge";
+    private const string AvatarTag = "nui-avatar";
+    private const string BreadcrumbTag = "nui-breadcrumb";
+    private const string BreadcrumbItemTag = "nui-breadcrumbitem";
+    private const string ButtonGroupTag = "nui-buttongroup";
 
     /// <summary>
     /// Gets the tag created for <paramref name="element"/>.
@@ -110,6 +116,36 @@ internal static class HtmlTagMapping
         if (element is TableCell)
         {
             return TableCellTag;
+        }
+
+        if (element is Separator)
+        {
+            return SeparatorTag;
+        }
+
+        if (element is Badge)
+        {
+            return BadgeTag;
+        }
+
+        if (element is Avatar)
+        {
+            return AvatarTag;
+        }
+
+        if (element is Breadcrumb)
+        {
+            return BreadcrumbTag;
+        }
+
+        if (element is BreadcrumbItem)
+        {
+            return BreadcrumbItemTag;
+        }
+
+        if (element is ButtonGroup)
+        {
+            return ButtonGroupTag;
         }
 
         return ContainerTag;
@@ -203,6 +239,36 @@ internal static class HtmlTagMapping
             return TableCellTag;
         }
 
+        if (typeof(Separator).IsAssignableFrom(type))
+        {
+            return SeparatorTag;
+        }
+
+        if (typeof(Badge).IsAssignableFrom(type))
+        {
+            return BadgeTag;
+        }
+
+        if (typeof(Avatar).IsAssignableFrom(type))
+        {
+            return AvatarTag;
+        }
+
+        if (typeof(Breadcrumb).IsAssignableFrom(type))
+        {
+            return BreadcrumbTag;
+        }
+
+        if (typeof(BreadcrumbItem).IsAssignableFrom(type))
+        {
+            return BreadcrumbItemTag;
+        }
+
+        if (typeof(ButtonGroup).IsAssignableFrom(type))
+        {
+            return ButtonGroupTag;
+        }
+
         // A base type or interface of Text also covers controls rendered with the container tag.
         return type.IsAssignableFrom(typeof(Text)) ? $":is({TextTag}, {ContainerTag})" : ContainerTag;
     }
@@ -234,6 +300,12 @@ internal static class HtmlTagMapping
             "virtualizedtable" => VirtualizedTableTag,
             "tablerow" => TableRowTag,
             "tablecell" => TableCellTag,
+            "separator" => SeparatorTag,
+            "badge" => BadgeTag,
+            "avatar" => AvatarTag,
+            "breadcrumb" => BreadcrumbTag,
+            "breadcrumbitem" => BreadcrumbItemTag,
+            "buttongroup" => ButtonGroupTag,
             _ => throw new NotSupportedException($"The element type '{elementType}' has no HTML element mapping.")
         };
     }

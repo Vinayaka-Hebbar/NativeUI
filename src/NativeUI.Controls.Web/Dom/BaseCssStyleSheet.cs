@@ -381,6 +381,50 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
             {
                 ["position"] = "relative"
             }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-separator"))),
+            new()
+            {
+                ["display"] = "block"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-badge"))),
+            new()
+            {
+                ["display"] = "block",
+                ["width"] = "fit-content"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-avatar"))),
+            new()
+            {
+                ["display"] = "block",
+                ["position"] = "relative",
+                ["overflow"] = "hidden"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-breadcrumb")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-breadcrumbitem")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-buttongroup"))),
+            new()
+            {
+                ["display"] = "flex",
+                ["flex-direction"] = "row",
+                ["align-items"] = "flex-start",
+                ["width"] = "fit-content"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-breadcrumbitem"))),
+            new()
+            {
+                ["user-select"] = "none"
+            }));
     }
 
     private static CssRule Rule(

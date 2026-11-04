@@ -1,0 +1,204 @@
+.display-page {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --primary: #171717;
+  --primary-foreground: #fafafa;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #171717;
+  --destructive: #dc2626;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --border: #e5e5e5;
+  --ring: #a3a3a3;
+  --radius: 8px;
+  color: var(--foreground);
+  font-family: Arial;
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .display-page {
+    --background: #0a0a0a;
+    --foreground: #fafafa;
+    --primary: #e5e5e5;
+    --primary-foreground: #171717;
+    --secondary: #262626;
+    --secondary-foreground: #fafafa;
+    --destructive: #f87171;
+    --muted: #262626;
+    --muted-foreground: #a3a3a3;
+    --border: rgb(255 255 255 / 0.1);
+    --ring: #737373;
+  }
+}
+
+.display-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.display-description {
+  color: var(--muted-foreground);
+  margin: 0 0 20px 0;
+}
+
+.display-section {
+  background-color: var(--background);
+  border-width: 1px;
+  border-color: var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 0 0 16px 0;
+}
+
+.display-heading {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.display-row {
+  gap: 8px;
+}
+
+.display-muted {
+  color: var(--muted-foreground);
+  margin: 4px 0 0 0;
+}
+
+.display-status {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  margin: 12px 0 0 0;
+}
+
+Separator {
+  background-color: var(--border);
+}
+
+Separator[data-orientation="horizontal"] {
+  height: 1px;
+}
+
+Separator[data-orientation="vertical"] {
+  width: 1px;
+  height: 16px;
+  margin: 0 12px;
+}
+
+.display-separator {
+  margin: 16px 0;
+}
+
+Badge {
+  padding: 2px 8px;
+  border-width: 1px;
+  border-color: transparent;
+  border-radius: 6px;
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+Badge.secondary {
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+Badge.destructive {
+  background-color: var(--destructive);
+  color: #ffffff;
+}
+
+Badge.outline {
+  border-color: var(--border);
+  background-color: transparent;
+  color: var(--foreground);
+}
+
+Badge.count {
+  padding: 2px 6px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+Avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  background-color: var(--muted);
+}
+
+Avatar::part(fallback) {
+  color: var(--muted-foreground);
+  padding: 11px 0;
+  font-weight: 600;
+  text-align: center;
+}
+
+Avatar.large {
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+}
+
+Avatar.large::part(fallback) {
+  padding: 17px 0;
+  font-size: 18px;
+}
+
+Breadcrumb {
+  margin: 0 0 8px 0;
+  color: var(--muted-foreground);
+}
+
+Breadcrumb::part(separator) {
+  margin: 0 8px;
+}
+
+Breadcrumb::part(item):hover {
+  color: var(--foreground);
+}
+
+BreadcrumbItem[data-current="true"] {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+ButtonGroup {
+  margin: 0 0 12px 0;
+  border-width: 1px;
+  border-color: var(--border);
+  border-radius: var(--radius);
+  background-color: var(--border);
+  overflow: hidden;
+}
+
+ButtonGroup Button {
+  padding: 8px 12px;
+  margin: 0 0 0 1px;
+  background-color: var(--background);
+}
+
+ButtonGroup Button:first-child {
+  margin: 0;
+}
+
+ButtonGroup Button:hover {
+  background-color: var(--muted);
+}
+
+ButtonGroup Button:focus-visible {
+  background-color: var(--muted);
+}
+
+ButtonGroup[data-orientation="vertical"] Button {
+  width: auto;
+  margin: 1px 0 0 0;
+}
+
+ButtonGroup[data-orientation="vertical"] Button:first-child {
+  margin: 0;
+}
