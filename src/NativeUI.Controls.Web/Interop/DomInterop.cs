@@ -220,6 +220,13 @@ public static partial class DomInterop
     public static partial bool MountPortal(JSObject parent, JSObject element);
 
     /// <summary>
+    /// Appends <paramref name="element"/> to <paramref name="parent"/> and shows it in the browser's top layer as a manual
+    /// popover, and returns false when <paramref name="parent"/> is not in the document.
+    /// </summary>
+    [JSImport("showPortal", "nativeui-dom")]
+    public static partial bool ShowPortal(JSObject parent, JSObject element);
+
+    /// <summary>
     /// Opens a dialog element, as a modal one in the browser's top layer when <paramref name="isModal"/> is true.
     /// </summary>
     [JSImport("showDialog", "nativeui-dom")]

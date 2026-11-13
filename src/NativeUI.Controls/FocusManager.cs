@@ -246,13 +246,49 @@ public sealed class FocusManager : IDisposable
     }
 
     /// <summary>
+    /// Moves focus to the first element of <paramref name="scope"/> in the navigation order, such as the content of a
+    /// popup that just opened.
+    /// </summary>
+    /// <returns><see langword="true"/> when an element of <paramref name="scope"/> received focus.</returns>
+    internal bool FocusFirst(UIElement scope)
+    {
+        if (_disposed)
+        {
+            return false;
+        }
+
+        foreach (UIElement candidate in GetNavigationOrder())
+        {
+            if (IsInclusiveAncestor(scope, candidate))
+            {
+                return Focus(candidate);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Returns the focusable elements with a non-negative <see cref="UIElement.TabIndex"/>: positive values first in
     /// ascending order, then zero in tree order. Hidden subtrees and subtrees with their own focus manager are skipped.
+    /// The elements of an open portal with an anchor follow the anchor's subtree instead of the portal's own position.
     /// </summary>
     private List<UIElement> GetNavigationOrder()
     {
+        Dictionary<UIElement, List<Portal>> anchoredPortals = new(ReferenceEqualityComparer.Instance);
+        CollectAnchoredPortals(Root, anchoredPortals);
+
         List<UIElement> candidates = [];
-        CollectCandidates(Root, candidates);
+        CollectCandidates(Root, candidates, anchoredPortals);
+
+        // A portal whose anchor is not in the visited tree follows every other element.
+        foreach (List<Portal> portals in anchoredPortals.Values.ToArray())
+        {
+            foreach (Portal portal in portals)
+            {
+                CollectPortalCandidates(portal, candidates, anchoredPortals);
+            }
+        }
 
         List<UIElement> order = [];
         foreach (UIElement candidate in candidates)
@@ -276,9 +312,41 @@ public sealed class FocusManager : IDisposable
         return order;
     }
 
-    private void CollectCandidates(UIElement element, List<UIElement> candidates)
+    private void CollectAnchoredPortals(UIElement element, Dictionary<UIElement, List<Portal>> anchoredPortals)
     {
         if (!element.IsVisible || (element.FocusManager is not null && !ReferenceEquals(element, Root)))
+        {
+            return;
+        }
+
+        if (element is Portal { Anchor: UIElement anchor } portal)
+        {
+            if (!anchoredPortals.TryGetValue(anchor, out List<Portal>? portals))
+            {
+                portals = [];
+                anchoredPortals[anchor] = portals;
+            }
+
+            portals.Add(portal);
+        }
+
+        if (element is View view)
+        {
+            foreach (UIElement child in view.Children)
+            {
+                CollectAnchoredPortals(child, anchoredPortals);
+            }
+        }
+    }
+
+    private void CollectCandidates(UIElement element, List<UIElement> candidates, Dictionary<UIElement, List<Portal>> anchoredPortals)
+    {
+        if (!element.IsVisible || (element.FocusManager is not null && !ReferenceEquals(element, Root)))
+        {
+            return;
+        }
+
+        if (element is Portal { Anchor: not null })
         {
             return;
         }
@@ -292,8 +360,32 @@ public sealed class FocusManager : IDisposable
         {
             foreach (UIElement child in view.Children)
             {
-                CollectCandidates(child, candidates);
+                CollectCandidates(child, candidates, anchoredPortals);
             }
+        }
+
+        if (anchoredPortals.Remove(element, out List<Portal>? portals))
+        {
+            foreach (Portal portal in portals)
+            {
+                CollectPortalCandidates(portal, candidates, anchoredPortals);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Collects the candidates of an open portal with an anchor, which <see cref="CollectCandidates"/> skips at its tree position.
+    /// </summary>
+    private void CollectPortalCandidates(Portal portal, List<UIElement> candidates, Dictionary<UIElement, List<Portal>> anchoredPortals)
+    {
+        if (portal.TabIndex >= 0 && CanFocus(portal))
+        {
+            candidates.Add(portal);
+        }
+
+        foreach (UIElement child in portal.Children)
+        {
+            CollectCandidates(child, candidates, anchoredPortals);
         }
     }
 

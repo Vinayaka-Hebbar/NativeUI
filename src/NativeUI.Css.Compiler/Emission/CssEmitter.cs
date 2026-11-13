@@ -413,11 +413,13 @@ public static class CssEmitter
         {
             foreach (CssAttributeSelectorNode attribute in attributes)
             {
-                ArgumentListSyntax attributeArguments = ArgumentList(SeparatedList<ArgumentSyntax>(
-                [
-                    Argument(CssValueSyntaxBuilder.StringLiteral(attribute.Name)),
-                    Argument(CssValueSyntaxBuilder.StringLiteral(attribute.Value))
-                ]));
+                ArgumentListSyntax attributeArguments = attribute.Value is string value
+                    ? ArgumentList(SeparatedList<ArgumentSyntax>(
+                    [
+                        Argument(CssValueSyntaxBuilder.StringLiteral(attribute.Name)),
+                        Argument(CssValueSyntaxBuilder.StringLiteral(value))
+                    ]))
+                    : ArgumentList(SingletonSeparatedList(Argument(CssValueSyntaxBuilder.StringLiteral(attribute.Name))));
 
                 expr = expr is null
                     ? InvocationExpression(

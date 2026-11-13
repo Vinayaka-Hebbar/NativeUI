@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Xml.Linq;
 using NativeUI.Media;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace NativeUI.Xaml.Compiler;
@@ -401,6 +402,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     private readonly Compilation? _compilation;
     private readonly Dictionary<string, XamlViewReference> _knownViews = new(StringComparer.Ordinal);
     private readonly List<Diagnostic> _diagnostics = [];
+    private readonly Dictionary<string, INamedTypeSymbol?> _namedElements = new(StringComparer.Ordinal);
     private string _fullClassName = string.Empty;
     private string? _dataType;
     private string? _explicitStyleSheetId;
@@ -623,6 +625,12 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ValidateCssClassTokens(attr.Value, attr.Position);
             }
 
+            if (TryParseReference(attr.Value, out string referenceName))
+            {
+                ValidateReference(attr, element, typedProperty, referenceName, validProps);
+                continue;
+            }
+
             if (BindingExpressionParser.IsMarkupExtension(attr.Value))
             {
                 bool isBindable = typedProperty is null
@@ -684,6 +692,11 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                     attr.LocalName,
                     element.LocalName));
             }
+        }
+
+        if (!isRoot && _templateDepth == 0 && !string.IsNullOrWhiteSpace(xName))
+        {
+            _namedElements[xName!] = control.Type;
         }
 
         string contentProperty = s_contentProperties.GetValueOrDefault(controlDefinition) ?? FindContentProperty(control.Type) ?? "Children";
@@ -758,6 +771,75 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         }
 
         return new ValidatedXamlElement(controlType, xName, validProps, validChildren, contentProperty, propertyElements);
+    }
+
+    /// <summary>
+    /// Returns whether <paramref name="value"/> is <c>{x:Reference Name}</c>, and the name it refers to.
+    /// </summary>
+    private static bool TryParseReference(string value, out string name)
+    {
+        name = string.Empty;
+        if (!BindingExpressionParser.IsMarkupExtension(value))
+        {
+            return false;
+        }
+
+        string inner = value.Trim()[1..^1].Trim();
+        const string Prefix = "x:Reference";
+        if (!inner.StartsWith(Prefix, StringComparison.Ordinal) ||
+            inner.Length == Prefix.Length ||
+            !char.IsWhiteSpace(inner[Prefix.Length]))
+        {
+            return false;
+        }
+
+        name = inner[Prefix.Length..].Trim();
+        return true;
+    }
+
+    /// <summary>
+    /// Accepts <c>{x:Reference Name}</c> on a typed property when an element declared earlier in the document has that
+    /// <c>x:Name</c> and its type converts implicitly to the property type. The value is the field that <c>x:Name</c> creates.
+    /// </summary>
+    private void ValidateReference(
+        XamlAttributeNode attr,
+        XamlElementNode element,
+        IPropertySymbol? property,
+        string name,
+        List<ValidatedXamlProperty> validProps)
+    {
+        if (property is null)
+        {
+            _diagnostics.Add(Diagnostic.Create(
+                XamlDiagnostics.InvalidPropertyValue,
+                XamlDiagnostics.CreateLocation(_filePath, attr.Position),
+                attr.Value,
+                attr.LocalName,
+                element.LocalName));
+            return;
+        }
+
+        if (!SyntaxFacts.IsValidIdentifier(name) || !_namedElements.TryGetValue(name, out INamedTypeSymbol? type))
+        {
+            _diagnostics.Add(Diagnostic.Create(
+                XamlDiagnostics.UnknownReference,
+                XamlDiagnostics.CreateLocation(_filePath, attr.Position),
+                name));
+            return;
+        }
+
+        if (type is not null && _compilation is not null && !_compilation.ClassifyCommonConversion(type, property.Type).IsImplicit)
+        {
+            _diagnostics.Add(Diagnostic.Create(
+                XamlDiagnostics.InvalidPropertyValue,
+                XamlDiagnostics.CreateLocation(_filePath, attr.Position),
+                attr.Value,
+                attr.LocalName,
+                element.LocalName));
+            return;
+        }
+
+        validProps.Add(new ValidatedXamlProperty(attr.LocalName, XamlPropertyKind.Converted, attr.Value, null, SyntaxFactory.IdentifierName(name)));
     }
 
     /// <summary>

@@ -97,6 +97,17 @@ public static class XamlDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
+    /// Diagnostic reported when <c>{x:Reference}</c> names an element that is not declared before the reference.
+    /// </summary>
+    public static readonly DiagnosticDescriptor UnknownReference = new(
+        id: "NXAML009",
+        title: "Unknown XAML reference",
+        messageFormat: "The name '{0}' in x:Reference is not declared by x:Name before this element",
+        category: "NativeUI.Xaml",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
     /// Creates a Roslyn <see cref="Location"/> from a file path and 1-based <see cref="XamlSourcePosition"/>.
     /// </summary>
     public static Location CreateLocation(string filePath, XamlSourcePosition position)

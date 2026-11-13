@@ -7,10 +7,12 @@ using NativeUI.Layout;
 namespace NativeUI.Controls.Web;
 
 /// <summary>
-/// Mounts a <see cref="Portal"/> at the end of the <c>native-ui</c> element while it is open, and removes it from the DOM
-/// while it is closed. A <see cref="Dialog"/> uses a native <c>&lt;dialog&gt;</c> element, so the browser provides the top
-/// layer, focus containment, the inert page behind a modal dialog, and closing on Escape. The position is calculated when the
-/// portal opens or its placement changes; it does not follow a later scroll or resize.
+/// Mounts a <see cref="Portal"/> while it is open, and removes it from the DOM while it is closed. A portal is appended to
+/// its parent's element and shown as a manual HTML popover in the browser's top layer, so selectors through its ancestors
+/// match it, as they do on desktop. A <see cref="Dialog"/> is mounted at the end of the <c>native-ui</c> element as a
+/// native <c>&lt;dialog&gt;</c> element, so the browser provides the top layer, focus containment, the inert page behind
+/// a modal dialog, and closing on Escape. The position is calculated when the portal opens or its placement changes. It
+/// does not follow a later scroll or resize.
 /// </summary>
 [SupportedOSPlatform("browser")]
 public class HtmlDomPortal : HtmlDomView
@@ -86,8 +88,11 @@ public class HtmlDomPortal : HtmlDomView
             return;
         }
 
-        // The native-ui element does not contain the tree until the root finishes mounting.
-        if (ParentElement is not JSObject parent || !DomInterop.MountPortal(parent, element))
+        // The parent element is not in the document until the root finishes mounting.
+        bool isShown = ParentElement is JSObject parent && (_portal is Dialog
+            ? DomInterop.MountPortal(parent, element)
+            : DomInterop.ShowPortal(parent, element));
+        if (!isShown)
         {
             DomInterop.RequestAnimationFrame(UpdateMounted);
             return;
@@ -120,6 +125,8 @@ public class HtmlDomPortal : HtmlDomView
         Point position = PortalPlacement.Compute(_portal, anchor, bounds.Size, viewport, viewport);
         SetStyleProperty("left", position.X.ToString("R", CultureInfo.InvariantCulture) + "px");
         SetStyleProperty("top", position.Y.ToString("R", CultureInfo.InvariantCulture) + "px");
+        SetAttribute("data-side", _portal.GetAttribute("data-side"));
+        SetAttribute("data-align", _portal.GetAttribute("data-align"));
     }
 
     private static Rect ReadBounds(JSObject element)

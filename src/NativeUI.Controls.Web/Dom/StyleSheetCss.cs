@@ -274,7 +274,7 @@ internal static class StyleSheetCss
 
     /// <summary>
     /// Writes the browser form of each required state. States that browsers track only for native form controls are
-    /// written as the ARIA attributes that Web sets, and <c>:disabled</c> also matches elements that are not form controls.
+    /// written as the ARIA or data attributes that Web sets, and <c>:disabled</c> also matches elements that are not form controls.
     /// </summary>
     private static string WriteStates(ElementStates states)
     {
@@ -293,6 +293,7 @@ internal static class StyleSheetCss
         AppendState(builder, states, ElementStates.FirstChild, ":first-child");
         AppendState(builder, states, ElementStates.LastChild, ":last-child");
         AppendState(builder, states, ElementStates.Selected, "[aria-selected=\"true\"]");
+        AppendState(builder, states, ElementStates.PopoverOpen, "[data-open]");
         return builder.ToString();
     }
 

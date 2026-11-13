@@ -383,12 +383,13 @@ public sealed class CssValidator : CssSyntaxVisitor
             "breadcrumb" => "nui-breadcrumb",
             "breadcrumbitem" => "nui-breadcrumbitem",
             "buttongroup" => "nui-buttongroup",
+            "popover" => "nui-popover",
             _ => null
         };
     }
 
     /// <summary>
-    /// Returns the browser selector for a pseudo-class whose state Web exposes through ARIA attributes, or null when
+    /// Returns the browser selector for a pseudo-class whose state Web exposes through ARIA or data attributes, or null when
     /// browsers match the pseudo-class natively. <c>:disabled</c> also matches elements that are not form controls.
     /// </summary>
     private static string? GetBrowserPseudoClass(string state)
@@ -402,6 +403,7 @@ public sealed class CssValidator : CssSyntaxVisitor
             "On" => "[aria-pressed=\"true\"]",
             "Off" => "[aria-pressed=\"false\"]",
             "Selected" => "[aria-selected=\"true\"]",
+            "PopoverOpen" => "[data-open]",
             _ => null
         };
     }

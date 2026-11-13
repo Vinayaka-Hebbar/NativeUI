@@ -1,0 +1,40 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.PopupSampleView"
+      Class="popup-page">
+    <Text Class="popup-title" Value="Popover" />
+    <Text Class="popup-description" Value="A click on the target toggles the popover. Escape and a press outside close it. Focus moves into the content and returns to the target." />
+
+    <View Class="popup-section">
+        <Text Class="popup-heading" Value="Target from x:Reference" />
+        <Button x:Name="DimensionsButton" Class="popup-trigger" Text="Open popover" />
+        <Popover x:Name="DimensionsPopover" Target="{x:Reference DimensionsButton}" SideOffset="6">
+            <View Class="popup-panel">
+                <Text Class="popup-panel-title" Value="Dimensions" />
+                <Text Class="popup-muted" Value="Set the dimensions for the layer." />
+                <StackPanel Class="popup-field" Orientation="Horizontal">
+                    <Text Class="popup-label" Value="Width" />
+                    <Input Class="popup-input" Value="100%" />
+                </StackPanel>
+                <StackPanel Class="popup-field" Orientation="Horizontal">
+                    <Text Class="popup-label" Value="Height" />
+                    <Input Class="popup-input" Value="25px" />
+                </StackPanel>
+            </View>
+        </Popover>
+        <Text x:Name="DimensionsStatus" Class="popup-status" Value="Closed" />
+    </View>
+
+    <View Class="popup-section">
+        <Text Class="popup-heading" Value="Target in Popover.Target" />
+        <Popover Side="Right" Align="Start" SideOffset="8">
+            <Popover.Target>
+                <Button Class="popup-trigger" Text="Open on the right" />
+            </Popover.Target>
+            <View Class="popup-panel">
+                <Text Class="popup-panel-title" Value="Placement" />
+                <Text Class="popup-muted" Value="The content flips to the left when the window is too narrow." />
+            </View>
+        </Popover>
+    </View>
+</View>

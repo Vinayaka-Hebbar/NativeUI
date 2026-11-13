@@ -32,8 +32,8 @@ public enum PortalSide
 
 /// <summary>
 /// Shows its children above all other content while open, and takes no space in its parent's layout. It stays a logical
-/// child of its parent for <see cref="BindableObject.DataContext"/>. The desktop renderer draws it after the visual tree;
-/// on Web it is mounted at the end of the <c>native-ui</c> element, so selectors through its parent do not match its content there.
+/// child of its parent for <see cref="BindableObject.DataContext"/> and for selectors through its ancestors. The desktop
+/// renderer draws it after the visual tree. On Web it is shown in the browser's top layer from its parent's element.
 /// </summary>
 public class Portal : View, IPortalLayoutNode
 {
@@ -61,7 +61,7 @@ public class Portal : View, IPortalLayoutNode
         BindableProperty.Create<Portal, PortalSide>(
             nameof(Side),
             defaultValue: PortalSide.Bottom,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.OnPlacementChanged());
 
     /// <summary>
     /// Identifies the <see cref="Align"/> bindable property.
@@ -70,7 +70,7 @@ public class Portal : View, IPortalLayoutNode
         BindableProperty.Create<Portal, Alignment>(
             nameof(Align),
             defaultValue: Alignment.Start,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.OnPlacementChanged());
 
     /// <summary>
     /// Identifies the <see cref="SideOffset"/> bindable property.
@@ -99,6 +99,11 @@ public class Portal : View, IPortalLayoutNode
     /// Occurs after this portal closes, whatever closed it.
     /// </summary>
     public event EventHandler? Closed;
+
+    /// <summary>
+    /// Occurs when this portal starts to close, while its content is still visible and keeps focus.
+    /// </summary>
+    internal event EventHandler? Closing;
 
     /// <inheritdoc />
     public override string TagName => "portal";
@@ -158,6 +163,26 @@ public class Portal : View, IPortalLayoutNode
     }
 
     /// <summary>
+    /// Returns <see cref="Side"/> for <c>data-side</c> and <see cref="Align"/> for <c>data-align</c> while this portal is open next
+    /// to an anchor, as <c>top</c>, <c>right</c>, <c>bottom</c>, or <c>left</c> and as <c>start</c>, <c>center</c>, or <c>end</c>.
+    /// </summary>
+    /// <param name="name">The attribute name.</param>
+    public override string? GetAttribute(string name)
+    {
+        if (string.Equals(name, "data-side", StringComparison.Ordinal))
+        {
+            return Anchor is null ? null : GetSideName(Side);
+        }
+
+        if (string.Equals(name, "data-align", StringComparison.Ordinal))
+        {
+            return Anchor is null ? null : GetAlignName(Align);
+        }
+
+        return base.GetAttribute(name);
+    }
+
+    /// <summary>
     /// Gets a value indicating whether a press outside this portal and its anchor closes it.
     /// </summary>
     internal virtual bool ClosesOnOutsidePress => true;
@@ -192,6 +217,7 @@ public class Portal : View, IPortalLayoutNode
             return;
         }
 
+        Closing?.Invoke(this, EventArgs.Empty);
         s_openPortals.Remove(this);
         Anchor = null;
         IsOpen = false;
@@ -236,6 +262,33 @@ public class Portal : View, IPortalLayoutNode
         }
 
         base.Dispose(disposing);
+    }
+
+    private void OnPlacementChanged()
+    {
+        InvalidateStyle();
+        InvalidateVisual();
+    }
+
+    private static string GetSideName(PortalSide side)
+    {
+        return side switch
+        {
+            PortalSide.Top => "top",
+            PortalSide.Right => "right",
+            PortalSide.Left => "left",
+            _ => "bottom"
+        };
+    }
+
+    private static string GetAlignName(Alignment align)
+    {
+        return align switch
+        {
+            Alignment.Center => "center",
+            Alignment.End => "end",
+            _ => "start"
+        };
     }
 
     private static bool IsWithin(UIElement? element, UIElement? ancestor)

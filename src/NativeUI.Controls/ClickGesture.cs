@@ -16,24 +16,51 @@ internal static class ClickGesture
     private const InputModifiers ShortcutModifiers = InputModifiers.Control | InputModifiers.Alt | InputModifiers.Meta;
 
     /// <summary>
-    /// Handles the pointer and key events of <paramref name="element"/> for the lifetime of the element.
+    /// Handles the pointer and key events of <paramref name="element"/> until the returned object is disposed.
     /// </summary>
     /// <param name="element">The element that receives the pointer and key events.</param>
     /// <param name="clicked">Invoked for each click while <paramref name="element"/> is enabled.</param>
-    public static void Attach(UIElement element, Action clicked)
+    /// <returns>An object that stops handling the events of <paramref name="element"/> when disposed.</returns>
+    public static IDisposable Attach(UIElement element, Action clicked)
     {
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(clicked);
 
-        element.PointerPressed += (_, _) =>
+        Subscription subscription = new(element, clicked);
+        element.PointerPressed += subscription.OnPointerPressed;
+        element.PointerReleased += subscription.OnPointerReleased;
+        element.PointerExited += subscription.OnPointerExited;
+        element.KeyDown += subscription.OnKeyDown;
+        element.KeyUp += subscription.OnKeyUp;
+        return subscription;
+    }
+
+    private static bool IsActivationKey(UIElement element, KeyEventArgs args)
+    {
+        return args.Key is Key.Enter or Key.Space &&
+            (args.Modifiers & ShortcutModifiers) == InputModifiers.None &&
+            ReferenceEquals(args.Source, element) &&
+            element.IsEnabled;
+    }
+
+    private static void SetPressed(UIElement element, bool isPressed)
+    {
+        element.SetState(ElementStates.Pressed, isPressed);
+        element.InvalidateStyle();
+        element.InvalidateVisual();
+    }
+
+    private sealed class Subscription(UIElement element, Action clicked) : IDisposable
+    {
+        public void OnPointerPressed(object? sender, PointerEventArgs args)
         {
             if (element.IsEnabled)
             {
                 SetPressed(element, true);
             }
-        };
+        }
 
-        element.PointerReleased += (_, _) =>
+        public void OnPointerReleased(object? sender, PointerEventArgs args)
         {
             if (!element.States.HasFlag(ElementStates.Pressed))
             {
@@ -45,17 +72,17 @@ internal static class ClickGesture
             {
                 clicked();
             }
-        };
+        }
 
-        element.PointerExited += (_, _) =>
+        public void OnPointerExited(object? sender, PointerEventArgs args)
         {
             if (element.States.HasFlag(ElementStates.Pressed))
             {
                 SetPressed(element, false);
             }
-        };
+        }
 
-        element.KeyDown += (_, args) =>
+        public void OnKeyDown(object? sender, KeyEventArgs args)
         {
             if (!IsActivationKey(element, args))
             {
@@ -76,9 +103,9 @@ internal static class ClickGesture
             {
                 SetPressed(element, true);
             }
-        };
+        }
 
-        element.KeyUp += (_, args) =>
+        public void OnKeyUp(object? sender, KeyEventArgs args)
         {
             if (args.Key != Key.Space || !IsActivationKey(element, args))
             {
@@ -91,21 +118,19 @@ internal static class ClickGesture
                 SetPressed(element, false);
                 clicked();
             }
-        };
-    }
+        }
 
-    private static bool IsActivationKey(UIElement element, KeyEventArgs args)
-    {
-        return args.Key is Key.Enter or Key.Space &&
-            (args.Modifiers & ShortcutModifiers) == InputModifiers.None &&
-            ReferenceEquals(args.Source, element) &&
-            element.IsEnabled;
-    }
-
-    private static void SetPressed(UIElement element, bool isPressed)
-    {
-        element.SetState(ElementStates.Pressed, isPressed);
-        element.InvalidateStyle();
-        element.InvalidateVisual();
+        public void Dispose()
+        {
+            element.PointerPressed -= OnPointerPressed;
+            element.PointerReleased -= OnPointerReleased;
+            element.PointerExited -= OnPointerExited;
+            element.KeyDown -= OnKeyDown;
+            element.KeyUp -= OnKeyUp;
+            if (element.States.HasFlag(ElementStates.Pressed))
+            {
+                SetPressed(element, false);
+            }
+        }
     }
 }

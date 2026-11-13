@@ -67,7 +67,8 @@ public record CompoundSelector
         (ElementStates.Off, "unpressed"),
         (ElementStates.FirstChild, "first-child"),
         (ElementStates.LastChild, "last-child"),
-        (ElementStates.Selected, "selected")
+        (ElementStates.Selected, "selected"),
+        (ElementStates.PopoverOpen, "popover-open")
     ];
 
     /// <summary>

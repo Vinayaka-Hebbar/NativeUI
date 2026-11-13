@@ -8,7 +8,9 @@ namespace NativeUI.Controls;
 internal static class PortalPlacement
 {
     /// <summary>
-    /// Returns the top-left position of a portal of the given <paramref name="size"/>. All rectangles use one coordinate space.
+    /// Returns the top-left position of a portal of the given <paramref name="size"/>. All rectangles use one coordinate space. An
+    /// anchored portal that does not fit within <paramref name="limits"/> on its side opens on the opposite side when that
+    /// side has more room.
     /// </summary>
     /// <param name="portal">The portal, which supplies the side, alignment, and offsets.</param>
     /// <param name="anchor">The anchor's bounds, or <see langword="null"/> to center in <paramref name="centerArea"/>.</param>
@@ -17,20 +19,62 @@ internal static class PortalPlacement
     /// <param name="limits">The area to stay inside. A portal larger than this area starts at its top-left corner.</param>
     public static Point Compute(Portal portal, Rect? anchor, Size size, Rect centerArea, Rect limits)
     {
-        Point position = anchor is Rect anchorBounds
-            ? ComputeAnchored(portal, anchorBounds, size)
-            : new Point(
+        Point position;
+        if (anchor is Rect anchorBounds)
+        {
+            PortalSide side = ChooseSide(portal, anchorBounds, size, limits);
+            position = ComputeAnchored(portal, side, anchorBounds, size);
+        }
+        else
+        {
+            position = new Point(
                 centerArea.X + ((centerArea.Width - size.Width) / 2.0),
                 centerArea.Y + ((centerArea.Height - size.Height) / 2.0));
+        }
 
         return new Point(
             Math.Max(limits.X, Math.Min(position.X, limits.Right - size.Width)),
             Math.Max(limits.Y, Math.Min(position.Y, limits.Bottom - size.Height)));
     }
 
-    private static Point ComputeAnchored(Portal portal, Rect anchor, Size size)
+    private static PortalSide ChooseSide(Portal portal, Rect anchor, Size size, Rect limits)
     {
-        return portal.Side switch
+        PortalSide side = portal.Side;
+        PortalSide opposite = GetOpposite(side);
+        double length = side is PortalSide.Top or PortalSide.Bottom ? size.Height : size.Width;
+        double room = GetRoom(side, anchor, limits) - portal.SideOffset;
+        double oppositeRoom = GetRoom(opposite, anchor, limits) - portal.SideOffset;
+        return room < length && oppositeRoom > room ? opposite : side;
+    }
+
+    /// <summary>
+    /// Returns the distance between the anchor's edge on <paramref name="side"/> and the matching edge of <paramref name="limits"/>.
+    /// </summary>
+    private static double GetRoom(PortalSide side, Rect anchor, Rect limits)
+    {
+        return side switch
+        {
+            PortalSide.Top => anchor.Y - limits.Y,
+            PortalSide.Right => limits.Right - anchor.Right,
+            PortalSide.Left => anchor.X - limits.X,
+            _ => limits.Bottom - anchor.Bottom
+        };
+    }
+
+    private static PortalSide GetOpposite(PortalSide side)
+    {
+        return side switch
+        {
+            PortalSide.Top => PortalSide.Bottom,
+            PortalSide.Right => PortalSide.Left,
+            PortalSide.Left => PortalSide.Right,
+            _ => PortalSide.Top
+        };
+    }
+
+    private static Point ComputeAnchored(Portal portal, PortalSide side, Rect anchor, Size size)
+    {
+        return side switch
         {
             PortalSide.Top => new Point(
                 AlignAlongEdge(portal, anchor.X, anchor.Width, size.Width),

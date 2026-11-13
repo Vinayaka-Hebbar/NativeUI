@@ -77,13 +77,13 @@ public enum CssParsedPseudoElement
 }
 
 /// <summary>
-/// Represents a parsed CSS attribute selector, such as <c>[data-platform="macos"]</c>.
+/// Represents a parsed CSS attribute selector, such as <c>[data-platform="macos"]</c> or <c>[data-open]</c>.
 /// </summary>
 /// <param name="Name">The attribute name.</param>
-/// <param name="Value">The attribute value.</param>
+/// <param name="Value">The attribute value, or <see langword="null"/> when the selector requires only the attribute's presence.</param>
 public sealed record CssAttributeSelectorNode(
     string Name,
-    string Value);
+    string? Value);
 
 /// <summary>
 /// Represents a pseudo-class in a selector, such as <c>:checked</c>.

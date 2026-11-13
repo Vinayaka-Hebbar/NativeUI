@@ -21,7 +21,8 @@ public sealed class CssParser
         ["unpressed"] = "Off",
         ["first-child"] = "FirstChild",
         ["last-child"] = "LastChild",
-        ["selected"] = "Selected"
+        ["selected"] = "Selected",
+        ["popover-open"] = "PopoverOpen"
     };
 
     private readonly IReadOnlyList<CssToken> _tokens;
@@ -470,6 +471,15 @@ public sealed class CssParser
                     tokens[index + 3].Text));
                 hasContent = true;
                 index += 5;
+            }
+            else if (tokens[index].Kind == CssTokenKind.OpenBracket &&
+                index + 2 < tokens.Count &&
+                tokens[index + 1].Kind == CssTokenKind.Identifier &&
+                tokens[index + 2].Kind == CssTokenKind.CloseBracket)
+            {
+                attributes.Add(new CssAttributeSelectorNode(tokens[index + 1].Text, null));
+                hasContent = true;
+                index += 3;
             }
             else if (IsAttachedIdentifier(tokens, index + 2) &&
                 tokens[index].Kind == CssTokenKind.Colon &&

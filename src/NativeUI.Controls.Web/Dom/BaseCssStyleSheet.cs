@@ -425,6 +425,22 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
             {
                 ["user-select"] = "none"
             }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-popover"))),
+            new()
+            {
+                ["display"] = "block",
+                ["width"] = "fit-content"
+            }));
+
+        // The user agent stylesheet makes a popover element scroll its content.
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Attribute(StyleSheetCss.PortalAttribute).Attribute("popover")),
+            new()
+            {
+                ["overflow"] = "visible"
+            }));
     }
 
     private static CssRule Rule(

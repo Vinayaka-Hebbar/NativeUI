@@ -36,6 +36,7 @@
             <Button x:Name="NavInput" Class="nav-item" Text="Input" />
             <Button x:Name="NavToggles" Class="nav-item" Text="Toggles" />
             <Button x:Name="NavDisplay" Class="nav-item" Text="Display" />
+            <Button x:Name="NavPopups" Class="nav-item" Text="Popups" />
             <Button x:Name="NavCollections" Class="nav-item" Text="List &amp; Table" />
             <Button x:Name="NavDialog" Class="nav-item" Text="Dialog" />
             <Button x:Name="NavAnimation" Class="nav-item" Text="Animation" />
@@ -148,6 +149,8 @@
             <ToggleSampleView x:Name="TogglePage" />
 
             <DisplaySampleView x:Name="DisplayPage" />
+
+            <PopupSampleView x:Name="PopupPage" />
 
             <CollectionSampleView x:Name="CollectionPage" />
 

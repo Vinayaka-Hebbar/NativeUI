@@ -625,6 +625,25 @@ export const dom = {
   },
 
   /**
+   * Appends an element to its parent element and shows it in the top layer as a manual popover. The element keeps its
+   * position in the document, so selectors through its ancestors match it.
+   *
+   * @param {Element} parent The element that receives the portal.
+   * @param {HTMLElement} element The portal element.
+   * @returns {boolean} Whether the parent is in the document.
+   */
+  showPortal(parent, element) {
+    if (!parent.isConnected) {
+      return false;
+    }
+
+    parent.appendChild(element);
+    element.setAttribute("popover", "manual");
+    element.showPopover();
+    return true;
+  },
+
+  /**
    * Opens a dialog element.
    *
    * @param {HTMLDialogElement} element The dialog element.
