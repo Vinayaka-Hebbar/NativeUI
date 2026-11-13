@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using NativeUI.Core;
 using NativeUI.Layout;
 using NativeUI.Media;
@@ -69,8 +70,8 @@ public sealed class Style : BindableObject, IStyle
     /// <summary>
     /// Identifies the <see cref="BorderRadius"/> bindable property.
     /// </summary>
-    public static readonly BindableProperty<double?> BorderRadiusProperty =
-        BindableProperty.Create<Style, double?>(nameof(BorderRadius));
+    public static readonly BindableProperty<CornerRadius?> BorderRadiusProperty =
+        BindableProperty.Create<Style, CornerRadius?>(nameof(BorderRadius));
 
     /// <summary>
     /// Identifies the <see cref="BorderWidth"/> bindable property.
@@ -101,6 +102,42 @@ public sealed class Style : BindableObject, IStyle
     /// </summary>
     public static readonly BindableProperty<double?> HeightProperty =
         BindableProperty.Create<Style, double?>(nameof(Height));
+
+    /// <summary>
+    /// Identifies the <see cref="BoxShadows"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<ImmutableArray<BoxShadow>?> BoxShadowsProperty =
+        BindableProperty.Create<Style, ImmutableArray<BoxShadow>?>(nameof(BoxShadows));
+
+    /// <summary>
+    /// Identifies the <see cref="LineHeight"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<LineHeight?> LineHeightProperty =
+        BindableProperty.Create<Style, LineHeight?>(nameof(LineHeight));
+
+    /// <summary>
+    /// Identifies the <see cref="MinWidth"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<WidthValue?> MinWidthProperty =
+        BindableProperty.Create<Style, WidthValue?>(nameof(MinWidth));
+
+    /// <summary>
+    /// Identifies the <see cref="MaxWidth"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<WidthValue?> MaxWidthProperty =
+        BindableProperty.Create<Style, WidthValue?>(nameof(MaxWidth));
+
+    /// <summary>
+    /// Identifies the <see cref="MinHeight"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double?> MinHeightProperty =
+        BindableProperty.Create<Style, double?>(nameof(MinHeight));
+
+    /// <summary>
+    /// Identifies the <see cref="MaxHeight"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double?> MaxHeightProperty =
+        BindableProperty.Create<Style, double?>(nameof(MaxHeight));
 
     /// <summary>
     /// Identifies the <see cref="Cursor"/> bindable property.
@@ -262,9 +299,10 @@ public sealed class Style : BindableObject, IStyle
     }
 
     /// <summary>
-    /// Gets or sets the corner border radius in logical pixels.
+    /// Gets or sets the radii of the four corners in logical pixels. A <see cref="double"/> converts to the same radius at
+    /// every corner.
     /// </summary>
-    public double? BorderRadius
+    public CornerRadius? BorderRadius
     {
         get => GetValue(BorderRadiusProperty);
         set => SetValue(BorderRadiusProperty, value);
@@ -313,6 +351,62 @@ public sealed class Style : BindableObject, IStyle
     {
         get => GetValue(HeightProperty);
         set => SetValue(HeightProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the shadows of the box from top to bottom. An empty list removes the shadows that stylesheets set.
+    /// </summary>
+    public ImmutableArray<BoxShadow>? BoxShadows
+    {
+        get => GetValue(BoxShadowsProperty);
+        set => SetValue(BoxShadowsProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the height of a line of text, as <see cref="Media.LineHeight.Normal"/>, a multiple of the font size, or
+    /// a length in logical pixels. Descendants inherit it.
+    /// </summary>
+    public LineHeight? LineHeight
+    {
+        get => GetValue(LineHeightProperty);
+        set => SetValue(LineHeightProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the smallest width, as a length in logical pixels or <see cref="WidthValue.Percent"/>. It wins over
+    /// <see cref="MaxWidth"/>.
+    /// </summary>
+    public WidthValue? MinWidth
+    {
+        get => GetValue(MinWidthProperty);
+        set => SetValue(MinWidthProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the largest width, as a length in logical pixels or <see cref="WidthValue.Percent"/>.
+    /// </summary>
+    public WidthValue? MaxWidth
+    {
+        get => GetValue(MaxWidthProperty);
+        set => SetValue(MaxWidthProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the smallest height in logical pixels. It wins over <see cref="MaxHeight"/>.
+    /// </summary>
+    public double? MinHeight
+    {
+        get => GetValue(MinHeightProperty);
+        set => SetValue(MinHeightProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the largest height in logical pixels.
+    /// </summary>
+    public double? MaxHeight
+    {
+        get => GetValue(MaxHeightProperty);
+        set => SetValue(MaxHeightProperty, value);
     }
 
     /// <summary>

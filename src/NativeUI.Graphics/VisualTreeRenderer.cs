@@ -263,6 +263,10 @@ public sealed class VisualTreeRenderer : IDisposable
     private void DrawBoxContents(DrawingContext context, LayoutBox box)
     {
         ComputedStyle style = box.Style;
+
+        // Outer shadows lie outside the border box, which bounds the opacity layer.
+        DrawBoxShadows(context, box, isInset: false, style.Opacity);
+
         bool pushedLayer = style.Opacity < 1.0 && box.Children.Count > 0;
         if (pushedLayer)
         {
@@ -277,7 +281,7 @@ public sealed class VisualTreeRenderer : IDisposable
             {
                 Paint bgPaint = new(bgColor, drawOpacity);
                 Rect background = SnapToPixels(box.BorderBox);
-                if (style.BorderRadius > 0)
+                if (!style.BorderRadius.IsZero)
                 {
                     context.DrawRoundedRectangle(background, style.BorderRadius, bgPaint);
                 }
@@ -286,6 +290,8 @@ public sealed class VisualTreeRenderer : IDisposable
                     context.DrawRectangle(background, bgPaint);
                 }
             }
+
+            DrawBoxShadows(context, box, isInset: true, drawOpacity);
 
             // An element that clips its children draws its border after them. The clip edge and the border's inner edge
             // share an anti-aliased pixel, which the border then covers.
@@ -396,7 +402,7 @@ public sealed class VisualTreeRenderer : IDisposable
     }
 
     /// <summary>
-    /// Clips to the padding box, the area inside the border, as CSS clips overflow. The corner radius of the clip is
+    /// Clips to the padding box, the area inside the border, as CSS clips overflow. The corner radii of the clip are
     /// <see cref="ComputedStyle.BorderRadius"/> reduced by the border width, which follows the inner edge of the border.
     /// The clip edges lie on device pixels, as do the backgrounds and border edges they meet.
     /// </summary>
@@ -404,8 +410,8 @@ public sealed class VisualTreeRenderer : IDisposable
     {
         ComputedStyle style = box.Style;
         Rect paddingBox = GetPaddingBox(box);
-        double radius = Math.Max(0, style.BorderRadius - Math.Max(0, style.BorderWidth));
-        if (radius > 0)
+        CornerRadius radius = style.BorderRadius.Deflate(Math.Max(0, style.BorderWidth));
+        if (!radius.IsZero)
         {
             context.ClipRoundedRectangle(paddingBox, radius);
         }
@@ -437,7 +443,31 @@ public sealed class VisualTreeRenderer : IDisposable
             Math.Max(0, outer.Width - width),
             Math.Max(0, outer.Height - width));
         Paint paint = new(style.BorderColor ?? style.TextColor ?? Colors.Black, opacity);
-        context.StrokeRoundedRectangle(outline, Math.Max(0, style.BorderRadius - inset), width, paint);
+        context.StrokeRoundedRectangle(outline, style.BorderRadius.Deflate(inset), width, paint);
+    }
+
+    /// <summary>
+    /// Draws the outer or the inset shadows of <paramref name="box"/>, bottom to top. An outer shadow follows the border
+    /// box, and an inset shadow follows the padding box. A shadow without a color uses the text color.
+    /// </summary>
+    private void DrawBoxShadows(DrawingContext context, LayoutBox box, bool isInset, double opacity)
+    {
+        ComputedStyle style = box.Style;
+        if (style.BoxShadows.IsDefaultOrEmpty)
+        {
+            return;
+        }
+
+        Rect rect = isInset ? GetPaddingBox(box) : SnapToPixels(box.BorderBox);
+        CornerRadius radius = isInset ? style.BorderRadius.Deflate(Math.Max(0, style.BorderWidth)) : style.BorderRadius;
+        for (int i = style.BoxShadows.Length - 1; i >= 0; i--)
+        {
+            BoxShadow shadow = style.BoxShadows[i];
+            if (shadow.IsInset == isInset)
+            {
+                context.DrawBoxShadow(rect, radius, shadow with { Color = shadow.Color ?? style.TextColor }, opacity);
+            }
+        }
     }
 
     /// <summary>
@@ -852,7 +882,7 @@ public sealed class VisualTreeRenderer : IDisposable
         public ITextLayout CreateTextLayout(string text, Size availableSize, ComputedStyle style)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            LayoutKey key = new(text, availableSize, style.FontSize, style.FontWeight, style.FontFamily, style.TextAlign);
+            LayoutKey key = new(text, availableSize, style.FontSize, style.FontWeight, style.FontFamily, style.TextAlign, style.LineHeight);
             if (_current.TryGetValue(key, out ITextLayout? current))
             {
                 return current;
@@ -912,6 +942,7 @@ public sealed class VisualTreeRenderer : IDisposable
             double FontSize,
             FontWeight FontWeight,
             string? FontFamily,
-            TextAlign TextAlign);
+            TextAlign TextAlign,
+            LineHeight LineHeight);
     }
 }

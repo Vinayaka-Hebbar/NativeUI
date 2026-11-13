@@ -102,6 +102,13 @@ public sealed partial class SkiaDrawingContext : DrawingContext
     }
 
     /// <inheritdoc />
+    public override void ClipRoundedRectangle(Rect rect, CornerRadius radius)
+    {
+        using SKRoundRect roundRect = ToSKRoundRect(rect, radius);
+        _canvas.ClipRoundRect(roundRect, SKClipOperation.Intersect, antialias: true);
+    }
+
+    /// <inheritdoc />
     public override void SaveLayer(Rect bounds, double opacity)
     {
         if (double.IsNaN(opacity))
@@ -148,6 +155,20 @@ public sealed partial class SkiaDrawingContext : DrawingContext
 
         float r = (float)radius;
         _canvas.DrawRoundRect(ToSKRect(rect), r, r, skPaint);
+    }
+
+    /// <inheritdoc />
+    public override void DrawRoundedRectangle(Rect rect, CornerRadius radius, Paint paint)
+    {
+        using SKPaint skPaint = new()
+        {
+            Color = paint.Color.ToSKColor(paint.Opacity),
+            IsAntialias = true,
+            Style = SKPaintStyle.Fill
+        };
+
+        using SKRoundRect roundRect = ToSKRoundRect(rect, radius);
+        _canvas.DrawRoundRect(roundRect, skPaint);
     }
 
     /// <inheritdoc />
@@ -223,6 +244,70 @@ public sealed partial class SkiaDrawingContext : DrawingContext
     }
 
     /// <inheritdoc />
+    public override void StrokeRoundedRectangle(Rect rect, CornerRadius radius, double strokeWidth, Paint paint)
+    {
+        using SKPaint skPaint = new()
+        {
+            Color = paint.Color.ToSKColor(paint.Opacity),
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = (float)strokeWidth
+        };
+
+        using SKRoundRect roundRect = ToSKRoundRect(rect, radius);
+        _canvas.DrawRoundRect(roundRect, skPaint);
+    }
+
+    /// <inheritdoc />
+    public override void DrawBoxShadow(Rect rect, CornerRadius radius, BoxShadow shadow, double opacity = 1)
+    {
+        Color color = shadow.Color ?? Colors.Black;
+        using SKPaint skPaint = new()
+        {
+            Color = color.ToSKColor(opacity),
+            IsAntialias = true,
+            Style = SKPaintStyle.Fill,
+
+            // CSS defines the blur as a Gaussian whose standard deviation is half the blur radius.
+            MaskFilter = shadow.BlurRadius > 0 ? SKMaskFilter.CreateBlur(SKBlurStyle.Normal, (float)(shadow.BlurRadius / 2.0)) : null
+        };
+
+        using SKRoundRect box = ToSKRoundRect(rect, radius);
+
+        // An outer shadow is the offset box grown by the spread. An inset shadow surrounds the offset box shrunk by the spread.
+        double grow = shadow.IsInset ? -shadow.SpreadRadius : shadow.SpreadRadius;
+        Rect shape = new(
+            rect.X + shadow.OffsetX - grow,
+            rect.Y + shadow.OffsetY - grow,
+            Math.Max(0, rect.Width + (grow * 2)),
+            Math.Max(0, rect.Height + (grow * 2)));
+        using SKRoundRect shapeRect = ToSKRoundRect(shape, SpreadCorners(radius, grow));
+
+        _canvas.Save();
+        try
+        {
+            if (shadow.IsInset)
+            {
+                _canvas.ClipRoundRect(box, SKClipOperation.Intersect, antialias: true);
+                double margin = Math.Abs(shadow.OffsetX) + Math.Abs(shadow.OffsetY) + Math.Abs(shadow.SpreadRadius) + (shadow.BlurRadius * 2);
+                using SKPath path = new() { FillType = SKPathFillType.EvenOdd };
+                path.AddRect(ToSKRect(new Rect(rect.X - margin, rect.Y - margin, rect.Width + (margin * 2), rect.Height + (margin * 2))));
+                path.AddRoundRect(shapeRect);
+                _canvas.DrawPath(path, skPaint);
+            }
+            else
+            {
+                _canvas.ClipRoundRect(box, SKClipOperation.Difference, antialias: true);
+                _canvas.DrawRoundRect(shapeRect, skPaint);
+            }
+        }
+        finally
+        {
+            _canvas.Restore();
+        }
+    }
+
+    /// <inheritdoc />
     public override void DrawTextLayout(
         ITextLayout layout,
         Point origin,
@@ -233,6 +318,35 @@ public sealed partial class SkiaDrawingContext : DrawingContext
         {
             skiaLayout.Draw(_canvas, origin, paint.Color, paint.Opacity);
         }
+    }
+
+    /// <summary>
+    /// Creates a rounded rectangle with circular corners. Skia scales radii whose sum exceeds a side down together, as CSS does.
+    /// </summary>
+    private static SKRoundRect ToSKRoundRect(Rect rect, CornerRadius radius)
+    {
+        SKRoundRect roundRect = new();
+        roundRect.SetRectRadii(
+            ToSKRect(rect),
+            [
+                new SKPoint((float)radius.TopLeft, (float)radius.TopLeft),
+                new SKPoint((float)radius.TopRight, (float)radius.TopRight),
+                new SKPoint((float)radius.BottomRight, (float)radius.BottomRight),
+                new SKPoint((float)radius.BottomLeft, (float)radius.BottomLeft)
+            ]);
+        return roundRect;
+    }
+
+    /// <summary>
+    /// Grows each rounded corner by <paramref name="spread"/>, or shrinks it for a negative spread. A square corner stays square.
+    /// </summary>
+    private static CornerRadius SpreadCorners(CornerRadius radius, double spread)
+    {
+        return new CornerRadius(
+            radius.TopLeft > 0 ? Math.Max(0, radius.TopLeft + spread) : 0,
+            radius.TopRight > 0 ? Math.Max(0, radius.TopRight + spread) : 0,
+            radius.BottomRight > 0 ? Math.Max(0, radius.BottomRight + spread) : 0,
+            radius.BottomLeft > 0 ? Math.Max(0, radius.BottomLeft + spread) : 0);
     }
 
     private static SKRect ToSKRect(Rect rect)

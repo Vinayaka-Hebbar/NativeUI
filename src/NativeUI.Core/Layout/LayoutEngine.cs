@@ -63,26 +63,84 @@ public sealed class LayoutEngine
         return LayoutNodeRecursive(root, Point.Zero, clampedViewport, viewportRect, clampedViewport);
     }
 
+    /// <summary>
+    /// Returns the border-box width of <paramref name="node"/> within <paramref name="availableWidth"/>, clamped to its
+    /// <see cref="ComputedStyle.MinWidth"/> and <see cref="ComputedStyle.MaxWidth"/>.
+    /// </summary>
     private double ResolveBorderWidth(ILayoutNode node, double availableWidth, double? knownMaxContentWidth = null)
     {
         ComputedStyle style = node.ComputedStyle;
         double fillWidth = Math.Max(0, availableWidth - style.Margin.Horizontal);
+        double width;
         if (style.Width.IsAuto && node is IIntrinsicSize intrinsic)
         {
             Size natural = intrinsic.GetIntrinsicSize(new Size(fillWidth, double.PositiveInfinity));
-            double width = style.Height is double h && natural.Height > 0 ? Math.Max(0, h - style.ContentInsets.Vertical) * natural.Width / natural.Height : natural.Width;
-            return Math.Min(fillWidth, width + style.ContentInsets.Horizontal);
+            double naturalWidth = style.Height is double h && natural.Height > 0 ? Math.Max(0, h - style.ContentInsets.Vertical) * natural.Width / natural.Height : natural.Width;
+            width = Math.Min(fillWidth, naturalWidth + style.ContentInsets.Horizontal);
+        }
+        else
+        {
+            width = style.Width switch
+            {
+                { IsPixels: true } pixels => pixels.Value,
+                { IsPercent: true } percent => Math.Max(0, availableWidth * percent.Value / 100.0),
+                { IsFitContent: true } => Math.Min(knownMaxContentWidth ?? MeasureMaxContentWidth(node), fillWidth),
+                _ => (style.IsOutOfFlow && !(style.Left.HasValue && style.Right.HasValue))
+                    ? Math.Min(knownMaxContentWidth ?? MeasureMaxContentWidth(node), fillWidth)
+                    : fillWidth
+            };
         }
 
-        return style.Width switch
+        return ClampWidth(style, width, availableWidth);
+    }
+
+    /// <summary>
+    /// Clamps a border-box <paramref name="width"/> to the minimum and maximum width of <paramref name="style"/>. A
+    /// percentage resolves against <paramref name="containingWidth"/> and is ignored when that width is not finite. The
+    /// minimum wins over the maximum.
+    /// </summary>
+    private static double ClampWidth(ComputedStyle style, double width, double containingWidth)
+    {
+        if (style.MaxWidth is WidthValue maxWidth && ResolveWidthLimit(maxWidth, containingWidth) is double max)
+        {
+            width = Math.Min(width, max);
+        }
+
+        if (style.MinWidth is WidthValue minWidth && ResolveWidthLimit(minWidth, containingWidth) is double min)
+        {
+            width = Math.Max(width, min);
+        }
+
+        return width;
+    }
+
+    private static double? ResolveWidthLimit(WidthValue limit, double containingWidth)
+    {
+        return limit switch
         {
             { IsPixels: true } pixels => pixels.Value,
-            { IsPercent: true } percent => Math.Max(0, availableWidth * percent.Value / 100.0),
-            { IsFitContent: true } => Math.Min(knownMaxContentWidth ?? MeasureMaxContentWidth(node), fillWidth),
-            _ => (style.IsOutOfFlow && !(style.Left.HasValue && style.Right.HasValue))
-                ? Math.Min(knownMaxContentWidth ?? MeasureMaxContentWidth(node), fillWidth)
-                : fillWidth
+            { IsPercent: true } percent when double.IsFinite(containingWidth) => Math.Max(0, containingWidth * percent.Value / 100.0),
+            _ => null
         };
+    }
+
+    /// <summary>
+    /// Clamps a border-box <paramref name="height"/> to the minimum and maximum height of <paramref name="style"/>. The
+    /// minimum wins over the maximum.
+    /// </summary>
+    private static double ClampHeight(ComputedStyle style, double height)
+    {
+        if (style.MaxHeight is double max)
+        {
+            height = Math.Min(height, max);
+        }
+
+        if (style.MinHeight is double min)
+        {
+            height = Math.Max(height, min);
+        }
+
+        return height;
     }
 
     /// <summary>
@@ -93,10 +151,10 @@ public sealed class LayoutEngine
     {
         if (style.Height is double height)
         {
-            return height;
+            return ClampHeight(style, height);
         }
 
-        return style.IsOutOfFlow && style.Top.HasValue && style.Bottom.HasValue ? availableHeight : null;
+        return style.IsOutOfFlow && style.Top.HasValue && style.Bottom.HasValue ? ClampHeight(style, availableHeight) : null;
     }
 
     /// <summary>
@@ -110,23 +168,27 @@ public sealed class LayoutEngine
         }
 
         ComputedStyle style = node.ComputedStyle;
+        double width;
         if (style.Width is { IsPixels: true } fixedWidth)
         {
-            return fixedWidth.Value;
+            width = fixedWidth.Value;
         }
-
-        if (node is IIntrinsicSize intrinsic)
+        else if (node is IIntrinsicSize intrinsic)
         {
-            return intrinsic.GetIntrinsicSize().Width + style.ContentInsets.Horizontal;
+            width = intrinsic.GetIntrinsicSize().Width + style.ContentInsets.Horizontal;
         }
-
-        if (node.TextContent is string text)
+        else if (node.TextContent is string text)
         {
             Size unconstrained = new(double.PositiveInfinity, double.PositiveInfinity);
-            return _textMeasurer.MeasureText(text, unconstrained, style).Width + style.ContentInsets.Horizontal;
+            width = _textMeasurer.MeasureText(text, unconstrained, style).Width + style.ContentInsets.Horizontal;
+        }
+        else
+        {
+            width = MeasureMaxContentOfChildren(node) + style.ContentInsets.Horizontal;
         }
 
-        return MeasureMaxContentOfChildren(node) + style.ContentInsets.Horizontal;
+        // Only pixel limits apply. The containing width is unknown during measurement.
+        return ClampWidth(style, width, double.PositiveInfinity);
     }
 
     /// <summary>
@@ -696,7 +758,7 @@ public sealed class LayoutEngine
         if (node is IIntrinsicSize intrinsic)
         {
             Size natural = intrinsic.GetIntrinsicSize(new Size(availableSize.Width, specifiedHeight ?? double.PositiveInfinity));
-            double height = specifiedHeight ?? ((natural.Width > 0 ? contentMaxWidth * natural.Height / natural.Width : natural.Height) + padding.Vertical);
+            double height = specifiedHeight ?? ClampHeight(style, (natural.Width > 0 ? contentMaxWidth * natural.Height / natural.Width : natural.Height) + padding.Vertical);
             return new LayoutBox(node, style,
                 new Rect(borderX, borderY, borderWidth, height),
                 new Rect(contentX, contentY, contentMaxWidth, Math.Max(0, height - padding.Vertical)), []);
@@ -709,7 +771,7 @@ public sealed class LayoutEngine
             ITextLayout textLayout = _textMeasurer.CreateTextLayout(text, availableTextSize, style);
             Size measured = textLayout.Size;
 
-            double finalBorderHeight = specifiedHeight ?? (measured.Height + padding.Vertical);
+            double finalBorderHeight = specifiedHeight ?? ClampHeight(style, measured.Height + padding.Vertical);
 
             return new LayoutBox(
                 node,
@@ -740,7 +802,7 @@ public sealed class LayoutEngine
         List<LayoutBox> childBoxes = content.Boxes;
         double maxChildWidth = content.Width;
         double contentHeight = content.Height;
-        double resolvedBorderHeight = specifiedHeight ?? (contentHeight + padding.Vertical);
+        double resolvedBorderHeight = specifiedHeight ?? ClampHeight(style, contentHeight + padding.Vertical);
 
         double padHeight = Math.Max(0, resolvedBorderHeight - (style.BorderWidth * 2));
         Rect outOfFlowContainingBlock = style.IsPositioned
@@ -793,6 +855,8 @@ public sealed class LayoutEngine
                 double avail = targetCb.Width - (childStyle.Left ?? 0) - (childStyle.Right ?? 0) - childMargin.Horizontal;
                 childW = Math.Min(knownContentW, Math.Max(0, avail));
             }
+
+            childW = ClampWidth(childStyle, childW, targetCb.Width);
 
             double originX;
             if (childStyle.Left.HasValue)

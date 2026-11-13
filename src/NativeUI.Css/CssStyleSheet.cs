@@ -361,6 +361,12 @@ public class CssStyleSheet : StyleSheet
                 return style with { FontFamily = fontFamily.Value };
             case ("text-align", CssTextAlignValue textAlign):
                 return style with { TextAlign = textAlign.Align };
+            case ("line-height", CssNumberValue multiple):
+                return style with { LineHeight = LineHeight.Multiple(multiple.Value) };
+            case ("line-height", CssLengthValue length):
+                return style with { LineHeight = LineHeight.Pixels(length.ToLogicalPixels(fontSize, fontSize)) };
+            case ("line-height", CssStringValue { Value: "normal" }):
+                return style with { LineHeight = LineHeight.Normal };
             case ("padding", CssThicknessValue padding):
                 return style with { Padding = padding.Thickness };
             case ("padding", CssLengthValue padding):
@@ -377,10 +383,24 @@ public class CssStyleSheet : StyleSheet
                 return style with { Gap = gap.ToLogicalPixels(fontSize) };
             case ("border-radius", CssLengthValue borderRadius):
                 return style with { BorderRadius = borderRadius.ToLogicalPixels(fontSize) };
+            case ("border-radius", CssThicknessValue borderRadius):
+                return style with { BorderRadius = ToCornerRadius(borderRadius.Thickness) };
+            case ("border-radius", CssEdgesValue borderRadius) when TryResolveThickness(borderRadius, fontSize, variables, out Thickness corners):
+                return style with { BorderRadius = ToCornerRadius(corners) };
+            case ("border-top-left-radius", CssLengthValue radius):
+                return style with { BorderRadius = style.BorderRadius with { TopLeft = radius.ToLogicalPixels(fontSize) } };
+            case ("border-top-right-radius", CssLengthValue radius):
+                return style with { BorderRadius = style.BorderRadius with { TopRight = radius.ToLogicalPixels(fontSize) } };
+            case ("border-bottom-right-radius", CssLengthValue radius):
+                return style with { BorderRadius = style.BorderRadius with { BottomRight = radius.ToLogicalPixels(fontSize) } };
+            case ("border-bottom-left-radius", CssLengthValue radius):
+                return style with { BorderRadius = style.BorderRadius with { BottomLeft = radius.ToLogicalPixels(fontSize) } };
             case ("border-width", CssLengthValue borderWidth):
                 return style with { BorderWidth = borderWidth.ToLogicalPixels(fontSize) };
             case ("border-color", CssColorValue borderColor):
                 return style with { BorderColor = borderColor.Color };
+            case ("box-shadow", CssBoxShadowValue boxShadow):
+                return style with { BoxShadows = ResolveBoxShadows(boxShadow, fontSize, variables) };
             case ("z-index", CssNumberValue zIndex):
                 return style with { ZIndex = (int)zIndex.Value };
             case ("opacity", CssNumberValue opacity):
@@ -409,6 +429,22 @@ public class CssStyleSheet : StyleSheet
                 return style with { Height = height.ToLogicalPixels(fontSize) };
             case ("height", CssAutoValue):
                 return style with { Height = null };
+            case ("min-width", CssLengthValue minWidth):
+                return style with { MinWidth = ToWidth(minWidth, fontSize) };
+            case ("min-width", CssAutoValue):
+                return style with { MinWidth = null };
+            case ("max-width", CssLengthValue maxWidth):
+                return style with { MaxWidth = ToWidth(maxWidth, fontSize) };
+            case ("max-width", CssNoneValue):
+                return style with { MaxWidth = null };
+            case ("min-height", CssLengthValue minHeight):
+                return style with { MinHeight = minHeight.ToLogicalPixels(fontSize) };
+            case ("min-height", CssAutoValue):
+                return style with { MinHeight = null };
+            case ("max-height", CssLengthValue maxHeight):
+                return style with { MaxHeight = maxHeight.ToLogicalPixels(fontSize) };
+            case ("max-height", CssNoneValue):
+                return style with { MaxHeight = null };
             case ("cursor", CssCursorValue cursor):
                 return style with { Cursor = cursor.Cursor };
             case ("position", CssPositionValue position):
@@ -436,6 +472,33 @@ public class CssStyleSheet : StyleSheet
     /// Resolves each edge to a length in logical pixels. Fails when any edge is invalid or is not a length, which makes
     /// the declaration invalid at computed-value time.
     /// </summary>
+    private static ImmutableArray<BoxShadow> ResolveBoxShadows(CssBoxShadowValue value, double fontSize, CssVariables variables)
+    {
+        ImmutableArray<BoxShadow>.Builder shadows = ImmutableArray.CreateBuilder<BoxShadow>(value.Shadows.Length);
+        foreach (CssShadow shadow in value.Shadows)
+        {
+            Color? color = shadow.Color is CssValue specified ? (variables.Resolve(specified) as CssColorValue)?.Color : null;
+            shadows.Add(new BoxShadow(
+                shadow.OffsetX.ToLogicalPixels(fontSize),
+                shadow.OffsetY.ToLogicalPixels(fontSize),
+                Math.Max(0, shadow.BlurRadius.ToLogicalPixels(fontSize)),
+                shadow.SpreadRadius.ToLogicalPixels(fontSize),
+                color,
+                shadow.IsInset));
+        }
+
+        return shadows.MoveToImmutable();
+    }
+
+    /// <summary>
+    /// Converts the four values of a <c>border-radius</c>, which expand in the order of <c>padding</c> edges, to corners:
+    /// top to top-left, right to top-right, bottom to bottom-right, and left to bottom-left.
+    /// </summary>
+    private static CornerRadius ToCornerRadius(Thickness values)
+    {
+        return new CornerRadius(values.Top, values.Right, values.Bottom, values.Left);
+    }
+
     private static bool TryResolveThickness(CssEdgesValue edges, double fontSize, CssVariables variables, out Thickness thickness)
     {
         if (variables.Resolve(edges.Top) is CssLengthValue top &&

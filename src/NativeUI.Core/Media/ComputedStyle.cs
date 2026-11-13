@@ -48,6 +48,12 @@ public sealed record ComputedStyle
     public TextAlign TextAlign { get; init; } = TextAlign.Left;
 
     /// <summary>
+    /// Gets the inherited height of a line of text. Defaults to 1.25 times the font size, the line height that the Web base
+    /// stylesheet sets on the <c>native-ui</c> element.
+    /// </summary>
+    public LineHeight LineHeight { get; init; } = LineHeight.Multiple(1.25);
+
+    /// <summary>
     /// Gets the resolved inner padding thickness in logical pixels.
     /// </summary>
     public Thickness Padding { get; init; } = Thickness.Zero;
@@ -63,9 +69,9 @@ public sealed record ComputedStyle
     public double Gap { get; init; }
 
     /// <summary>
-    /// Gets the resolved corner border radius in logical pixels.
+    /// Gets the resolved radii of the four corners in logical pixels.
     /// </summary>
-    public double BorderRadius { get; init; }
+    public CornerRadius BorderRadius { get; init; }
 
     /// <summary>
     /// Gets the resolved border width on all four edges in logical pixels.
@@ -76,6 +82,11 @@ public sealed record ComputedStyle
     /// Gets the resolved border color, or <see langword="null"/> to use <see cref="TextColor"/>.
     /// </summary>
     public Color? BorderColor { get; init; }
+
+    /// <summary>
+    /// Gets the shadows of the box from top to bottom, which are not inherited.
+    /// </summary>
+    public ImmutableArray<BoxShadow> BoxShadows { get; init; } = [];
 
     /// <summary>
     /// Gets the distance from each edge of the border box to the content box, which is the padding plus the border width.
@@ -100,6 +111,28 @@ public sealed record ComputedStyle
     /// Gets the explicit height in logical pixels, or <see langword="null"/> for auto sizing.
     /// </summary>
     public double? Height { get; init; }
+
+    /// <summary>
+    /// Gets the smallest border-box width in logical pixels or as a percentage of the containing width, or
+    /// <see langword="null"/> when the width has no minimum.
+    /// </summary>
+    public WidthValue? MinWidth { get; init; }
+
+    /// <summary>
+    /// Gets the largest border-box width in logical pixels or as a percentage of the containing width, or
+    /// <see langword="null"/> when the width has no maximum.
+    /// </summary>
+    public WidthValue? MaxWidth { get; init; }
+
+    /// <summary>
+    /// Gets the smallest border-box height in logical pixels, or <see langword="null"/> when the height has no minimum.
+    /// </summary>
+    public double? MinHeight { get; init; }
+
+    /// <summary>
+    /// Gets the largest border-box height in logical pixels, or <see langword="null"/> when the height has no maximum.
+    /// </summary>
+    public double? MaxHeight { get; init; }
 
     /// <summary>
     /// Gets the resolved pointer cursor appearance (defaults to <see cref="Cursor.Auto"/>).
@@ -212,7 +245,7 @@ public sealed record ComputedStyle
     public bool IsUserScrollableY => ClipsOverflow && OverflowY is not Overflow.Hidden;
 
     /// <summary>
-    /// Creates an element's initial style before stylesheets apply. Text properties inherit from its parent, sizes,
+    /// Creates an element's initial style before stylesheets apply. Text properties, including the line height, inherit from its parent, sizes,
     /// overflow, and the cursor start from the element's own values, and other box geometry, background, and opacity start at their initial values.
     /// </summary>
     /// <param name="element">The element being styled.</param>
@@ -228,6 +261,7 @@ public sealed record ComputedStyle
             FontWeight = parent is null ? Default.FontWeight : parent.FontWeight,
             FontFamily = parent is null ? Default.FontFamily : parent.FontFamily,
             TextAlign = parent is null ? Default.TextAlign : parent.TextAlign,
+            LineHeight = parent is null ? Default.LineHeight : parent.LineHeight,
             Cursor = element.Cursor ?? (parent is null ? Default.Cursor : parent.Cursor),
             ScrollbarThumbColor = parent is null ? Default.ScrollbarThumbColor : parent.ScrollbarThumbColor,
             ScrollbarTrackColor = parent is null ? Default.ScrollbarTrackColor : parent.ScrollbarTrackColor,
@@ -265,15 +299,21 @@ public sealed record ComputedStyle
             FontWeight = inlineStyle.FontWeight ?? FontWeight,
             FontFamily = inlineStyle.FontFamily ?? FontFamily,
             TextAlign = inlineStyle.TextAlign ?? TextAlign,
+            LineHeight = inlineStyle.LineHeight ?? LineHeight,
             Padding = inlineStyle.Padding ?? Padding,
             Margin = inlineStyle.Margin ?? Margin,
             Gap = inlineStyle.Gap ?? Gap,
             BorderRadius = inlineStyle.BorderRadius ?? BorderRadius,
             BorderWidth = inlineStyle.BorderWidth ?? BorderWidth,
             BorderColor = ResolveColor(inlineStyle.BorderColor, BorderColor, resolver, element),
+            BoxShadows = inlineStyle.BoxShadows ?? BoxShadows,
             Opacity = inlineStyle.Opacity is double opacity ? Math.Clamp(opacity, 0.0, 1.0) : Opacity,
             Width = inlineStyle.Width ?? Width,
             Height = inlineStyle.Height ?? Height,
+            MinWidth = inlineStyle.MinWidth ?? MinWidth,
+            MaxWidth = inlineStyle.MaxWidth ?? MaxWidth,
+            MinHeight = inlineStyle.MinHeight ?? MinHeight,
+            MaxHeight = inlineStyle.MaxHeight ?? MaxHeight,
             Cursor = inlineStyle.Cursor ?? Cursor,
             OverflowX = inlineStyle.OverflowX ?? OverflowX,
             OverflowY = inlineStyle.OverflowY ?? OverflowY,

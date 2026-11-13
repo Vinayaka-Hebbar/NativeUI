@@ -39,11 +39,14 @@
 }
 
 .display-description {
+  max-width: 520px;
+  line-height: 1.5;
   color: var(--muted-foreground);
   margin: 0 0 20px 0;
 }
 
 .display-section {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
   background-color: var(--background);
   border-width: 1px;
   border-color: var(--border);
@@ -113,14 +116,16 @@ Badge.destructive {
 }
 
 Badge.outline {
+  border-top-left-radius: 0;
   border-color: var(--border);
   background-color: transparent;
   color: var(--foreground);
 }
 
 Badge.count {
+  min-width: 22px;
   padding: 2px 6px;
-  border-radius: 10px;
+  border-radius: 9999px;
   text-align: center;
 }
 
@@ -133,7 +138,7 @@ Avatar {
 
 Avatar::part(fallback) {
   color: var(--muted-foreground);
-  padding: 11px 0;
+  line-height: 40px;
   font-weight: 600;
   text-align: center;
 }
@@ -145,7 +150,7 @@ Avatar.large {
 }
 
 Avatar.large::part(fallback) {
-  padding: 17px 0;
+  line-height: 56px;
   font-size: 18px;
 }
 
@@ -169,21 +174,15 @@ BreadcrumbItem[data-current="true"] {
 
 ButtonGroup {
   margin: 0 0 12px 0;
-  border-width: 1px;
-  border-color: var(--border);
-  border-radius: var(--radius);
-  background-color: var(--border);
-  overflow: hidden;
 }
 
 ButtonGroup Button {
   padding: 8px 12px;
-  margin: 0 0 0 1px;
+  margin: 0 0 0 -1px;
+  border-width: 1px;
+  border-color: var(--border);
+  border-radius: 0;
   background-color: var(--background);
-}
-
-ButtonGroup Button:first-child {
-  margin: 0;
 }
 
 ButtonGroup Button:hover {
@@ -191,14 +190,28 @@ ButtonGroup Button:hover {
 }
 
 ButtonGroup Button:focus-visible {
-  background-color: var(--muted);
+  border-color: var(--ring);
+}
+
+ButtonGroup Button:first-child {
+  margin: 0;
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+ButtonGroup Button:last-child {
+  border-radius: 0 var(--radius) var(--radius) 0;
 }
 
 ButtonGroup[data-orientation="vertical"] Button {
   width: auto;
-  margin: 1px 0 0 0;
+  margin: -1px 0 0 0;
 }
 
 ButtonGroup[data-orientation="vertical"] Button:first-child {
   margin: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+ButtonGroup[data-orientation="vertical"] Button:last-child {
+  border-radius: 0 0 var(--radius) var(--radius);
 }

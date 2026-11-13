@@ -111,6 +111,18 @@ public abstract class DrawingContext : IDisposable
     public abstract void ClipRoundedRectangle(Rect rect, double radius);
 
     /// <summary>
+    /// Clips subsequent drawing to a rounded rectangle with the corner radii <paramref name="radius"/> until the matching
+    /// <see cref="Restore"/>. Radii whose sum exceeds a side of <paramref name="rect"/> are scaled down together.
+    /// </summary>
+    /// <param name="rect">The clipping rectangle in logical coordinates.</param>
+    /// <param name="radius">The corner radii in logical pixels.</param>
+    /// <exception cref="NotSupportedException">The corners differ and the backend draws only uniform corners.</exception>
+    public virtual void ClipRoundedRectangle(Rect rect, CornerRadius radius)
+    {
+        ClipRoundedRectangle(rect, GetUniformRadius(radius));
+    }
+
+    /// <summary>
     /// Clips subsequent drawing against the union of <paramref name="region"/> until the matching <see cref="Restore"/>.
     /// Intersect and Exclude clips of the same region cover each pixel exactly once.
     /// </summary>
@@ -134,6 +146,19 @@ public abstract class DrawingContext : IDisposable
     public abstract void DrawRoundedRectangle(Rect rect, double radius, Paint paint);
 
     /// <summary>
+    /// Fills a rounded rectangle at <paramref name="rect"/> with the corner radii <paramref name="radius"/> using
+    /// <paramref name="paint"/>. Radii whose sum exceeds a side of <paramref name="rect"/> are scaled down together.
+    /// </summary>
+    /// <param name="rect">The rectangle geometry to fill.</param>
+    /// <param name="radius">The corner radii in logical pixels.</param>
+    /// <param name="paint">The painting parameters including color and opacity.</param>
+    /// <exception cref="NotSupportedException">The corners differ and the backend draws only uniform corners.</exception>
+    public virtual void DrawRoundedRectangle(Rect rect, CornerRadius radius, Paint paint)
+    {
+        DrawRoundedRectangle(rect, GetUniformRadius(radius), paint);
+    }
+
+    /// <summary>
     /// Strokes the outline of a rounded rectangle, centered on the edge of <paramref name="rect"/>.
     /// </summary>
     /// <param name="rect">The rectangle geometry to outline.</param>
@@ -141,6 +166,20 @@ public abstract class DrawingContext : IDisposable
     /// <param name="strokeWidth">The line width in logical pixels.</param>
     /// <param name="paint">The painting parameters including color and opacity.</param>
     public abstract void StrokeRoundedRectangle(Rect rect, double radius, double strokeWidth, Paint paint);
+
+    /// <summary>
+    /// Strokes the outline of a rounded rectangle with the corner radii <paramref name="radius"/>, centered on the edge of
+    /// <paramref name="rect"/>. Radii whose sum exceeds a side of <paramref name="rect"/> are scaled down together.
+    /// </summary>
+    /// <param name="rect">The rectangle geometry to outline.</param>
+    /// <param name="radius">The corner radii in logical pixels. Zero radii draw square corners.</param>
+    /// <param name="strokeWidth">The line width in logical pixels.</param>
+    /// <param name="paint">The painting parameters including color and opacity.</param>
+    /// <exception cref="NotSupportedException">The corners differ and the backend draws only uniform corners.</exception>
+    public virtual void StrokeRoundedRectangle(Rect rect, CornerRadius radius, double strokeWidth, Paint paint)
+    {
+        StrokeRoundedRectangle(rect, GetUniformRadius(radius), strokeWidth, paint);
+    }
 
     /// <summary>
     /// Fills a polygon defined by the specified points.
@@ -168,4 +207,32 @@ public abstract class DrawingContext : IDisposable
     /// <param name="origin">The top-left origin coordinates.</param>
     /// <param name="paint">The painting parameters including text color and opacity.</param>
     public abstract void DrawTextLayout(ITextLayout layout, Point origin, Paint paint);
+
+    /// <summary>
+    /// Draws one shadow of a rounded rectangle. An outer shadow is drawn only outside <paramref name="rect"/>, the border
+    /// box. An inset shadow is drawn only inside <paramref name="rect"/>, the padding box. A shadow without a color is black.
+    /// </summary>
+    /// <param name="rect">The border box for an outer shadow, or the padding box for an inset shadow.</param>
+    /// <param name="radius">The corner radii of <paramref name="rect"/>.</param>
+    /// <param name="shadow">The offsets, blur, spread, color, and kind of the shadow.</param>
+    /// <param name="opacity">The opacity applied to the shadow color.</param>
+    /// <exception cref="NotSupportedException">The backend does not draw shadows.</exception>
+    public virtual void DrawBoxShadow(Rect rect, CornerRadius radius, BoxShadow shadow, double opacity = 1)
+    {
+        throw new NotSupportedException("Box shadows are unavailable on this backend.");
+    }
+
+    /// <summary>
+    /// Returns the radius of uniform corners for a backend that overrides only the single-radius members.
+    /// </summary>
+    /// <exception cref="NotSupportedException">The corners differ.</exception>
+    private static double GetUniformRadius(CornerRadius radius)
+    {
+        if (!radius.IsUniform)
+        {
+            throw new NotSupportedException("Rounded rectangles with different corner radii are unavailable on this backend.");
+        }
+
+        return radius.TopLeft;
+    }
 }

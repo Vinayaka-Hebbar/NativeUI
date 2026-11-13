@@ -68,7 +68,11 @@ public sealed class SkiaTextShaper : ITextMeasurer
         primarySkFont.GetFontMetrics(out SKFontMetrics metrics);
         double ascent = -metrics.Ascent;
         double descent = metrics.Descent;
-        double lineHeight = Math.Max(fontSize * 1.25, ascent + descent + Math.Max(0, metrics.Leading));
+        double normalLineHeight = ascent + descent + Math.Max(0, metrics.Leading);
+        double lineHeight = Math.Max(0, style.LineHeight.Resolve(fontSize, normalLineHeight));
+
+        // Half the space between the line height and the glyph height goes above the glyphs and half below. A line height
+        // smaller than the glyph height makes adjacent lines overlap.
         double halfLeading = (lineHeight - ascent - descent) / 2;
 
         if (string.IsNullOrEmpty(text))

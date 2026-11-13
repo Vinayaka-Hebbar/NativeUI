@@ -78,10 +78,16 @@ internal static class CssValueSyntaxBuilder
             "color" or "background-color" or "background" or "border-color" => TryBuildColorSyntax(valueNode, out expression, out colorLiteral),
             "width" => TryBuildWidthSyntax(valueNode, out expression),
             "height" => TryBuildAutoOrLengthSyntax(valueNode, out expression),
-            "font-size" or "gap" or "border-radius" or "border-width" or "top" or "right" or "bottom" or "left" => TryBuildLengthSyntax(valueNode, out expression),
+            "min-width" or "min-height" => TryBuildAutoOrLengthSyntax(valueNode, out expression),
+            "max-width" or "max-height" => TryBuildNoneOrLengthSyntax(valueNode, out expression),
+            "font-size" or "gap" or "border-width" or "top" or "right" or "bottom" or "left" => TryBuildLengthSyntax(valueNode, out expression),
+            "border-top-left-radius" or "border-top-right-radius" or "border-bottom-right-radius" or "border-bottom-left-radius" => TryBuildLengthSyntax(valueNode, out expression),
+            "border-radius" => TryBuildBorderRadiusSyntax(valueNode, out expression),
             "padding" or "margin" => TryBuildThicknessSyntax(valueNode, out expression),
             "font-weight" => TryBuildFontWeightSyntax(valueNode, out expression),
             "text-align" => TryBuildTextAlignSyntax(valueNode, out expression),
+            "line-height" => TryBuildLineHeightSyntax(valueNode, out expression),
+            "box-shadow" => TryBuildBoxShadowSyntax(valueNode, out expression),
             "opacity" => TryBuildOpacitySyntax(valueNode, out expression),
             "z-index" => TryBuildZIndexSyntax(valueNode, out expression),
             "font-family" => TryBuildFontFamilySyntax(valueNode, out expression),
@@ -741,6 +747,18 @@ internal static class CssValueSyntaxBuilder
         return TryBuildLengthSyntax(node, out expression);
     }
 
+    private static bool TryBuildNoneOrLengthSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        if (node is CssKeywordValueNode { Keyword: var keyword } &&
+            string.Equals(keyword, "none", StringComparison.OrdinalIgnoreCase))
+        {
+            expression = BuildNewCssValue("CssNoneValue");
+            return true;
+        }
+
+        return TryBuildLengthSyntax(node, out expression);
+    }
+
     private static bool TryBuildLengthSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
     {
         expression = null;
@@ -818,6 +836,23 @@ internal static class CssValueSyntaxBuilder
         (ExpressionSyntax top, ExpressionSyntax right, ExpressionSyntax bottom, ExpressionSyntax left) = ExpandEdges(edges);
         expression = BuildNewCssValue("CssEdgesValue", top, right, bottom, left);
         return true;
+    }
+
+    /// <summary>
+    /// Builds a <c>border-radius</c> of one to four lengths. A single length stays a length. Two to four lengths expand in
+    /// the order of <c>padding</c> edges, which matches the CSS corner order from top-left.
+    /// </summary>
+    private static bool TryBuildBorderRadiusSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        expression = null;
+        if (!TryGetComponents(node, out IReadOnlyList<CssValueSyntaxNode> items) || items.Count is < 1 or > 4)
+        {
+            return false;
+        }
+
+        return items.Count == 1
+            ? TryBuildLengthSyntax(items[0], out expression)
+            : TryBuildThicknessSyntax(node, out expression);
     }
 
     /// <summary>
@@ -1093,6 +1128,133 @@ internal static class CssValueSyntaxBuilder
 
         expression = null;
         return false;
+    }
+
+    /// <summary>
+    /// Builds a <c>box-shadow</c>: the <c>none</c> keyword, or comma-separated shadows.
+    /// </summary>
+    private static bool TryBuildBoxShadowSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        expression = null;
+        if (node is CssKeywordValueNode { Keyword: var keyword } && string.Equals(keyword, "none", StringComparison.OrdinalIgnoreCase))
+        {
+            expression = BuildNewCssValue("CssBoxShadowValue", BuildImmutableArrayEmpty("CssShadow"));
+            return true;
+        }
+
+        IReadOnlyList<CssValueSyntaxNode> values = node is CssValueListNode { Separator: CssValueSeparator.Comma } list
+            ? list.Items
+            : [node];
+        if (values.Count == 0)
+        {
+            return false;
+        }
+
+        List<ExpressionSyntax> shadows = [];
+        foreach (CssValueSyntaxNode value in values)
+        {
+            if (!TryBuildShadowSyntax(value, out ExpressionSyntax? shadow) || shadow is null)
+            {
+                return false;
+            }
+
+            shadows.Add(shadow);
+        }
+
+        expression = BuildNewCssValue("CssBoxShadowValue", BuildImmutableArrayCreate(shadows));
+        return true;
+    }
+
+    /// <summary>
+    /// Builds one shadow from two to four consecutive lengths (offsets, blur, spread), at most one color, and at most one
+    /// <c>inset</c> keyword. The color and the keyword may come before or after the lengths. A <c>var()</c> component is
+    /// the color.
+    /// </summary>
+    private static bool TryBuildShadowSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        expression = null;
+        if (!TryGetComponents(node, out IReadOnlyList<CssValueSyntaxNode> items))
+        {
+            return false;
+        }
+
+        List<ExpressionSyntax> lengths = [];
+        ExpressionSyntax? color = null;
+        bool isInset = false;
+        bool lengthsEnded = false;
+        foreach (CssValueSyntaxNode item in items)
+        {
+            if (item is CssKeywordValueNode { Keyword: var keyword } && string.Equals(keyword, "inset", StringComparison.OrdinalIgnoreCase))
+            {
+                if (isInset)
+                {
+                    return false;
+                }
+
+                isInset = true;
+                lengthsEnded = lengths.Count > 0;
+                continue;
+            }
+
+            if (item is not CssPercentageValueNode && TryBuildLengthSyntax(item, out ExpressionSyntax? length) && length is not null)
+            {
+                if (lengthsEnded || lengths.Count == 4)
+                {
+                    return false;
+                }
+
+                lengths.Add(length);
+                continue;
+            }
+
+            if (color is not null || !TryBuildValueExpression("color", item, out color, out _) || color is null)
+            {
+                return false;
+            }
+
+            lengthsEnded = lengths.Count > 0;
+        }
+
+        if (lengths.Count < 2)
+        {
+            return false;
+        }
+
+        while (lengths.Count < 4)
+        {
+            lengths.Add(BuildNewCssValue("CssLengthValue", DoubleLiteral(0), BuildEnumMember("CssLengthUnit", "Px")));
+        }
+
+        expression = BuildNewCssValue(
+            "CssShadow",
+            lengths[0],
+            lengths[1],
+            lengths[2],
+            lengths[3],
+            color ?? LiteralExpression(SyntaxKind.NullLiteralExpression),
+            LiteralExpression(isInset ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression));
+        return true;
+    }
+
+    /// <summary>
+    /// Builds a <c>line-height</c>: the <c>normal</c> keyword, a non-negative number that multiplies the font size, or a
+    /// length or percentage of the font size.
+    /// </summary>
+    private static bool TryBuildLineHeightSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        if (node is CssKeywordValueNode { Keyword: var keyword } && string.Equals(keyword, "normal", StringComparison.OrdinalIgnoreCase))
+        {
+            expression = BuildNewCssValue("CssStringValue", StringLiteral("normal"));
+            return true;
+        }
+
+        if (node is CssNumberValueNode number)
+        {
+            expression = number.Value >= 0.0 ? BuildNewCssValue("CssNumberValue", DoubleLiteral(number.Value)) : null;
+            return expression is not null;
+        }
+
+        return TryBuildLengthSyntax(node, out expression);
     }
 
     /// <summary>
