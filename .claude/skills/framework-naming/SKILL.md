@@ -1,0 +1,1 @@
+../../../.agents/skills/framework-naming/SKILL.md

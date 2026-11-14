@@ -21,6 +21,8 @@ Follow these rules when writing or refactoring C# code in the NativeUI repositor
 
 ## 2. Naming Conventions
 
+Casing follows the table below. Choosing the words of a name follows [framework-naming](../framework-naming/SKILL.md).
+
 | Symbol Kind | Convention | Example |
 |---|---|---|
 | Namespace, Class, Struct, Record, Enum, Interface | `PascalCase` | `NativeUI.Core`, `UIElement`, `FlexDirection` |

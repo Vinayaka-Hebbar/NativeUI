@@ -68,6 +68,7 @@ Future mobile targets follow the same platform naming pattern: `NativeUI.Control
 Detailed domain workflows and checklists are organized as modular skills under `.agents/skills/` (and mirrored in `.claude/skills/`). Load the relevant `SKILL.md` before performing tasks in its domain:
 
 - [`csharp-code-style`](.agents/skills/csharp-code-style/SKILL.md) — C# code style, naming conventions, nullability, and readability standards.
+- [`framework-naming`](.agents/skills/framework-naming/SKILL.md) — Required before naming or renaming anything: framework-grade names taken from WPF, WinUI, Avalonia, AppKit, the DOM, CSS, WAI-ARIA, and Base UI, with their source stated.
 - [`code-comments-xmldoc`](.agents/skills/code-comments-xmldoc/SKILL.md) — XML documentation rules and inline comment guidelines.
 - [`git-commit-messages`](.agents/skills/git-commit-messages/SKILL.md) — Commit message formatting and scope conventions.
 - [`architecture-organization`](.agents/skills/architecture-organization/SKILL.md) — Project boundaries, dependency rules, Skia desktop rendering, and native/Web interop design.
