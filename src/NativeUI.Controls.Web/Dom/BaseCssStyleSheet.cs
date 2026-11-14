@@ -169,6 +169,7 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
                 ["width"] = "fit-content",
                 ["max-width"] = "none",
                 ["max-height"] = "none",
+                ["overflow"] = "visible",
                 ["background"] = "none",
                 ["color"] = "inherit",
                 ["z-index"] = "1000"
@@ -427,7 +428,9 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
             }));
 
         rules.Add(Rule(
-            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-popover"))),
+            CssSelector.Where(
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-popover")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-tooltip"))),
             new()
             {
                 ["display"] = "block",

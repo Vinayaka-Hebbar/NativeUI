@@ -8,7 +8,7 @@
     <View Class="popup-section">
         <Text Class="popup-heading" Value="Target from x:Reference" />
         <Button x:Name="DimensionsButton" Class="popup-trigger" Text="Open popover" />
-        <Popover x:Name="DimensionsPopover" Target="{x:Reference DimensionsButton}" SideOffset="6">
+        <Popover x:Name="DimensionsPopover" Target="{x:Reference DimensionsButton}" HasArrow="True" SideOffset="8">
             <View Class="popup-panel">
                 <Text Class="popup-panel-title" Value="Dimensions" />
                 <Text Class="popup-muted" Value="Set the dimensions for the layer." />
@@ -27,7 +27,7 @@
 
     <View Class="popup-section">
         <Text Class="popup-heading" Value="Target in Popover.Target" />
-        <Popover Side="Right" Align="Start" SideOffset="8">
+        <Popover Side="Right" Align="Start" HasArrow="True" SideOffset="8">
             <Popover.Target>
                 <Button Class="popup-trigger" Text="Open on the right" />
             </Popover.Target>
@@ -36,5 +36,25 @@
                 <Text Class="popup-muted" Value="The content flips to the left when the window is too narrow." />
             </View>
         </Popover>
+    </View>
+
+    <View Class="popup-section">
+        <Text Class="popup-heading" Value="Tooltip" />
+        <StackPanel Class="popup-row" Orientation="Horizontal">
+            <Button Class="popup-trigger" Text="Save" Tooltip.Text="Save changes" />
+            <Button x:Name="ShareButton" Class="popup-trigger" Text="Share" />
+            <Tooltip Target="{x:Reference ShareButton}" Side="Bottom" SideOffset="6" HasArrow="True">
+                <Text Value="Share this document" />
+            </Tooltip>
+            <Button x:Name="ArchiveButton" Class="popup-trigger" Text="Archive" />
+            <Tooltip Target="{x:Reference ArchiveButton}" Side="Top" SideOffset="6" ArrowPadding="5">
+                <Tooltip.Arrow>
+                    <View Width="8" Height="8" Class="tooltip-arrow" />
+                </Tooltip.Arrow>
+                <Tooltip.Content>
+                    <Text Value="Move to archive" />
+                </Tooltip.Content>
+            </Tooltip>
+        </StackPanel>
     </View>
 </View>

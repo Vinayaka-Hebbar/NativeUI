@@ -19,14 +19,25 @@ internal static class PortalPlacement
     /// <param name="limits">The area to stay inside. A portal larger than this area starts at its top-left corner.</param>
     public static Point Compute(Portal portal, Rect? anchor, Size size, Rect centerArea, Rect limits)
     {
+        return Compute(portal, anchor, size, centerArea, limits, out _);
+    }
+
+    /// <summary>
+    /// Returns the top-left position of a portal of the given <paramref name="size"/> and outputs the side of
+    /// <paramref name="anchor"/> it was placed on. All rectangles use one coordinate space. An anchored portal that does
+    /// not fit within <paramref name="limits"/> on its side opens on the opposite side when that side has more room.
+    /// </summary>
+    public static Point Compute(Portal portal, Rect? anchor, Size size, Rect centerArea, Rect limits, out PortalSide side)
+    {
         Point position;
         if (anchor is Rect anchorBounds)
         {
-            PortalSide side = ChooseSide(portal, anchorBounds, size, limits);
+            side = ChooseSide(portal, anchorBounds, size, limits);
             position = ComputeAnchored(portal, side, anchorBounds, size);
         }
         else
         {
+            side = portal.Side;
             position = new Point(
                 centerArea.X + ((centerArea.Width - size.Width) / 2.0),
                 centerArea.Y + ((centerArea.Height - size.Height) / 2.0));
@@ -35,6 +46,32 @@ internal static class PortalPlacement
         return new Point(
             Math.Max(limits.X, Math.Min(position.X, limits.Right - size.Width)),
             Math.Max(limits.Y, Math.Min(position.Y, limits.Bottom - size.Height)));
+    }
+
+    /// <summary>
+    /// Returns the top-left offset of an arrow of <paramref name="arrowSize"/> within a portal at
+    /// <paramref name="portalBounds"/> placed on <paramref name="side"/> of <paramref name="anchor"/>, clamped by
+    /// <paramref name="arrowPadding"/> from the portal's corners.
+    /// </summary>
+    public static Point ComputeArrowPosition(PortalSide side, Rect portalBounds, Rect anchor, Size arrowSize, double arrowPadding)
+    {
+        double pad = Math.Max(0, arrowPadding);
+        double anchorCenterX = anchor.X + (anchor.Width / 2.0);
+        double anchorCenterY = anchor.Y + (anchor.Height / 2.0);
+        double minX = Math.Min(pad, Math.Max(0, (portalBounds.Width - arrowSize.Width) / 2.0));
+        double maxX = Math.Max(minX, portalBounds.Width - pad - arrowSize.Width);
+        double minY = Math.Min(pad, Math.Max(0, (portalBounds.Height - arrowSize.Height) / 2.0));
+        double maxY = Math.Max(minY, portalBounds.Height - pad - arrowSize.Height);
+        double x = Math.Clamp(anchorCenterX - portalBounds.X - (arrowSize.Width / 2.0), minX, maxX);
+        double y = Math.Clamp(anchorCenterY - portalBounds.Y - (arrowSize.Height / 2.0), minY, maxY);
+
+        return side switch
+        {
+            PortalSide.Top => new Point(x, portalBounds.Height - (arrowSize.Height / 2.0)),
+            PortalSide.Bottom => new Point(x, -(arrowSize.Height / 2.0)),
+            PortalSide.Left => new Point(portalBounds.Width - (arrowSize.Width / 2.0), y),
+            _ => new Point(-(arrowSize.Width / 2.0), y)
+        };
     }
 
     private static PortalSide ChooseSide(Portal portal, Rect anchor, Size size, Rect limits)

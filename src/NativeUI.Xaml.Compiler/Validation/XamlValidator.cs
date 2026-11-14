@@ -93,12 +93,6 @@ public enum XamlPropertyKind
     Converted,
 
     /// <summary>
-    /// The literal is an invariant-culture integer assigned through a static setter such as <c>Grid.SetRow</c>.
-    /// It has no binding form.
-    /// </summary>
-    AttachedInt32,
-
-    /// <summary>
     /// The literal is a whitespace-separated list of class names.
     /// </summary>
     ClassList,
@@ -387,11 +381,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         ["Top"] = XamlPropertyKind.StyleLength,
         ["Right"] = XamlPropertyKind.StyleLength,
         ["Bottom"] = XamlPropertyKind.StyleLength,
-        ["Left"] = XamlPropertyKind.StyleLength,
-        ["Grid.Row"] = XamlPropertyKind.AttachedInt32,
-        ["Grid.Column"] = XamlPropertyKind.AttachedInt32,
-        ["Grid.RowSpan"] = XamlPropertyKind.AttachedInt32,
-        ["Grid.ColumnSpan"] = XamlPropertyKind.AttachedInt32
+        ["Left"] = XamlPropertyKind.StyleLength
     };
 
     private static readonly Dictionary<string, XamlPropertyKind> s_noProperties = new(StringComparer.Ordinal);
@@ -595,13 +585,33 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 continue;
             }
 
-            // Shared properties belong to controls; any other property is resolved from the element's C# type.
-            IPropertySymbol? typedProperty = null;
+            // Shared properties belong to controls; any other property is resolved from the element's C# type or an attached property owner.
+            ITypeSymbol? typedPropertyType = null;
+            bool isTypedPropertyBindable = false;
             if (!allowedProps.TryGetValue(attr.LocalName, out XamlPropertyKind kind) &&
                 (controlDefinition.Length == 0 || !s_sharedProperties.TryGetValue(attr.LocalName, out kind)))
             {
-                typedProperty = control.Type is null ? null : _types!.FindSettableProperty(control.Type, attr.LocalName);
-                if (typedProperty is null)
+                if (control.Type is not null && _types is not null)
+                {
+                    if (attr.LocalName.Contains('.'))
+                    {
+                        string[] parts = attr.LocalName.Split('.');
+                        if (parts.Length == 2 &&
+                            string.IsNullOrEmpty(attr.NamespaceUri) &&
+                            _types.FindAttachedSetter(parts[0], parts[1], control.Type) is IMethodSymbol attachedSetter)
+                        {
+                            typedPropertyType = attachedSetter.Parameters[1].Type;
+                            isTypedPropertyBindable = XamlTypeResolver.IsBindable(attachedSetter.ContainingType, parts[1]);
+                        }
+                    }
+                    else if (_types.FindSettableProperty(control.Type, attr.LocalName) is IPropertySymbol typedProperty)
+                    {
+                        typedPropertyType = typedProperty.Type;
+                        isTypedPropertyBindable = XamlTypeResolver.IsBindable(typedProperty);
+                    }
+                }
+
+                if (typedPropertyType is null)
                 {
                     _diagnostics.Add(Diagnostic.Create(
                         XamlDiagnostics.UnknownProperty,
@@ -627,15 +637,15 @@ public sealed class XamlValidator : XamlSyntaxVisitor
 
             if (TryParseReference(attr.Value, out string referenceName))
             {
-                ValidateReference(attr, element, typedProperty, referenceName, validProps);
+                ValidateReference(attr, element, typedPropertyType, referenceName, validProps);
                 continue;
             }
 
             if (BindingExpressionParser.IsMarkupExtension(attr.Value))
             {
-                bool isBindable = typedProperty is null
-                    ? kind is not (XamlPropertyKind.StyleThickness or XamlPropertyKind.StyleLength or XamlPropertyKind.AttachedInt32)
-                    : XamlTypeResolver.IsBindable(typedProperty);
+                bool isBindable = typedPropertyType is null
+                    ? kind is not (XamlPropertyKind.StyleThickness or XamlPropertyKind.StyleLength)
+                    : isTypedPropertyBindable;
                 if (!isBindable)
                 {
                     _diagnostics.Add(Diagnostic.Create(
@@ -662,9 +672,9 @@ public sealed class XamlValidator : XamlSyntaxVisitor
 
                 validProps.Add(new ValidatedXamlProperty(attr.LocalName, kind, null, bindingNode));
             }
-            else if (typedProperty is not null)
+            else if (typedPropertyType is not null)
             {
-                XamlValueConverter? converter = XamlValueConverters.ForType(typedProperty.Type);
+                XamlValueConverter? converter = XamlValueConverters.ForType(typedPropertyType);
                 if (converter is not null && converter.TryConvert(attr.Value, out ExpressionSyntax? convertedValue))
                 {
                     validProps.Add(new ValidatedXamlProperty(attr.LocalName, kind, attr.Value, null, convertedValue));
@@ -804,11 +814,11 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     private void ValidateReference(
         XamlAttributeNode attr,
         XamlElementNode element,
-        IPropertySymbol? property,
+        ITypeSymbol? propertyType,
         string name,
         List<ValidatedXamlProperty> validProps)
     {
-        if (property is null)
+        if (propertyType is null)
         {
             _diagnostics.Add(Diagnostic.Create(
                 XamlDiagnostics.InvalidPropertyValue,
@@ -828,7 +838,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             return;
         }
 
-        if (type is not null && _compilation is not null && !_compilation.ClassifyCommonConversion(type, property.Type).IsImplicit)
+        if (type is not null && _compilation is not null && !_compilation.ClassifyCommonConversion(type, propertyType).IsImplicit)
         {
             _diagnostics.Add(Diagnostic.Create(
                 XamlDiagnostics.InvalidPropertyValue,

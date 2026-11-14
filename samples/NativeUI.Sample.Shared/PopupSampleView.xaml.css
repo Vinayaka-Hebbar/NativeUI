@@ -107,6 +107,44 @@ Popover[data-ending-style]::part(content) {
   transform: scale(0.96);
 }
 
+Popover::part(arrow) {
+  width: 8px;
+  height: 8px;
+  background-color: var(--popover);
+  border-width: 1px;
+  border-color: var(--border);
+  transform: rotate(45deg);
+}
+
+.popup-row {
+  gap: 12px;
+}
+
+Tooltip::part(content) {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background-color: var(--foreground);
+  color: var(--background);
+  font-size: 12px;
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 120ms ease-out, transform 120ms ease-out;
+}
+
+Tooltip[data-starting-style]::part(content),
+Tooltip[data-ending-style]::part(content) {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+Tooltip::part(arrow),
+.tooltip-arrow {
+  width: 8px;
+  height: 8px;
+  background-color: var(--foreground);
+  transform: rotate(45deg);
+}
+
 .popup-panel-title {
   font-weight: 600;
   margin: 0 0 4px 0;

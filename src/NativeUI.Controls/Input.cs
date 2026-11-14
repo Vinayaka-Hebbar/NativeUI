@@ -39,7 +39,7 @@ public class Input : UIElement
     public override string TagName => "input";
 
     /// <inheritdoc />
-    internal override bool EditsText => true;
+    internal override bool AcceptsTextInput => true;
 
     /// <summary>
     /// Gets or sets the text in the field. The user's edits update this value on each change, including during IME composition.

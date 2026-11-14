@@ -56,6 +56,17 @@ public sealed partial class SkiaDrawingContext : DrawingContext
     }
 
     /// <inheritdoc />
+    public override void Rotate(float degrees)
+    {
+        if (float.IsNaN(degrees) || float.IsInfinity(degrees))
+        {
+            throw new ArgumentException("Rotation angle must be a finite number.", nameof(degrees));
+        }
+
+        _canvas.RotateDegrees(degrees);
+    }
+
+    /// <inheritdoc />
     public override void Translate(double dx, double dy)
     {
         if (double.IsNaN(dx) || double.IsInfinity(dx))

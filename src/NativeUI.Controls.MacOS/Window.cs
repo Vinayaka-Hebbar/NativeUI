@@ -360,7 +360,7 @@ public sealed class Window : IDisposable, IRenderHost
 
             // A press on an Input reaches the window only outside its native field, which covers the text line alone.
             // Focusing the Input moves focus to the field.
-            _focusManager?.FocusFromPointer(hoveredElement);
+            _focusManager?.HandlePointerPressed(hoveredElement);
             Portal.DismissForPress(hoveredElement);
             UpdateCursor();
         }
@@ -1256,11 +1256,12 @@ public sealed class Window : IDisposable, IRenderHost
 
         foreach (UIElement child in view.Children)
         {
-            if (child is Dialog { IsOpen: true } dialog)
+            // A dialog keeps its window until its exit animations finish.
+            if (child is Dialog { IsVisible: true } dialog)
             {
                 open.Add(dialog);
             }
-            else if (child is not Portal { IsOpen: false } and not Dialog)
+            else if (child is not Portal { IsVisible: false } and not Dialog)
             {
                 CollectOpenDialogs(child, open);
             }
@@ -1444,7 +1445,8 @@ public sealed class Window : IDisposable, IRenderHost
 
     private UIElement? HitTest(Point position)
     {
-        if (LastLayout is null || Overlays.Any(overlay => overlay.ContainsPoint(position)))
+        // A dialog in its own window takes no input during its exit animations.
+        if (LastLayout is null || _content is Portal { IsOpen: false } || Overlays.Any(overlay => overlay.ContainsPoint(position)))
         {
             return null;
         }

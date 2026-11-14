@@ -1040,7 +1040,7 @@ export const dom = {
    * @param {() => void} completed The callback to invoke.
    * @returns {void}
    */
-  waitForMotion(element, completed) {
+  waitForAnimations(element, completed) {
     const animations = element.getAnimations().filter(
       (animation) => Number.isFinite(animation.effect?.getComputedTiming().iterations ?? 1));
     Promise.allSettled(animations.map((animation) => animation.finished)).then(() => completed());

@@ -394,6 +394,7 @@ public sealed class CssValidator : CssSyntaxVisitor
             "breadcrumbitem" => "nui-breadcrumbitem",
             "buttongroup" => "nui-buttongroup",
             "popover" => "nui-popover",
+            "tooltip" => "nui-tooltip",
             _ => null
         };
     }

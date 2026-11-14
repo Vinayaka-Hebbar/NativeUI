@@ -153,7 +153,7 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
 
         _disposed = true;
         _input.PropertyChanged -= OnInputPropertyChanged;
-        _input.FindFocusManager()?.SyncFocus(_input, isFocused: false);
+        _input.FindFocusManager()?.HandleLostFocus(_input);
         if (ReferenceEquals(_input.NativeHandle, this))
         {
             _input.NativeHandle = null;
@@ -203,7 +203,7 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
         byte accepted = AppKitInterop.SendSuperMessage(ref super, cmd);
         if (accepted != 0 && s_fields.TryGetValue(self, out NativeTextField? field))
         {
-            field._input.FindFocusManager()?.SyncFocus(field._input, isFocused: true);
+            field._input.FindFocusManager()?.HandleGotFocus(field._input, FocusState.Programmatic);
 
             // A press on the field reaches AppKit and not the window, which dismisses portals for its own presses.
             Portal.DismissForPress(field._input);
@@ -259,7 +259,7 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
     {
         if (s_fields.TryGetValue(self, out NativeTextField? field))
         {
-            field._input.FindFocusManager()?.SyncFocus(field._input, isFocused: false);
+            field._input.FindFocusManager()?.HandleLostFocus(field._input);
         }
     }
 

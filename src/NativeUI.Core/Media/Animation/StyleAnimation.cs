@@ -232,7 +232,8 @@ public static class StyleInterpolation
             Lerp(start.TranslateXPercent, end.TranslateXPercent, progress),
             Lerp(start.TranslateYPercent, end.TranslateYPercent, progress),
             Lerp(start.ScaleX, end.ScaleX, progress),
-            Lerp(start.ScaleY, end.ScaleY, progress));
+            Lerp(start.ScaleY, end.ScaleY, progress),
+            Lerp(start.Rotation, end.Rotation, progress));
     }
 
     /// <summary>

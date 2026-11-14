@@ -7,13 +7,13 @@ namespace NativeUI.Controls;
 internal interface IPortalPeer
 {
     /// <summary>
-    /// Calls <paramref name="completed"/> after the platform has drawn the portal with <c>data-starting-style</c>.
+    /// Invokes <paramref name="callback"/> after the platform has drawn the portal in a frame.
     /// </summary>
-    void WaitForStartingStyle(Action completed);
+    void RequestAnimationFrame(Action callback);
 
     /// <summary>
-    /// Calls <paramref name="completed"/> after the transitions and the animations with a finite number of iterations of
-    /// the portal element end, or at once when it has none.
+    /// Invokes <paramref name="callback"/> after the transitions and the animations with a finite number of iterations of
+    /// the portal element finish, or at once when it has none.
     /// </summary>
-    void WaitForEndingMotion(Action completed);
+    void WaitForAnimations(Action callback);
 }

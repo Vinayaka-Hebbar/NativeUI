@@ -157,11 +157,61 @@ public sealed class VisualTreeRenderer : IDisposable
         {
             LayoutBox box = _layoutEngine.ComputeLayout(portal, viewport);
             Rect? anchor = portal.Anchor is UIElement element ? FindAnchorBounds(element, rootBox, boxes) : null;
-            Point position = PortalPlacement.Compute(portal, anchor, box.BorderBox.Size, area, area);
-            boxes.Add(box.Translated(position.X - box.BorderBox.X, position.Y - box.BorderBox.Y));
+            Point position = PortalPlacement.Compute(portal, anchor, box.BorderBox.Size, area, area, out PortalSide side);
+            LayoutBox translated = box.Translated(position.X - box.BorderBox.X, position.Y - box.BorderBox.Y);
+            if (anchor is Rect anchorBounds)
+            {
+                translated = PositionPortalArrow(portal, side, translated, anchorBounds);
+            }
+
+            boxes.Add(translated);
         }
 
         return boxes;
+    }
+
+    private static LayoutBox PositionPortalArrow(Portal portal, PortalSide side, LayoutBox portalBox, Rect anchorBounds)
+    {
+        (UIElement? arrow, double arrowPadding) = portal.TemplatedParent switch
+        {
+            Popover popover => (popover.ArrowPart, popover.ArrowPadding),
+            Tooltip tooltip => (tooltip.ArrowPart, tooltip.ArrowPadding),
+            _ => (null, 0.0)
+        };
+
+        if (arrow is null)
+        {
+            return portalBox;
+        }
+
+        List<LayoutBox> children = new(portalBox.Children.Count);
+        foreach (LayoutBox child in portalBox.Children)
+        {
+            if (ReferenceEquals(child.Element, arrow))
+            {
+                Point offset = PortalPlacement.ComputeArrowPosition(
+                    side,
+                    portalBox.BorderBox,
+                    anchorBounds,
+                    child.BorderBox.Size,
+                    arrowPadding);
+                double targetX = portalBox.BorderBox.X + offset.X;
+                double targetY = portalBox.BorderBox.Y + offset.Y;
+                children.Add(child.Translated(targetX - child.BorderBox.X, targetY - child.BorderBox.Y));
+            }
+            else
+            {
+                children.Add(child);
+            }
+        }
+
+        return new LayoutBox(
+            portalBox.Element,
+            portalBox.Style,
+            portalBox.BorderBox,
+            portalBox.ContentBox,
+            children,
+            portalBox.TextLayout);
     }
 
     private static void CollectOpenPortals(UIElement element, List<Portal> portals)
@@ -219,6 +269,7 @@ public sealed class VisualTreeRenderer : IDisposable
     }
 
     private UIElement? _currentRoot;
+    private Rect? _portalPaddingBox;
     // TODO: Use the actual pixel scale of the drawing context instead of a fixed value. This is needed for snapping to device pixels.
     private double _pixelScale = 1;
 
@@ -236,22 +287,37 @@ public sealed class VisualTreeRenderer : IDisposable
 
         (box.Element as UIElement)?.MarkRendered();
 
-        if (box.Style.Transform is not { IsIdentity: false } transform)
+        bool clipArrowInterior = box.Element is UIElement { PartName: "arrow", Parent: Portal } && _portalPaddingBox is not null;
+        if (box.Style.Transform is not { IsIdentity: false } transform && !clipArrowInterior)
         {
             DrawBoxContents(context, box);
             return;
         }
 
-        Rect bounds = box.BorderBox;
-        Point translation = transform.GetTranslation(bounds.Size);
-        double centerX = bounds.X + (bounds.Width / 2.0);
-        double centerY = bounds.Y + (bounds.Height / 2.0);
         context.Save();
         try
         {
-            context.Translate(centerX + translation.X, centerY + translation.Y);
-            context.Scale((float)transform.ScaleX, (float)transform.ScaleY);
-            context.Translate(-centerX, -centerY);
+            if (clipArrowInterior && _portalPaddingBox is Rect portalPaddingBox)
+            {
+                context.ClipRegion([portalPaddingBox], ClipMode.Exclude);
+            }
+
+            if (box.Style.Transform is { IsIdentity: false } activeTransform)
+            {
+                Rect bounds = box.BorderBox;
+                Point translation = activeTransform.GetTranslation(bounds.Size);
+                double centerX = bounds.X + (bounds.Width / 2.0);
+                double centerY = bounds.Y + (bounds.Height / 2.0);
+                context.Translate(centerX + translation.X, centerY + translation.Y);
+                if (activeTransform.Rotation != 0)
+                {
+                    context.Rotate((float)activeTransform.Rotation);
+                }
+
+                context.Scale((float)activeTransform.ScaleX, (float)activeTransform.ScaleY);
+                context.Translate(-centerX, -centerY);
+            }
+
             DrawBoxContents(context, box);
         }
         finally
@@ -270,7 +336,7 @@ public sealed class VisualTreeRenderer : IDisposable
         bool pushedLayer = style.Opacity < 1.0 && box.Children.Count > 0;
         if (pushedLayer)
         {
-            context.SaveLayer(box.BorderBox, style.Opacity);
+            context.SaveLayer(GetLayerBounds(box), style.Opacity);
         }
 
         try
@@ -358,30 +424,43 @@ public sealed class VisualTreeRenderer : IDisposable
 
             if (box.Children.Count > 0)
             {
-                bool clipChildren = ShouldClipChildren(box);
-                if (clipChildren)
+                Rect? previousPortalPaddingBox = _portalPaddingBox;
+                if (box.Element is Portal)
                 {
-                    context.Save();
-                    try
-                    {
-                        ClipToPaddingBox(context, box);
+                    _portalPaddingBox = style.BorderWidth > 0 ? GetPaddingBox(box) : null;
+                }
 
+                try
+                {
+                    bool clipChildren = ShouldClipChildren(box);
+                    if (clipChildren)
+                    {
+                        context.Save();
+                        try
+                        {
+                            ClipToPaddingBox(context, box);
+
+                            foreach (LayoutBox child in box.Children)
+                            {
+                                DrawBoxRecursive(context, child);
+                            }
+                        }
+                        finally
+                        {
+                            context.Restore();
+                        }
+                    }
+                    else
+                    {
                         foreach (LayoutBox child in box.Children)
                         {
                             DrawBoxRecursive(context, child);
                         }
                     }
-                    finally
-                    {
-                        context.Restore();
-                    }
                 }
-                else
+                finally
                 {
-                    foreach (LayoutBox child in box.Children)
-                    {
-                        DrawBoxRecursive(context, child);
-                    }
+                    _portalPaddingBox = previousPortalPaddingBox;
                 }
             }
 
@@ -468,6 +547,73 @@ public sealed class VisualTreeRenderer : IDisposable
                 context.DrawBoxShadow(rect, radius, shadow with { Color = shadow.Color ?? style.TextColor }, opacity);
             }
         }
+    }
+
+    /// <summary>
+    /// Returns the painted bounds of <paramref name="box"/> and its unclipped descendants in the coordinate space of
+    /// <paramref name="box"/>.
+    /// </summary>
+    private Rect GetLayerBounds(LayoutBox box)
+    {
+        Rect bounds = GetDrawingBounds(box);
+        if (ShouldClipChildren(box))
+        {
+            return bounds;
+        }
+
+        foreach (LayoutBox child in box.Children)
+        {
+            if (child.Element is UIElement { IsVisible: false })
+            {
+                continue;
+            }
+
+            if (child.Element is IWindowHostedElement { HasOwnWindow: true } && !ReferenceEquals(child.Element, _currentRoot))
+            {
+                continue;
+            }
+
+            Rect childBounds = GetLayerBounds(child);
+            if (child.Style.Transform is { IsIdentity: false } transform)
+            {
+                childBounds = transform.TransformBounds(childBounds, child.BorderBox);
+            }
+
+            bounds = bounds.Union(childBounds);
+        }
+
+        return bounds;
+    }
+
+    /// <summary>
+    /// Returns the untransformed drawing bounds of <paramref name="box"/>, including its outer shadows.
+    /// </summary>
+    private static Rect GetDrawingBounds(LayoutBox box)
+    {
+        Rect bounds = box.BorderBox;
+        ImmutableArray<BoxShadow> shadows = box.Style.BoxShadows;
+        if (shadows.IsDefaultOrEmpty)
+        {
+            return bounds;
+        }
+
+        foreach (BoxShadow shadow in shadows)
+        {
+            if (shadow.IsInset)
+            {
+                continue;
+            }
+
+            double extent = shadow.SpreadRadius + (Math.Max(0, shadow.BlurRadius) * 2.0);
+            Rect shadowBounds = new(
+                box.BorderBox.X + shadow.OffsetX - extent,
+                box.BorderBox.Y + shadow.OffsetY - extent,
+                Math.Max(0, box.BorderBox.Width + (extent * 2.0)),
+                Math.Max(0, box.BorderBox.Height + (extent * 2.0)));
+            bounds = bounds.Union(shadowBounds);
+        }
+
+        return bounds;
     }
 
     /// <summary>

@@ -54,7 +54,15 @@ internal sealed class XamlTypeResolver
     /// </summary>
     public static bool IsBindable(IPropertySymbol property)
     {
-        foreach (ISymbol member in property.ContainingType.GetMembers($"{property.Name}Property"))
+        return IsBindable(property.ContainingType, property.Name);
+    }
+
+    /// <summary>
+    /// Returns whether a member's value can be bound, which requires a static <c>NameProperty</c> member on <paramref name="ownerType"/>.
+    /// </summary>
+    public static bool IsBindable(INamedTypeSymbol ownerType, string name)
+    {
+        foreach (ISymbol member in ownerType.GetMembers($"{name}Property"))
         {
             if (member.IsStatic)
             {
@@ -129,6 +137,40 @@ internal sealed class XamlTypeResolver
                     _compilation.IsSymbolAccessibleWithin(setter, _compilation.Assembly))
                 {
                     return property;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Returns the static attached property setter <c>SetName(UIElement, T)</c> on the NativeUI type named
+    /// <paramref name="ownerName"/> when <paramref name="targetType"/> derives from <c>UIElement</c>, or null.
+    /// </summary>
+    public IMethodSymbol? FindAttachedSetter(string ownerName, string propertyName, INamedTypeSymbol targetType)
+    {
+        INamedTypeSymbol? ownerType = Resolve(XamlParser.NativeUINamespace, ownerName);
+        INamedTypeSymbol? uiElementType = Resolve(XamlParser.NativeUINamespace, "UIElement");
+        if (ownerType is null ||
+            uiElementType is null ||
+            !_compilation.ClassifyCommonConversion(targetType, uiElementType).IsImplicit)
+        {
+            return null;
+        }
+
+        string setterName = $"Set{propertyName}";
+        for (INamedTypeSymbol? current = ownerType; current is not null; current = current.BaseType)
+        {
+            foreach (ISymbol member in current.GetMembers(setterName))
+            {
+                if (member is IMethodSymbol { IsStatic: true, ReturnsVoid: true, Parameters.Length: 2 } method &&
+                    method.Parameters[0].RefKind == RefKind.None &&
+                    method.Parameters[1].RefKind == RefKind.None &&
+                    SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, uiElementType) &&
+                    _compilation.IsSymbolAccessibleWithin(method, _compilation.Assembly))
+                {
+                    return method;
                 }
             }
         }

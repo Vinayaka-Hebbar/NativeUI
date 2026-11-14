@@ -33,6 +33,7 @@ namespace NativeUI.Controls;
 public class Popover : Control
 {
     private const string ContentPartName = "content";
+    private const string ArrowPartName = "arrow";
 
     static Popover()
     {
@@ -102,7 +103,37 @@ public class Popover : Control
             defaultValue: 0,
             propertyChanged: static (owner, _, offset) => owner._portal.AlignOffset = offset);
 
+    /// <summary>
+    /// Identifies the <see cref="HasArrow"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<bool> HasArrowProperty =
+        BindableProperty.Create<Popover, bool>(
+            nameof(HasArrow),
+            defaultValue: false,
+            propertyChanged: static (owner, _, _) => owner.SyncArrow());
+
+    /// <summary>
+    /// Identifies the <see cref="Arrow"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<UIElement?> ArrowProperty =
+        BindableProperty.Create<Popover, UIElement?>(
+            nameof(Arrow),
+            defaultValue: null,
+            propertyChanged: static (owner, _, _) => owner.SyncArrow());
+
+    /// <summary>
+    /// Identifies the <see cref="ArrowPadding"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double> ArrowPaddingProperty =
+        BindableProperty.Create<Popover, double>(
+            nameof(ArrowPadding),
+            defaultValue: 5,
+            propertyChanged: static (owner, _, _) => owner._portal.InvalidateVisual());
+
     private Portal _portal = null!;
+    private View? _defaultArrow;
+    private UIElement? _mountedArrow;
+    private UIElement? _contentElement;
     private IDisposable? _targetGesture;
     private bool _isTargetHosted;
 
@@ -115,7 +146,7 @@ public class Popover : Control
         _portal.Opened += (_, _) => Opened?.Invoke(this, EventArgs.Empty);
         _portal.Closing += OnPortalClosing;
         _portal.Closed += OnPortalClosed;
-        _portal.MotionChanged += (_, _) => InvalidateStyle();
+        _portal.TransitionStatusChanged += (_, _) => InvalidateStyle();
         KeyDown += OnKeyDown;
         UpdateOpenState(false);
     }
@@ -199,19 +230,52 @@ public class Popover : Control
     }
 
     /// <summary>
+    /// Gets or sets a value indicating whether an arrow part is shown on the target-facing edge of the content.
+    /// </summary>
+    public bool HasArrow
+    {
+        get => GetValue(HasArrowProperty);
+        set => SetValue(HasArrowProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets a custom arrow element shown on the target-facing edge of the content. Setting this shows the arrow
+    /// regardless of <see cref="HasArrow"/>.
+    /// </summary>
+    public UIElement? Arrow
+    {
+        get => GetValue(ArrowProperty);
+        set => SetValue(ArrowProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the minimum distance in logical pixels between the arrow and the content's corners. Defaults to 5.
+    /// </summary>
+    public double ArrowPadding
+    {
+        get => GetValue(ArrowPaddingProperty);
+        set => SetValue(ArrowPaddingProperty, value);
+    }
+
+    /// <summary>
     /// Gets the portal that shows the content, the <c>content</c> part.
     /// </summary>
     internal Portal ContentPart => _portal;
 
     /// <summary>
+    /// Gets the active arrow element mounted in <see cref="ContentPart"/>, or <see langword="null"/> when no arrow is shown.
+    /// </summary>
+    internal UIElement? ArrowPart => _mountedArrow;
+
+    /// <summary>
     /// Returns an empty value for <c>data-open</c> while open and for <c>data-closed</c> while closed, and for
-    /// <c>data-starting-style</c> and <c>data-ending-style</c> while the content part has them. A selector such as
-    /// <c>Popover[data-starting-style]::part(content)</c> styles the content during its motion.
+    /// <c>data-starting-style</c>, <c>data-ending-style</c>, <c>data-side</c>, and <c>data-align</c> while the content part
+    /// has them. A selector such as <c>Popover[data-starting-style]::part(content)</c> styles the content during its motion.
     /// </summary>
     /// <param name="name">The attribute name.</param>
     public override string? GetAttribute(string name)
     {
-        if (name is "data-starting-style" or "data-ending-style")
+        if (name is "data-starting-style" or "data-ending-style" or "data-side" or "data-align")
         {
             return _portal.GetAttribute(name);
         }
@@ -290,7 +354,7 @@ public class Popover : Control
 
         if (IsOpen)
         {
-            target.SetPopupOpen(true);
+            target.IsPopupOpen = true;
         }
     }
 
@@ -305,7 +369,7 @@ public class Popover : Control
         _targetGesture = null;
         if (IsOpen)
         {
-            target.SetPopupOpen(false);
+            target.IsPopupOpen = false;
         }
 
         if (_isTargetHosted)
@@ -317,10 +381,44 @@ public class Popover : Control
 
     private void OnContentChanged(UIElement? content)
     {
-        _portal.Children.Clear();
+        if (_contentElement is not null)
+        {
+            _portal.Children.Remove(_contentElement);
+        }
+
+        _contentElement = content;
         if (content is not null)
         {
-            _portal.Children.Add(content);
+            int index = _mountedArrow is not null && _portal.Children.Count > 0 ? _portal.Children.Count - 1 : _portal.Children.Count;
+            _portal.Children.Insert(index, content);
+        }
+    }
+
+    private void SyncArrow()
+    {
+        UIElement? nextArrow = Arrow ?? (HasArrow ? (_defaultArrow ??= new View()) : null);
+        if (ReferenceEquals(_mountedArrow, nextArrow))
+        {
+            return;
+        }
+
+        if (_mountedArrow is UIElement previous)
+        {
+            previous.ClearTemplatePart();
+            _portal.Children.Remove(previous);
+        }
+
+        _mountedArrow = nextArrow;
+        if (nextArrow is not null)
+        {
+            nextArrow.Position = NativeUI.Layout.Position.Absolute;
+            if (!ReferenceEquals(nextArrow.TemplatedParent, this))
+            {
+                nextArrow.ClearTemplatePart();
+                DefinePart(nextArrow, ArrowPartName);
+            }
+
+            _portal.Children.Add(nextArrow);
         }
     }
 
@@ -337,7 +435,10 @@ public class Popover : Control
     private void OnIsOpenChanged(bool isOpen)
     {
         UpdateOpenState(isOpen);
-        Target?.SetPopupOpen(isOpen);
+        if (Target is UIElement target)
+        {
+            target.IsPopupOpen = isOpen;
+        }
         if (!isOpen)
         {
             _portal.Close();
@@ -345,7 +446,7 @@ public class Popover : Control
         }
 
         _portal.Show(Target);
-        if (FindFocusManager() is FocusManager focusManager && !focusManager.FocusFirst(_portal))
+        if (!_portal.MoveFocus(FocusNavigationDirection.First))
         {
             _portal.Focus();
         }

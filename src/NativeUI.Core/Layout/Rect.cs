@@ -55,4 +55,16 @@ public readonly record struct Rect(double X, double Y, double Width, double Heig
 
         return new Rect(0, 0, 0, 0);
     }
+
+    /// <summary>
+    /// Computes the smallest rectangle that contains both this rectangle and <paramref name="other"/>.
+    /// </summary>
+    public Rect Union(Rect other)
+    {
+        double left = Math.Min(X, other.X);
+        double top = Math.Min(Y, other.Y);
+        double right = Math.Max(Right, other.Right);
+        double bottom = Math.Max(Bottom, other.Bottom);
+        return new Rect(left, top, right - left, bottom - top);
+    }
 }

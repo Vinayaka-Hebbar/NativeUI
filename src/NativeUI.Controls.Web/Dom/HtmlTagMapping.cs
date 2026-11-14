@@ -30,6 +30,7 @@ internal static class HtmlTagMapping
     private const string BreadcrumbItemTag = "nui-breadcrumbitem";
     private const string ButtonGroupTag = "nui-buttongroup";
     private const string PopoverTag = "nui-popover";
+    private const string TooltipTag = "nui-tooltip";
 
     /// <summary>
     /// Gets the tag created for <paramref name="element"/>.
@@ -152,6 +153,11 @@ internal static class HtmlTagMapping
         if (element is Popover)
         {
             return PopoverTag;
+        }
+
+        if (element is Tooltip)
+        {
+            return TooltipTag;
         }
 
         return ContainerTag;
@@ -280,6 +286,11 @@ internal static class HtmlTagMapping
             return PopoverTag;
         }
 
+        if (typeof(Tooltip).IsAssignableFrom(type))
+        {
+            return TooltipTag;
+        }
+
         // A base type or interface of Text also covers controls rendered with the container tag.
         return type.IsAssignableFrom(typeof(Text)) ? $":is({TextTag}, {ContainerTag})" : ContainerTag;
     }
@@ -318,6 +329,7 @@ internal static class HtmlTagMapping
             "breadcrumbitem" => BreadcrumbItemTag,
             "buttongroup" => ButtonGroupTag,
             "popover" => PopoverTag,
+            "tooltip" => TooltipTag,
             _ => throw new NotSupportedException($"The element type '{elementType}' has no HTML element mapping.")
         };
     }

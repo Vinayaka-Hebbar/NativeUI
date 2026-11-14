@@ -100,7 +100,7 @@ internal sealed class StyleAnimator(UIElement element) : IFrameTarget
     /// Returns whether a transition is running or an animation with a finite number of iterations has not finished at
     /// <paramref name="now"/>.
     /// </summary>
-    public bool HasFiniteMotion(double now)
+    public bool HasRunningAnimations(double now)
     {
         if (_transitions.Count > 0)
         {

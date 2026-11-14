@@ -37,18 +37,18 @@ public enum PortalSide
 /// </summary>
 /// <remarks>
 /// The portal has <c>data-open</c> while open and <c>data-closed</c> while closed. It has <c>data-starting-style</c> in
-/// the first frame after it opens, so its transitions run from the styles that select that attribute. When it closes, it
+/// the first frame after it opens. Its transitions run from the styles that select that attribute. When it closes, it
 /// has <c>data-ending-style</c> and stays drawn until its own transitions and its animations with a finite number of
-/// iterations end. It takes no input during that time.
+/// iterations finish. It takes no input during that time. The attribute names come from Base UI.
 /// </remarks>
-public class Portal : View, IPortalLayoutNode
+public class Portal : View, IPortalLayoutNode, IFrameTarget
 {
     private static readonly List<Portal> s_openPortals = [];
 
-    private readonly MotionFrameTarget _motionFrameTarget;
-    private bool _isStarting;
-    private bool _isEnding;
-    private bool _hasRenderedSinceMotion;
+    private TransitionStatus _transitionStatus;
+
+    // The transition status of the most recent frame that drew this portal.
+    private TransitionStatus? _renderedTransitionStatus;
 
     static Portal()
     {
@@ -117,34 +117,28 @@ public class Portal : View, IPortalLayoutNode
     internal event EventHandler? Closing;
 
     /// <summary>
-    /// Occurs when <see cref="IsStarting"/> or <see cref="IsEnding"/> changes.
+    /// Occurs when <see cref="TransitionStatus"/> changes.
     /// </summary>
-    internal event EventHandler? MotionChanged;
+    internal event EventHandler? TransitionStatusChanged;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Portal"/> class.
+    /// Occurs after an open or a close finishes.
     /// </summary>
-    public Portal()
-    {
-        _motionFrameTarget = new MotionFrameTarget(this);
-    }
+    internal event EventHandler? OpenChangeCompleted;
 
     /// <inheritdoc />
     public override string TagName => "portal";
 
     /// <inheritdoc />
-    public override bool IsVisible => base.IsVisible && (IsOpen || _isEnding);
+    public override bool IsVisible => base.IsVisible && (IsOpen || _transitionStatus == TransitionStatus.Ending);
 
     /// <summary>
-    /// Gets a value indicating whether the portal shows its first frame after opening, with <c>data-starting-style</c>.
+    /// Gets the phase of the open and close transitions.
     /// </summary>
-    internal bool IsStarting => _isStarting;
+    internal TransitionStatus TransitionStatus => _transitionStatus;
 
-    /// <summary>
-    /// Gets a value indicating whether the portal is closed and stays drawn, with <c>data-ending-style</c>, until its
-    /// exit transitions and animations end.
-    /// </summary>
-    internal bool IsEnding => _isEnding;
+    /// <inheritdoc />
+    UIElement IFrameTarget.Target => this;
 
     /// <summary>
     /// Gets a value indicating whether this portal is open.
@@ -213,9 +207,9 @@ public class Portal : View, IPortalLayoutNode
             case "data-closed":
                 return IsOpen ? null : string.Empty;
             case "data-starting-style":
-                return _isStarting ? string.Empty : null;
+                return _transitionStatus == TransitionStatus.Starting ? string.Empty : null;
             case "data-ending-style":
-                return _isEnding ? string.Empty : null;
+                return _transitionStatus == TransitionStatus.Ending ? string.Empty : null;
         }
 
         if (string.Equals(name, "data-side", StringComparison.Ordinal))
@@ -237,12 +231,6 @@ public class Portal : View, IPortalLayoutNode
     internal virtual bool ClosesOnOutsidePress => true;
 
     /// <summary>
-    /// Gets a value indicating whether this portal shows <c>data-starting-style</c> when it opens and waits for its exit
-    /// motion when it closes.
-    /// </summary>
-    private protected virtual bool HasMotion => true;
-
-    /// <summary>
     /// Opens this portal next to <paramref name="anchor"/>, or centered when it is <see langword="null"/>. Calling this
     /// while open moves the portal to the new anchor.
     /// </summary>
@@ -260,12 +248,11 @@ public class Portal : View, IPortalLayoutNode
         s_openPortals.Add(this);
 
         // A portal that opens again during its exit transitions back from its current style.
-        bool wasEnding = _isEnding;
-        _isEnding = false;
-        _isStarting = HasMotion && !wasEnding;
+        TransitionStatus status = _transitionStatus == TransitionStatus.Ending ? TransitionStatus.Idle : TransitionStatus.Starting;
+        _transitionStatus = TransitionStatus.Idle;
         IsOpen = true;
         Opened?.Invoke(this, EventArgs.Empty);
-        StartMotion();
+        SetTransitionStatus(status);
     }
 
     /// <summary>
@@ -282,27 +269,43 @@ public class Portal : View, IPortalLayoutNode
         s_openPortals.Remove(this);
         if (States.HasFlag(ElementStates.FocusWithin))
         {
-            FindFocusManager()?.ReleaseFocus(this);
+            FindFocusManager()?.ClearFocus(this);
         }
 
-        _isStarting = false;
-        _isEnding = HasMotion && IsVisibleInTree;
-        if (!_isEnding)
-        {
-            Anchor = null;
-        }
-
+        // A drawn portal stays visible during its exit. Its status changes before IsOpen does.
+        _transitionStatus = IsVisibleInTree ? TransitionStatus.Ending : TransitionStatus.Idle;
         IsOpen = false;
         Closed?.Invoke(this, EventArgs.Empty);
         OnClosed();
-        StartMotion();
+        SetTransitionStatus(_transitionStatus);
     }
 
     /// <inheritdoc />
     internal override void MarkRendered()
     {
         base.MarkRendered();
-        _hasRenderedSinceMotion = true;
+        _renderedTransitionStatus = _transitionStatus;
+    }
+
+    /// <inheritdoc />
+    void IFrameTarget.Tick(double now)
+    {
+        if (_renderedTransitionStatus == _transitionStatus)
+        {
+            if (_transitionStatus == TransitionStatus.Starting)
+            {
+                SetTransitionStatus(TransitionStatus.Idle);
+            }
+            else if (_transitionStatus == TransitionStatus.Ending && !HasRunningAnimations)
+            {
+                SetTransitionStatus(TransitionStatus.Idle);
+            }
+        }
+
+        if (_transitionStatus == TransitionStatus.Idle)
+        {
+            AnimationClock.Remove(this);
+        }
     }
 
     /// <summary>
@@ -313,9 +316,18 @@ public class Portal : View, IPortalLayoutNode
     }
 
     /// <summary>
-    /// Runs after this portal closes and the <see cref="Closed"/> handlers have run.
+    /// Runs after this portal closes and the <see cref="Closed"/> handlers have run, before its exit animations finish.
     /// </summary>
     private protected virtual void OnClosed()
+    {
+    }
+
+    /// <summary>
+    /// Runs after an open or a close finishes: after the platform draws the starting style, or after the exit animations
+    /// finish and the portal is hidden. <see cref="IsOpen"/> tells which. A portal that opens again during its exit does
+    /// not run it for that exit.
+    /// </summary>
+    private protected virtual void OnOpenChangeComplete()
     {
     }
 
@@ -339,9 +351,9 @@ public class Portal : View, IPortalLayoutNode
         if (disposing)
         {
             s_openPortals.Remove(this);
-            if (_isStarting || _isEnding)
+            if (_transitionStatus != TransitionStatus.Idle)
             {
-                AnimationClock.Remove(_motionFrameTarget);
+                AnimationClock.Remove(this);
             }
         }
 
@@ -349,83 +361,68 @@ public class Portal : View, IPortalLayoutNode
     }
 
     /// <summary>
-    /// Ends the starting style or the exit after the platform draws them: through <see cref="IPortalPeer"/> on a platform
-    /// that runs transitions itself, and otherwise on the frames of <see cref="AnimationClock"/>. Without either, both
-    /// end at once.
+    /// Sets the transition phase and waits for it to end. <see cref="TransitionStatus.Starting"/> ends after the platform
+    /// draws the starting style. <see cref="TransitionStatus.Ending"/> ends after the exit animations finish. A platform
+    /// that runs transitions itself reports both through <see cref="IPortalPeer"/>. Otherwise the frames of
+    /// <see cref="AnimationClock"/> report them, and without a running clock both end at once.
     /// </summary>
-    private void StartMotion()
+    private void SetTransitionStatus(TransitionStatus status)
     {
+        TransitionStatus previous = _transitionStatus;
+        _transitionStatus = status;
         InvalidateStyle();
-        MotionChanged?.Invoke(this, EventArgs.Empty);
-        if (!_isStarting && !_isEnding)
+        TransitionStatusChanged?.Invoke(this, EventArgs.Empty);
+        if (status == TransitionStatus.Idle)
         {
+            if (!IsOpen)
+            {
+                Anchor = null;
+                if (previous == TransitionStatus.Ending)
+                {
+                    OnIsVisibleChanged();
+                }
+            }
+
+            if (previous != TransitionStatus.Idle || !IsOpen)
+            {
+                OnOpenChangeComplete();
+                OpenChangeCompleted?.Invoke(this, EventArgs.Empty);
+            }
+
             return;
         }
 
-        _hasRenderedSinceMotion = false;
+        _renderedTransitionStatus = null;
         if (NativeHandle is IPortalPeer peer)
         {
-            if (_isStarting)
+            if (status == TransitionStatus.Starting)
             {
-                peer.WaitForStartingStyle(EndStartingStyle);
+                peer.RequestAnimationFrame(() =>
+                {
+                    if (_transitionStatus == TransitionStatus.Starting)
+                    {
+                        SetTransitionStatus(TransitionStatus.Idle);
+                    }
+                });
             }
             else
             {
-                peer.WaitForEndingMotion(EndExit);
+                peer.WaitForAnimations(() =>
+                {
+                    if (_transitionStatus == TransitionStatus.Ending)
+                    {
+                        SetTransitionStatus(TransitionStatus.Idle);
+                    }
+                });
             }
         }
         else if (AnimationClock.IsEnabled)
         {
-            AnimationClock.Add(_motionFrameTarget);
+            AnimationClock.Add(this);
         }
         else
         {
-            EndStartingStyle();
-            EndExit();
-        }
-    }
-
-    /// <summary>
-    /// Advances the motion on a frame of <see cref="AnimationClock"/> after the portal has been drawn in its current state.
-    /// </summary>
-    private void OnMotionFrame()
-    {
-        if (_hasRenderedSinceMotion)
-        {
-            if (_isStarting)
-            {
-                EndStartingStyle();
-            }
-            else if (_isEnding && !HasFiniteMotion)
-            {
-                EndExit();
-            }
-        }
-
-        if (!_isStarting && !_isEnding)
-        {
-            AnimationClock.Remove(_motionFrameTarget);
-        }
-    }
-
-    private void EndStartingStyle()
-    {
-        if (_isStarting)
-        {
-            _isStarting = false;
-            InvalidateStyle();
-            MotionChanged?.Invoke(this, EventArgs.Empty);
-        }
-    }
-
-    private void EndExit()
-    {
-        if (_isEnding)
-        {
-            _isEnding = false;
-            Anchor = null;
-            OnIsVisibleChanged();
-            MotionChanged?.Invoke(this, EventArgs.Empty);
+            SetTransitionStatus(TransitionStatus.Idle);
         }
     }
 
@@ -472,19 +469,5 @@ public class Portal : View, IPortalLayoutNode
         }
 
         return false;
-    }
-
-    /// <summary>
-    /// Receives the frames of <see cref="AnimationClock"/> while the portal waits for its starting style to be drawn or
-    /// for its exit motion to end.
-    /// </summary>
-    private sealed class MotionFrameTarget(Portal portal) : IFrameTarget
-    {
-        public UIElement Target => portal;
-
-        public void Tick(double now)
-        {
-            portal.OnMotionFrame();
-        }
     }
 }

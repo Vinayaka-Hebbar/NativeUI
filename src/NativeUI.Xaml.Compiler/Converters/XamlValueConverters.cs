@@ -15,8 +15,7 @@ internal static class XamlValueConverters
     {
         [XamlPropertyKind.String] = new StringConverter(),
         [XamlPropertyKind.Boolean] = new BooleanConverter(),
-        [XamlPropertyKind.Int32] = new Int32Converter(NumberStyles.Integer),
-        [XamlPropertyKind.AttachedInt32] = new Int32Converter(NumberStyles.None),
+        [XamlPropertyKind.Int32] = new Int32Converter(),
         [XamlPropertyKind.Int64] = new Int64Converter(),
         [XamlPropertyKind.Double] = new DoubleConverter(),
         [XamlPropertyKind.StyleLength] = new DoubleConverter(),
@@ -133,12 +132,12 @@ internal static class XamlValueConverters
         }
     }
 
-    private sealed class Int32Converter(NumberStyles styles) : XamlValueConverter
+    private sealed class Int32Converter : XamlValueConverter
     {
         public override bool TryConvert(string literal, out ExpressionSyntax? value)
         {
             value = null;
-            if (!int.TryParse(literal, styles, CultureInfo.InvariantCulture, out int result))
+            if (!int.TryParse(literal, NumberStyles.Integer, CultureInfo.InvariantCulture, out int result))
             {
                 return false;
             }

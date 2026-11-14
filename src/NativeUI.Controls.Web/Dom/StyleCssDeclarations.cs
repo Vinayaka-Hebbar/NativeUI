@@ -151,6 +151,13 @@ internal static class StyleCssDeclarations
             return null;
         }
 
+        if (transform.Rotation != 0)
+        {
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"translate(calc({transform.TranslateX:R}px + {transform.TranslateXPercent:R}%), calc({transform.TranslateY:R}px + {transform.TranslateYPercent:R}%)) rotate({transform.Rotation:R}deg) scale({transform.ScaleX:R}, {transform.ScaleY:R})");
+        }
+
         return string.Create(
             CultureInfo.InvariantCulture,
             $"translate(calc({transform.TranslateX:R}px + {transform.TranslateXPercent:R}%), calc({transform.TranslateY:R}px + {transform.TranslateYPercent:R}%)) scale({transform.ScaleX:R}, {transform.ScaleY:R})");

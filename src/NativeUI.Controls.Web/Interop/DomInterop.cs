@@ -303,8 +303,8 @@ public static partial class DomInterop
     /// Invokes <paramref name="completed"/> after the transitions and the animations with a finite number of iterations
     /// of <paramref name="element"/> itself end, or at once when it has none.
     /// </summary>
-    [JSImport("waitForMotion", "nativeui-dom")]
-    public static partial void WaitForMotion(JSObject element, [JSMarshalAs<JSType.Function>] Action completed);
+    [JSImport("waitForAnimations", "nativeui-dom")]
+    public static partial void WaitForAnimations(JSObject element, [JSMarshalAs<JSType.Function>] Action completed);
 
     /// <summary>
     /// Requests an animation frame and returns its cancellation identifier.

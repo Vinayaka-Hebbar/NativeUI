@@ -20,7 +20,7 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
     private static int s_lastGeneratedId;
 
     private readonly Portal _portal;
-    private Action? _startingStyleCompleted;
+    private Action? _pendingAnimationFrame;
     private readonly string _generatedId = "nui-portal-" + Interlocked.Increment(ref s_lastGeneratedId).ToString(CultureInfo.InvariantCulture);
     private bool _isMounted;
 
@@ -28,6 +28,7 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
         : base(portal, element, tagName)
     {
         _portal = portal;
+        _portal.TransitionStatusChanged += OnTransitionStatusChanged;
     }
 
     /// <summary>
@@ -55,7 +56,7 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
         base.Initialize();
         SetAttribute("id", ElementId);
         SetAttribute(StyleSheetCss.PortalAttribute, string.Empty);
-        UpdateMotionAttributes();
+        UpdateDataAttributes();
         UpdateMounted();
     }
 
@@ -69,7 +70,7 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
         }
         else if (ReferenceEquals(args.Property, Portal.IsOpenProperty))
         {
-            UpdateMotionAttributes();
+            UpdateDataAttributes();
             UpdateVisibility();
             UpdateMounted();
         }
@@ -122,78 +123,77 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
         }
 
         UpdatePosition();
-        if (_startingStyleCompleted is not null)
+        if (_pendingAnimationFrame is Action pending)
         {
-            EndStartingStyleAfterFrames();
+            _pendingAnimationFrame = null;
+            ((IPortalPeer)this).RequestAnimationFrame(pending);
         }
     }
 
     /// <inheritdoc />
-    void IPortalPeer.WaitForStartingStyle(Action completed)
+    protected override void OnDisposing()
     {
-        _startingStyleCompleted = completed;
-        if (_isMounted)
-        {
-            EndStartingStyleAfterFrames();
-        }
+        _portal.TransitionStatusChanged -= OnTransitionStatusChanged;
+        base.OnDisposing();
     }
 
-    /// <inheritdoc />
-    void IPortalPeer.WaitForEndingMotion(Action completed)
+    /// <summary>
+    /// Invokes <paramref name="callback"/> in the second animation frame after the element is mounted. The browser has
+    /// then drawn the element with its current attributes, and a style change after that starts transitions.
+    /// </summary>
+    void IPortalPeer.RequestAnimationFrame(Action callback)
     {
-        UpdateMotionAttributes();
-        if (!_isMounted || Element is not JSObject element)
+        if (!_isMounted)
         {
-            completed();
-            UpdateMounted();
+            _pendingAnimationFrame = callback;
             return;
         }
 
-        DomInterop.WaitForMotion(element, () =>
-        {
-            if (IsDisposed)
-            {
-                return;
-            }
-
-            completed();
-            UpdateMotionAttributes();
-            UpdateVisibility();
-            UpdateMounted();
-        });
-    }
-
-    /// <summary>
-    /// Removes <c>data-starting-style</c> in the second animation frame after mounting. The browser has then computed
-    /// the starting style, so removing the attribute starts the transitions.
-    /// </summary>
-    private void EndStartingStyleAfterFrames()
-    {
         DomInterop.RequestAnimationFrame(() => DomInterop.RequestAnimationFrame(() =>
         {
-            Action? completed = _startingStyleCompleted;
-            _startingStyleCompleted = null;
-            if (IsDisposed || completed is null)
+            if (!IsDisposed)
             {
-                return;
+                callback();
             }
-
-            completed();
-            UpdateMotionAttributes();
         }));
     }
 
+    /// <inheritdoc />
+    void IPortalPeer.WaitForAnimations(Action callback)
+    {
+        if (!_isMounted || Element is not JSObject element)
+        {
+            callback();
+            return;
+        }
+
+        DomInterop.WaitForAnimations(element, () =>
+        {
+            if (!IsDisposed)
+            {
+                callback();
+            }
+        });
+    }
+
+    private void OnTransitionStatusChanged(object? sender, EventArgs args)
+    {
+        UpdateDataAttributes();
+        UpdateVisibility();
+        UpdateMounted();
+    }
+
     /// <summary>
-    /// Writes the open state and the motion attributes of the portal. A portal in its exit is inert, which keeps it from
-    /// receiving input and focus.
+    /// Writes the open state and the transition attributes of the portal. A portal during its exit is inert, which keeps
+    /// it from receiving input and focus.
     /// </summary>
-    private void UpdateMotionAttributes()
+    private void UpdateDataAttributes()
     {
         SetAttribute("data-open", _portal.GetAttribute("data-open"));
         SetAttribute("data-closed", _portal.GetAttribute("data-closed"));
         SetAttribute("data-starting-style", _portal.GetAttribute("data-starting-style"));
         SetAttribute("data-ending-style", _portal.GetAttribute("data-ending-style"));
-        SetAttribute("inert", _portal.IsEnding ? string.Empty : null);
+        SetAttribute("inert", _portal.TransitionStatus == TransitionStatus.Ending ? string.Empty : null);
     }
 
     private void UpdatePosition()
@@ -211,11 +211,52 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
         using JSObject viewportSize = DomInterop.GetViewportSize();
         Rect viewport = new(0, 0, viewportSize.GetPropertyAsDouble("width"), viewportSize.GetPropertyAsDouble("height"));
 
-        Point position = PortalPlacement.Compute(_portal, anchor, bounds.Size, viewport, viewport);
+        Point position = PortalPlacement.Compute(_portal, anchor, bounds.Size, viewport, viewport, out PortalSide side);
         SetStyleProperty("left", position.X.ToString("R", CultureInfo.InvariantCulture) + "px");
         SetStyleProperty("top", position.Y.ToString("R", CultureInfo.InvariantCulture) + "px");
-        SetAttribute("data-side", _portal.GetAttribute("data-side"));
-        SetAttribute("data-align", _portal.GetAttribute("data-align"));
+        string? dataSide = _portal.GetAttribute("data-side");
+        string? dataAlign = _portal.GetAttribute("data-align");
+        SetAttribute("data-side", dataSide);
+        SetAttribute("data-align", dataAlign);
+        if (_portal.TemplatedParent?.NativeHandle is HtmlDomElement ownerDom)
+        {
+            ownerDom.SetAttribute("data-side", dataSide);
+            ownerDom.SetAttribute("data-align", dataAlign);
+        }
+
+        (UIElement? arrow, double arrowPadding) = _portal.TemplatedParent switch
+        {
+            Popover popover => (popover.ArrowPart, popover.ArrowPadding),
+            Tooltip tooltip => (tooltip.ArrowPart, tooltip.ArrowPadding),
+            _ => (null, 0.0)
+        };
+
+        if (arrow?.NativeHandle is HtmlDomElement arrowDom && arrowDom.Element is JSObject arrowElement)
+        {
+            arrowDom.SetAttribute("data-side", dataSide);
+            arrowDom.SetAttribute("data-align", dataAlign);
+            if (anchor is Rect anchorBounds)
+            {
+                double arrowWidth = arrowElement.GetPropertyAsDouble("offsetWidth");
+                double arrowHeight = arrowElement.GetPropertyAsDouble("offsetHeight");
+                Size arrowSize = arrowWidth > 0 && arrowHeight > 0
+                    ? new Size(arrowWidth, arrowHeight)
+                    : ReadBounds(arrowElement).Size;
+                Rect portalBounds = new(position.X, position.Y, bounds.Width, bounds.Height);
+                Point arrowOffset = PortalPlacement.ComputeArrowPosition(side, portalBounds, anchorBounds, arrowSize, arrowPadding);
+                arrowDom.SetStyleProperty("left", arrowOffset.X.ToString("R", CultureInfo.InvariantCulture) + "px");
+                arrowDom.SetStyleProperty("top", arrowOffset.Y.ToString("R", CultureInfo.InvariantCulture) + "px");
+                ApplyArrowBorderSides(arrowDom, side);
+            }
+        }
+    }
+
+    private static void ApplyArrowBorderSides(HtmlDomElement arrowDom, PortalSide side)
+    {
+        arrowDom.SetStyleProperty("border-top-width", side is PortalSide.Top or PortalSide.Right ? "0px" : null);
+        arrowDom.SetStyleProperty("border-right-width", side is PortalSide.Bottom or PortalSide.Right ? "0px" : null);
+        arrowDom.SetStyleProperty("border-bottom-width", side is PortalSide.Bottom or PortalSide.Left ? "0px" : null);
+        arrowDom.SetStyleProperty("border-left-width", side is PortalSide.Top or PortalSide.Left ? "0px" : null);
     }
 
     private static Rect ReadBounds(JSObject element)

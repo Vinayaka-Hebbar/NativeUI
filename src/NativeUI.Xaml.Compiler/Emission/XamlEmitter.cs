@@ -345,11 +345,6 @@ public static class XamlEmitter
             return ExpressionStatement(AssignmentExpression(SyntaxKind.AddAssignmentExpression, target, IdentifierName(rawLiteral)));
         }
 
-        if (kind == XamlPropertyKind.AttachedInt32)
-        {
-            return BuildAttachedSetterStatement(targetExpr, propertyName, rawLiteral);
-        }
-
         if (kind == XamlPropertyKind.StyleThickness)
         {
             return BuildStyleThicknessStatement(targetExpr, propertyName, rawLiteral);
@@ -363,6 +358,19 @@ public static class XamlEmitter
         string propertyName,
         ExpressionSyntax value)
     {
+        string[] parts = propertyName.Split('.');
+        if (parts.Length == 2)
+        {
+            MemberAccessExpressionSyntax setter = MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                IdentifierName(parts[0]),
+                IdentifierName($"Set{parts[1]}"));
+
+            return ExpressionStatement(
+                InvocationExpression(setter)
+                    .WithArgumentList(ArgumentList(SeparatedList([Argument(targetExpr), Argument(value)]))));
+        }
+
         ExpressionSyntax targetMember = targetExpr is ThisExpressionSyntax
             ? IdentifierName(propertyName)
             : MemberAccessExpression(
@@ -372,24 +380,6 @@ public static class XamlEmitter
 
         return ExpressionStatement(
             AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, targetMember, value));
-    }
-
-    /// <summary>
-    /// Emits <c>Grid.SetRow(target, 1);</c> for the attribute <c>Grid.Row="1"</c>.
-    /// </summary>
-    private static ExpressionStatementSyntax BuildAttachedSetterStatement(ExpressionSyntax targetExpr, string propertyName, string rawLiteral)
-    {
-        string[] parts = propertyName.Split('.');
-        MemberAccessExpressionSyntax setter = MemberAccessExpression(
-            SyntaxKind.SimpleMemberAccessExpression,
-            IdentifierName(parts[0]),
-            IdentifierName($"Set{parts[1]}"));
-
-        ExpressionSyntax value = BuildLiteralValue(XamlPropertyKind.AttachedInt32, rawLiteral);
-
-        return ExpressionStatement(
-            InvocationExpression(setter)
-                .WithArgumentList(ArgumentList(SeparatedList([Argument(targetExpr), Argument(value)]))));
     }
 
     /// <summary>
@@ -434,10 +424,16 @@ public static class XamlEmitter
         string? dataType,
         string viewNamespace)
     {
-        ExpressionSyntax propertyDescriptor = MemberAccessExpression(
-            SyntaxKind.SimpleMemberAccessExpression,
-            ParseExpression(controlTypeName),
-            IdentifierName($"{propertyName}Property"));
+        string[] propertyParts = propertyName.Split('.');
+        ExpressionSyntax propertyDescriptor = propertyParts.Length == 2
+            ? MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                IdentifierName(propertyParts[0]),
+                IdentifierName($"{propertyParts[1]}Property"))
+            : MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                ParseExpression(controlTypeName),
+                IdentifierName($"{propertyName}Property"));
 
         ExpressionSyntax modeEnum = MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,

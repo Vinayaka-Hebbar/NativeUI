@@ -21,7 +21,7 @@ public sealed class HtmlDomPopover : HtmlDomView
         : base(popover, element, tagName)
     {
         _popover = popover;
-        _popover.ContentPart.MotionChanged += OnMotionChanged;
+        _popover.ContentPart.TransitionStatusChanged += OnTransitionStatusChanged;
     }
 
     /// <inheritdoc />
@@ -50,7 +50,7 @@ public sealed class HtmlDomPopover : HtmlDomView
     /// <inheritdoc />
     protected override void OnDisposing()
     {
-        _popover.ContentPart.MotionChanged -= OnMotionChanged;
+        _popover.ContentPart.TransitionStatusChanged -= OnTransitionStatusChanged;
         SetTargetAttributes(_target, isOpen: null, contentId: null);
         _target = null;
         base.OnDisposing();
@@ -62,7 +62,7 @@ public sealed class HtmlDomPopover : HtmlDomView
         _target = _popover.Target;
     }
 
-    private void OnMotionChanged(object? sender, EventArgs args)
+    private void OnTransitionStatusChanged(object? sender, EventArgs args)
     {
         SetAttribute("data-starting-style", _popover.GetAttribute("data-starting-style"));
         SetAttribute("data-ending-style", _popover.GetAttribute("data-ending-style"));

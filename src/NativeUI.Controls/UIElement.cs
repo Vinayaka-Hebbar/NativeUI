@@ -25,7 +25,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     private IStyleResolver? _styleResolver;
     private RoutedEventHandlerStore? _routedHandlers;
     private StyleAnimator? _animator;
-    private int _openPopupCount;
+    private bool _isPopupOpen;
     private static readonly TimeSpan s_defaultAnimationDuration = TimeSpan.FromMilliseconds(300);
 
     /// <summary>
@@ -473,7 +473,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// <summary>
     /// Gets or sets the position of this element in the keyboard navigation order. Elements with a positive value come
     /// first in ascending order, followed by elements with zero in tree order. An element with a negative value receives
-    /// focus only from <see cref="Focus"/> or a pointer press.
+    /// focus only from <see cref="Focus()"/> or a pointer press.
     /// </summary>
     public int TabIndex
     {
@@ -487,13 +487,45 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     public bool IsFocused => States.HasFlag(ElementStates.Focus);
 
     /// <summary>
-    /// Moves keyboard focus to this element. Focus moves only while the element is <see cref="Focusable"/>, enabled,
-    /// visible, and presented by a platform host.
+    /// Gets how this element received keyboard focus, or <see cref="FocusState.Unfocused"/> while it does not have focus.
+    /// </summary>
+    public FocusState FocusState { get; internal set; }
+
+    /// <summary>
+    /// Moves keyboard focus to this element as code does. Focus moves only while the element is <see cref="Focusable"/>,
+    /// enabled, visible, and presented by a platform host.
     /// </summary>
     /// <returns><see langword="true"/> when this element has focus after the call.</returns>
     public bool Focus()
     {
-        return FindFocusManager()?.Focus(this) ?? false;
+        return Focus(FocusState.Programmatic);
+    }
+
+    /// <summary>
+    /// Moves keyboard focus to this element as <paramref name="state"/> describes. Focus moves only while the element is
+    /// <see cref="Focusable"/>, enabled, visible, and presented by a platform host.
+    /// </summary>
+    /// <param name="state">How focus moves to the element, which decides whether the focus is visible.
+    /// <see cref="FocusState.Unfocused"/> is not valid.</param>
+    /// <returns><see langword="true"/> when this element has focus after the call.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="state"/> is <see cref="FocusState.Unfocused"/>.</exception>
+    public bool Focus(FocusState state)
+    {
+        ArgumentOutOfRangeException.ThrowIfEqual(state, FocusState.Unfocused);
+        return FindFocusManager()?.Focus(this, state) ?? false;
+    }
+
+    /// <summary>
+    /// Moves keyboard focus from this element in <paramref name="direction"/> as code does.
+    /// <see cref="FocusNavigationDirection.Next"/> and <see cref="FocusNavigationDirection.Previous"/> move to the element
+    /// after or before this one in the navigation order. <see cref="FocusNavigationDirection.First"/> and
+    /// <see cref="FocusNavigationDirection.Last"/> move to the first or last element inside this one.
+    /// </summary>
+    /// <param name="direction">The direction to move focus.</param>
+    /// <returns><see langword="true"/> when an element received focus.</returns>
+    public bool MoveFocus(FocusNavigationDirection direction)
+    {
+        return FindFocusManager()?.MoveFocus(this, direction, FocusState.Programmatic) ?? false;
     }
 
     /// <summary>
@@ -659,7 +691,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
 
             if (States.HasFlag(ElementStates.FocusWithin))
             {
-                FindFocusManager()?.ReleaseFocus(this);
+                FindFocusManager()?.ClearFocus(this);
             }
 
             _parent = value;
@@ -671,14 +703,21 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// Returns the value of the attribute <paramref name="name"/> that attribute selectors match, or
     /// <see langword="null"/> when the element has no such attribute. A control overrides this to expose the attributes
     /// that it also writes on Web, such as <c>data-sort</c>. The base implementation returns an empty value for
-    /// <c>data-popup-open</c> while a popup that this element opens is open, and <see langword="null"/> otherwise.
+    /// <c>data-popup-open</c> while <see cref="IsPopupOpen"/> is <see langword="true"/>, and <see langword="null"/> otherwise.
     /// </summary>
     /// <param name="name">The attribute name.</param>
     public virtual string? GetAttribute(string name)
     {
         if (string.Equals(name, "data-popup-open", StringComparison.Ordinal))
         {
-            return _openPopupCount > 0 ? string.Empty : null;
+            return _isPopupOpen ? string.Empty : null;
+        }
+
+        if (name is "data-side" or "data-align" &&
+            _parent is Portal portal &&
+            string.Equals(_partName, "arrow", StringComparison.Ordinal))
+        {
+            return portal.GetAttribute(name);
         }
 
         return null;
@@ -882,27 +921,31 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
-    /// Gets a value indicating whether this element edits text. Focus on such an element is visible after a pointer press too.
+    /// Gets a value indicating whether this element accepts text input. Focus on such an element is visible after a
+    /// pointer press too.
     /// </summary>
-    internal virtual bool EditsText => false;
+    internal virtual bool AcceptsTextInput => false;
 
     /// <summary>
     /// Gets a value indicating whether this element has a running transition or a running animation with a finite number
-    /// of iterations, the motion that an exit waits for.
+    /// of iterations, the animations that a closing popup waits for.
     /// </summary>
-    internal bool HasFiniteMotion => _animator?.HasFiniteMotion(AnimationClock.Now) ?? false;
+    internal bool HasRunningAnimations => _animator?.HasRunningAnimations(AnimationClock.Now) ?? false;
 
     /// <summary>
-    /// Records that a popup that this element opens has opened or closed. The element has <c>data-popup-open</c> while at
-    /// least one such popup is open.
+    /// Gets or sets a value indicating whether a popup that this element opens is open. The popup sets it. The element
+    /// has <c>data-popup-open</c> while it is <see langword="true"/>.
     /// </summary>
-    internal void SetPopupOpen(bool isOpen)
+    internal bool IsPopupOpen
     {
-        int previous = _openPopupCount;
-        _openPopupCount = Math.Max(0, _openPopupCount + (isOpen ? 1 : -1));
-        if ((previous > 0) != (_openPopupCount > 0))
+        get => _isPopupOpen;
+        set
         {
-            InvalidateStyle();
+            if (_isPopupOpen != value)
+            {
+                _isPopupOpen = value;
+                InvalidateStyle();
+            }
         }
     }
 
@@ -1010,7 +1053,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     {
         if (!IsVisible && States.HasFlag(ElementStates.FocusWithin))
         {
-            FindFocusManager()?.ReleaseFocus(this);
+            FindFocusManager()?.ClearFocus(this);
         }
 
         VisibilityChanged?.Invoke(this, EventArgs.Empty);
@@ -1064,7 +1107,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         {
             if (States.HasFlag(ElementStates.FocusWithin))
             {
-                FindFocusManager()?.ReleaseFocus(this);
+                FindFocusManager()?.ClearFocus(this);
             }
 
             _animator?.Cancel();
@@ -1236,7 +1279,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     {
         if (!isFocusable && IsFocused)
         {
-            FindFocusManager()?.ReleaseFocus(this);
+            FindFocusManager()?.ClearFocus(this);
         }
     }
 
@@ -1244,7 +1287,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     {
         if (!isEnabled && IsFocused)
         {
-            FindFocusManager()?.ReleaseFocus(this);
+            FindFocusManager()?.ClearFocus(this);
         }
 
         SetState(ElementStates.Disabled, !isEnabled);

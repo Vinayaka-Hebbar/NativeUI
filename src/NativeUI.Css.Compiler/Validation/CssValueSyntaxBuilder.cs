@@ -141,7 +141,9 @@ internal static class CssValueSyntaxBuilder
         double translateYPercent = 0;
         double scaleX = 1;
         double scaleY = 1;
+        double rotation = 0;
         bool hasScale = false;
+        bool hasRotation = false;
 
         foreach (CssValueSyntaxNode item in items)
         {
@@ -154,7 +156,7 @@ internal static class CssValueSyntaxBuilder
             IReadOnlyList<CssValueSyntaxNode> args = function.Arguments;
             if (name is "translate" or "translatex" or "translatey")
             {
-                if (hasScale)
+                if (hasScale || hasRotation)
                 {
                     return false;
                 }
@@ -175,6 +177,16 @@ internal static class CssValueSyntaxBuilder
                 {
                     return false;
                 }
+            }
+            else if (name == "rotate")
+            {
+                if (hasScale || args.Count != 1 || !TryReadAngleDegrees(args[0], out double angle))
+                {
+                    return false;
+                }
+
+                hasRotation = true;
+                rotation += angle;
             }
             else if (name is "scale" or "scalex" or "scaley")
             {
@@ -203,18 +215,49 @@ internal static class CssValueSyntaxBuilder
             }
         }
 
+        List<ArgumentSyntax> transformArgs =
+        [
+            Argument(DoubleLiteral(translateX)),
+            Argument(DoubleLiteral(translateY)),
+            Argument(DoubleLiteral(translateXPercent)),
+            Argument(DoubleLiteral(translateYPercent)),
+            Argument(DoubleLiteral(scaleX)),
+            Argument(DoubleLiteral(scaleY))
+        ];
+        if (rotation != 0)
+        {
+            transformArgs.Add(Argument(DoubleLiteral(rotation)));
+        }
+
         ExpressionSyntax transform = ObjectCreationExpression(ParseTypeName("StyleTransform"))
-            .WithArgumentList(ArgumentList(SeparatedList<ArgumentSyntax>(
-            [
-                Argument(DoubleLiteral(translateX)),
-                Argument(DoubleLiteral(translateY)),
-                Argument(DoubleLiteral(translateXPercent)),
-                Argument(DoubleLiteral(translateYPercent)),
-                Argument(DoubleLiteral(scaleX)),
-                Argument(DoubleLiteral(scaleY))
-            ])));
+            .WithArgumentList(ArgumentList(SeparatedList(transformArgs)));
         expression = BuildNewCssValue("CssTransformValue", transform);
         return true;
+    }
+
+    private static bool TryReadAngleDegrees(CssValueSyntaxNode node, out double degrees)
+    {
+        switch (node)
+        {
+            case CssNumberValueNode { Value: 0.0 }:
+                degrees = 0;
+                return true;
+            case CssDimensionValueNode dimension when string.Equals(dimension.Unit, "deg", StringComparison.OrdinalIgnoreCase):
+                degrees = dimension.Value;
+                return true;
+            case CssDimensionValueNode dimension when string.Equals(dimension.Unit, "rad", StringComparison.OrdinalIgnoreCase):
+                degrees = dimension.Value * (180.0 / Math.PI);
+                return true;
+            case CssDimensionValueNode dimension when string.Equals(dimension.Unit, "turn", StringComparison.OrdinalIgnoreCase):
+                degrees = dimension.Value * 360.0;
+                return true;
+            case CssDimensionValueNode dimension when string.Equals(dimension.Unit, "grad", StringComparison.OrdinalIgnoreCase):
+                degrees = dimension.Value * 0.9;
+                return true;
+            default:
+                degrees = 0;
+                return false;
+        }
     }
 
     /// <summary>

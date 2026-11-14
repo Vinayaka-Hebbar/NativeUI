@@ -92,6 +92,14 @@ public abstract class DrawingContext : IDisposable
     public abstract void Scale(float scaleX, float scaleY);
 
     /// <summary>
+    /// Rotates the coordinate space clockwise by <paramref name="degrees"/>.
+    /// </summary>
+    /// <param name="degrees">The clockwise rotation angle in degrees.</param>
+    public virtual void Rotate(float degrees)
+    {
+    }
+
+    /// <summary>
     /// Clears the drawing surface with the specified <paramref name="color"/>.
     /// </summary>
     /// <param name="color">The background color used to clear the surface.</param>

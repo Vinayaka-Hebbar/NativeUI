@@ -182,6 +182,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
             BreadcrumbItem breadcrumbItem => new HtmlDomBreadcrumbItem(breadcrumbItem, element, tagName),
             Separator separator => new HtmlDomSeparator(separator, element, tagName),
             Popover popover => new HtmlDomPopover(popover, element, tagName),
+            Tooltip tooltip => new HtmlDomTooltip(tooltip, element, tagName),
             Badge or Avatar => new HtmlDomView((View)source, element, tagName),
             Selector selector => new HtmlDomSelector(selector, element, tagName),
             ListItem listItem => new HtmlDomListItem(listItem, element, tagName),

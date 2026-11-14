@@ -263,13 +263,23 @@ internal sealed class HtmlDomRoot : IDisposable
     }
 
     /// <summary>
-    /// Records a browser focus change in the <see cref="FocusManager"/>. The browser owns focus on Web.
+    /// Records a browser focus change in the <see cref="FocusManager"/>. The browser owns focus on Web. Focus that matches
+    /// <c>:focus-visible</c> counts as keyboard focus, and other focus as pointer focus.
     /// </summary>
     private void OnFocus(int nodeId, bool isFocused, bool isVisible)
     {
-        if (HtmlDomElement.FindByNodeId(nodeId)?.Source is UIElement element)
+        if (_focusManager is null || HtmlDomElement.FindByNodeId(nodeId)?.Source is not UIElement element)
         {
-            _focusManager?.SyncFocus(element, isFocused, isVisible);
+            return;
+        }
+
+        if (isFocused)
+        {
+            _focusManager.HandleGotFocus(element, isVisible ? FocusState.Keyboard : FocusState.Pointer);
+        }
+        else
+        {
+            _focusManager.HandleLostFocus(element);
         }
     }
 

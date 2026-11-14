@@ -233,9 +233,6 @@ public class Dialog : Portal, IWindowHostedElement
     internal override bool ClosesOnOutsidePress => !IsModal;
 
     /// <inheritdoc />
-    private protected override bool HasMotion => false;
-
-    /// <inheritdoc />
     private protected override void OnOpening()
     {
         if (Parent is not null)
@@ -252,17 +249,23 @@ public class Dialog : Portal, IWindowHostedElement
     /// <inheritdoc />
     private protected override void OnClosed()
     {
-        if (_isAttachedToOwner)
-        {
-            _isAttachedToOwner = false;
-            (Parent as View)?.Children.Remove(this);
-        }
-
         TaskCompletionSource<object?>? completion = _closeCompletion;
         object? result = _closeResult;
         _closeCompletion = null;
         _closeResult = null;
         completion?.SetResult(result);
+    }
+
+    /// <summary>
+    /// Leaves the <see cref="Owner"/> that hosted this dialog after its exit animations finish.
+    /// </summary>
+    private protected override void OnOpenChangeComplete()
+    {
+        if (!IsOpen && _isAttachedToOwner)
+        {
+            _isAttachedToOwner = false;
+            (Parent as View)?.Children.Remove(this);
+        }
     }
 
     /// <inheritdoc />
