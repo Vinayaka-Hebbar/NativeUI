@@ -91,8 +91,20 @@ Popover::part(content):focus-visible {
   border-color: var(--ring);
 }
 
-Popover:popover-open .popup-trigger {
+.popup-trigger[data-popup-open] {
   background-color: var(--muted);
+}
+
+Popover::part(content) {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 150ms ease-out, transform 150ms ease-out;
+}
+
+Popover[data-starting-style]::part(content),
+Popover[data-ending-style]::part(content) {
+  opacity: 0;
+  transform: scale(0.96);
 }
 
 .popup-panel-title {

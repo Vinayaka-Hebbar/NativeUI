@@ -1451,6 +1451,12 @@ public sealed class Window : IDisposable, IRenderHost
 
         for (int i = _renderer.PortalBoxes.Count - 1; i >= 0; i--)
         {
+            // A portal that is closed and still drawn during its exit takes no input.
+            if (_renderer.PortalBoxes[i].Element is Portal { IsOpen: false })
+            {
+                continue;
+            }
+
             UIElement? portalMatch = HitTest(_renderer.PortalBoxes[i], position);
             if (portalMatch is not null)
             {

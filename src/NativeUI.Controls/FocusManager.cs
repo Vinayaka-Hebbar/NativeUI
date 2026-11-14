@@ -17,7 +17,7 @@ namespace NativeUI.Controls;
 public sealed class FocusManager : IDisposable
 {
     private UIElement[] _focusPath = [];
-    private bool _isKeyboardModality;
+    private bool _hadKeyboardInput;
     private bool _disposed;
 
     /// <summary>
@@ -62,7 +62,7 @@ public sealed class FocusManager : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        _isKeyboardModality = true;
+        _hadKeyboardInput = true;
         List<UIElement> order = GetNavigationOrder();
         if (order.Count == 0)
         {
@@ -130,7 +130,7 @@ public sealed class FocusManager : IDisposable
     /// <param name="element">The element whose platform element gained or lost focus.</param>
     /// <param name="isFocused">Whether the platform element has focus.</param>
     /// <param name="isVisible">Whether the platform indicates the focus visibly, or <see langword="null"/> to decide from
-    /// the input modality.</param>
+    /// the latest input, a key press or a pointer press.</param>
     internal void SyncFocus(UIElement element, bool isFocused, bool? isVisible = null)
     {
         if (_disposed)
@@ -163,7 +163,10 @@ public sealed class FocusManager : IDisposable
         }
 
         ApplyFocus(null, isVisible: false);
-        (focused.NativeHandle as IFocusPeer)?.Blur();
+        if (focused.NativeHandle is IFocusPeer peer)
+        {
+            peer.Blur();
+        }
     }
 
     /// <summary>
@@ -177,7 +180,7 @@ public sealed class FocusManager : IDisposable
             return;
         }
 
-        _isKeyboardModality = false;
+        _hadKeyboardInput = false;
         for (UIElement? current = target; current is not null; current = current.Parent)
         {
             if (CanFocus(current))
@@ -209,14 +212,41 @@ public sealed class FocusManager : IDisposable
             return false;
         }
 
-        _isKeyboardModality = true;
-        (FocusedElement ?? Root).RaiseEvent(routedEvent, args);
+        _hadKeyboardInput = true;
+        UIElement target = FocusedElement ?? Root;
+        target.RaiseEvent(routedEvent, args);
         return args.Handled;
     }
 
+    /// <summary>
+    /// Moves focus to the first element of <paramref name="scope"/> in the navigation order, such as the content of a
+    /// popup that just opened.
+    /// </summary>
+    /// <returns><see langword="true"/> when an element of <paramref name="scope"/> received focus.</returns>
+    internal bool FocusFirst(UIElement scope)
+    {
+        if (_disposed)
+        {
+            return false;
+        }
+
+        foreach (UIElement candidate in GetNavigationOrder())
+        {
+            if (IsInclusiveAncestor(scope, candidate))
+            {
+                return Focus(candidate);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Returns whether focus on <paramref name="element"/> is visible: after a key press, or on an element that edits text.
+    /// </summary>
     private bool IsFocusVisible(UIElement element)
     {
-        return _isKeyboardModality || element is Input;
+        return _hadKeyboardInput || element.EditsText;
     }
 
     private bool CanFocus(UIElement element)
@@ -246,29 +276,6 @@ public sealed class FocusManager : IDisposable
     }
 
     /// <summary>
-    /// Moves focus to the first element of <paramref name="scope"/> in the navigation order, such as the content of a
-    /// popup that just opened.
-    /// </summary>
-    /// <returns><see langword="true"/> when an element of <paramref name="scope"/> received focus.</returns>
-    internal bool FocusFirst(UIElement scope)
-    {
-        if (_disposed)
-        {
-            return false;
-        }
-
-        foreach (UIElement candidate in GetNavigationOrder())
-        {
-            if (IsInclusiveAncestor(scope, candidate))
-            {
-                return Focus(candidate);
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
     /// Returns the focusable elements with a non-negative <see cref="UIElement.TabIndex"/>: positive values first in
     /// ascending order, then zero in tree order. Hidden subtrees and subtrees with their own focus manager are skipped.
     /// The elements of an open portal with an anchor follow the anchor's subtree instead of the portal's own position.
@@ -281,12 +288,17 @@ public sealed class FocusManager : IDisposable
         List<UIElement> candidates = [];
         CollectCandidates(Root, candidates, anchoredPortals);
 
-        // A portal whose anchor is not in the visited tree follows every other element.
-        foreach (List<Portal> portals in anchoredPortals.Values.ToArray())
+        // A portal whose anchor is not in the visited tree follows every other element. Each anchor leaves the map before
+        // its portals are collected. A portal that an earlier portal already collected has no entry left.
+        UIElement[] remainingAnchors = [.. anchoredPortals.Keys];
+        foreach (UIElement anchor in remainingAnchors)
         {
-            foreach (Portal portal in portals)
+            if (anchoredPortals.Remove(anchor, out List<Portal>? portals))
             {
-                CollectPortalCandidates(portal, candidates, anchoredPortals);
+                foreach (Portal portal in portals)
+                {
+                    CollectPortalCandidates(portal, candidates, anchoredPortals);
+                }
             }
         }
 
@@ -300,7 +312,10 @@ public sealed class FocusManager : IDisposable
         }
 
         // A stable sort keeps tree order among equal positive values.
-        order = [.. order.OrderBy(static element => element.TabIndex)];
+        if (order.Count > 1)
+        {
+            order = [.. order.OrderBy(static element => element.TabIndex)];
+        }
         foreach (UIElement candidate in candidates)
         {
             if (candidate.TabIndex == 0)
@@ -315,6 +330,11 @@ public sealed class FocusManager : IDisposable
     private void CollectAnchoredPortals(UIElement element, Dictionary<UIElement, List<Portal>> anchoredPortals)
     {
         if (!element.IsVisible || (element.FocusManager is not null && !ReferenceEquals(element, Root)))
+        {
+            return;
+        }
+
+        if (element is Portal { IsOpen: false })
         {
             return;
         }
@@ -342,6 +362,12 @@ public sealed class FocusManager : IDisposable
     private void CollectCandidates(UIElement element, List<UIElement> candidates, Dictionary<UIElement, List<Portal>> anchoredPortals)
     {
         if (!element.IsVisible || (element.FocusManager is not null && !ReferenceEquals(element, Root)))
+        {
+            return;
+        }
+
+        // A portal that is closed and still drawn during its exit takes no focus.
+        if (element is Portal { IsOpen: false })
         {
             return;
         }
@@ -422,7 +448,9 @@ public sealed class FocusManager : IDisposable
         element?.SetState(ElementStates.FocusVisible, isVisible);
 
         // Descendant selectors make every element below a changed element depend on its state.
-        InvalidateTopmost(previous, element, shared < departed.Length ? departed[shared] : null, shared < entered.Length ? entered[shared] : null);
+        UIElement? departedBranch = shared < departed.Length ? departed[shared] : null;
+        UIElement? enteredBranch = shared < entered.Length ? entered[shared] : null;
+        InvalidateTopmost(previous, element, departedBranch, enteredBranch);
         FocusChanged?.Invoke(this, EventArgs.Empty);
 
         if (!ReferenceEquals(previous, element))

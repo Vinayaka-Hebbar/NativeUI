@@ -20,7 +20,13 @@ namespace NativeUI.Controls;
 /// <para>
 /// The popover has the <c>:popover-open</c> pseudo-class and <c>data-open</c> while open, and <c>data-closed</c> while
 /// closed. The content part has <c>data-side</c> with <see cref="Side"/> and <c>data-align</c> with <see cref="Align"/>.
-/// The content opens on the opposite side when it does not fit on <see cref="Side"/> and that side has more room.
+/// The content opens on the opposite side when it does not fit on <see cref="Side"/> and that side has more room. The
+/// target has <c>data-popup-open</c> while the popover is open.
+/// </para>
+/// <para>
+/// The popover and its content part have <c>data-starting-style</c> in the first frame after opening and
+/// <c>data-ending-style</c> while the content stays drawn during its exit. Transitions on the content part run from and to
+/// the styles that <c>Popover[data-starting-style]::part(content)</c> and <c>Popover[data-ending-style]::part(content)</c> set.
 /// </para>
 /// </remarks>
 [ContentProperty(nameof(Content))]
@@ -109,6 +115,7 @@ public class Popover : Control
         _portal.Opened += (_, _) => Opened?.Invoke(this, EventArgs.Empty);
         _portal.Closing += OnPortalClosing;
         _portal.Closed += OnPortalClosed;
+        _portal.MotionChanged += (_, _) => InvalidateStyle();
         KeyDown += OnKeyDown;
         UpdateOpenState(false);
     }
@@ -197,11 +204,18 @@ public class Popover : Control
     internal Portal ContentPart => _portal;
 
     /// <summary>
-    /// Returns an empty value for <c>data-open</c> while open and for <c>data-closed</c> while closed.
+    /// Returns an empty value for <c>data-open</c> while open and for <c>data-closed</c> while closed, and for
+    /// <c>data-starting-style</c> and <c>data-ending-style</c> while the content part has them. A selector such as
+    /// <c>Popover[data-starting-style]::part(content)</c> styles the content during its motion.
     /// </summary>
     /// <param name="name">The attribute name.</param>
     public override string? GetAttribute(string name)
     {
+        if (name is "data-starting-style" or "data-ending-style")
+        {
+            return _portal.GetAttribute(name);
+        }
+
         if (string.Equals(name, "data-open", StringComparison.Ordinal))
         {
             return IsOpen ? string.Empty : null;
@@ -273,6 +287,11 @@ public class Popover : Control
         {
             _targetGesture = ClickGesture.Attach(target, Toggle);
         }
+
+        if (IsOpen)
+        {
+            target.SetPopupOpen(true);
+        }
     }
 
     private void DetachTarget(UIElement target)
@@ -284,6 +303,11 @@ public class Popover : Control
 
         _targetGesture?.Dispose();
         _targetGesture = null;
+        if (IsOpen)
+        {
+            target.SetPopupOpen(false);
+        }
+
         if (_isTargetHosted)
         {
             _isTargetHosted = false;
@@ -313,6 +337,7 @@ public class Popover : Control
     private void OnIsOpenChanged(bool isOpen)
     {
         UpdateOpenState(isOpen);
+        Target?.SetPopupOpen(isOpen);
         if (!isOpen)
         {
             _portal.Close();

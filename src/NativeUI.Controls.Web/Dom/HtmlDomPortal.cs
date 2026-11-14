@@ -15,9 +15,13 @@ namespace NativeUI.Controls.Web;
 /// does not follow a later scroll or resize.
 /// </summary>
 [SupportedOSPlatform("browser")]
-public class HtmlDomPortal : HtmlDomView
+public class HtmlDomPortal : HtmlDomView, IPortalPeer
 {
+    private static int s_lastGeneratedId;
+
     private readonly Portal _portal;
+    private Action? _startingStyleCompleted;
+    private readonly string _generatedId = "nui-portal-" + Interlocked.Increment(ref s_lastGeneratedId).ToString(CultureInfo.InvariantCulture);
     private bool _isMounted;
 
     internal HtmlDomPortal(Portal portal, JSObject? element, string tagName)
@@ -39,11 +43,19 @@ public class HtmlDomPortal : HtmlDomView
         _portal.Close();
     }
 
+    /// <summary>
+    /// Gets the id of the element: <see cref="UIElement.Id"/>, or a generated id when it is <see langword="null"/>, so
+    /// <c>aria-controls</c> on the anchor can refer to the element.
+    /// </summary>
+    internal string ElementId => Source.Id ?? _generatedId;
+
     /// <inheritdoc />
     protected override void Initialize()
     {
         base.Initialize();
+        SetAttribute("id", ElementId);
         SetAttribute(StyleSheetCss.PortalAttribute, string.Empty);
+        UpdateMotionAttributes();
         UpdateMounted();
     }
 
@@ -51,8 +63,13 @@ public class HtmlDomPortal : HtmlDomView
     protected override void OnPropertyChanged(BindablePropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (ReferenceEquals(args.Property, Portal.IsOpenProperty))
+        if (ReferenceEquals(args.Property, UIElement.IdProperty))
         {
+            SetAttribute("id", ElementId);
+        }
+        else if (ReferenceEquals(args.Property, Portal.IsOpenProperty))
+        {
+            UpdateMotionAttributes();
             UpdateVisibility();
             UpdateMounted();
         }
@@ -72,7 +89,7 @@ public class HtmlDomPortal : HtmlDomView
             return;
         }
 
-        if (!_portal.IsOpen)
+        if (!_portal.IsVisible)
         {
             if (_isMounted)
             {
@@ -105,6 +122,78 @@ public class HtmlDomPortal : HtmlDomView
         }
 
         UpdatePosition();
+        if (_startingStyleCompleted is not null)
+        {
+            EndStartingStyleAfterFrames();
+        }
+    }
+
+    /// <inheritdoc />
+    void IPortalPeer.WaitForStartingStyle(Action completed)
+    {
+        _startingStyleCompleted = completed;
+        if (_isMounted)
+        {
+            EndStartingStyleAfterFrames();
+        }
+    }
+
+    /// <inheritdoc />
+    void IPortalPeer.WaitForEndingMotion(Action completed)
+    {
+        UpdateMotionAttributes();
+        if (!_isMounted || Element is not JSObject element)
+        {
+            completed();
+            UpdateMounted();
+            return;
+        }
+
+        DomInterop.WaitForMotion(element, () =>
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            completed();
+            UpdateMotionAttributes();
+            UpdateVisibility();
+            UpdateMounted();
+        });
+    }
+
+    /// <summary>
+    /// Removes <c>data-starting-style</c> in the second animation frame after mounting. The browser has then computed
+    /// the starting style, so removing the attribute starts the transitions.
+    /// </summary>
+    private void EndStartingStyleAfterFrames()
+    {
+        DomInterop.RequestAnimationFrame(() => DomInterop.RequestAnimationFrame(() =>
+        {
+            Action? completed = _startingStyleCompleted;
+            _startingStyleCompleted = null;
+            if (IsDisposed || completed is null)
+            {
+                return;
+            }
+
+            completed();
+            UpdateMotionAttributes();
+        }));
+    }
+
+    /// <summary>
+    /// Writes the open state and the motion attributes of the portal. A portal in its exit is inert, which keeps it from
+    /// receiving input and focus.
+    /// </summary>
+    private void UpdateMotionAttributes()
+    {
+        SetAttribute("data-open", _portal.GetAttribute("data-open"));
+        SetAttribute("data-closed", _portal.GetAttribute("data-closed"));
+        SetAttribute("data-starting-style", _portal.GetAttribute("data-starting-style"));
+        SetAttribute("data-ending-style", _portal.GetAttribute("data-ending-style"));
+        SetAttribute("inert", _portal.IsEnding ? string.Empty : null);
     }
 
     private void UpdatePosition()

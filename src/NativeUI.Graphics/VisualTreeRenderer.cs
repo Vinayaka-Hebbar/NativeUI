@@ -175,7 +175,7 @@ public sealed class VisualTreeRenderer : IDisposable
         {
             if (child is Portal portal)
             {
-                if (portal.IsOpen && portal is not IWindowHostedElement { HasOwnWindow: true })
+                if (portal.IsVisible && portal is not IWindowHostedElement { HasOwnWindow: true })
                 {
                     portals.Add(portal);
                     CollectOpenPortals(portal, portals);

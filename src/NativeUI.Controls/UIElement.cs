@@ -25,6 +25,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     private IStyleResolver? _styleResolver;
     private RoutedEventHandlerStore? _routedHandlers;
     private StyleAnimator? _animator;
+    private int _openPopupCount;
     private static readonly TimeSpan s_defaultAnimationDuration = TimeSpan.FromMilliseconds(300);
 
     /// <summary>
@@ -669,11 +670,17 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// <summary>
     /// Returns the value of the attribute <paramref name="name"/> that attribute selectors match, or
     /// <see langword="null"/> when the element has no such attribute. A control overrides this to expose the attributes
-    /// that it also writes on Web, such as <c>data-sort</c>. The base implementation returns <see langword="null"/>.
+    /// that it also writes on Web, such as <c>data-sort</c>. The base implementation returns an empty value for
+    /// <c>data-popup-open</c> while a popup that this element opens is open, and <see langword="null"/> otherwise.
     /// </summary>
     /// <param name="name">The attribute name.</param>
     public virtual string? GetAttribute(string name)
     {
+        if (string.Equals(name, "data-popup-open", StringComparison.Ordinal))
+        {
+            return _openPopupCount > 0 ? string.Empty : null;
+        }
+
         return null;
     }
 
@@ -869,9 +876,34 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// <summary>
     /// Records that a host drew this element.
     /// </summary>
-    internal void MarkRendered()
+    internal virtual void MarkRendered()
     {
         HasRendered = true;
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether this element edits text. Focus on such an element is visible after a pointer press too.
+    /// </summary>
+    internal virtual bool EditsText => false;
+
+    /// <summary>
+    /// Gets a value indicating whether this element has a running transition or a running animation with a finite number
+    /// of iterations, the motion that an exit waits for.
+    /// </summary>
+    internal bool HasFiniteMotion => _animator?.HasFiniteMotion(AnimationClock.Now) ?? false;
+
+    /// <summary>
+    /// Records that a popup that this element opens has opened or closed. The element has <c>data-popup-open</c> while at
+    /// least one such popup is open.
+    /// </summary>
+    internal void SetPopupOpen(bool isOpen)
+    {
+        int previous = _openPopupCount;
+        _openPopupCount = Math.Max(0, _openPopupCount + (isOpen ? 1 : -1));
+        if ((previous > 0) != (_openPopupCount > 0))
+        {
+            InvalidateStyle();
+        }
     }
 
     /// <summary>

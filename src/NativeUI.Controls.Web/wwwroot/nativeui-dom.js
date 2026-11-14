@@ -1033,6 +1033,20 @@ export const dom = {
   },
 
   /**
+   * Invokes a callback after the transitions and the finite animations of an element end. Reading the animations
+   * computes the element's current style, so a transition that a just-changed attribute starts is included.
+   *
+   * @param {Element} element The element whose own animations are awaited.
+   * @param {() => void} completed The callback to invoke.
+   * @returns {void}
+   */
+  waitForMotion(element, completed) {
+    const animations = element.getAnimations().filter(
+      (animation) => Number.isFinite(animation.effect?.getComputedTiming().iterations ?? 1));
+    Promise.allSettled(animations.map((animation) => animation.finished)).then(() => completed());
+  },
+
+  /**
    * Requests an animation frame and invokes the callback.
    *
    * @param {() => void} dispatch The callback to invoke.

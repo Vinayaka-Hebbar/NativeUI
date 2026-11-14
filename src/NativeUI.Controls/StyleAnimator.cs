@@ -97,6 +97,28 @@ internal sealed class StyleAnimator(UIElement element) : IFrameTarget
     }
 
     /// <summary>
+    /// Returns whether a transition is running or an animation with a finite number of iterations has not finished at
+    /// <paramref name="now"/>.
+    /// </summary>
+    public bool HasFiniteMotion(double now)
+    {
+        if (_transitions.Count > 0)
+        {
+            return true;
+        }
+
+        foreach (RunningAnimation animation in _animations)
+        {
+            if (double.IsFinite(animation.Spec.Iterations) && !animation.IsFinished(now))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Stops everything and returns the element to its cascaded style.
     /// </summary>
     public void Cancel()

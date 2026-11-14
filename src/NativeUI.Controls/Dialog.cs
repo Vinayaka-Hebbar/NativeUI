@@ -233,6 +233,9 @@ public class Dialog : Portal, IWindowHostedElement
     internal override bool ClosesOnOutsidePress => !IsModal;
 
     /// <inheritdoc />
+    private protected override bool HasMotion => false;
+
+    /// <inheritdoc />
     private protected override void OnOpening()
     {
         if (Parent is not null)
