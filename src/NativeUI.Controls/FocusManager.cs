@@ -51,6 +51,15 @@ public sealed class FocusManager : IDisposable
     public UIElement? FocusedElement { get; private set; }
 
     /// <summary>
+    /// Gets or sets whether the most recent input came from the keyboard or a pointer.
+    /// </summary>
+    internal FocusState MostRecentInput
+    {
+        get => _mostRecentInput;
+        set => _mostRecentInput = value;
+    }
+
+    /// <summary>
     /// Occurs after the focused element changes, before the focus events are raised. A host uses it to move platform focus
     /// between its own view and platform elements.
     /// </summary>

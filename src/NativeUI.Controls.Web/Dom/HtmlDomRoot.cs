@@ -112,6 +112,11 @@ internal sealed class HtmlDomRoot : IDisposable
             return;
         }
 
+        if (pointerEvent.Kind == PointerEventKind.Press && _focusManager is not null)
+        {
+            _focusManager.MostRecentInput = FocusState.Pointer;
+        }
+
         UIElement? hoveredElement = pointerEvent.Kind is PointerEventKind.Leave or PointerEventKind.Cancel
             ? null
             : HtmlDomElement.FindByNodeId(pointerEvent.NodeId)?.Source;
@@ -307,6 +312,11 @@ internal sealed class HtmlDomRoot : IDisposable
                 modifiers,
                 keyEvent.GetPropertyAsBoolean("isRepeat"));
             UIElement target = HtmlDomElement.FindByNodeId(keyEvent.GetPropertyAsInt32("nodeId"))?.Source ?? _root;
+            if (_focusManager is not null)
+            {
+                _focusManager.MostRecentInput = FocusState.Keyboard;
+            }
+
             target.RaiseEvent(isDown ? UIElement.KeyDownEvent : UIElement.KeyUpEvent, args);
             if (args.Handled)
             {

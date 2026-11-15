@@ -31,6 +31,8 @@ internal static class HtmlTagMapping
     private const string ButtonGroupTag = "nui-buttongroup";
     private const string PopoverTag = "nui-popover";
     private const string TooltipTag = "nui-tooltip";
+    private const string DropdownMenuTag = "nui-dropdownmenu";
+    private const string MenuItemTag = "nui-menuitem";
 
     /// <summary>
     /// Gets the tag created for <paramref name="element"/>.
@@ -148,6 +150,16 @@ internal static class HtmlTagMapping
         if (element is ButtonGroup)
         {
             return ButtonGroupTag;
+        }
+
+        if (element is DropdownMenu)
+        {
+            return DropdownMenuTag;
+        }
+
+        if (element is MenuItem)
+        {
+            return MenuItemTag;
         }
 
         if (element is Popover)
@@ -281,6 +293,16 @@ internal static class HtmlTagMapping
             return ButtonGroupTag;
         }
 
+        if (typeof(DropdownMenu).IsAssignableFrom(type))
+        {
+            return DropdownMenuTag;
+        }
+
+        if (typeof(MenuItem).IsAssignableFrom(type))
+        {
+            return MenuItemTag;
+        }
+
         if (typeof(Popover).IsAssignableFrom(type))
         {
             return PopoverTag;
@@ -328,6 +350,8 @@ internal static class HtmlTagMapping
             "breadcrumb" => BreadcrumbTag,
             "breadcrumbitem" => BreadcrumbItemTag,
             "buttongroup" => ButtonGroupTag,
+            "dropdownmenu" => DropdownMenuTag,
+            "menuitem" => MenuItemTag,
             "popover" => PopoverTag,
             "tooltip" => TooltipTag,
             _ => throw new NotSupportedException($"The element type '{elementType}' has no HTML element mapping.")

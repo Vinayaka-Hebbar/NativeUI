@@ -430,11 +430,56 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
         rules.Add(Rule(
             CssSelector.Where(
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-popover")),
-                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-tooltip"))),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-tooltip")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-dropdownmenu"))),
             new()
             {
                 ["display"] = "block",
                 ["width"] = "fit-content"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-menuitem"))),
+            new()
+            {
+                ["display"] = "flex",
+                ["flex-direction"] = "row",
+                ["align-items"] = "center",
+                ["width"] = "100%",
+                ["box-sizing"] = "border-box",
+                ["cursor"] = "pointer",
+                ["user-select"] = "none"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(
+                [CssSelector.Type("native-ui"), CssSelector.Type("nui-menuitem")],
+                CssSelector.Attribute(StyleSheetCss.PartAttribute, "icon"))),
+            new()
+            {
+                ["display"] = "inline-flex",
+                ["align-items"] = "center",
+                ["justify-content"] = "center",
+                ["margin-right"] = "8px",
+                ["flex-shrink"] = "0"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(
+                [CssSelector.Type("native-ui"), CssSelector.Type("nui-menuitem")],
+                CssSelector.Attribute(StyleSheetCss.PartAttribute, "label"))),
+            new()
+            {
+                ["flex"] = "1 1 auto"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(
+                [CssSelector.Type("native-ui"), CssSelector.Type("nui-menuitem")],
+                CssSelector.Attribute(StyleSheetCss.PartAttribute, "shortcut"))),
+            new()
+            {
+                ["margin-left"] = "auto"
             }));
 
         // The user agent stylesheet makes a popover element scroll its content.

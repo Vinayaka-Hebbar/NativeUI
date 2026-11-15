@@ -393,6 +393,8 @@ public sealed class CssValidator : CssSyntaxVisitor
             "breadcrumb" => "nui-breadcrumb",
             "breadcrumbitem" => "nui-breadcrumbitem",
             "buttongroup" => "nui-buttongroup",
+            "dropdownmenu" => "nui-dropdownmenu",
+            "menuitem" => "nui-menuitem",
             "popover" => "nui-popover",
             "tooltip" => "nui-tooltip",
             _ => null

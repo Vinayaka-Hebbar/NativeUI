@@ -130,7 +130,7 @@ public class Popover : Control
             defaultValue: 5,
             propertyChanged: static (owner, _, _) => owner._portal.InvalidateVisual());
 
-    private Portal _portal = null!;
+    private protected Portal _portal = null!;
     private View? _defaultArrow;
     private UIElement? _mountedArrow;
     private UIElement? _contentElement;
@@ -432,7 +432,11 @@ public class Popover : Control
         IsOpen = !IsOpen;
     }
 
-    private void OnIsOpenChanged(bool isOpen)
+    /// <summary>
+    /// Occurs when <see cref="IsOpen"/> changes.
+    /// </summary>
+    /// <param name="isOpen"><see langword="true"/> when the popover is opening; otherwise, <see langword="false"/>.</param>
+    protected virtual void OnIsOpenChanged(bool isOpen)
     {
         UpdateOpenState(isOpen);
         if (Target is UIElement target)
@@ -446,6 +450,14 @@ public class Popover : Control
         }
 
         _portal.Show(Target);
+        FocusContent();
+    }
+
+    /// <summary>
+    /// Moves focus into the content after the portal opens.
+    /// </summary>
+    private protected virtual void FocusContent()
+    {
         if (!_portal.MoveFocus(FocusNavigationDirection.First))
         {
             _portal.Focus();
@@ -461,7 +473,7 @@ public class Popover : Control
     /// <summary>
     /// Returns focus to the target when focus is inside the content that is closing.
     /// </summary>
-    private void OnPortalClosing(object? sender, EventArgs args)
+    protected virtual void OnPortalClosing(object? sender, EventArgs args)
     {
         if (_portal.States.HasFlag(ElementStates.FocusWithin))
         {
@@ -475,7 +487,12 @@ public class Popover : Control
         Closed?.Invoke(this, EventArgs.Empty);
     }
 
-    private void OnKeyDown(object? sender, KeyEventArgs args)
+    /// <summary>
+    /// Handles key presses while the popover or its descendants have focus.
+    /// </summary>
+    /// <param name="sender">The sender of the event.</param>
+    /// <param name="args">The event arguments.</param>
+    protected virtual void OnKeyDown(object? sender, KeyEventArgs args)
     {
         if (args.Key == Key.Escape && IsOpen && !args.Handled)
         {

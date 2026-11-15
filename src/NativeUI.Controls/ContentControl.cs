@@ -37,9 +37,18 @@ public abstract class ContentControl : Control
         set => SetValue(ContentProperty, value);
     }
 
+    /// <summary>
+    /// Returns the element that hosts <see cref="Content"/>, by default the template part named <see cref="ContentPartName"/>
+    /// or the control itself when no such part exists.
+    /// </summary>
+    protected virtual View GetContentHost()
+    {
+        return GetTemplateChild<View>(ContentPartName) ?? this;
+    }
+
     private void UpdatePresentedContent()
     {
-        View host = GetTemplateChild<View>(ContentPartName) ?? this;
+        View host = GetContentHost();
         if (_presentedContent is not null)
         {
             host.Children.Remove(_presentedContent);

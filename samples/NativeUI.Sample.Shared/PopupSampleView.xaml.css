@@ -173,3 +173,53 @@ Tooltip::part(arrow),
   border-color: var(--input);
   border-radius: 6px;
 }
+
+DropdownMenu::part(content) {
+  min-width: 180px;
+  padding: 4px;
+  border-width: 1px;
+  border-color: var(--border);
+  border-radius: var(--radius);
+  background-color: var(--popover);
+  color: var(--foreground);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15), 0 1px 3px rgb(0 0 0 / 0.1);
+}
+
+DropdownMenu[data-starting-style]::part(content),
+DropdownMenu[data-ending-style]::part(content) {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+MenuItem {
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+MenuItem:hover,
+MenuItem:focus-visible {
+  background-color: var(--muted);
+}
+
+MenuItem:disabled {
+  opacity: 0.5;
+}
+
+MenuItem::part(icon) {
+  min-width: 1em;
+}
+
+MenuItem::part(shortcut) {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  margin: 0 0 0 16px;
+}
+
+Separator {
+  background-color: var(--border);
+}
+
+Separator[data-orientation="horizontal"] {
+  height: 1px;
+  margin: 4px 0;
+}

@@ -72,20 +72,21 @@ public sealed class HtmlDomPopover : HtmlDomView
     {
         SetAttribute("data-open", _popover.GetAttribute("data-open"));
         SetAttribute("data-closed", _popover.GetAttribute("data-closed"));
-        SetTargetAttributes(_target, _popover.IsOpen, (_popover.ContentPart.NativeHandle as HtmlDomPortal)?.ElementId);
+        string popupType = _popover is DropdownMenu ? "menu" : "dialog";
+        SetTargetAttributes(_target, _popover.IsOpen, (_popover.ContentPart.NativeHandle as HtmlDomPortal)?.ElementId, popupType);
     }
 
     /// <summary>
     /// Writes the popup attributes on the target's element, or removes them when <paramref name="isOpen"/> is <see langword="null"/>.
     /// </summary>
-    private static void SetTargetAttributes(UIElement? target, bool? isOpen, string? contentId)
+    private static void SetTargetAttributes(UIElement? target, bool? isOpen, string? contentId, string popupType = "dialog")
     {
         if (target?.NativeHandle is not HtmlDomElement targetElement)
         {
             return;
         }
 
-        targetElement.SetAttribute("aria-haspopup", isOpen is null ? null : "dialog");
+        targetElement.SetAttribute("aria-haspopup", isOpen is null ? null : popupType);
         targetElement.SetAttribute("aria-expanded", isOpen switch
         {
             true => "true",

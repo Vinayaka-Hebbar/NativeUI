@@ -57,4 +57,19 @@
             </Tooltip>
         </StackPanel>
     </View>
+
+    <View Class="popup-section">
+        <Text Class="popup-heading" Value="DropdownMenu" />
+        <Button x:Name="FileMenuButton" Class="popup-trigger" Text="File Menu" />
+        <DropdownMenu Target="{x:Reference FileMenuButton}" Side="Bottom" Align="Start" SideOffset="4">
+            <MenuItem Content="New File" InputGestureText="⌘N" />
+            <MenuItem Content="Open..." InputGestureText="⌘O" />
+            <Separator />
+            <MenuItem Content="Save" InputGestureText="⌘S" />
+            <MenuItem Content="Save As..." InputGestureText="⇧⌘S" />
+            <Separator />
+            <MenuItem Content="Auto Save" IsCheckable="True" IsChecked="True" />
+            <MenuItem Content="Close Editor" InputGestureText="⌘W" />
+        </DropdownMenu>
+    </View>
 </View>
