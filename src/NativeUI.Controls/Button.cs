@@ -52,6 +52,7 @@ public class Button : View
             propertyChanged: static (owner, _, _) => owner.UpdateIsEnabledFromCommand());
 
     private readonly EventHandler _canExecuteChangedHandler;
+    private bool _canExecuteCommand = true;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Button"/> class.
@@ -60,6 +61,8 @@ public class Button : View
     {
         _canExecuteChangedHandler = OnCanExecuteChanged;
         ClickGesture.Attach(this, PerformClick);
+        UpdateIsEnabledFromCommand();
+        UpdateEffectiveEnabledState();
     }
 
     /// <inheritdoc />
@@ -92,6 +95,9 @@ public class Button : View
         set => SetValue(CommandParameterProperty, value);
     }
 
+    /// <inheritdoc />
+    protected override bool IsEnabledCore => _canExecuteCommand;
+
     /// <summary>
     /// Occurs when the button is clicked either via pointer interaction or programmatic invocation.
     /// </summary>
@@ -103,11 +109,12 @@ public class Button : View
 
     /// <summary>
     /// Programmatically triggers the button's click behavior, raising <see cref="ClickEvent"/>
-    /// and executing <see cref="Command"/> if <see cref="UIElement.IsEnabled"/> is <see langword="true"/>.
+    /// and executing <see cref="Command"/> if <see cref="UIElement.IsEffectivelyEnabled"/> is <see langword="true"/>.
     /// </summary>
     public void PerformClick()
     {
-        if (!IsEnabled)
+        UpdateIsEnabledFromCommand();
+        if (!IsEffectivelyEnabled)
         {
             return;
         }
@@ -154,9 +161,13 @@ public class Button : View
 
     private void UpdateIsEnabledFromCommand()
     {
-        if (Command is ICommand command)
+        bool canExecute = Command?.CanExecute(CommandParameter) ?? true;
+        if (_canExecuteCommand == canExecute)
         {
-            IsEnabled = command.CanExecute(CommandParameter);
+            return;
         }
+
+        _canExecuteCommand = canExecute;
+        UpdateEffectiveEnabledState();
     }
 }

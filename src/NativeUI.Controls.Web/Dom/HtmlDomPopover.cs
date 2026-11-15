@@ -51,6 +51,7 @@ public sealed class HtmlDomPopover : HtmlDomView
     protected override void OnDisposing()
     {
         _popover.ContentPart.TransitionStatusChanged -= OnTransitionStatusChanged;
+        SetContextMenuTarget(_target, null);
         SetTargetAttributes(_target, isOpen: null, contentId: null);
         _target = null;
         base.OnDisposing();
@@ -58,8 +59,23 @@ public sealed class HtmlDomPopover : HtmlDomView
 
     private void UpdateTarget()
     {
+        SetContextMenuTarget(_target, null);
         SetTargetAttributes(_target, isOpen: null, contentId: null);
         _target = _popover.Target;
+        SetContextMenuTarget(_target, _popover is ContextMenu ? string.Empty : null);
+    }
+
+    private void SetContextMenuTarget(UIElement? target, string? value)
+    {
+        if (_popover is not ContextMenu)
+        {
+            return;
+        }
+
+        if (target?.NativeHandle is HtmlDomElement element)
+        {
+            element.SetAttribute("data-nui-context-menu", value);
+        }
     }
 
     private void OnTransitionStatusChanged(object? sender, EventArgs args)
@@ -72,6 +88,12 @@ public sealed class HtmlDomPopover : HtmlDomView
     {
         SetAttribute("data-open", _popover.GetAttribute("data-open"));
         SetAttribute("data-closed", _popover.GetAttribute("data-closed"));
+        if (_popover is DropdownMenu { OwnerItem: MenuItem owner } && !owner.HasItems)
+        {
+            SetTargetAttributes(_target, isOpen: null, contentId: null);
+            return;
+        }
+
         string popupType = _popover is DropdownMenu ? "menu" : "dialog";
         SetTargetAttributes(_target, _popover.IsOpen, (_popover.ContentPart.NativeHandle as HtmlDomPortal)?.ElementId, popupType);
     }
@@ -94,6 +116,6 @@ public sealed class HtmlDomPopover : HtmlDomView
             null => null
         });
         targetElement.SetAttribute("aria-controls", isOpen is null ? null : contentId);
-        targetElement.SetAttribute("data-popup-open", target.GetAttribute("data-popup-open"));
+        targetElement.SetAttribute("data-popup-open", isOpen == true ? string.Empty : null);
     }
 }

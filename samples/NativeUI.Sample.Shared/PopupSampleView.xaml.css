@@ -3,6 +3,7 @@
   --foreground: #0a0a0a;
   --popover: #ffffff;
   --muted: #f5f5f5;
+  --accent: #f5f5f5;
   --muted-foreground: #737373;
   --border: #e5e5e5;
   --input: #e5e5e5;
@@ -19,6 +20,7 @@
     --foreground: #fafafa;
     --popover: #171717;
     --muted: #262626;
+    --accent: #262626;
     --muted-foreground: #a3a3a3;
     --border: rgb(255 255 255 / 0.1);
     --input: rgb(255 255 255 / 0.15);
@@ -174,7 +176,8 @@ Tooltip::part(arrow),
   border-radius: 6px;
 }
 
-DropdownMenu::part(content) {
+DropdownMenu::part(content),
+ContextMenu::part(content) {
   min-width: 180px;
   padding: 4px;
   border-width: 1px;
@@ -186,12 +189,15 @@ DropdownMenu::part(content) {
 }
 
 DropdownMenu[data-starting-style]::part(content),
-DropdownMenu[data-ending-style]::part(content) {
+DropdownMenu[data-ending-style]::part(content),
+ContextMenu[data-starting-style]::part(content),
+ContextMenu[data-ending-style]::part(content) {
   opacity: 0;
   transform: scale(0.96);
 }
 
 MenuItem {
+  cursor: default;
   padding: 6px 8px;
   border-radius: 4px;
 }
@@ -206,7 +212,8 @@ MenuItem:disabled {
 }
 
 MenuItem::part(icon) {
-  min-width: 1em;
+  width: 16px;
+  height: 16px;
 }
 
 MenuItem::part(shortcut) {
@@ -215,11 +222,37 @@ MenuItem::part(shortcut) {
   margin: 0 0 0 16px;
 }
 
-Separator {
+Separator,
+MenuSeparator {
   background-color: var(--border);
 }
 
-Separator[data-orientation="horizontal"] {
+Separator[data-orientation="horizontal"],
+MenuSeparator[data-orientation="horizontal"] {
   height: 1px;
   margin: 4px 0;
+}
+
+MenuItem::part(submenu-indicator) {
+  margin: 0 0 0 16px;
+  color: var(--muted-foreground);
+}
+
+MenuItem[data-popup-open] {
+  background-color: var(--muted);
+}
+
+MenuGroup::part(header) {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  padding: 6px 8px;
+}
+
+MenuItem:open {
+  background-color: var(--accent);
+}
+
+MenuItem:checked::part(checkmark) {
+  color: var(--foreground);
 }

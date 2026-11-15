@@ -22,10 +22,11 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     private string? _partName;
     private INativeHandle? _nativeHandle;
     private Rect _renderedBounds;
+    private bool _isEffectivelyEnabled = true;
+    private bool _isUpdatingEffectiveEnabledState;
     private IStyleResolver? _styleResolver;
     private RoutedEventHandlerStore? _routedHandlers;
     private StyleAnimator? _animator;
-    private bool _isPopupOpen;
     private static readonly TimeSpan s_defaultAnimationDuration = TimeSpan.FromMilliseconds(300);
 
     /// <summary>
@@ -119,7 +120,13 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         BindableProperty.Create<UIElement, bool>(
             nameof(IsEnabled),
             defaultValue: true,
-            propertyChanged: static (owner, _, newValue) => owner.OnIsEnabledPropertyChanged(newValue));
+            propertyChanged: static (owner, _, _) => owner.UpdateEffectiveEnabledState());
+
+    /// <summary>
+    /// Identifies the effective enabled state after control-specific restrictions are applied.
+    /// </summary>
+    public static readonly ComputedBindableProperty<UIElement, bool> IsEffectivelyEnabledProperty =
+        BindableProperty.CreateComputed<UIElement, bool>(nameof(IsEffectivelyEnabled), static element => element.IsEffectivelyEnabled);
 
     /// <summary>
     /// Identifies the <see cref="Focusable"/> bindable property.
@@ -461,6 +468,101 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
+    /// Gets whether this element, its ancestors, and its control-specific conditions permit interaction.
+    /// </summary>
+    public bool IsEffectivelyEnabled => IsEnabled && IsEnabledCore && (Parent?.IsEffectivelyEnabled ?? true);
+
+    /// <summary>
+    /// Gets whether the element participates in pointer hit testing while it is drawn.
+    /// </summary>
+    internal virtual bool IsHitTestVisible => IsVisible;
+
+    /// <summary>
+    /// Gets whether this element and every ancestor remain visible to pointer input.
+    /// </summary>
+    internal bool IsHitTestVisibleInTree
+    {
+        get
+        {
+            for (UIElement? current = this; current is not null; current = current.Parent)
+            {
+                if (!current.IsHitTestVisible)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Returns the nearest effectively enabled element at or above a hit that remains visible to input.
+    /// </summary>
+    internal UIElement? GetInputTarget()
+    {
+        if (!IsHitTestVisibleInTree)
+        {
+            return null;
+        }
+
+        for (UIElement? current = this; current is not null; current = current.Parent)
+        {
+            if (current.IsEffectivelyEnabled)
+            {
+                return current;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Gets whether control-specific conditions permit interaction independently of the local enabled value.
+    /// </summary>
+    /// <remarks>Overrides must call <see cref="UpdateEffectiveEnabledState"/> whenever their dependencies change.</remarks>
+    protected virtual bool IsEnabledCore => true;
+
+    /// <summary>
+    /// Updates interaction states without changing the local enabled value or its binding.
+    /// </summary>
+    protected internal void UpdateEffectiveEnabledState()
+    {
+        if (_isUpdatingEffectiveEnabledState)
+        {
+            return;
+        }
+
+        _isUpdatingEffectiveEnabledState = true;
+        try
+        {
+            while (_isEffectivelyEnabled != IsEffectivelyEnabled)
+            {
+                bool isEnabled;
+                do
+                {
+                    isEnabled = IsEffectivelyEnabled;
+                    OnEffectiveEnabledChanged(isEnabled);
+                }
+                while (isEnabled != IsEffectivelyEnabled);
+
+                if (_isEffectivelyEnabled == isEnabled)
+                {
+                    continue;
+                }
+
+                bool previous = _isEffectivelyEnabled;
+                _isEffectivelyEnabled = isEnabled;
+                NotifyPropertyChanged(IsEffectivelyEnabledProperty, previous, isEnabled);
+            }
+        }
+        finally
+        {
+            _isUpdatingEffectiveEnabledState = false;
+        }
+    }
+
+    /// <summary>
     /// Gets or sets a value indicating whether this element can receive keyboard focus. A control type overrides the
     /// default through <see cref="FocusableProperty"/> metadata. A disabled or hidden element cannot receive focus.
     /// </summary>
@@ -512,7 +614,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     public bool Focus(FocusState state)
     {
         ArgumentOutOfRangeException.ThrowIfEqual(state, FocusState.Unfocused);
-        return FindFocusManager()?.Focus(this, state) ?? false;
+        return InputManager.Current.PrimaryKeyboardDevice.Focus(this, state);
     }
 
     /// <summary>
@@ -525,30 +627,8 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// <returns><see langword="true"/> when an element received focus.</returns>
     public bool MoveFocus(FocusNavigationDirection direction)
     {
-        return FindFocusManager()?.MoveFocus(this, direction, FocusState.Programmatic) ?? false;
+        return InputManager.Current.PrimaryKeyboardDevice.MoveFocus(this, direction, FocusState.Programmatic);
     }
-
-    /// <summary>
-    /// Returns the focus manager of the nearest root that a platform host presents, or <see langword="null"/> when no host
-    /// presents this element.
-    /// </summary>
-    internal FocusManager? FindFocusManager()
-    {
-        for (UIElement? current = this; current is not null; current = current._parent)
-        {
-            if (current.FocusManager is FocusManager manager)
-            {
-                return manager;
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// Gets or sets the focus manager that a platform host attached to this element as its root.
-    /// </summary>
-    internal FocusManager? FocusManager { get; set; }
 
     /// <summary>
     /// Gets the mouse pointer cursor appearance resolved for this element.
@@ -689,38 +769,59 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
                 return;
             }
 
-            if (States.HasFlag(ElementStates.FocusWithin))
+            UIElement? previousParent = _parent;
+            _parent = value;
+            if (VisualRoot is UIElement previousRoot && !ReferenceEquals(previousRoot, this))
             {
-                FindFocusManager()?.ClearFocus(this);
+                DetachFromVisualTree(previousRoot, previousParent);
             }
 
-            _parent = value;
-            OnParentChanged();
+            // Lifecycle callbacks may have moved this element again.
+            if (!ReferenceEquals(_parent, value))
+            {
+                return;
+            }
+
+            if (!ReferenceEquals(VisualRoot, this) && value?.VisualRoot is UIElement root)
+            {
+                AttachToVisualTree(root);
+            }
+
+            if (ReferenceEquals(_parent, value))
+            {
+                OnParentChanged();
+            }
         }
     }
 
     /// <summary>
-    /// Returns the value of the attribute <paramref name="name"/> that attribute selectors match, or
-    /// <see langword="null"/> when the element has no such attribute. A control overrides this to expose the attributes
-    /// that it also writes on Web, such as <c>data-sort</c>. The base implementation returns an empty value for
-    /// <c>data-popup-open</c> while <see cref="IsPopupOpen"/> is <see langword="true"/>, and <see langword="null"/> otherwise.
+    /// Determines whether this element is an ancestor of <paramref name="descendant"/>, including itself.
+    /// </summary>
+    /// <param name="descendant">The element whose parent chain is examined.</param>
+    /// <returns><see langword="true"/> when this element is the descendant or one of its ancestors.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="descendant"/> is <see langword="null"/>.</exception>
+    public bool IsAncestorOf(UIElement descendant)
+    {
+        ArgumentNullException.ThrowIfNull(descendant);
+        for (UIElement? current = descendant; current is not null; current = current.Parent)
+        {
+            if (ReferenceEquals(current, this))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Returns the value used by attribute selectors, or <see langword="null"/> when the attribute is absent.
+    /// Template owners can supply attributes for their parts; controls can override this method for their own attributes.
     /// </summary>
     /// <param name="name">The attribute name.</param>
     public virtual string? GetAttribute(string name)
     {
-        if (string.Equals(name, "data-popup-open", StringComparison.Ordinal))
-        {
-            return _isPopupOpen ? string.Empty : null;
-        }
-
-        if (name is "data-side" or "data-align" &&
-            _parent is Portal portal &&
-            string.Equals(_partName, "arrow", StringComparison.Ordinal))
-        {
-            return portal.GetAttribute(name);
-        }
-
-        return null;
+        return _templatedParent?.GetTemplateChildAttribute(this, name);
     }
 
     /// <summary>
@@ -927,27 +1028,9 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     internal virtual bool AcceptsTextInput => false;
 
     /// <summary>
-    /// Gets a value indicating whether this element has a running transition or a running animation with a finite number
-    /// of iterations, the animations that a closing popup waits for.
+    /// Gets a value indicating whether this element has a running transition or an animation with a finite iteration count.
     /// </summary>
     internal bool HasRunningAnimations => _animator?.HasRunningAnimations(AnimationClock.Now) ?? false;
-
-    /// <summary>
-    /// Gets or sets a value indicating whether a popup that this element opens is open. The popup sets it. The element
-    /// has <c>data-popup-open</c> while it is <see langword="true"/>.
-    /// </summary>
-    internal bool IsPopupOpen
-    {
-        get => _isPopupOpen;
-        set
-        {
-            if (_isPopupOpen != value)
-            {
-                _isPopupOpen = value;
-                InvalidateStyle();
-            }
-        }
-    }
 
     /// <summary>
     /// Sets or clears <paramref name="state"/> without recomputing styles, so a host can update a complete path first.
@@ -1053,11 +1136,85 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     {
         if (!IsVisible && States.HasFlag(ElementStates.FocusWithin))
         {
-            FindFocusManager()?.ClearFocus(this);
+            InputManager.Current.PrimaryKeyboardDevice.ClearFocus(this);
         }
 
         VisibilityChanged?.Invoke(this, EventArgs.Empty);
         InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Gets the platform-hosted root that owns this element's visual attachment.
+    /// </summary>
+    internal UIElement? VisualRoot { get; private set; }
+
+    /// <summary>
+    /// Gets whether this element belongs to a platform-hosted visual tree.
+    /// </summary>
+    internal bool IsAttachedToVisualTree => VisualRoot is not null;
+
+    /// <summary>
+    /// Attaches this element to the specified hosted visual root.
+    /// </summary>
+    internal virtual void AttachToVisualTree(UIElement root)
+    {
+        if (ReferenceEquals(VisualRoot, root))
+        {
+            return;
+        }
+
+        if (VisualRoot is UIElement previousRoot)
+        {
+            DetachFromVisualTree(previousRoot, Parent);
+            if (VisualRoot is not null)
+            {
+                return;
+            }
+        }
+
+        VisualRoot = root;
+        OnAttachedToVisualTree();
+    }
+
+    /// <summary>
+    /// Detaches this element if it belongs to the specified hosted visual root.
+    /// </summary>
+    /// <param name="root">The visual root being left.</param>
+    /// <param name="parent">The parent before removal, used to clear logical focus in the old scope.</param>
+    internal virtual void DetachFromVisualTree(UIElement root, UIElement? parent)
+    {
+        if (!ReferenceEquals(VisualRoot, root))
+        {
+            return;
+        }
+
+        UIElement? previousParent = Parent;
+        FocusManager.ClearFocus(this, parent);
+        if (!ReferenceEquals(VisualRoot, root) || !ReferenceEquals(Parent, previousParent))
+        {
+            return;
+        }
+
+        VisualRoot = null;
+        InputManager.Current.PrimaryKeyboardDevice.ClearFocus(this);
+        if (VisualRoot is null)
+        {
+            OnDetachedFromVisualTree();
+        }
+    }
+
+    /// <summary>
+    /// Invoked when this element becomes attached to a platform-hosted visual tree.
+    /// </summary>
+    protected virtual void OnAttachedToVisualTree()
+    {
+    }
+
+    /// <summary>
+    /// Invoked when this element leaves its platform-hosted visual tree.
+    /// </summary>
+    protected virtual void OnDetachedFromVisualTree()
+    {
     }
 
     /// <summary>
@@ -1066,6 +1223,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     protected virtual void OnParentChanged()
     {
         SetInheritedDataContext(_parent?.DataContext);
+        UpdateEffectiveEnabledState();
         if (_parent is null)
         {
             _animator?.Cancel();
@@ -1105,9 +1263,10 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     {
         if (disposing)
         {
+            FocusManager.ClearFocus(this, Parent);
             if (States.HasFlag(ElementStates.FocusWithin))
             {
-                FindFocusManager()?.ClearFocus(this);
+                InputManager.Current.PrimaryKeyboardDevice.ClearFocus(this);
             }
 
             _animator?.Cancel();
@@ -1279,15 +1438,24 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     {
         if (!isFocusable && IsFocused)
         {
-            FindFocusManager()?.ClearFocus(this);
+            InputManager.Current.PrimaryKeyboardDevice.ClearFocus(this);
         }
     }
 
-    private void OnIsEnabledPropertyChanged(bool isEnabled)
+    /// <summary>
+    /// Updates focus and interaction states when the effective enabled state changes.
+    /// </summary>
+    /// <param name="isEnabled">The effective enabled state.</param>
+    protected virtual void OnEffectiveEnabledChanged(bool isEnabled)
     {
-        if (!isEnabled && IsFocused)
+        if (!isEnabled)
         {
-            FindFocusManager()?.ClearFocus(this);
+            if (States.HasFlag(ElementStates.FocusWithin))
+            {
+                InputManager.Current.PrimaryKeyboardDevice.ClearFocus(this);
+            }
+
+            SetState(ElementStates.Pressed, false);
         }
 
         SetState(ElementStates.Disabled, !isEnabled);

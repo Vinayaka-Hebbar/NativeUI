@@ -22,7 +22,8 @@ public sealed class CssParser
         ["first-child"] = "FirstChild",
         ["last-child"] = "LastChild",
         ["selected"] = "Selected",
-        ["popover-open"] = "PopoverOpen"
+        ["popover-open"] = "PopoverOpen",
+        ["open"] = "Open"
     };
 
     private readonly IReadOnlyList<CssToken> _tokens;

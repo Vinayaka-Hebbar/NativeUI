@@ -107,8 +107,10 @@ internal static class PointerRoutingTests
         {
             leaf.RemoveHandler(s_bubbleEvent, removed);
             leaf.AddHandler(s_bubbleEvent, added);
-            root.Children.Remove(leaf);
-            otherParent.Children.Add(leaf);
+            if (root.Children.Remove(leaf))
+            {
+                otherParent.Children.Add(leaf);
+            }
         });
         leaf.AddHandler(s_bubbleEvent, removed);
 

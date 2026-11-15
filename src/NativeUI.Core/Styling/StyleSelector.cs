@@ -68,7 +68,8 @@ public record CompoundSelector
         (ElementStates.FirstChild, "first-child"),
         (ElementStates.LastChild, "last-child"),
         (ElementStates.Selected, "selected"),
-        (ElementStates.PopoverOpen, "popover-open")
+        (ElementStates.PopoverOpen, "popover-open"),
+        (ElementStates.Open, "open")
     ];
 
     /// <summary>
@@ -420,10 +421,15 @@ public record CompoundSelector
                         return false;
                     }
                 }
-                else if (element.GetAttribute(attr.Name) is not string value ||
-                    (attr.Value is not null && !string.Equals(value, attr.Value, StringComparison.Ordinal)))
+                else
                 {
-                    return false;
+                    string? value = attr.Name == "data-popup-open" && element.States.HasFlag(ElementStates.PopoverOpen)
+                        ? string.Empty
+                        : element.GetAttribute(attr.Name);
+                    if (value is null || (attr.Value is not null && !string.Equals(value, attr.Value, StringComparison.Ordinal)))
+                    {
+                        return false;
+                    }
                 }
             }
         }

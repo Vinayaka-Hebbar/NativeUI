@@ -496,7 +496,7 @@ public abstract class Selector : ItemsControl
 
     private void OnSelectorPointerPressed(object? sender, PointerEventArgs args)
     {
-        if (!IsEnabled || args.Source is not UIElement source)
+        if (!IsEffectivelyEnabled || args.Source is not UIElement source)
         {
             return;
         }
@@ -529,7 +529,7 @@ public abstract class Selector : ItemsControl
 
     private void OnSelectorKeyDown(object? sender, KeyEventArgs args)
     {
-        if (!ReferenceEquals(args.Source, this) || !IsEnabled || Items.Count == 0 || SelectionMode == SelectionMode.None)
+        if (!ReferenceEquals(args.Source, this) || !IsEffectivelyEnabled || Items.Count == 0 || SelectionMode == SelectionMode.None)
         {
             return;
         }

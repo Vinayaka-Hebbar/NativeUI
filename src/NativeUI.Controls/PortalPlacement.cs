@@ -29,6 +29,11 @@ internal static class PortalPlacement
     /// </summary>
     public static Point Compute(Portal portal, Rect? anchor, Size size, Rect centerArea, Rect limits, out PortalSide side)
     {
+        if (portal.AnchorPoint is Point point)
+        {
+            anchor = new Rect(point.X, point.Y, 0, 0);
+        }
+
         Point position;
         if (anchor is Rect anchorBounds)
         {
@@ -43,6 +48,19 @@ internal static class PortalPlacement
                 centerArea.Y + ((centerArea.Height - size.Height) / 2.0));
         }
 
+        return new Point(
+            Math.Max(limits.X, Math.Min(position.X, limits.Right - size.Width)),
+            Math.Max(limits.Y, Math.Min(position.Y, limits.Bottom - size.Height)));
+    }
+
+    /// <summary>
+    /// Places a pointer-anchored portal using coordinates converted by its platform host.
+    /// </summary>
+    internal static Point ComputeAtPoint(Portal portal, Point point, Size size, Rect limits)
+    {
+        Rect anchor = new(point.X, point.Y, 0, 0);
+        PortalSide side = ChooseSide(portal, anchor, size, limits);
+        Point position = ComputeAnchored(portal, side, anchor, size);
         return new Point(
             Math.Max(limits.X, Math.Min(position.X, limits.Right - size.Width)),
             Math.Max(limits.Y, Math.Min(position.Y, limits.Bottom - size.Height)));

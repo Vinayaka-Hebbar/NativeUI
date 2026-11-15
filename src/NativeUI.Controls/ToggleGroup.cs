@@ -100,7 +100,7 @@ public class ToggleGroup : ItemsControl, IStackLayoutNode
     /// </summary>
     internal bool CanToggle(Toggle toggle)
     {
-        if (!IsEnabled)
+        if (!IsEffectivelyEnabled)
         {
             return false;
         }

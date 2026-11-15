@@ -32,7 +32,7 @@ public class View : UIElement, IView, IScrollContainer
             defaultValue: false,
             propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
 
-    private readonly ObservableCollection<UIElement> _children = [];
+    private readonly UIElementCollection _children;
     private readonly HashSet<UIElement> _attachedChildren = new(ReferenceEqualityComparer.Instance);
     private ScrollMetrics _scroll;
 
@@ -41,6 +41,7 @@ public class View : UIElement, IView, IScrollContainer
     /// </summary>
     public View()
     {
+        _children = new UIElementCollection(this);
         _children.CollectionChanged += OnChildrenCollectionChanged;
     }
 
@@ -220,6 +221,64 @@ public class View : UIElement, IView, IScrollContainer
     }
 
     /// <inheritdoc />
+    internal override void AttachToVisualTree(UIElement root)
+    {
+        if (ReferenceEquals(VisualRoot, root))
+        {
+            return;
+        }
+
+        base.AttachToVisualTree(root);
+        if (!ReferenceEquals(VisualRoot, root))
+        {
+            return;
+        }
+
+        foreach (UIElement child in Children.ToArray())
+        {
+            // A child hosted in its own window keeps its independent visual root.
+            if (ReferenceEquals(child.Parent, this) && !ReferenceEquals(child.VisualRoot, child))
+            {
+                child.AttachToVisualTree(root);
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    internal override void DetachFromVisualTree(UIElement root, UIElement? parent)
+    {
+        if (!ReferenceEquals(VisualRoot, root))
+        {
+            return;
+        }
+
+        UIElement[] children = Children.ToArray();
+        base.DetachFromVisualTree(root, parent);
+        if (VisualRoot is not null)
+        {
+            return;
+        }
+
+        foreach (UIElement child in children)
+        {
+            if (ReferenceEquals(child.Parent, this))
+            {
+                child.DetachFromVisualTree(root, this);
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void OnEffectiveEnabledChanged(bool isEnabled)
+    {
+        base.OnEffectiveEnabledChanged(isEnabled);
+        foreach (UIElement child in Children)
+        {
+            child.UpdateEffectiveEnabledState();
+        }
+    }
+
+    /// <inheritdoc />
     protected override void OnDataContextChanged(DataContextChangedEventArgs args)
     {
         base.OnDataContextChanged(args);
@@ -288,21 +347,22 @@ public class View : UIElement, IView, IScrollContainer
         // Reset notifications omit the old items, so retain the attached children for detachment.
         if (e.Action == NotifyCollectionChangedAction.Reset)
         {
-            foreach (UIElement child in _attachedChildren)
+            foreach (UIElement child in _attachedChildren.ToArray())
             {
-                if (!_children.Contains(child))
+                if (_children.Contains(child))
                 {
-                    child.SetState(ElementStates.FirstChild | ElementStates.LastChild, false);
+                    continue;
                 }
 
+                _attachedChildren.Remove(child);
+                child.SetState(ElementStates.FirstChild | ElementStates.LastChild, false);
                 if (ReferenceEquals(child.Parent, this))
                 {
                     child.Parent = null;
                 }
             }
 
-            _attachedChildren.Clear();
-            foreach (UIElement child in _children)
+            foreach (UIElement child in _children.ToArray())
             {
                 _attachedChildren.Add(child);
                 child.Parent = this;
@@ -328,7 +388,7 @@ public class View : UIElement, IView, IScrollContainer
         {
             foreach (object item in e.NewItems)
             {
-                if (item is UIElement newChild)
+                if (item is UIElement newChild && _children.Contains(newChild))
                 {
                     _attachedChildren.Add(newChild);
                     newChild.Parent = this;
@@ -338,4 +398,39 @@ public class View : UIElement, IView, IScrollContainer
 
         InvalidateVisual();
     }
+
+    private sealed class UIElementCollection(View owner) : ObservableCollection<UIElement>
+    {
+        protected override void InsertItem(int index, UIElement item)
+        {
+            Validate(item);
+            base.InsertItem(index, item);
+        }
+
+        protected override void SetItem(int index, UIElement item)
+        {
+            if (ReferenceEquals(this[index], item))
+            {
+                return;
+            }
+
+            Validate(item);
+            base.SetItem(index, item);
+        }
+
+        private void Validate(UIElement item)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+            if (item.Parent is not null || Contains(item))
+            {
+                throw new InvalidOperationException("The element already belongs to a parent collection.");
+            }
+
+            if (item.IsAncestorOf(owner))
+            {
+                throw new InvalidOperationException("An element cannot contain itself or one of its ancestors.");
+            }
+        }
+    }
+
 }

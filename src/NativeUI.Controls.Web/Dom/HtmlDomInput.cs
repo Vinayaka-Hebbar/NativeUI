@@ -23,7 +23,10 @@ public sealed class HtmlDomInput : HtmlDomElement
     /// </summary>
     internal void OnBrowserInput(string value)
     {
-        _input.Value = value;
+        if (_input.IsEffectivelyEnabled && !_input.IsReadOnly)
+        {
+            _input.Value = value;
+        }
     }
 
     /// <inheritdoc />
@@ -53,7 +56,7 @@ public sealed class HtmlDomInput : HtmlDomElement
         {
             UpdateReadOnly();
         }
-        else if (ReferenceEquals(args.Property, UIElement.IsEnabledProperty))
+        else if (ReferenceEquals(args.Property, UIElement.IsEffectivelyEnabledProperty))
         {
             UpdateEnabledState();
         }
@@ -83,6 +86,6 @@ public sealed class HtmlDomInput : HtmlDomElement
 
     private void UpdateEnabledState()
     {
-        SetAttribute("disabled", _input.IsEnabled ? null : "disabled");
+        SetAttribute("disabled", _input.IsEffectivelyEnabled ? null : "disabled");
     }
 }

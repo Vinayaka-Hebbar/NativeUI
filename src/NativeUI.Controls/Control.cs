@@ -52,6 +52,14 @@ public abstract class Control : View
         return FindPart<TElement>(this, name);
     }
 
+    /// <summary>
+    /// Returns an attribute supplied by this control for one of its template parts.
+    /// </summary>
+    internal virtual string? GetTemplateChildAttribute(UIElement child, string name)
+    {
+        return null;
+    }
+
     private TElement? FindPart<TElement>(View container, string name)
         where TElement : UIElement
     {

@@ -153,7 +153,7 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
 
         _disposed = true;
         _input.PropertyChanged -= OnInputPropertyChanged;
-        _input.FindFocusManager()?.HandleLostFocus(_input);
+        InputManager.Current.PrimaryKeyboardDevice.HandleLostFocus(_input);
         if (ReferenceEquals(_input.NativeHandle, this))
         {
             _input.NativeHandle = null;
@@ -203,10 +203,10 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
         byte accepted = AppKitInterop.SendSuperMessage(ref super, cmd);
         if (accepted != 0 && s_fields.TryGetValue(self, out NativeTextField? field))
         {
-            field._input.FindFocusManager()?.HandleGotFocus(field._input, FocusState.Programmatic);
+            InputManager.Current.PrimaryKeyboardDevice.HandleGotFocus(field._input, FocusState.Programmatic);
 
-            // A press on the field reaches AppKit and not the window, which dismisses portals for its own presses.
-            Portal.DismissForPress(field._input);
+            // AppKit receives the native field interaction outside the window's pointer dispatcher.
+            field._window.OverlayManager?.HandlePointerPressed(field._input);
         }
 
         return accepted;
@@ -214,7 +214,7 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
 
     /// <summary>
     /// Lets Escape in the field editor close a modal dialog, and Tab and Shift+Tab move focus through the
-    /// <see cref="FocusManager"/> instead of the AppKit key view loop. The field editor otherwise consumes these keys.
+    /// <see cref="KeyboardDevice"/> instead of the AppKit key view loop. The field editor otherwise consumes these keys.
     /// </summary>
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static byte OnDoCommandBySelector(nint self, nint cmd, nint control, nint textView, nint selector)
@@ -231,11 +231,11 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
         }
         else if (selector == AppKitInterop.GetSelector("insertTab:"))
         {
-            handled = field._input.FindFocusManager()?.MoveFocus(FocusNavigationDirection.Next) ?? false;
+            handled = InputManager.Current.PrimaryKeyboardDevice.MoveFocus(field._input, FocusNavigationDirection.Next, FocusState.Keyboard);
         }
         else if (selector == AppKitInterop.GetSelector("insertBacktab:"))
         {
-            handled = field._input.FindFocusManager()?.MoveFocus(FocusNavigationDirection.Previous) ?? false;
+            handled = InputManager.Current.PrimaryKeyboardDevice.MoveFocus(field._input, FocusNavigationDirection.Previous, FocusState.Keyboard);
         }
         else
         {
@@ -259,7 +259,7 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
     {
         if (s_fields.TryGetValue(self, out NativeTextField? field))
         {
-            field._input.FindFocusManager()?.HandleLostFocus(field._input);
+            InputManager.Current.PrimaryKeyboardDevice.HandleLostFocus(field._input);
         }
     }
 
@@ -291,7 +291,7 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
         {
             UpdateEditable();
         }
-        else if (ReferenceEquals(args.Property, UIElement.IsEnabledProperty))
+        else if (ReferenceEquals(args.Property, UIElement.IsEffectivelyEnabledProperty))
         {
             UpdateEnabled();
         }
@@ -328,7 +328,7 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
 
     private void UpdateEnabled()
     {
-        AppKitInterop.SendMessageVoid(_field, AppKitInterop.GetSelector("setEnabled:"), _input.IsEnabled);
+        AppKitInterop.SendMessageVoid(_field, AppKitInterop.GetSelector("setEnabled:"), _input.IsEffectivelyEnabled);
     }
 
     private void SetString(string selector, string value)

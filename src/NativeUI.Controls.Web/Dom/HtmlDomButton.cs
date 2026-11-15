@@ -31,7 +31,7 @@ public sealed class HtmlDomButton : HtmlDomView
     protected override void OnPropertyChanged(BindablePropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (ReferenceEquals(args.Property, UIElement.IsEnabledProperty))
+        if (ReferenceEquals(args.Property, UIElement.IsEffectivelyEnabledProperty))
         {
             UpdateEnabledState();
         }
@@ -43,8 +43,8 @@ public sealed class HtmlDomButton : HtmlDomView
 
     private void UpdateEnabledState()
     {
-        SetAttribute("disabled", _button.IsEnabled ? null : "disabled");
-        SetAttribute("aria-disabled", _button.IsEnabled ? null : "true");
+        SetAttribute("disabled", _button.IsEffectivelyEnabled ? null : "disabled");
+        SetAttribute("aria-disabled", _button.IsEffectivelyEnabled ? null : "true");
     }
 
     private void UpdateText()

@@ -843,7 +843,7 @@ public abstract class TableBase : Selector
 
     private void OnHeaderPointerPressed(object? sender, PointerEventArgs args)
     {
-        if (!IsEnabled || args.Source is not UIElement source)
+        if (!IsEffectivelyEnabled || args.Source is not UIElement source)
         {
             return;
         }

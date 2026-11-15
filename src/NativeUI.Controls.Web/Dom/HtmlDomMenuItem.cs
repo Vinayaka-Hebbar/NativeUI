@@ -27,6 +27,7 @@ public sealed class HtmlDomMenuItem : HtmlDomControl
     {
         base.Initialize();
         UpdateCheckedState();
+        UpdateSubmenuState();
     }
 
     /// <inheritdoc />
@@ -38,10 +39,25 @@ public sealed class HtmlDomMenuItem : HtmlDomControl
             SetAttribute("role", Role);
             UpdateCheckedState();
         }
+        else if (ReferenceEquals(args.Property, MenuItem.HasItemsProperty) ||
+            ReferenceEquals(args.Property, MenuItem.IsSubmenuOpenProperty))
+        {
+            UpdateSubmenuState();
+        }
         else if (ReferenceEquals(args.Property, MenuItem.IsCheckedProperty))
         {
             UpdateCheckedState();
         }
+    }
+
+    private void UpdateSubmenuState()
+    {
+        SetAttribute("data-has-items", _menuItem.HasItems ? string.Empty : null);
+        SetAttribute("data-open", _menuItem.GetAttribute("data-open"));
+        SetAttribute("data-closed", _menuItem.GetAttribute("data-closed"));
+        SetAttribute("aria-haspopup", _menuItem.HasItems ? "menu" : null);
+        SetAttribute("aria-expanded", _menuItem.HasItems ? (_menuItem.IsSubmenuOpen ? "true" : "false") : null);
+        SetAttribute("data-popup-open", _menuItem.IsSubmenuOpen ? string.Empty : null);
     }
 
     private void UpdateCheckedState()

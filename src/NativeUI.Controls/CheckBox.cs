@@ -18,9 +18,6 @@ public class CheckBox : ContentControl, IStackLayoutNode
     private const string IndicatorPartName = "indicator";
     private const string IconPartName = "icon";
 
-    private static readonly PathGeometry s_checkMark = Geometry.Parse("M6.2 11.6 L2.6 8 L3.8 6.8 L6.2 9.2 L12.2 3.2 L13.4 4.4 Z");
-    private static readonly PathGeometry s_dash = Geometry.Parse("M3 7 L13 7 L13 9 L3 9 Z");
-
     static CheckBox()
     {
         WidthProperty.OverrideMetadata<CheckBox>(WidthValue.FitContent);
@@ -87,7 +84,7 @@ public class CheckBox : ContentControl, IStackLayoutNode
     protected override void BuildTemplate()
     {
         View indicator = DefinePart(new View(), IndicatorPartName);
-        indicator.Children.Add(DefinePart(new Path { Fill = SvgCurrentColorBrush.Instance }, IconPartName));
+        indicator.Children.Add(DefinePart(new Path { Fill = SvgCurrentColorBrush.Instance, Stretch = Stretch.None }, IconPartName));
         Children.Add(indicator);
     }
 
@@ -115,8 +112,8 @@ public class CheckBox : ContentControl, IStackLayoutNode
         {
             _icon.Data = isChecked switch
             {
-                true => s_checkMark,
-                null => s_dash,
+                true => Icons.Checkmark,
+                null => Icons.Dash,
                 false => null
             };
         }

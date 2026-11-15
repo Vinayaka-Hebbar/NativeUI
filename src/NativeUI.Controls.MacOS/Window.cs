@@ -41,7 +41,8 @@ public sealed class Window : IDisposable, IRenderHost
     private Dialog? _hostedDialog;
     private nint _inputBlocker;
     private UIElement? _content;
-    private FocusManager? _focusManager;
+    private KeyboardDevice? _keyboard;
+    private OverlayManager? _overlayManager;
     private IDisposable? _animationRoot;
     private IStyleResolver? _styleResolver;
     private Color? _background;
@@ -171,6 +172,11 @@ public sealed class Window : IDisposable, IRenderHost
     public bool IsTextCursorActive { get; private set; }
 
     /// <summary>
+    /// Gets the overlay manager owned by this window for its current content root.
+    /// </summary>
+    internal OverlayManager? OverlayManager => _overlayManager;
+
+    /// <summary>
     /// Gets or sets the root <see cref="UIElement"/> content displayed inside this window.
     /// </summary>
     public UIElement? Content
@@ -181,6 +187,11 @@ public sealed class Window : IDisposable, IRenderHost
             if (ReferenceEquals(_content, value))
             {
                 return;
+            }
+
+            if (value is not null && ReferenceEquals(value.VisualRoot, value))
+            {
+                throw new InvalidOperationException("The element is already a hosted visual root.");
             }
 
             BeginFrameBatch();
@@ -203,14 +214,19 @@ public sealed class Window : IDisposable, IRenderHost
             _animationRoot = null;
             RemoveTextFields();
             RemoveDialogWindows();
-            DetachFocusManager();
+            _overlayManager?.Dispose();
+            _overlayManager = null;
+            _content?.DetachFromVisualTree(_content, _content.Parent);
+            DetachKeyboard();
             _activeSelectionText = null;
             _activeSelectionBox = null;
             _content = value;
             if (_content is not null)
             {
-                _focusManager = new FocusManager(_content);
-                _focusManager.FocusChanged += OnFocusChanged;
+                _keyboard = InputManager.Current.PrimaryKeyboardDevice;
+                _overlayManager = new OverlayManager(_content);
+                _content.AttachToVisualTree(_content);
+                _keyboard.FocusChanged += OnFocusChanged;
                 _animationRoot = AnimationClock.AttachRoot(_content);
                 SyncContentStyle();
                 _content.VisualInvalidated += OnContentVisualInvalidated;
@@ -328,44 +344,84 @@ public sealed class Window : IDisposable, IRenderHost
         int clickCount = 1,
         InputModifiers modifiers = InputModifiers.None)
     {
+        HandlePointerPressed(viewportPoint, PointerButtons.Primary, clickCount, modifiers);
+    }
+
+    /// <summary>
+    /// Routes a press with its native pointer buttons in logical window coordinates.
+    /// </summary>
+    /// <param name="viewportPoint">The pointer position relative to the window content.</param>
+    /// <param name="buttons">The buttons held during the press.</param>
+    /// <param name="clickCount">The number of consecutive clicks.</param>
+    /// <param name="modifiers">The modifier keys held during the press.</param>
+    public void HandlePointerPressed(
+        Point viewportPoint,
+        PointerButtons buttons,
+        int clickCount = 1,
+        InputModifiers modifiers = InputModifiers.None)
+    {
         if (_content is null || LastLayout is null)
         {
             return;
         }
 
+        UIElement root = _content;
+        OverlayManager? overlayManager = _overlayManager;
+        KeyboardDevice? keyboard = _keyboard;
         BeginFrameBatch();
         try
         {
-            StorePointerState(viewportPoint, PointerButtons.Primary, modifiers);
-            if (DispatchOverlayPointer(OverlayPointerAction.Pressed, viewportPoint))
+            StorePointerState(viewportPoint, buttons, modifiers);
+            if (buttons.HasFlag(PointerButtons.Primary) && DispatchOverlayPointer(OverlayPointerAction.Pressed, viewportPoint))
             {
+                overlayManager?.HandlePointerPressed(null);
                 _overlayCapturesPointer = true;
                 UpdateHoverState(null);
-                UpdateCursor();
                 return;
             }
 
-            if (VisualTreeRenderer.HitTestScrollbar(LastLayout, viewportPoint) is ScrollbarGeometry scrollbar)
+            if (!ReferenceEquals(_content, root))
             {
-                BeginScrollbarDrag(scrollbar, viewportPoint);
                 return;
             }
 
-            UIElement? hoveredElement = HitTest(viewportPoint);
+            UIElement? hoveredElement = HitTest(viewportPoint, out ScrollbarGeometry? scrollbar);
             UpdateHoverState(hoveredElement);
-            hoveredElement?.RaiseEvent(
-                UIElement.PointerPressedEvent,
-                new PointerEventArgs(MousePointerId, viewportPoint, PointerButtons.Primary, modifiers, clickCount));
-            BeginSelection(hoveredElement, viewportPoint, clickCount);
+            overlayManager?.HandlePointerPressed(hoveredElement);
+            UIElement? inputElement = hoveredElement?.GetInputTarget();
+            if (!ReferenceEquals(_content, root) ||
+                (hoveredElement is not null && inputElement is null) ||
+                (inputElement is not null && !IsCurrentHitTarget(root, inputElement)))
+            {
+                return;
+            }
 
-            // A press on an Input reaches the window only outside its native field, which covers the text line alone.
-            // Focusing the Input moves focus to the field.
-            _focusManager?.HandlePointerPressed(hoveredElement);
-            Portal.DismissForPress(hoveredElement);
-            UpdateCursor();
+            // A press outside an Input's native field focuses that field through the keyboard device.
+            keyboard?.HandlePointerPressed(root, inputElement);
+            if (inputElement is null || !inputElement.IsEffectivelyEnabled || !IsCurrentHitTarget(root, inputElement))
+            {
+                return;
+            }
+
+            if (buttons.HasFlag(PointerButtons.Primary) && scrollbar is ScrollbarGeometry hitScrollbar &&
+                ReferenceEquals(inputElement, hitScrollbar.View))
+            {
+                BeginScrollbarDrag(hitScrollbar, viewportPoint);
+                return;
+            }
+
+            inputElement.RaiseEvent(
+                UIElement.PointerPressedEvent,
+                new PointerEventArgs(MousePointerId, viewportPoint, buttons, modifiers, clickCount));
+
+            if (buttons.HasFlag(PointerButtons.Primary))
+            {
+                BeginSelection(root, inputElement, viewportPoint, clickCount);
+            }
         }
         finally
         {
+            UpdateCursor();
             EndFrameBatch();
         }
     }
@@ -408,14 +464,25 @@ public sealed class Window : IDisposable, IRenderHost
         }
     }
 
-    private void BeginSelection(UIElement? hoveredElement, Point viewportPoint, int clickCount)
+    private bool IsCurrentHitTarget(UIElement root, UIElement target)
     {
-        ClearAllTextSelections(_content!);
+        return ReferenceEquals(_content, root) && ReferenceEquals(target.VisualRoot, root) && target.IsHitTestVisibleInTree &&
+            root.IsAncestorOf(target);
+    }
+
+    private void BeginSelection(UIElement root, UIElement inputElement, Point viewportPoint, int clickCount)
+    {
+        if (!inputElement.IsEffectivelyEnabled || !IsCurrentHitTarget(root, inputElement))
+        {
+            return;
+        }
+
+        ClearAllTextSelections(root);
         _activeSelectionText = null;
         _activeSelectionBox = null;
         _isDraggingSelection = false;
 
-        if (hoveredElement is not Text { IsTextSelectionEnabled: true } textControl ||
+        if (inputElement is not Text { IsTextSelectionEnabled: true } textControl ||
             FindBoxInFrame(textControl) is not LayoutBox hitBox ||
             hitBox.TextLayout is not ITextLayout textLayout)
         {
@@ -464,7 +531,7 @@ public sealed class Window : IDisposable, IRenderHost
         BeginFrameBatch();
         try
         {
-            PointerButtons buttons = isPressed ? PointerButtons.Primary : PointerButtons.None;
+            PointerButtons buttons = isPressed ? _pointerButtons : PointerButtons.None;
             StorePointerState(viewportPoint, buttons, modifiers);
 
             // A drag that started in the visual tree stays there, even over an overlay.
@@ -480,7 +547,7 @@ public sealed class Window : IDisposable, IRenderHost
 
             if (_scrollbarDrag is ScrollbarDrag drag)
             {
-                if (isPressed)
+                if (isPressed && ReferenceEquals(drag.View.GetInputTarget(), drag.View))
                 {
                     double pointer = drag.IsVertical ? viewportPoint.Y : viewportPoint.X;
                     ScrollAlong(drag.View, drag.IsVertical, drag.StartOffset + ((pointer - drag.StartPointer) * drag.OffsetPerPixel));
@@ -491,10 +558,14 @@ public sealed class Window : IDisposable, IRenderHost
             }
 
             UIElement? hoveredElement = HitTest(viewportPoint);
+            UIElement? inputElement = hoveredElement?.GetInputTarget();
             UpdateHoverState(hoveredElement);
-            hoveredElement?.RaiseEvent(
-                UIElement.PointerMovedEvent,
-                new PointerEventArgs(MousePointerId, viewportPoint, buttons, modifiers));
+            if (inputElement is not null)
+            {
+                inputElement.RaiseEvent(
+                    UIElement.PointerMovedEvent,
+                    new PointerEventArgs(MousePointerId, viewportPoint, buttons, modifiers));
+            }
 
             if (isPressed)
             {
@@ -511,7 +582,8 @@ public sealed class Window : IDisposable, IRenderHost
 
     private void ExtendSelection(Point viewportPoint)
     {
-        if (!_isDraggingSelection || _activeSelectionText is null || _activeSelectionBox?.TextLayout is not ITextLayout textLayout)
+        if (!_isDraggingSelection || _activeSelectionText is not { IsEffectivelyEnabled: true } ||
+            _activeSelectionBox?.TextLayout is not ITextLayout textLayout)
         {
             return;
         }
@@ -555,8 +627,9 @@ public sealed class Window : IDisposable, IRenderHost
             }
 
             UIElement? hoveredElement = HitTest(viewportPoint);
+            UIElement? inputElement = hoveredElement?.GetInputTarget();
             UpdateHoverState(hoveredElement);
-            hoveredElement?.RaiseEvent(
+            inputElement?.RaiseEvent(
                 UIElement.PointerReleasedEvent,
                 new PointerEventArgs(MousePointerId, viewportPoint, PointerButtons.None, modifiers));
 
@@ -587,7 +660,9 @@ public sealed class Window : IDisposable, IRenderHost
         BeginFrameBatch();
         try
         {
-            for (UIElement? element = HitTest(viewportPoint); element is not null; element = element.Parent)
+            UIElement? hoveredElement = HitTest(viewportPoint);
+            UIElement? inputElement = hoveredElement?.GetInputTarget();
+            for (UIElement? element = inputElement; element is not null; element = element.Parent)
             {
                 if (element is View view && view.TryScrollBy(deltaX, deltaY))
                 {
@@ -699,7 +774,7 @@ public sealed class Window : IDisposable, IRenderHost
         InputModifiers modifiers = InputModifiers.None,
         bool isRepeat = false)
     {
-        if (_content is null || _focusManager is null || string.IsNullOrEmpty(key) || _inputBlocker != nint.Zero)
+        if (_content is null || _keyboard is null || string.IsNullOrEmpty(key) || _inputBlocker != nint.Zero)
         {
             return false;
         }
@@ -718,14 +793,14 @@ public sealed class Window : IDisposable, IRenderHost
         }
 
         (Key logicalKey, string? text) = MapKey(key);
-        if (_focusManager.RaiseKeyEvent(UIElement.KeyDownEvent, new KeyEventArgs(logicalKey, text, modifiers, isRepeat)))
+        if (_keyboard.RaiseKeyEvent(_content, UIElement.KeyDownEvent, new KeyEventArgs(logicalKey, text, modifiers, isRepeat)))
         {
             return true;
         }
 
         if (logicalKey == Key.Tab && !commandOrControl)
         {
-            _ = _focusManager.MoveFocus(modifiers.HasFlag(InputModifiers.Shift) ? FocusNavigationDirection.Previous : FocusNavigationDirection.Next);
+            _ = _keyboard.MoveFocus(_content, modifiers.HasFlag(InputModifiers.Shift) ? FocusNavigationDirection.Previous : FocusNavigationDirection.Next);
             return true;
         }
 
@@ -767,14 +842,14 @@ public sealed class Window : IDisposable, IRenderHost
     /// <returns><see langword="true"/> when a handler handled the release.</returns>
     public bool HandleKeyUp(string key, InputModifiers modifiers = InputModifiers.None)
     {
-        if (_focusManager is null || string.IsNullOrEmpty(key) || _inputBlocker != nint.Zero ||
+        if (_content is null || _keyboard is null || string.IsNullOrEmpty(key) || _inputBlocker != nint.Zero ||
             _textFields.Keys.Any(static input => input.IsFocused))
         {
             return false;
         }
 
         (Key logicalKey, string? text) = MapKey(key);
-        return _focusManager.RaiseKeyEvent(UIElement.KeyUpEvent, new KeyEventArgs(logicalKey, text, modifiers));
+        return _keyboard.RaiseKeyEvent(_content, UIElement.KeyUpEvent, new KeyEventArgs(logicalKey, text, modifiers));
     }
 
     /// <summary>
@@ -817,22 +892,26 @@ public sealed class Window : IDisposable, IRenderHost
     /// Keeps keyboard events in this window's content view while a rendered element has focus, or while no element has
     /// focus. A focused <see cref="Input"/> keeps its native field as the first responder.
     /// </summary>
-    private void OnFocusChanged(object? sender, EventArgs e)
+    private void OnFocusChanged(UIElement? previousRoot, UIElement? root)
     {
-        bool isNativeFieldFocused = _focusManager?.FocusedElement is Input input && _textFields.ContainsKey(input);
+        if (!ReferenceEquals(root, _content) && (root is not null || !ReferenceEquals(previousRoot, _content)))
+        {
+            return;
+        }
+
+        bool isNativeFieldFocused = _keyboard?.FocusedElement is Input input && _textFields.ContainsKey(input);
         if (!isNativeFieldFocused && _nsWindow != nint.Zero && _nsImageView != nint.Zero)
         {
             _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
         }
     }
 
-    private void DetachFocusManager()
+    private void DetachKeyboard()
     {
-        if (_focusManager is not null)
+        if (_keyboard is not null)
         {
-            _focusManager.FocusChanged -= OnFocusChanged;
-            _focusManager.Dispose();
-            _focusManager = null;
+            _keyboard.FocusChanged -= OnFocusChanged;
+            _keyboard = null;
         }
     }
 
@@ -931,15 +1010,18 @@ public sealed class Window : IDisposable, IRenderHost
             AppKitInterop.UnregisterWindowView(_nsImageView);
         }
 
+        _overlayManager?.Dispose();
+        _overlayManager = null;
         if (_content is not null)
         {
+            _content.DetachFromVisualTree(_content, _content.Parent);
             _content.VisualInvalidated -= OnContentVisualInvalidated;
             _content = null;
         }
 
         RemoveTextFields();
         RemoveDialogWindows();
-        DetachFocusManager();
+        DetachKeyboard();
         if (_hostedDialog is not null && _nsWindow != nint.Zero)
         {
             _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("orderOut:"), nint.Zero);
@@ -963,7 +1045,7 @@ public sealed class Window : IDisposable, IRenderHost
     /// </summary>
     private static UIElement? HitTest(LayoutBox box, Point point)
     {
-        if (box.Element is not UIElement { IsVisible: true } element)
+        if (box.Element is not UIElement { IsHitTestVisible: true } element)
         {
             return null;
         }
@@ -1025,7 +1107,7 @@ public sealed class Window : IDisposable, IRenderHost
 
     private static void SelectAllSelectableText(UIElement element)
     {
-        if (element is Text { IsVisible: true, IsTextSelectionEnabled: true } textControl)
+        if (element is Text { IsVisible: true, IsTextSelectionEnabled: true, IsEffectivelyEnabled: true } textControl)
         {
             textControl.SelectAll();
         }
@@ -1445,28 +1527,42 @@ public sealed class Window : IDisposable, IRenderHost
 
     private UIElement? HitTest(Point position)
     {
+        return HitTest(position, out _);
+    }
+
+    private UIElement? HitTest(Point position, out ScrollbarGeometry? scrollbar)
+    {
+        scrollbar = null;
         // A dialog in its own window takes no input during its exit animations.
-        if (LastLayout is null || _content is Portal { IsOpen: false } || Overlays.Any(overlay => overlay.ContainsPoint(position)))
+        if (LastLayout is null || _content is { IsHitTestVisible: false } || Overlays.Any(overlay => overlay.ContainsPoint(position)))
         {
             return null;
         }
 
         for (int i = _renderer.PortalBoxes.Count - 1; i >= 0; i--)
         {
+            LayoutBox box = _renderer.PortalBoxes[i];
             // A portal that is closed and still drawn during its exit takes no input.
-            if (_renderer.PortalBoxes[i].Element is Portal { IsOpen: false })
+            if (box.Element is UIElement { IsHitTestVisible: false })
             {
                 continue;
             }
 
-            UIElement? portalMatch = HitTest(_renderer.PortalBoxes[i], position);
+            scrollbar = VisualTreeRenderer.HitTestScrollbar(box, position);
+            if (scrollbar is ScrollbarGeometry portalScrollbar)
+            {
+                return portalScrollbar.View;
+            }
+
+            UIElement? portalMatch = HitTest(box, position);
             if (portalMatch is not null)
             {
                 return portalMatch;
             }
         }
 
-        return HitTest(LastLayout, position);
+        scrollbar = VisualTreeRenderer.HitTestScrollbar(LastLayout, position);
+        return scrollbar is ScrollbarGeometry rootScrollbar ? rootScrollbar.View : HitTest(LastLayout, position);
     }
 
     /// <summary>
@@ -1476,7 +1572,8 @@ public sealed class Window : IDisposable, IRenderHost
     private UIElement? ResolveHoverTarget(Point position)
     {
         UIElement? hovered = _pointerRouter.HoveredElement;
-        if (hovered is not null && FindBoxInFrame(hovered)?.BorderBox.Contains(position) == true)
+        if (_content is UIElement root && hovered is not null && IsCurrentHitTarget(root, hovered) &&
+            FindBoxInFrame(hovered)?.BorderBox.Contains(position) == true)
         {
             return hovered;
         }
@@ -1523,13 +1620,19 @@ public sealed class Window : IDisposable, IRenderHost
 
     private void UpdateCursor()
     {
+        UIElement? hovered = _pointerRouter.HoveredElement;
+        if (hovered is not null && (_content is null || !IsCurrentHitTarget(_content, hovered)))
+        {
+            hovered = null;
+        }
+
         Cursor cursor = _isDraggingSelection
             ? Cursor.IBeam
-            : (_pointerRouter.HoveredElement?.ComputedStyle.Cursor ?? Cursor.Auto);
+            : (hovered?.ComputedStyle.Cursor ?? Cursor.Auto);
 
         if (cursor == Cursor.Auto)
         {
-            cursor = _pointerRouter.HoveredElement is Text { IsTextSelectionEnabled: true } or Input { IsEnabled: true }
+            cursor = hovered is Text { IsTextSelectionEnabled: true, IsEffectivelyEnabled: true } or Input { IsEffectivelyEnabled: true }
                 ? Cursor.IBeam
                 : Cursor.Default;
         }

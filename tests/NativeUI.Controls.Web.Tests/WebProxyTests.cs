@@ -19,10 +19,13 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
     ("SVG aspect ratios and definition references use explicit browser syntax", NativeUI.Controls.Web.Tests.SvgDomBuilderTests.AspectAndReferencesAreScoped),
     ("Browser image formats use validated signatures instead of a JPEG fallback", TestImageContentTypes),
     ("SVG snapshots reflect live geometry and retain unchanged geometry definitions", TestSvgSnapshots),
+    ("Natural-size vector icons retain their geometry scale", TestNaturalSizeIcon),
     ("HelloView mounts its proxy hierarchy and performs targeted incremental updates", TestIncrementalUpdates),
     ("DOM proxies synchronize text and keep their identity across property changes", TestPropertyChanges),
     ("View proxies reconcile children without recreating unchanged proxies", TestChildCollections),
     ("WebHost unmounts subscriptions and proxies before remounting", TestMountLifetime),
+    ("Web hosts attach existing trees and detach them on unmount", TestVisualTreeAttachment),
+    ("Web focus reports share the keyboard device and respect host teardown", TestKeyboardFocusLifetime),
     ("WebHost rejects elements mounted by another host without disposing their proxies", TestHostOwnership),
     ("Disposing a control disposes its proxy and the proxies of its children", TestControlDisposal),
     ("Each browser pointer event routes once and updates hover in C#", TestPointerEventRouting),
@@ -88,6 +91,88 @@ static void TestSvgSnapshots()
     Assert.Equal(SvgNodeKind.Definitions, gradient.Children[0].Kind);
     Assert.Equal(SvgNodeKind.LinearGradient, gradient.Children[0].Children[0].Kind);
     Assert.True(ReferenceEquals(replacement, gradient.Children[1].Geometry));
+}
+
+static void TestNaturalSizeIcon()
+{
+    NativeUI.Controls.Shapes.Path icon = new()
+    {
+        Data = Icons.ChevronRight,
+        Stretch = Stretch.None,
+        Width = 16,
+        Height = 16
+    };
+    SvgNode definition = SvgDomBuilder.CreateShapeDefinition(icon, new Size(16, 16));
+    Assert.Equal(new Rect(-0.125, 0, 16, 16), definition.ViewBox ?? Rect.Empty);
+    Assert.Same(Icons.ChevronRight, definition.Children[0].Geometry ?? throw new InvalidOperationException("Missing geometry."));
+    SvgNode largerViewport = SvgDomBuilder.CreateShapeDefinition(icon, new Size(32, 32));
+    Assert.Equal(32.0, largerViewport.ViewBox?.Width ?? 0);
+    Assert.Equal(32.0, largerViewport.ViewBox?.Height ?? 0);
+    icon.Dispose();
+}
+
+static void TestKeyboardFocusLifetime()
+{
+    using View root = new();
+    Button first = new();
+    root.Children.Add(first);
+    using HtmlDomRoot host = new();
+    host.MountHeadless(root);
+    KeyboardDevice keyboard = InputManager.Current.PrimaryKeyboardDevice;
+    Assert.False(first.Focus(FocusState.Keyboard));
+    Assert.False(first.IsFocused);
+    keyboard.HandleGotFocus(first, FocusState.Keyboard);
+    Assert.True(first.IsFocused);
+    Assert.True(first.States.HasFlag(ElementStates.FocusVisible));
+    Assert.Same(first, FocusManager.GetFocusedElement(root) ?? throw new InvalidOperationException("Missing logical focus."));
+
+    using View otherRoot = new();
+    Button second = new();
+    otherRoot.Children.Add(second);
+    using HtmlDomRoot otherHost = new();
+    otherHost.MountHeadless(otherRoot);
+    keyboard.HandleGotFocus(second, FocusState.Pointer);
+    Assert.False(first.IsFocused);
+    Assert.True(second.IsFocused);
+    Assert.False(second.States.HasFlag(ElementStates.FocusVisible));
+    host.Unmount();
+    Assert.True(second.IsFocused);
+    keyboard.HandleGotFocus(first, FocusState.Keyboard);
+    Assert.True(second.IsFocused);
+    otherHost.Unmount();
+    Assert.Null(keyboard.FocusedElement);
+    Assert.False(second.IsFocused);
+    Assert.Null(FocusManager.GetFocusedElement(otherRoot));
+}
+
+static void TestVisualTreeAttachment()
+{
+    using AttachmentView root = new();
+    AttachmentView child = new();
+    Portal popup = new();
+    root.Children.Add(child);
+    root.Children.Add(popup);
+    popup.Show();
+    using HtmlDomRoot host = new();
+    host.MountHeadless(root);
+    Assert.Equal(1, root.Attachments);
+    Assert.Equal(1, child.Attachments);
+
+    AttachmentView added = new();
+    root.Children.Add(added);
+    Assert.Equal(1, added.Attachments);
+    root.Children.Remove(added);
+    Assert.Equal(1, added.Detachments);
+
+    host.Unmount();
+    Assert.Equal(1, root.Detachments);
+    Assert.Equal(1, child.Detachments);
+    Assert.False(popup.IsOpen);
+    host.MountHeadless(root);
+    Assert.Equal(2, root.Attachments);
+    Assert.Equal(2, child.Attachments);
+    host.Unmount();
+    Assert.Equal(2, child.Detachments);
 }
 
 static void TestIncrementalUpdates()
@@ -702,4 +787,23 @@ file sealed class CustomText : Text;
 file sealed class CustomElement : UIElement
 {
     public override string TagName => "custom";
+}
+
+file sealed class AttachmentView : View
+{
+    internal int Attachments { get; private set; }
+
+    internal int Detachments { get; private set; }
+
+    protected override void OnAttachedToVisualTree()
+    {
+        base.OnAttachedToVisualTree();
+        Attachments++;
+    }
+
+    protected override void OnDetachedFromVisualTree()
+    {
+        Detachments++;
+        base.OnDetachedFromVisualTree();
+    }
 }

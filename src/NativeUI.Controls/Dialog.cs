@@ -186,7 +186,7 @@ public class Dialog : Portal, IWindowHostedElement
     }
 
     /// <summary>
-    /// Opens this dialog like <see cref="Portal.Show"/>, and returns a task that completes when it closes, whatever closes
+    /// Opens this dialog like <see cref="Portal.Show(UIElement?)"/>, and returns a task that completes when it closes, whatever closes
     /// it. The UI thread keeps running while the task is pending.
     /// </summary>
     /// <param name="anchor">The element to open next to, or <see langword="null"/> to center.</param>

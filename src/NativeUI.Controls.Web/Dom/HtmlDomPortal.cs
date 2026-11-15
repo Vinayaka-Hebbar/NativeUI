@@ -29,6 +29,7 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
     {
         _portal = portal;
         _portal.TransitionStatusChanged += OnTransitionStatusChanged;
+        _portal.PlacementChanged += OnPlacementChanged;
     }
 
     /// <summary>
@@ -55,6 +56,12 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
     {
         base.Initialize();
         SetAttribute("id", ElementId);
+        if (_portal.TemplatedParent is DropdownMenu)
+        {
+            SetAttribute("role", "menu");
+            SetAttribute("aria-orientation", "vertical");
+        }
+
         SetAttribute(StyleSheetCss.PortalAttribute, string.Empty);
         UpdateDataAttributes();
         UpdateMounted();
@@ -134,6 +141,7 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
     protected override void OnDisposing()
     {
         _portal.TransitionStatusChanged -= OnTransitionStatusChanged;
+        _portal.PlacementChanged -= OnPlacementChanged;
         base.OnDisposing();
     }
 
@@ -196,6 +204,11 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
         SetAttribute("inert", _portal.TransitionStatus == TransitionStatus.Ending ? string.Empty : null);
     }
 
+    private void OnPlacementChanged(object? sender, EventArgs args)
+    {
+        UpdatePosition();
+    }
+
     private void UpdatePosition()
     {
         if (!_isMounted || Element is not JSObject element)
@@ -212,6 +225,12 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
         Rect viewport = new(0, 0, viewportSize.GetPropertyAsDouble("width"), viewportSize.GetPropertyAsDouble("height"));
 
         Point position = PortalPlacement.Compute(_portal, anchor, bounds.Size, viewport, viewport, out PortalSide side);
+        if (_portal.AnchorPoint is Point point && RootElement is JSObject root)
+        {
+            Rect rootBounds = ReadBounds(root);
+            Rect pointerAnchor = new(rootBounds.X + point.X, rootBounds.Y + point.Y, 0, 0);
+            position = PortalPlacement.ComputeAtPoint(_portal, new Point(pointerAnchor.X, pointerAnchor.Y), bounds.Size, viewport);
+        }
         SetStyleProperty("left", position.X.ToString("R", CultureInfo.InvariantCulture) + "px");
         SetStyleProperty("top", position.Y.ToString("R", CultureInfo.InvariantCulture) + "px");
         string? dataSide = _portal.GetAttribute("data-side");

@@ -338,6 +338,17 @@ public class Tooltip : Control
     }
 
     /// <inheritdoc />
+    internal override string? GetTemplateChildAttribute(UIElement child, string name)
+    {
+        if (ReferenceEquals(child, _mountedArrow) && name is "data-side" or "data-align")
+        {
+            return _portal.GetAttribute(name);
+        }
+
+        return base.GetTemplateChildAttribute(child, name);
+    }
+
+    /// <inheritdoc />
     protected override void BuildTemplate()
     {
         _portal = DefinePart(new Portal(), ContentPartName);
@@ -447,7 +458,7 @@ public class Tooltip : Control
                 textTooltip.CancelTimersAndClose();
             }
 
-            if (target.Parent is null)
+            if (target.Parent is null && !target.IsAncestorOf(this))
             {
                 _isTargetHosted = true;
                 Children.Insert(0, target);
@@ -463,7 +474,8 @@ public class Tooltip : Control
 
         if (IsOpen)
         {
-            target.IsPopupOpen = true;
+            target.SetState(ElementStates.PopoverOpen, true);
+            target.InvalidateStyle();
         }
     }
 
@@ -485,7 +497,8 @@ public class Tooltip : Control
 
         if (IsOpen)
         {
-            target.IsPopupOpen = false;
+            target.SetState(ElementStates.PopoverOpen, false);
+            target.InvalidateStyle();
         }
 
         if (_isTargetHosted)
@@ -681,7 +694,8 @@ public class Tooltip : Control
 
         IsOpen = true;
         UpdateOpenState(true);
-        target.IsPopupOpen = true;
+        target.SetState(ElementStates.PopoverOpen, true);
+        target.InvalidateStyle();
         _portal.Show(target);
     }
 
@@ -702,7 +716,8 @@ public class Tooltip : Control
         DetachOpenRoot();
         if (Target is UIElement target)
         {
-            target.IsPopupOpen = false;
+            target.SetState(ElementStates.PopoverOpen, false);
+            target.InvalidateStyle();
         }
 
         IsOpen = false;

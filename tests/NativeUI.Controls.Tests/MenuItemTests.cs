@@ -35,6 +35,9 @@ internal static class MenuItemTests
     public static void VerifyPartUpdates()
     {
         using MenuItem item = new() { Content = "Auto Save", IsCheckable = true };
+        item.Items.Add(new MenuItem { Content = "Nested" });
+        Assert.True(item.HasItems);
+        Assert.Null(item.Parent);
         UIElement label = item.Children[1];
         UIElement icon = item.Children[0];
         View iconHost = (View)icon;

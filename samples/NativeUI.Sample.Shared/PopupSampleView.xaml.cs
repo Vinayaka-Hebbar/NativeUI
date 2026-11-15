@@ -6,6 +6,7 @@ public partial class PopupSampleView
     /// <summary>Creates the examples and reports the open state of the first popover.</summary>
     public PopupSampleView()
     {
+        DataContext = new PopupSampleViewModel();
         InitializeComponent();
 
         DimensionsPopover.Opened += (_, _) => DimensionsStatus.Value = "Open";

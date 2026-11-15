@@ -33,7 +33,7 @@ public abstract class HtmlDomControl : HtmlDomView
     protected override void OnPropertyChanged(BindablePropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (ReferenceEquals(args.Property, UIElement.IsEnabledProperty))
+        if (ReferenceEquals(args.Property, UIElement.IsEffectivelyEnabledProperty))
         {
             UpdateEnabledState();
         }
@@ -41,6 +41,6 @@ public abstract class HtmlDomControl : HtmlDomView
 
     private void UpdateEnabledState()
     {
-        SetAttribute("aria-disabled", Source.IsEnabled ? null : "true");
+        SetAttribute("aria-disabled", Source.IsEffectivelyEnabled ? null : "true");
     }
 }

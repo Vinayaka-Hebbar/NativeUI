@@ -86,5 +86,10 @@ public enum ElementStates
     /// <summary>
     /// The element is a popover that is open, selected by the <c>:popover-open</c> pseudo-class.
     /// </summary>
-    PopoverOpen = 1 << 14
+    PopoverOpen = 1 << 14,
+
+    /// <summary>
+    /// The element is open, selected by the <c>:open</c> pseudo-class.
+    /// </summary>
+    Open = 1 << 15
 }

@@ -370,6 +370,18 @@ class NativeUIRoot extends HTMLElement {
   };
 
   /**
+   * Suppresses the browser menu for a target with a NativeUI context menu.
+   *
+   * @param {MouseEvent} event The native context menu event.
+   * @returns {void}
+   */
+  #handleContextMenu = (event) => {
+    if (event.target instanceof Element && event.target.closest("[data-nui-context-menu]")) {
+      event.preventDefault();
+    }
+  };
+
+  /**
    * Adds the delegated pointer, scroll, input, focus, key, and dialog close listeners.
    *
    * @returns {void}
@@ -386,13 +398,20 @@ class NativeUIRoot extends HTMLElement {
     this.addEventListener("input", this.#handleInput);
     this.addEventListener("focusin", this.#handleFocus);
     this.addEventListener("focusout", this.#handleFocus);
+    this.addEventListener("contextmenu", this.#handleContextMenu);
     this.addEventListener("keydown", this.#handleKey);
     this.addEventListener("keyup", this.#handleKey);
     this.addEventListener("close", this.#handleClose, { capture: true });
-    this.#pointerHandler = (event) =>
-      this.#handlePointerEvent(/** @type {MouseEvent} */ (event));
+    this.#pointerHandler = (event) => {
+      const mouseEvent = /** @type {MouseEvent} */ (event);
+      if (mouseEvent.type === "mousedown" && mouseEvent.button === 2 &&
+          mouseEvent.target instanceof Element && mouseEvent.target.closest("[data-nui-context-menu]")) {
+        mouseEvent.preventDefault();
+      }
+      this.#handlePointerEvent(mouseEvent);
+    };
     for (const type of Object.keys(Pointer.NativeKinds)) {
-      this.addEventListener(type, this.#pointerHandler, { passive: true });
+      this.addEventListener(type, this.#pointerHandler, { passive: type !== "mousedown" });
     }
   }
 
@@ -414,6 +433,7 @@ class NativeUIRoot extends HTMLElement {
     this.removeEventListener("input", this.#handleInput);
     this.removeEventListener("focusin", this.#handleFocus);
     this.removeEventListener("focusout", this.#handleFocus);
+    this.removeEventListener("contextmenu", this.#handleContextMenu);
     this.removeEventListener("keydown", this.#handleKey);
     this.removeEventListener("keyup", this.#handleKey);
     this.removeEventListener("close", this.#handleClose, { capture: true });

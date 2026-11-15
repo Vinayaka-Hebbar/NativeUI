@@ -387,13 +387,16 @@ public sealed class CssValidator : CssSyntaxVisitor
             "virtualizedtable" => "nui-virtualizedtable",
             "tablerow" => "nui-tablerow",
             "tablecell" => "nui-tablecell",
-            "separator" => "nui-separator",
+            "separator" => ":is(nui-separator, nui-menuseparator)",
+            "menuseparator" => "nui-menuseparator",
+            "menugroup" => "nui-menugroup",
             "badge" => "nui-badge",
             "avatar" => "nui-avatar",
             "breadcrumb" => "nui-breadcrumb",
             "breadcrumbitem" => "nui-breadcrumbitem",
             "buttongroup" => "nui-buttongroup",
-            "dropdownmenu" => "nui-dropdownmenu",
+            "dropdownmenu" => ":is(nui-dropdownmenu, nui-contextmenu)",
+            "contextmenu" => "nui-contextmenu",
             "menuitem" => "nui-menuitem",
             "popover" => "nui-popover",
             "tooltip" => "nui-tooltip",
@@ -417,6 +420,7 @@ public sealed class CssValidator : CssSyntaxVisitor
             "Off" => "[aria-pressed=\"false\"]",
             "Selected" => "[aria-selected=\"true\"]",
             "PopoverOpen" => "[data-open]",
+            "Open" => "[data-open]",
             _ => null
         };
     }

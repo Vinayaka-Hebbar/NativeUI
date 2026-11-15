@@ -293,6 +293,58 @@ public class Popover : Control
         return base.GetAttribute(name);
     }
 
+    /// <summary>
+    /// Attaches a popup target and subscribes to its input.
+    /// </summary>
+    /// <param name="target">The target element.</param>
+    public void AttachTarget(UIElement target)
+    {
+        if (target.Parent is null && !target.IsAncestorOf(this))
+        {
+            _isTargetHosted = true;
+            Children.Insert(0, target);
+        }
+
+        AttachTargetInput(target);
+
+        if (IsOpen)
+        {
+            target.SetState(ElementStates.PopoverOpen, true);
+            target.InvalidateStyle();
+        }
+    }
+
+    /// <summary>
+    /// Detaches a popup target and removes its input subscriptions.
+    /// </summary>
+    /// <param name="target">The target element.</param>
+    public void DetachTarget(UIElement target)
+    {
+        DetachTargetInput(target);
+        if (IsOpen)
+        {
+            target.SetState(ElementStates.PopoverOpen, false);
+            target.InvalidateStyle();
+        }
+
+        if (_isTargetHosted)
+        {
+            _isTargetHosted = false;
+            Children.Remove(target);
+        }
+    }
+
+    /// <inheritdoc />
+    internal override string? GetTemplateChildAttribute(UIElement child, string name)
+    {
+        if (ReferenceEquals(child, _mountedArrow) && name is "data-side" or "data-align")
+        {
+            return _portal.GetAttribute(name);
+        }
+
+        return base.GetTemplateChildAttribute(child, name);
+    }
+
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
@@ -316,7 +368,42 @@ public class Popover : Control
         base.Dispose(disposing);
     }
 
-    private void OnTargetChanged(UIElement? previous, UIElement? target)
+    /// <summary>
+    /// Subscribes to the input that opens this popup from its target.
+    /// </summary>
+    protected virtual void AttachTargetInput(UIElement target)
+    {
+        // A button handles Enter and Space itself and marks them handled, so its Click event reports activation.
+        if (target is Button button)
+        {
+            button.Click += OnTargetClick;
+        }
+        else
+        {
+            _targetGesture = ClickGesture.Attach(target, Toggle);
+        }
+    }
+
+    /// <summary>
+    /// Removes the input subscriptions from the previous target.
+    /// </summary>
+    protected virtual void DetachTargetInput(UIElement target)
+    {
+        if (target is Button button)
+        {
+            button.Click -= OnTargetClick;
+        }
+
+        _targetGesture?.Dispose();
+        _targetGesture = null;
+    }
+
+    /// <summary>
+    /// Updates target ownership and input subscriptions when the target changes.
+    /// </summary>
+    /// <param name="previous">The previous target.</param>
+    /// <param name="target">The new target.</param>
+    protected virtual void OnTargetChanged(UIElement? previous, UIElement? target)
     {
         if (previous is not null)
         {
@@ -331,51 +418,6 @@ public class Popover : Control
         if (IsOpen)
         {
             _portal.Show(target);
-        }
-    }
-
-    private void AttachTarget(UIElement target)
-    {
-        if (target.Parent is null)
-        {
-            _isTargetHosted = true;
-            Children.Insert(0, target);
-        }
-
-        // A button handles Enter and Space itself and marks them handled, so its Click event reports activation.
-        if (target is Button button)
-        {
-            button.Click += OnTargetClick;
-        }
-        else
-        {
-            _targetGesture = ClickGesture.Attach(target, Toggle);
-        }
-
-        if (IsOpen)
-        {
-            target.IsPopupOpen = true;
-        }
-    }
-
-    private void DetachTarget(UIElement target)
-    {
-        if (target is Button button)
-        {
-            button.Click -= OnTargetClick;
-        }
-
-        _targetGesture?.Dispose();
-        _targetGesture = null;
-        if (IsOpen)
-        {
-            target.IsPopupOpen = false;
-        }
-
-        if (_isTargetHosted)
-        {
-            _isTargetHosted = false;
-            Children.Remove(target);
         }
     }
 
@@ -422,6 +464,7 @@ public class Popover : Control
         }
     }
 
+
     private void OnTargetClick(object? sender, RoutedEventArgs args)
     {
         Toggle();
@@ -441,7 +484,8 @@ public class Popover : Control
         UpdateOpenState(isOpen);
         if (Target is UIElement target)
         {
-            target.IsPopupOpen = isOpen;
+            target.SetState(ElementStates.PopoverOpen, isOpen);
+            target.InvalidateStyle();
         }
         if (!isOpen)
         {
@@ -449,8 +493,16 @@ public class Popover : Control
             return;
         }
 
-        _portal.Show(Target);
+        ShowContent();
         FocusContent();
+    }
+
+    /// <summary>
+    /// Positions and opens the content portal.
+    /// </summary>
+    private protected virtual void ShowContent()
+    {
+        _portal.Show(Target);
     }
 
     /// <summary>

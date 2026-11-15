@@ -32,6 +32,9 @@ internal static class HtmlTagMapping
     private const string PopoverTag = "nui-popover";
     private const string TooltipTag = "nui-tooltip";
     private const string DropdownMenuTag = "nui-dropdownmenu";
+    private const string ContextMenuTag = "nui-contextmenu";
+    private const string MenuGroupTag = "nui-menugroup";
+    private const string MenuSeparatorTag = "nui-menuseparator";
     private const string MenuItemTag = "nui-menuitem";
 
     /// <summary>
@@ -122,6 +125,9 @@ internal static class HtmlTagMapping
             return TableCellTag;
         }
 
+        if (element is MenuGroup) return MenuGroupTag;
+        if (element is MenuSeparator) return MenuSeparatorTag;
+
         if (element is Separator)
         {
             return SeparatorTag;
@@ -150,6 +156,11 @@ internal static class HtmlTagMapping
         if (element is ButtonGroup)
         {
             return ButtonGroupTag;
+        }
+
+        if (element is ContextMenu)
+        {
+            return ContextMenuTag;
         }
 
         if (element is DropdownMenu)
@@ -263,9 +274,12 @@ internal static class HtmlTagMapping
             return TableCellTag;
         }
 
+        if (typeof(MenuGroup).IsAssignableFrom(type)) return MenuGroupTag;
+        if (typeof(MenuSeparator).IsAssignableFrom(type)) return MenuSeparatorTag;
+
         if (typeof(Separator).IsAssignableFrom(type))
         {
-            return SeparatorTag;
+            return $":is({SeparatorTag}, {MenuSeparatorTag})";
         }
 
         if (typeof(Badge).IsAssignableFrom(type))
@@ -293,9 +307,14 @@ internal static class HtmlTagMapping
             return ButtonGroupTag;
         }
 
+        if (typeof(ContextMenu).IsAssignableFrom(type))
+        {
+            return ContextMenuTag;
+        }
+
         if (typeof(DropdownMenu).IsAssignableFrom(type))
         {
-            return DropdownMenuTag;
+            return $":is({DropdownMenuTag}, {ContextMenuTag})";
         }
 
         if (typeof(MenuItem).IsAssignableFrom(type))
@@ -344,13 +363,16 @@ internal static class HtmlTagMapping
             "virtualizedtable" => VirtualizedTableTag,
             "tablerow" => TableRowTag,
             "tablecell" => TableCellTag,
-            "separator" => SeparatorTag,
+            "separator" => $":is({SeparatorTag}, {MenuSeparatorTag})",
+            "menuseparator" => MenuSeparatorTag,
+            "menugroup" => MenuGroupTag,
             "badge" => BadgeTag,
             "avatar" => AvatarTag,
             "breadcrumb" => BreadcrumbTag,
             "breadcrumbitem" => BreadcrumbItemTag,
             "buttongroup" => ButtonGroupTag,
-            "dropdownmenu" => DropdownMenuTag,
+            "dropdownmenu" => $":is({DropdownMenuTag}, {ContextMenuTag})",
+            "contextmenu" => ContextMenuTag,
             "menuitem" => MenuItemTag,
             "popover" => PopoverTag,
             "tooltip" => TooltipTag,

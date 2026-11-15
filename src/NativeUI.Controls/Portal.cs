@@ -43,8 +43,9 @@ public enum PortalSide
 /// </remarks>
 public class Portal : View, IPortalLayoutNode, IFrameTarget
 {
-    private static readonly List<Portal> s_openPortals = [];
+    private OverlayManager? _overlayManager;
 
+    private Point? _anchorPoint;
     private TransitionStatus _transitionStatus;
 
     // The transition status of the most recent frame that drew this portal.
@@ -102,7 +103,7 @@ public class Portal : View, IPortalLayoutNode, IFrameTarget
             propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
 
     /// <summary>
-    /// Occurs after <see cref="Show"/> opens this portal.
+    /// Occurs after <see cref="Show(UIElement?)"/> opens this portal.
     /// </summary>
     public event EventHandler? Opened;
 
@@ -122,6 +123,11 @@ public class Portal : View, IPortalLayoutNode, IFrameTarget
     internal event EventHandler? TransitionStatusChanged;
 
     /// <summary>
+    /// Occurs when an open portal moves to a different element or pointer anchor.
+    /// </summary>
+    internal event EventHandler? PlacementChanged;
+
+    /// <summary>
     /// Occurs after an open or a close finishes.
     /// </summary>
     internal event EventHandler? OpenChangeCompleted;
@@ -131,6 +137,9 @@ public class Portal : View, IPortalLayoutNode, IFrameTarget
 
     /// <inheritdoc />
     public override bool IsVisible => base.IsVisible && (IsOpen || _transitionStatus == TransitionStatus.Ending);
+
+    /// <inheritdoc />
+    internal override bool IsHitTestVisible => IsOpen && base.IsHitTestVisible;
 
     /// <summary>
     /// Gets the phase of the open and close transitions.
@@ -153,6 +162,11 @@ public class Portal : View, IPortalLayoutNode, IFrameTarget
     /// Gets the element this portal is positioned against while open, or <see langword="null"/> when it is centered.
     /// </summary>
     public UIElement? Anchor { get; private set; }
+
+    /// <summary>
+    /// Gets the pointer anchor in root coordinates, or null when anchored to an element.
+    /// </summary>
+    internal Point? AnchorPoint => _anchorPoint;
 
     /// <summary>
     /// Gets or sets the side of <see cref="Anchor"/> to open on. Defaults to <see cref="PortalSide.Bottom"/>.
@@ -214,12 +228,12 @@ public class Portal : View, IPortalLayoutNode, IFrameTarget
 
         if (string.Equals(name, "data-side", StringComparison.Ordinal))
         {
-            return Anchor is null ? null : GetSideName(Side);
+            return Anchor is null && _anchorPoint is null ? null : GetSideName(Side);
         }
 
         if (string.Equals(name, "data-align", StringComparison.Ordinal))
         {
-            return Anchor is null ? null : GetAlignName(Align);
+            return Anchor is null && _anchorPoint is null ? null : GetAlignName(Align);
         }
 
         return base.GetAttribute(name);
@@ -236,23 +250,51 @@ public class Portal : View, IPortalLayoutNode, IFrameTarget
     /// </summary>
     public void Show(UIElement? anchor = null)
     {
+        _anchorPoint = null;
+        ShowCore(anchor);
+    }
+
+    /// <summary>
+    /// Opens this portal at a point in root coordinates measured in logical pixels.
+    /// </summary>
+    /// <param name="position">The pointer position relative to the root element.</param>
+    public void Show(Point position)
+    {
+        _anchorPoint = position;
+        ShowCore(null);
+    }
+
+    private void ShowCore(UIElement? anchor)
+    {
         if (IsOpen)
         {
             Anchor = anchor;
+            _overlayManager?.UpdateRelationships();
+            PlacementChanged?.Invoke(this, EventArgs.Empty);
+            InvalidateStyle();
             InvalidateVisual();
             return;
         }
 
         OnOpening();
         Anchor = anchor;
-        s_openPortals.Add(this);
+        UpdateOverlayManager();
+        _overlayManager?.Register(this);
 
         // A portal that opens again during its exit transitions back from its current style.
         TransitionStatus status = _transitionStatus == TransitionStatus.Ending ? TransitionStatus.Idle : TransitionStatus.Starting;
         _transitionStatus = TransitionStatus.Idle;
         IsOpen = true;
+        if (!IsOpen)
+        {
+            return;
+        }
+
         Opened?.Invoke(this, EventArgs.Empty);
-        SetTransitionStatus(status);
+        if (IsOpen)
+        {
+            SetTransitionStatus(status);
+        }
     }
 
     /// <summary>
@@ -265,11 +307,12 @@ public class Portal : View, IPortalLayoutNode, IFrameTarget
             return;
         }
 
+        _overlayManager?.CloseChildren(this);
+
         Closing?.Invoke(this, EventArgs.Empty);
-        s_openPortals.Remove(this);
         if (States.HasFlag(ElementStates.FocusWithin))
         {
-            FindFocusManager()?.ClearFocus(this);
+            InputManager.Current.PrimaryKeyboardDevice.ClearFocus(this);
         }
 
         // A drawn portal stays visible during its exit. Its status changes before IsOpen does.
@@ -332,17 +375,37 @@ public class Portal : View, IPortalLayoutNode, IFrameTarget
     }
 
     /// <summary>
-    /// Closes the open portals that a pointer press on <paramref name="target"/> falls outside of.
+    /// Resolves the overlay manager belonging to this portal's hosted root.
     /// </summary>
-    internal static void DismissForPress(UIElement? target)
+    internal void UpdateOverlayManager()
     {
-        foreach (Portal portal in s_openPortals.ToArray())
+        OverlayManager? manager = OverlayManager.FindFor(this);
+        if (ReferenceEquals(_overlayManager, manager))
         {
-            if (portal.ClosesOnOutsidePress && !IsWithin(target, portal) && !IsWithin(target, portal.Anchor))
-            {
-                portal.Close();
-            }
+            return;
         }
+
+        _overlayManager?.Unregister(this);
+        _overlayManager = manager;
+    }
+
+    /// <inheritdoc />
+    protected override void OnAttachedToVisualTree()
+    {
+        base.OnAttachedToVisualTree();
+        UpdateOverlayManager();
+        if (IsVisible)
+        {
+            _overlayManager?.Register(this);
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void OnDetachedFromVisualTree()
+    {
+        _overlayManager?.Unregister(this);
+        _overlayManager = null;
+        base.OnDetachedFromVisualTree();
     }
 
     /// <inheritdoc />
@@ -350,7 +413,9 @@ public class Portal : View, IPortalLayoutNode, IFrameTarget
     {
         if (disposing)
         {
-            s_openPortals.Remove(this);
+            _overlayManager?.CloseChildren(this);
+            _overlayManager?.Unregister(this);
+            _overlayManager = null;
             if (_transitionStatus != TransitionStatus.Idle)
             {
                 AnimationClock.Remove(this);
@@ -376,7 +441,10 @@ public class Portal : View, IPortalLayoutNode, IFrameTarget
         {
             if (!IsOpen)
             {
+                _overlayManager?.Unregister(this);
+                _overlayManager = null;
                 Anchor = null;
+                _anchorPoint = null;
                 if (previous == TransitionStatus.Ending)
                 {
                     OnIsVisibleChanged();
@@ -453,21 +521,4 @@ public class Portal : View, IPortalLayoutNode, IFrameTarget
         };
     }
 
-    private static bool IsWithin(UIElement? element, UIElement? ancestor)
-    {
-        if (ancestor is null)
-        {
-            return false;
-        }
-
-        for (UIElement? current = element; current is not null; current = current.Parent)
-        {
-            if (ReferenceEquals(current, ancestor))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

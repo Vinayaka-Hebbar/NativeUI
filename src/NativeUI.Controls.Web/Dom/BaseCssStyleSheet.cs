@@ -127,7 +127,6 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
                 ["background"] = "none",
                 ["color"] = "inherit",
                 ["font"] = "inherit",
-                ["cursor"] = "pointer",
                 ["user-select"] = "none",
                 ["width"] = "fit-content"
             }));
@@ -384,7 +383,10 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
             }));
 
         rules.Add(Rule(
-            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-separator"))),
+            CssSelector.Where(
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-separator")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-menuseparator")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-menugroup"))),
             new()
             {
                 ["display"] = "block"
@@ -431,7 +433,8 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
             CssSelector.Where(
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-popover")),
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-tooltip")),
-                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-dropdownmenu"))),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-dropdownmenu")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-contextmenu"))),
             new()
             {
                 ["display"] = "block",

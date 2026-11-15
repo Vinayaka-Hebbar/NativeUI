@@ -1,6 +1,7 @@
 <View xmlns="urn:nativeui"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       x:Class="NativeUI.Sample.PopupSampleView"
+      x:DataType="NativeUI.Sample.PopupSampleViewModel"
       Class="popup-page">
     <Text Class="popup-title" Value="Popover" />
     <Text Class="popup-description" Value="A click on the target toggles the popover. Escape and a press outside close it. Focus moves into the content and returns to the target." />
@@ -60,16 +61,54 @@
 
     <View Class="popup-section">
         <Text Class="popup-heading" Value="DropdownMenu" />
-        <Button x:Name="FileMenuButton" Class="popup-trigger" Text="File Menu" />
+        <Button x:Name="FileMenuButton" Class="popup-trigger" Text="Options" />
         <DropdownMenu Target="{x:Reference FileMenuButton}" Side="Bottom" Align="Start" SideOffset="4">
-            <MenuItem Content="New File" InputGestureText="⌘N" />
-            <MenuItem Content="Open..." InputGestureText="⌘O" />
-            <Separator />
-            <MenuItem Content="Save" InputGestureText="⌘S" />
-            <MenuItem Content="Save As..." InputGestureText="⇧⌘S" />
-            <Separator />
-            <MenuItem Content="Auto Save" IsCheckable="True" IsChecked="True" />
-            <MenuItem Content="Close Editor" InputGestureText="⌘W" />
+            <MenuGroup Header="File">
+                <MenuItem Content="New" ShortcutText="Ctrl+N" Command="{Binding NewCommand}" />
+                <MenuItem Content="Open" ShortcutText="Ctrl+O" Command="{Binding OpenCommand}" />
+                <MenuItem Content="Save" ShortcutText="Ctrl+S" Command="{Binding SaveCommand}" />
+            </MenuGroup>
+            <MenuSeparator />
+            <MenuGroup Header="View">
+                <MenuItem Content="Show Toolbar" IsCheckable="True" IsChecked="{Binding ShowToolbar, Mode=TwoWay}" />
+                <MenuItem Content="Show Sidebar" IsCheckable="True" IsChecked="{Binding ShowSidebar, Mode=TwoWay}" />
+            </MenuGroup>
+            <MenuSeparator />
+            <MenuItem Content="Export">
+                <MenuItem Content="PDF" Command="{Binding ExportCommand}" CommandParameter="PDF" />
+                <MenuItem Content="PNG" Command="{Binding ExportCommand}" CommandParameter="PNG" />
+                <MenuItem Content="SVG" Command="{Binding ExportCommand}" CommandParameter="SVG" />
+            </MenuItem>
+            <MenuItem Content="Share">
+                <MenuItem Content="Copy Link" />
+                <MenuItem Content="More Options">
+                    <MenuItem Content="Email" />
+                    <MenuItem Content="Messages" />
+                </MenuItem>
+            </MenuItem>
         </DropdownMenu>
+        <Text Class="popup-status" Value="{Binding MenuStatus}" />
+        <Text Class="popup-status" Value="Toolbar enabled" IsVisible="{Binding ShowToolbar}" />
+        <Text Class="popup-status" Value="Sidebar enabled" IsVisible="{Binding ShowSidebar}" />
+    </View>
+    <View Class="popup-section">
+        <Text Class="popup-heading" Value="ContextMenu" />
+        <Text Class="popup-description" Value="Right-click the target, or focus it and press Shift+F10. Nested menus open with Right Arrow and return with Left Arrow." />
+        <Button x:Name="ContextMenuTarget" Class="popup-trigger" Text="Right-click here" />
+        <ContextMenu Target="{x:Reference ContextMenuTarget}">
+            <MenuItem Content="Cut" InputGestureText="⌘X" />
+            <MenuItem Content="Copy" InputGestureText="⌘C" />
+            <MenuItem Content="Paste" InputGestureText="⌘V" IsEnabled="False" />
+            <Separator />
+            <MenuItem Content="Open With">
+                <MenuItem Content="Text Editor" />
+                <MenuItem Content="Browser" />
+                <MenuItem Content="More Apps">
+                    <MenuItem Content="Preview" />
+                    <MenuItem Content="Terminal" />
+                </MenuItem>
+            </MenuItem>
+            <MenuItem Content="Show Hidden Files" IsCheckable="True" />
+        </ContextMenu>
     </View>
 </View>

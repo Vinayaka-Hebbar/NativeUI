@@ -1,8 +1,10 @@
 using System.Globalization;
+using System.Collections.Specialized;
 using System.Windows.Input;
 using NativeUI.Core;
 using NativeUI.Layout;
 using NativeUI.Media;
+using NativeUI.Xaml;
 using Path = NativeUI.Controls.Shapes.Path;
 
 namespace NativeUI.Controls;
@@ -22,25 +24,26 @@ namespace NativeUI.Controls;
 /// <c>:checked</c>, <c>:disabled</c>, and <c>:focus-visible</c> pseudo-classes.
 /// </para>
 /// </remarks>
+[ContentProperty(nameof(Items))]
 public class MenuItem : ContentControl, IGridLayoutNode
 {
     private const string IconPartName = "icon";
     private const string LabelPartName = "label";
     private const string ShortcutPartName = "shortcut";
     private const string CheckMarkPartName = "checkmark";
+    private const string SubmenuIndicatorPartName = "submenu-indicator";
 
-    private static readonly PathGeometry s_checkMark = Geometry.Parse("M6.2 11.6 L2.6 8 L3.8 6.8 L6.2 9.2 L12.2 3.2 L13.4 4.4 Z");
-
-    private static readonly IReadOnlyList<GridLength> s_columns =
+    private readonly IReadOnlyList<GridLength> _columns =
     [
         GridLength.Auto,
         GridLength.Star(),
+        GridLength.Auto,
         GridLength.Auto
     ];
 
     static MenuItem()
     {
-        CursorProperty.OverrideMetadata<MenuItem>(Cursor.Pointer);
+        CursorProperty.OverrideMetadata<MenuItem>(Cursor.Default);
         FocusableProperty.OverrideMetadata<MenuItem>(true);
     }
 
@@ -75,7 +78,7 @@ public class MenuItem : ContentControl, IGridLayoutNode
         BindableProperty.Create<MenuItem, UIElement?>(
             nameof(Icon),
             defaultValue: null,
-            propertyChanged: static (owner, previous, icon) => owner.OnIconChanged(previous, icon));
+            propertyChanged: static (owner, _, _) => owner.UpdateIcon());
 
     /// <summary>
     /// Identifies the <see cref="InputGestureText"/> bindable property.
@@ -84,7 +87,12 @@ public class MenuItem : ContentControl, IGridLayoutNode
         BindableProperty.Create<MenuItem, string?>(
             nameof(InputGestureText),
             defaultValue: null,
-            propertyChanged: static (owner, _, text) => owner.OnInputGestureTextChanged(text));
+            propertyChanged: static (owner, _, _) => owner.UpdateShortcut());
+
+    /// <summary>
+    /// Identifies the <see cref="ShortcutText"/> property, an alias for <see cref="InputGestureText"/>.
+    /// </summary>
+    public static readonly BindableProperty<string?> ShortcutTextProperty = InputGestureTextProperty;
 
     /// <summary>
     /// Identifies the <see cref="IsCheckable"/> bindable property.
@@ -104,12 +112,31 @@ public class MenuItem : ContentControl, IGridLayoutNode
             defaultValue: false,
             propertyChanged: static (owner, _, _) => owner.UpdateCheckedState());
 
+    /// <summary>
+    /// Identifies the <see cref="IsSubmenuOpen"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<bool> IsSubmenuOpenProperty =
+        BindableProperty.Create<MenuItem, bool>(nameof(IsSubmenuOpen), defaultValue: false,
+            propertyChanged: static (owner, _, isOpen) => owner.OnIsSubmenuOpenChanged(isOpen));
+
+    /// <summary>
+    /// Identifies the <see cref="HasItems"/> computed property.
+    /// </summary>
+    public static readonly ComputedBindableProperty<MenuItem, bool> HasItemsProperty =
+        BindableProperty.CreateComputed<MenuItem, bool>(nameof(HasItems), static item => item.HasItems);
+
     private readonly EventHandler _canExecuteChangedHandler;
     private readonly IDisposable _gestureSubscription;
+    private bool _canExecuteCommand = true;
+    private bool _previousHasItems;
     private View? _iconHost;
     private View? _contentHost;
     private Text? _shortcutText;
     private Path? _checkMark;
+    private Path? _submenuIndicator;
+    private DropdownMenu? _submenu;
+    private readonly DispatcherTimer _openTimer = new() { Interval = TimeSpan.FromMilliseconds(150) };
+    private readonly DispatcherTimer _closeTimer = new() { Interval = TimeSpan.FromMilliseconds(300) };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MenuItem"/> class.
@@ -118,7 +145,14 @@ public class MenuItem : ContentControl, IGridLayoutNode
     {
         _canExecuteChangedHandler = OnCanExecuteChanged;
         _gestureSubscription = ClickGesture.Attach(this, PerformClick);
+        _openTimer.Tick += OnOpenTimerTick;
+        _closeTimer.Tick += OnCloseTimerTick;
+        PointerEntered += OnPointerEntered;
+        PointerExited += OnPointerExited;
+        KeyDown += OnSubmenuKeyDown;
         UpdateCheckedState();
+        UpdateIsEnabledFromCommand();
+        UpdateEffectiveEnabledState();
     }
 
     /// <inheritdoc />
@@ -161,6 +195,18 @@ public class MenuItem : ContentControl, IGridLayoutNode
     }
 
     /// <summary>
+    /// Gets or sets the shortcut label. This property shares its value with <see cref="InputGestureText"/>.
+    /// </summary>
+    public string? ShortcutText
+    {
+        get => InputGestureText;
+        set => InputGestureText = value;
+    }
+
+    /// <inheritdoc />
+    protected override bool IsEnabledCore => _canExecuteCommand;
+
+    /// <summary>
     /// Gets or sets a value indicating whether the menu item can be checked and unchecked.
     /// </summary>
     public bool IsCheckable
@@ -178,9 +224,69 @@ public class MenuItem : ContentControl, IGridLayoutNode
         set => SetValue(IsCheckedProperty, value);
     }
 
+    /// <summary>
+    /// Gets the child menu items displayed in this item's submenu.
+    /// </summary>
+    public IList<UIElement> Items => EnsureSubmenu().Items;
+
+    /// <summary>
+    /// Gets a value indicating whether this item has a submenu.
+    /// </summary>
+    public bool HasItems => _submenu is not null && _submenu.Items.Count > 0;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this item's submenu is open.
+    /// </summary>
+    public bool IsSubmenuOpen
+    {
+        get => GetValue(IsSubmenuOpenProperty);
+        set => SetValue(IsSubmenuOpenProperty, value);
+    }
+
+    /// <summary>
+    /// Gets the nearest menu that contains this item.
+    /// </summary>
+    internal DropdownMenu? ParentMenu
+    {
+        get
+        {
+            for (UIElement? current = Parent; current is not null; current = current.Parent)
+            {
+                if (current is DropdownMenu menu)
+                {
+                    return menu;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    /// <inheritdoc />
+    public override string? GetAttribute(string name)
+    {
+        return name switch
+        {
+            "data-has-items" => HasItems ? string.Empty : null,
+            "data-open" => IsSubmenuOpen ? string.Empty : null,
+            "data-closed" => HasItems && !IsSubmenuOpen ? string.Empty : null,
+            _ => base.GetAttribute(name)
+        };
+    }
+
+    /// <summary>
+    /// Cancels hover timers and closes this item's submenu.
+    /// </summary>
+    internal void CloseSubmenu()
+    {
+        _openTimer.Stop();
+        _closeTimer.Stop();
+        IsSubmenuOpen = false;
+    }
+
     IReadOnlyList<GridLength> IGridLayoutNode.Rows => [];
 
-    IReadOnlyList<GridLength> IGridLayoutNode.Columns => s_columns;
+    IReadOnlyList<GridLength> IGridLayoutNode.Columns => _columns;
 
     double IGridLayoutNode.RowSpacing => 0;
 
@@ -203,6 +309,11 @@ public class MenuItem : ContentControl, IGridLayoutNode
             return new GridPlacement(0, 2, 1, 1);
         }
 
+        if (ReferenceEquals(child, _submenuIndicator))
+        {
+            return new GridPlacement(0, 3, 1, 1);
+        }
+
         return new GridPlacement(0, 1, 1, 1);
     }
 
@@ -221,8 +332,20 @@ public class MenuItem : ContentControl, IGridLayoutNode
     /// </summary>
     public void PerformClick()
     {
-        if (!IsEnabled)
+        UpdateIsEnabledFromCommand();
+        if (!IsEffectivelyEnabled)
         {
+            return;
+        }
+
+        if (HasItems)
+        {
+            IsSubmenuOpen = true;
+            if (InputManager.Current.PrimaryKeyboardDevice.MostRecentInput == FocusState.Keyboard)
+            {
+                _submenu?.FocusFirstItem();
+            }
+
             return;
         }
 
@@ -247,6 +370,7 @@ public class MenuItem : ContentControl, IGridLayoutNode
         _checkMark = DefinePart(new Path
         {
             Fill = SvgCurrentColorBrush.Instance,
+            Stretch = Stretch.None,
             Width = 16,
             Height = 16,
             IsVisible = false
@@ -270,6 +394,20 @@ public class MenuItem : ContentControl, IGridLayoutNode
         Children.Add(_iconHost);
         Children.Add(_contentHost);
         Children.Add(_shortcutText);
+        _submenuIndicator = DefinePart(new Path
+        {
+            Data = Icons.ChevronRight,
+            Fill = SvgCurrentColorBrush.Instance,
+            Stretch = Stretch.None,
+            Width = 16,
+            Height = 16,
+            IsVisible = false
+        }, SubmenuIndicatorPartName);
+        Children.Add(_submenuIndicator);
+        UpdateIcon();
+        UpdateShortcut();
+        UpdateCheckedState();
+        UpdateSubmenuIndicator();
     }
 
     /// <inheritdoc />
@@ -279,10 +417,47 @@ public class MenuItem : ContentControl, IGridLayoutNode
     }
 
     /// <inheritdoc />
+    protected override void OnParentChanged()
+    {
+        base.OnParentChanged();
+        if (ParentMenu is not { IsOpen: true })
+        {
+            CloseSubmenu();
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void OnPropertyChanged(BindableProperty property, object? oldValue, object? newValue)
+    {
+        base.OnPropertyChanged(property, oldValue, newValue);
+        if ((ReferenceEquals(property, IsEffectivelyEnabledProperty) && newValue is false) ||
+            (ReferenceEquals(property, IsVisibleProperty) && newValue is false))
+        {
+            CloseSubmenu();
+        }
+    }
+
+    /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
+            _openTimer.Stop();
+            _closeTimer.Stop();
+            _openTimer.Tick -= OnOpenTimerTick;
+            _closeTimer.Tick -= OnCloseTimerTick;
+            PointerEntered -= OnPointerEntered;
+            PointerExited -= OnPointerExited;
+            KeyDown -= OnSubmenuKeyDown;
+            if (_submenu is not null)
+            {
+                _submenu.Closed -= OnSubmenuClosed;
+                if (_submenu.Items is INotifyCollectionChanged items)
+                {
+                    items.CollectionChanged -= OnItemsChanged;
+                }
+            }
+
             _gestureSubscription.Dispose();
             if (Command is ICommand command)
             {
@@ -316,40 +491,43 @@ public class MenuItem : ContentControl, IGridLayoutNode
         return null;
     }
 
-    private void OnIconChanged(UIElement? previous, UIElement? icon)
+    private void UpdateIcon()
     {
         if (_iconHost is null)
         {
             return;
         }
 
-        if (previous is not null)
+        foreach (UIElement child in _iconHost.Children.ToArray())
         {
-            _iconHost.Children.Remove(previous);
-        }
-
-        if (icon is not null)
-        {
-            if (_checkMark is not null)
+            if (!ReferenceEquals(child, _checkMark) && !ReferenceEquals(child, Icon))
             {
-                _checkMark.IsVisible = false;
+                _iconHost.Children.Remove(child);
             }
+        }
 
-            _iconHost.Children.Add(icon);
-            _iconHost.IsVisible = true;
-        }
-        else
+        if (Icon is UIElement icon && !_iconHost.Children.Contains(icon))
         {
-            UpdateCheckedState();
+            _iconHost.Children.Add(icon);
         }
+
+        UpdateCheckedState();
     }
 
-    private void OnInputGestureTextChanged(string? text)
+    private void UpdateShortcut()
     {
         if (_shortcutText is not null)
         {
-            _shortcutText.Value = text ?? string.Empty;
-            _shortcutText.IsVisible = !string.IsNullOrEmpty(text);
+            _shortcutText.Value = InputGestureText ?? string.Empty;
+            _shortcutText.IsVisible = !string.IsNullOrEmpty(InputGestureText);
+        }
+    }
+
+    private void UpdateSubmenuIndicator()
+    {
+        if (_submenuIndicator is not null)
+        {
+            _submenuIndicator.IsVisible = HasItems;
         }
     }
 
@@ -375,10 +553,14 @@ public class MenuItem : ContentControl, IGridLayoutNode
 
     private void UpdateIsEnabledFromCommand()
     {
-        if (Command is ICommand command)
+        bool canExecute = Command?.CanExecute(CommandParameter) ?? true;
+        if (_canExecuteCommand == canExecute)
         {
-            IsEnabled = command.CanExecute(CommandParameter);
+            return;
         }
+
+        _canExecuteCommand = canExecute;
+        UpdateEffectiveEnabledState();
     }
 
     private void UpdateCheckedState()
@@ -389,21 +571,9 @@ public class MenuItem : ContentControl, IGridLayoutNode
 
         if (_checkMark is not null && _iconHost is not null)
         {
-            if (IsCheckable)
-            {
-                if (Icon is null)
-                {
-                    _checkMark.Data = isChecked ? s_checkMark : null;
-                    _checkMark.IsVisible = isChecked;
-                    _iconHost.IsVisible = true;
-                }
-            }
-            else if (Icon is null)
-            {
-                _checkMark.Data = null;
-                _checkMark.IsVisible = false;
-                _iconHost.IsVisible = true;
-            }
+            _checkMark.Data = isChecked && Icon is null ? Icons.Checkmark : null;
+            _checkMark.IsVisible = isChecked && Icon is null;
+            _iconHost.IsVisible = true;
         }
 
         InvalidateStyle();
@@ -412,13 +582,163 @@ public class MenuItem : ContentControl, IGridLayoutNode
 
     private void CloseParentMenu()
     {
-        for (UIElement? current = Parent; current is not null; current = current.Parent)
+        ParentMenu?.CloseMenu();
+    }
+
+    private DropdownMenu EnsureSubmenu()
+    {
+        if (_submenu is not null)
         {
-            if (current is DropdownMenu menu)
+            return _submenu;
+        }
+
+        _submenu = new DropdownMenu
+        {
+            OwnerItem = this,
+            Side = PortalSide.Right,
+            Align = Alignment.Start,
+            Position = NativeUI.Layout.Position.Absolute
+        };
+        _submenu.Closed += OnSubmenuClosed;
+        if (_submenu.Items is INotifyCollectionChanged items)
+        {
+            items.CollectionChanged += OnItemsChanged;
+        }
+
+        Children.Add(_submenu);
+        _submenu.Target = this;
+        return _submenu;
+    }
+
+    private void OnItemsChanged(object? sender, NotifyCollectionChangedEventArgs args)
+    {
+        bool hasItems = HasItems;
+        if (_previousHasItems != hasItems)
+        {
+            bool previous = _previousHasItems;
+            _previousHasItems = hasItems;
+            NotifyPropertyChanged(HasItemsProperty, previous, hasItems);
+        }
+
+        UpdateSubmenuIndicator();
+        if (!hasItems)
+        {
+            CloseSubmenu();
+        }
+
+        InvalidateStyle();
+        InvalidateVisual();
+    }
+
+    private void OnIsSubmenuOpenChanged(bool isOpen)
+    {
+        _openTimer.Stop();
+        _closeTimer.Stop();
+        SetState(ElementStates.Open, isOpen);
+        InvalidateStyle();
+        if (!isOpen)
+        {
+            if (_submenu is not null)
             {
-                menu.IsOpen = false;
-                break;
+                _submenu.IsOpen = false;
+            }
+
+            return;
+        }
+
+        if (!HasItems || !IsEffectivelyEnabled || ParentMenu is not { IsOpen: true } parent)
+        {
+            IsSubmenuOpen = false;
+            return;
+        }
+
+        parent.CloseOtherSubmenus(this);
+        EnsureSubmenu().IsOpen = true;
+    }
+
+    private void OnSubmenuClosed(object? sender, EventArgs args)
+    {
+        IsSubmenuOpen = false;
+    }
+
+    private void OnSubmenuKeyDown(object? sender, KeyEventArgs args)
+    {
+        if (!args.Handled && ReferenceEquals(args.Source, this) && args.Key == Key.ArrowRight && HasItems && IsEffectivelyEnabled)
+        {
+            args.Handled = true;
+            IsSubmenuOpen = true;
+            _submenu?.FocusFirstItem();
+        }
+    }
+
+    private void OnPointerEntered(object? sender, PointerEventArgs args)
+    {
+        if (!IsEffectivelyEnabled || ParentMenu is not { IsOpen: true })
+        {
+            return;
+        }
+
+        _closeTimer.Stop();
+        Focus(FocusState.Pointer);
+        if (!IsSubmenuOpen)
+        {
+            _openTimer.Start();
+        }
+    }
+
+    private void OnPointerExited(object? sender, PointerEventArgs args)
+    {
+        _openTimer.Stop();
+        if (IsSubmenuOpen)
+        {
+            _closeTimer.Start();
+        }
+    }
+
+    private void OnOpenTimerTick(object? sender, EventArgs args)
+    {
+        _openTimer.Stop();
+        if (States.HasFlag(ElementStates.Hover) && IsEffectivelyEnabled && ParentMenu is { IsOpen: true } menu)
+        {
+            menu.CloseOtherSubmenus(this);
+            if (HasItems)
+            {
+                IsSubmenuOpen = true;
             }
         }
+    }
+
+    private void OnCloseTimerTick(object? sender, EventArgs args)
+    {
+        _closeTimer.Stop();
+        if (States.HasFlag(ElementStates.Hover) || IsPointerOverSubmenu())
+        {
+            return;
+        }
+
+        CloseSubmenu();
+    }
+
+    private bool IsPointerOverSubmenu()
+    {
+        if (_submenu is not { IsOpen: true })
+        {
+            return false;
+        }
+
+        if (_submenu.States.HasFlag(ElementStates.Hover) || _submenu.ContentPart.States.HasFlag(ElementStates.Hover))
+        {
+            return true;
+        }
+
+        foreach (MenuItem item in _submenu.GetMenuItems())
+        {
+            if (item.IsPointerOverSubmenu())
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

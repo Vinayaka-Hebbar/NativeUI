@@ -40,7 +40,7 @@ internal static class ClickGesture
         return args.Key is Key.Enter or Key.Space &&
             (args.Modifiers & ShortcutModifiers) == InputModifiers.None &&
             ReferenceEquals(args.Source, element) &&
-            element.IsEnabled;
+            element.IsEffectivelyEnabled;
     }
 
     private static void SetPressed(UIElement element, bool isPressed)
@@ -54,7 +54,7 @@ internal static class ClickGesture
     {
         public void OnPointerPressed(object? sender, PointerEventArgs args)
         {
-            if (element.IsEnabled)
+            if (!args.Handled && element.IsEffectivelyEnabled && args.Buttons.HasFlag(PointerButtons.Primary))
             {
                 SetPressed(element, true);
             }
@@ -68,8 +68,9 @@ internal static class ClickGesture
             }
 
             SetPressed(element, false);
-            if (element.States.HasFlag(ElementStates.Hover) && element.IsEnabled)
+            if (!args.Handled && element.States.HasFlag(ElementStates.Hover) && element.IsEffectivelyEnabled)
             {
+                args.Handled = true;
                 clicked();
             }
         }

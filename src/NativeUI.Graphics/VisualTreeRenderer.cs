@@ -150,6 +150,8 @@ public sealed class VisualTreeRenderer : IDisposable
     {
         List<Portal> portals = [];
         CollectOpenPortals(root, portals);
+        OverlayManager? overlayManager = OverlayManager.FindFor(root);
+        overlayManager?.OrderForLayout(portals);
 
         List<LayoutBox> boxes = [];
         Rect area = new(0, 0, viewport.Width, viewport.Height);
@@ -167,7 +169,26 @@ public sealed class VisualTreeRenderer : IDisposable
             boxes.Add(translated);
         }
 
-        return boxes;
+        if (overlayManager is null)
+        {
+            return boxes;
+        }
+
+        overlayManager.OrderOverlays(portals);
+        List<LayoutBox> stackedBoxes = [];
+        foreach (Portal portal in portals)
+        {
+            foreach (LayoutBox box in boxes)
+            {
+                if (ReferenceEquals(box.Element, portal))
+                {
+                    stackedBoxes.Add(box);
+                    break;
+                }
+            }
+        }
+
+        return stackedBoxes;
     }
 
     private static LayoutBox PositionPortalArrow(Portal portal, PortalSide side, LayoutBox portalBox, Rect anchorBounds)

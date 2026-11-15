@@ -2,7 +2,7 @@ namespace NativeUI.Controls;
 
 /// <summary>
 /// Implemented by an <see cref="INativeHandle"/> whose platform element owns keyboard focus. The platform reports each
-/// focus change back to the <see cref="FocusManager"/>.
+/// focus change back to the <see cref="KeyboardDevice"/>.
 /// </summary>
 internal interface IFocusPeer
 {

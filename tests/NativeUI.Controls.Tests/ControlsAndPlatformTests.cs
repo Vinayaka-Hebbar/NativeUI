@@ -10,8 +10,87 @@ using NativeUI.Media;
 using NativeUI.Sample;
 using NativeUI.Tests;
 
+if (args.Contains("--focus"))
+{
+    return TestRunner.RunSuite("Focus",
+    [
+        ("Keyboard focus preserves navigation, visibility, pointer focus, and routed events", FocusTests.VerifyKeyboardNavigationAndPointerFocus),
+        ("Logical focus scopes retain focus independently and clear detached references", FocusTests.VerifyLogicalScopesAndDetach),
+        ("Keyboard focus crosses hosted roots without ancestor ownership", FocusTests.VerifyHostedRootIsolation),
+        ("Platform focus reports remain authoritative and stale reports are ignored", FocusTests.VerifyPlatformFocusAuthority),
+        ("Parent notifications follow attachment and focus callbacks can reparent", FocusTests.VerifyParentChangeLifecycle),
+        ("Child ownership and cycles are validated before mutation", FocusTests.VerifyChildOwnershipValidation)
+    ]);
+}
+
+if (args.Contains("--overlays"))
+{
+    return TestRunner.RunSuite("Overlays",
+    [
+        ("Outside presses preserve containing overlays and other roots", OverlayManagerTests.VerifyRootIsolationAndContainment),
+        ("Overlay stacking follows opening order and parents close descendants", OverlayManagerTests.VerifyStackingAndParentClosure),
+        ("Reparented overlays follow their new root and close on teardown", OverlayManagerTests.VerifyReparentingAndTeardown),
+        ("Visual-tree attachment follows hosts and subtree moves", OverlayManagerTests.VerifyVisualTreeAttachment),
+        ("Dialogs retain independent visual roots across parent detachment", OverlayManagerTests.VerifyDedicatedDialogRoot),
+        ("Dismissal cannot focus content replaced by a close callback", OverlayManagerTests.VerifyDismissalCannotFocusReplacedContent),
+        ("Anchor relationships remain independent of layout and stacking order", OverlayManagerTests.VerifyAnchorRelationshipsAndReopening),
+        ("Dynamic reanchoring resolves current parents without layout cycles", OverlayManagerTests.VerifyDynamicReanchoring),
+        ("Detached elements have no hosted overlay manager", OverlayManagerTests.VerifyDetachedLookup),
+        ("Popup controls own trigger and arrow attributes", OverlayManagerTests.VerifyPopupAttributeOwnership),
+        ("Rendered overlay presses dismiss outside popups", OverlayManagerTests.VerifyRenderedOverlayPressDismissal),
+        ("Scrollbar presses dismiss outside popups and still scroll", OverlayManagerTests.VerifyScrollbarPressDismissal),
+        ("Dismissal callbacks cannot retarget a press through closed popup content", OverlayManagerTests.VerifyDismissalDoesNotRetargetPress),
+        ("Focus callbacks cannot dispatch a press into closed popup content", OverlayManagerTests.VerifyFocusCallbackCannotDispatchIntoClosedPopup),
+        ("Dismissal decisions survive relationship changes in close callbacks", OverlayManagerTests.VerifyDismissalUsesStableRelationships),
+        ("Logical-parent fallback cannot create popup cycles", OverlayManagerTests.VerifyFallbackRejectsCycles),
+        ("Exiting overlays retain their stacking position until completion", OverlayManagerTests.VerifyExitKeepsStackPosition),
+        ("Later openings register before visibility observers run", OverlayManagerTests.VerifyLaterOpeningRegistersBeforeVisibilityObservers),
+        ("Non-dismissible overlays do not shield lower overlays", OverlayManagerTests.VerifyIndependentDismissalPolicy)
+    ]);
+}
+
+if (args.Contains("--enabled-state"))
+{
+    return TestRunner.RunSuite("Enabled state",
+    [
+        ("Initial restrictions and command changes preserve local enabled values", EnabledStateTests.VerifyInitialAndCommandState),
+        ("Observer changes serialize notifications across portal and template descendants", EnabledStateTests.VerifyNotificationReentrancy),
+        ("Focus callbacks cannot leave stale disabled states", EnabledStateTests.VerifyFocusLossReentrancy),
+        ("Generic routing preserves release cleanup on disabled elements", EnabledStateTests.VerifyGenericRoutingAndReleaseCleanup)
+    ]);
+}
+
 int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
 [
+    ("Keyboard focus preserves navigation, visibility, pointer focus, and routed events", FocusTests.VerifyKeyboardNavigationAndPointerFocus),
+    ("Logical focus scopes retain focus independently and clear detached references", FocusTests.VerifyLogicalScopesAndDetach),
+    ("Keyboard focus crosses hosted roots without ancestor ownership", FocusTests.VerifyHostedRootIsolation),
+    ("Platform focus reports remain authoritative and stale reports are ignored", FocusTests.VerifyPlatformFocusAuthority),
+    ("Parent notifications follow attachment and focus callbacks can reparent", FocusTests.VerifyParentChangeLifecycle),
+    ("Child ownership and cycles are validated before mutation", FocusTests.VerifyChildOwnershipValidation),
+    ("Outside presses preserve containing overlays and other roots", OverlayManagerTests.VerifyRootIsolationAndContainment),
+    ("Overlay stacking follows opening order and parents close descendants", OverlayManagerTests.VerifyStackingAndParentClosure),
+    ("Reparented overlays follow their new root and close on teardown", OverlayManagerTests.VerifyReparentingAndTeardown),
+    ("Visual-tree attachment follows hosts and subtree moves", OverlayManagerTests.VerifyVisualTreeAttachment),
+    ("Dialogs retain independent visual roots across parent detachment", OverlayManagerTests.VerifyDedicatedDialogRoot),
+    ("Dismissal cannot focus content replaced by a close callback", OverlayManagerTests.VerifyDismissalCannotFocusReplacedContent),
+    ("Anchor relationships remain independent of layout and stacking order", OverlayManagerTests.VerifyAnchorRelationshipsAndReopening),
+    ("Dynamic reanchoring resolves current parents without layout cycles", OverlayManagerTests.VerifyDynamicReanchoring),
+    ("Detached elements have no hosted overlay manager", OverlayManagerTests.VerifyDetachedLookup),
+    ("Popup controls own trigger and arrow attributes", OverlayManagerTests.VerifyPopupAttributeOwnership),
+    ("Rendered overlay presses dismiss outside popups", OverlayManagerTests.VerifyRenderedOverlayPressDismissal),
+    ("Scrollbar presses dismiss outside popups and still scroll", OverlayManagerTests.VerifyScrollbarPressDismissal),
+    ("Dismissal callbacks cannot retarget a press through closed popup content", OverlayManagerTests.VerifyDismissalDoesNotRetargetPress),
+    ("Focus callbacks cannot dispatch a press into closed popup content", OverlayManagerTests.VerifyFocusCallbackCannotDispatchIntoClosedPopup),
+    ("Dismissal decisions survive relationship changes in close callbacks", OverlayManagerTests.VerifyDismissalUsesStableRelationships),
+    ("Logical-parent fallback cannot create popup cycles", OverlayManagerTests.VerifyFallbackRejectsCycles),
+    ("Exiting overlays retain their stacking position until completion", OverlayManagerTests.VerifyExitKeepsStackPosition),
+    ("Later openings register before visibility observers run", OverlayManagerTests.VerifyLaterOpeningRegistersBeforeVisibilityObservers),
+    ("Non-dismissible overlays do not shield lower overlays", OverlayManagerTests.VerifyIndependentDismissalPolicy),
+    ("Initial restrictions and command changes preserve local enabled values", EnabledStateTests.VerifyInitialAndCommandState),
+    ("Observer changes serialize notifications across portal and template descendants", EnabledStateTests.VerifyNotificationReentrancy),
+    ("Focus callbacks cannot leave stale disabled states", EnabledStateTests.VerifyFocusLossReentrancy),
+    ("Generic routing preserves release cleanup on disabled elements", EnabledStateTests.VerifyGenericRoutingAndReleaseCleanup),
     ("Nested image page applies its compiled desktop CSS in both themes", ImageAndGeometryTests.ImagePageUsesItsCompiledStylesOnDesktop),
     ("Image/vector PercentageSizingUsesDefiniteDimensions", ImageAndGeometryTests.PercentageSizingUsesDefiniteDimensions),
     ("Image/vector SvgTextKeepsDocumentOrder", ImageAndGeometryTests.SvgTextKeepsDocumentOrder),

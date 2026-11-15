@@ -52,10 +52,74 @@ public class DropdownMenu : Popover
     /// </summary>
     public IList<UIElement> Items => _menuView.Children;
 
+    /// <summary>
+    /// Gets or sets the item that owns this submenu.
+    /// </summary>
+    internal MenuItem? OwnerItem { get; init; }
+
+    /// <summary>
+    /// Closes this menu and every ancestor menu.
+    /// </summary>
+    internal void CloseMenu()
+    {
+        DropdownMenu root = this;
+        while (root.OwnerItem?.ParentMenu is DropdownMenu parent)
+        {
+            root = parent;
+        }
+
+        root.IsOpen = false;
+    }
+
+    /// <summary>
+    /// Closes sibling submenus before another item opens its submenu.
+    /// </summary>
+    internal void CloseOtherSubmenus(MenuItem item)
+    {
+        foreach (MenuItem sibling in GetMenuItems())
+        {
+            if (!ReferenceEquals(sibling, item))
+            {
+                sibling.CloseSubmenu();
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void AttachTargetInput(UIElement target)
+    {
+        if (OwnerItem is null)
+        {
+            base.AttachTargetInput(target);
+            target.KeyDown += OnTargetNavigationKeyDown;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void DetachTargetInput(UIElement target)
+    {
+        if (OwnerItem is null)
+        {
+            target.KeyDown -= OnTargetNavigationKeyDown;
+            base.DetachTargetInput(target);
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void OnPortalClosing(object? sender, EventArgs args)
+    {
+        foreach (MenuItem item in GetMenuItems())
+        {
+            item.CloseSubmenu();
+        }
+
+        base.OnPortalClosing(sender, args);
+    }
+
     /// <inheritdoc />
     private protected override void FocusContent()
     {
-        if (FindFocusManager()?.MostRecentInput == FocusState.Keyboard)
+        if (InputManager.Current.PrimaryKeyboardDevice.MostRecentInput == FocusState.Keyboard)
         {
             FocusFirstItem();
         }
@@ -77,7 +141,15 @@ public class DropdownMenu : Popover
         if (args.Key == Key.Tab)
         {
             args.Handled = true;
+            CloseMenu();
+            return;
+        }
+
+        if (args.Key == Key.ArrowLeft && OwnerItem is MenuItem owner)
+        {
+            args.Handled = true;
             IsOpen = false;
+            owner.Focus(FocusState.Keyboard);
             return;
         }
 
@@ -121,42 +193,91 @@ public class DropdownMenu : Popover
         base.OnKeyDown(sender, args);
     }
 
-    private void FocusFirstItem()
+    /// <summary>
+    /// Moves keyboard focus to the first available item or the empty menu.
+    /// </summary>
+    internal void FocusFirstItem()
     {
-        for (int i = 0; i < Items.Count; i++)
+        foreach (MenuItem item in GetEnabledItems())
         {
-            if (Items[i] is MenuItem { IsEnabled: true } item)
+            CloseOtherSubmenus(item);
+            item.Focus(FocusState.Keyboard);
+            return;
+        }
+
+        _menuView.Focus(FocusState.Keyboard);
+    }
+
+    /// <summary>
+    /// Enumerates items through groups without descending into child menus.
+    /// </summary>
+    internal IEnumerable<MenuItem> GetMenuItems()
+    {
+        return EnumerateItems(Items);
+    }
+
+    private static IEnumerable<MenuItem> EnumerateItems(IEnumerable<UIElement> items)
+    {
+        foreach (UIElement child in items)
+        {
+            if (child is MenuItem item)
             {
-                item.Focus(FocusState.Keyboard);
-                return;
+                yield return item;
+            }
+            else if (child is MenuGroup group)
+            {
+                foreach (MenuItem nested in EnumerateItems(group.Items))
+                {
+                    yield return nested;
+                }
             }
         }
+    }
+
+    private List<MenuItem> GetEnabledItems()
+    {
+        List<MenuItem> items = [];
+        foreach (MenuItem item in GetMenuItems())
+        {
+            if (item.IsEffectivelyEnabled && item.IsVisibleInTree)
+            {
+                items.Add(item);
+            }
+        }
+
+        return items;
+    }
+
+    private void OnTargetNavigationKeyDown(object? sender, KeyEventArgs args)
+    {
+        if (args.Handled || !ReferenceEquals(args.Source, Target) || Target is not { IsEffectivelyEnabled: true } ||
+            args.Key is not (Key.ArrowDown or Key.ArrowUp))
+        {
+            return;
+        }
+
+        args.Handled = true;
+        IsOpen = true;
+        FocusBoundaryItem(args.Key == Key.ArrowDown);
     }
 
     private void FocusBoundaryItem(bool first)
     {
-        int start = first ? 0 : Items.Count - 1;
-        int step = first ? 1 : -1;
-        for (int i = start; i >= 0 && i < Items.Count; i += step)
+        List<MenuItem> items = GetEnabledItems();
+        if (items.Count == 0)
         {
-            if (Items[i] is MenuItem { IsEnabled: true } item)
-            {
-                item.Focus(FocusState.Keyboard);
-                return;
-            }
+            _menuView.Focus(FocusState.Keyboard);
+            return;
         }
+
+        MenuItem item = items[first ? 0 : items.Count - 1];
+        CloseOtherSubmenus(item);
+        item.Focus(FocusState.Keyboard);
     }
 
     private void MoveSelection(bool forward)
     {
-        List<MenuItem> enabledItems = [];
-        foreach (UIElement child in Items)
-        {
-            if (child is MenuItem { IsEnabled: true } item)
-            {
-                enabledItems.Add(item);
-            }
-        }
+        List<MenuItem> enabledItems = GetEnabledItems();
 
         if (enabledItems.Count == 0)
         {
@@ -187,19 +308,13 @@ public class DropdownMenu : Popover
             nextIndex = (currentIndex - 1 + enabledItems.Count) % enabledItems.Count;
         }
 
+        CloseOtherSubmenus(enabledItems[nextIndex]);
         enabledItems[nextIndex].Focus(FocusState.Keyboard);
     }
 
     private bool TrySearchItem(string query)
     {
-        List<MenuItem> enabledItems = [];
-        foreach (UIElement child in Items)
-        {
-            if (child is MenuItem { IsEnabled: true } item)
-            {
-                enabledItems.Add(item);
-            }
-        }
+        List<MenuItem> enabledItems = GetEnabledItems();
 
         if (enabledItems.Count == 0)
         {
@@ -223,6 +338,7 @@ public class DropdownMenu : Popover
             string? text = item.GetSearchText();
             if (!string.IsNullOrEmpty(text) && text.StartsWith(query, StringComparison.CurrentCultureIgnoreCase))
             {
+                CloseOtherSubmenus(item);
                 item.Focus(FocusState.Keyboard);
                 return true;
             }

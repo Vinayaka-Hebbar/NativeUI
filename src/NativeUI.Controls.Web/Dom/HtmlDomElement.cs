@@ -182,6 +182,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
             BreadcrumbItem breadcrumbItem => new HtmlDomBreadcrumbItem(breadcrumbItem, element, tagName),
             Separator separator => new HtmlDomSeparator(separator, element, tagName),
             MenuItem menuItem => new HtmlDomMenuItem(menuItem, element, tagName),
+            MenuGroup menuGroup => new HtmlDomMenuGroup(menuGroup, element, tagName),
             Popover popover => new HtmlDomPopover(popover, element, tagName),
             Tooltip tooltip => new HtmlDomTooltip(tooltip, element, tagName),
             Badge or Avatar => new HtmlDomView((View)source, element, tagName),
@@ -512,7 +513,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
         }
         else if (ReferenceEquals(args.Property, UIElement.FocusableProperty) ||
             ReferenceEquals(args.Property, UIElement.TabIndexProperty) ||
-            ReferenceEquals(args.Property, UIElement.IsEnabledProperty))
+            ReferenceEquals(args.Property, UIElement.IsEffectivelyEnabledProperty))
         {
             UpdateTabIndex();
         }
@@ -539,7 +540,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
     {
         bool isNativelyFocusable = TagName is "input" or "button";
         string? tabIndex;
-        if (!Source.IsEnabled)
+        if (!Source.IsEffectivelyEnabled)
         {
             tabIndex = null;
         }

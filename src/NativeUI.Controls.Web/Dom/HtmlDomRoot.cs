@@ -23,7 +23,8 @@ internal sealed class HtmlDomRoot : IDisposable
     private readonly PointerInputRouter _pointerRouter = new();
     private readonly int _scopeId = ++s_lastScopeId;
     private UIElement? _root;
-    private FocusManager? _focusManager;
+    private KeyboardDevice? _keyboard;
+    private OverlayManager? _overlayManager;
     private HtmlDomElement? _rootDom;
     private JSObject? _container;
     private JSObject? _rootElement;
@@ -86,12 +87,14 @@ internal sealed class HtmlDomRoot : IDisposable
             _styleSheet?.Dispose();
             _styleSheet = null;
             _pointerRouter.Reset();
-            _focusManager?.Dispose();
+            _overlayManager?.Dispose();
+            _root?.DetachFromVisualTree(_root, _root.Parent);
             _rootDom?.Dispose();
         }
         finally
         {
-            _focusManager = null;
+            _keyboard = null;
+            _overlayManager = null;
             _rootDom = null;
             _root = null;
             _rootElement?.Dispose();
@@ -107,14 +110,15 @@ internal sealed class HtmlDomRoot : IDisposable
     /// </summary>
     internal void DispatchPointerEvent(in PointerEventData pointerEvent)
     {
-        if (_disposed || _rootDom is null)
+        if (_disposed || _rootDom is null || _root is null)
         {
             return;
         }
 
-        if (pointerEvent.Kind == PointerEventKind.Press && _focusManager is not null)
+        UIElement root = _root;
+        if (pointerEvent.Kind == PointerEventKind.Press && _keyboard is not null)
         {
-            _focusManager.MostRecentInput = FocusState.Pointer;
+            _keyboard.MostRecentInput = FocusState.Pointer;
         }
 
         UIElement? hoveredElement = pointerEvent.Kind is PointerEventKind.Leave or PointerEventKind.Cancel
@@ -135,19 +139,26 @@ internal sealed class HtmlDomRoot : IDisposable
             _ => null
         };
 
-        if (routedEvent is not null)
+        if (pointerEvent.Kind == PointerEventKind.Press)
         {
-            hoveredElement?.RaiseEvent(routedEvent, new PointerEventArgs(
+            _overlayManager?.HandlePointerPressed(hoveredElement);
+        }
+
+        if (!ReferenceEquals(_root, root) ||
+            (hoveredElement is not null && !root.IsAncestorOf(hoveredElement)))
+        {
+            return;
+        }
+
+        UIElement? inputElement = hoveredElement?.GetInputTarget();
+        if (routedEvent is not null && inputElement is not null)
+        {
+            inputElement.RaiseEvent(routedEvent, new PointerEventArgs(
                 pointerEvent.PointerId,
                 pointerEvent.Position,
                 pointerEvent.Buttons,
                 pointerEvent.Modifiers,
                 pointerEvent.ClickCount));
-        }
-
-        if (pointerEvent.Kind == PointerEventKind.Press)
-        {
-            Portal.DismissForPress(hoveredElement);
         }
     }
 
@@ -184,10 +195,17 @@ internal sealed class HtmlDomRoot : IDisposable
 
     private void MountCore(UIElement root, bool useBrowserInterop)
     {
+        if (ReferenceEquals(root.VisualRoot, root))
+        {
+            throw new InvalidOperationException("The element is already a hosted visual root.");
+        }
+
         _root = root;
         try
         {
-            _focusManager = new FocusManager(root);
+            _keyboard = InputManager.Current.PrimaryKeyboardDevice;
+            _overlayManager = new OverlayManager(root);
+            root.AttachToVisualTree(root);
             _animationRoot = AnimationClock.AttachRoot(root);
             if (useBrowserInterop)
             {
@@ -268,23 +286,24 @@ internal sealed class HtmlDomRoot : IDisposable
     }
 
     /// <summary>
-    /// Records a browser focus change in the <see cref="FocusManager"/>. The browser owns focus on Web. Focus that matches
+    /// Records a browser focus change in the <see cref="KeyboardDevice"/>. The browser owns focus on Web. Focus that matches
     /// <c>:focus-visible</c> counts as keyboard focus, and other focus as pointer focus.
     /// </summary>
     private void OnFocus(int nodeId, bool isFocused, bool isVisible)
     {
-        if (_focusManager is null || HtmlDomElement.FindByNodeId(nodeId)?.Source is not UIElement element)
+        if (_keyboard is null || HtmlDomElement.FindByNodeId(nodeId)?.Source is not UIElement element ||
+            !ReferenceEquals(element.VisualRoot, _root))
         {
             return;
         }
 
         if (isFocused)
         {
-            _focusManager.HandleGotFocus(element, isVisible ? FocusState.Keyboard : FocusState.Pointer);
+            _keyboard.HandleGotFocus(element, isVisible ? FocusState.Keyboard : FocusState.Pointer);
         }
         else
         {
-            _focusManager.HandleLostFocus(element);
+            _keyboard.HandleLostFocus(element);
         }
     }
 
@@ -312,9 +331,14 @@ internal sealed class HtmlDomRoot : IDisposable
                 modifiers,
                 keyEvent.GetPropertyAsBoolean("isRepeat"));
             UIElement target = HtmlDomElement.FindByNodeId(keyEvent.GetPropertyAsInt32("nodeId"))?.Source ?? _root;
-            if (_focusManager is not null)
+            if (_keyboard is not null)
             {
-                _focusManager.MostRecentInput = FocusState.Keyboard;
+                _keyboard.MostRecentInput = FocusState.Keyboard;
+            }
+
+            if (isDown && !target.IsEffectivelyEnabled)
+            {
+                return logicalKey != Key.Tab;
             }
 
             target.RaiseEvent(isDown ? UIElement.KeyDownEvent : UIElement.KeyUpEvent, args);
@@ -323,15 +347,15 @@ internal sealed class HtmlDomRoot : IDisposable
                 return true;
             }
 
-            if (isDown && logicalKey == Key.Tab && _focusManager is not null)
+            if (isDown && logicalKey == Key.Tab && _keyboard is not null)
             {
-                UIElement focused = _focusManager.FocusedElement ?? target;
+                UIElement focused = _keyboard.FocusedElement ?? target;
                 if (KeyboardNavigation.HasActiveMode(focused))
                 {
                     FocusNavigationDirection direction = modifiers.HasFlag(InputModifiers.Shift)
                         ? FocusNavigationDirection.Previous
                         : FocusNavigationDirection.Next;
-                    _focusManager.MoveFocus(direction);
+                    _keyboard.MoveFocus(_root, direction);
                     return true;
                 }
             }

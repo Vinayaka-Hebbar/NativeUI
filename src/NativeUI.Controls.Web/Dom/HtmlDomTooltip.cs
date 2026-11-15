@@ -93,6 +93,6 @@ public sealed class HtmlDomTooltip : HtmlDomView
         }
 
         targetElement.SetAttribute("aria-describedby", isOpen ? contentId : null);
-        targetElement.SetAttribute("data-popup-open", target.GetAttribute("data-popup-open"));
+        targetElement.SetAttribute("data-popup-open", isOpen == true ? string.Empty : null);
     }
 }

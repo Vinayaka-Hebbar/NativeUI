@@ -294,6 +294,7 @@ internal static class StyleSheetCss
         AppendState(builder, states, ElementStates.LastChild, ":last-child");
         AppendState(builder, states, ElementStates.Selected, "[aria-selected=\"true\"]");
         AppendState(builder, states, ElementStates.PopoverOpen, "[data-open]");
+        AppendState(builder, states, ElementStates.Open, "[data-open]");
         return builder.ToString();
     }
 

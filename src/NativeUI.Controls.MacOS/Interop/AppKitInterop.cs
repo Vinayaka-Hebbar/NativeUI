@@ -537,6 +537,9 @@ internal static partial class AppKitInterop
         _ = ClassAddMethod(subClass, GetSelector("acceptsFirstResponder"), (nint)acceptsFirstResponderPtr, "c@:");
         _ = ClassAddMethod(subClass, GetSelector("canBecomeKeyView"), (nint)canBecomeKeyViewPtr, "c@:");
         _ = ClassAddMethod(subClass, GetSelector("mouseDown:"), (nint)mouseDownPtr, "v@:@");
+        _ = ClassAddMethod(subClass, GetSelector("rightMouseDown:"), (nint)mouseDownPtr, "v@:@");
+        _ = ClassAddMethod(subClass, GetSelector("rightMouseDragged:"), (nint)mouseDraggedPtr, "v@:@");
+        _ = ClassAddMethod(subClass, GetSelector("rightMouseUp:"), (nint)mouseUpPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("mouseDragged:"), (nint)mouseDraggedPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("mouseUp:"), (nint)mouseUpPtr, "v@:@");
         _ = ClassAddMethod(subClass, GetSelector("mouseMoved:"), (nint)mouseMovedPtr, "v@:@");
@@ -740,7 +743,12 @@ internal static partial class AppKitInterop
         }
 
         long clicks = SendMessageInt64(nsEvent, GetSelector("clickCount"));
-        window.HandlePointerPressed(GetTopDownPoint(self, nsEvent), (int)Math.Max(1, clicks), GetModifiers(nsEvent));
+        InputModifiers modifiers = GetModifiers(nsEvent);
+        long buttonNumber = SendMessageInt64(nsEvent, GetSelector("buttonNumber"));
+        PointerButtons buttons = buttonNumber == 1 || modifiers.HasFlag(InputModifiers.Control)
+            ? PointerButtons.Secondary
+            : PointerButtons.Primary;
+        window.HandlePointerPressed(GetTopDownPoint(self, nsEvent), buttons, (int)Math.Max(1, clicks), modifiers);
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]

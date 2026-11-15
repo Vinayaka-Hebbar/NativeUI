@@ -173,6 +173,12 @@ internal static class SvgDomBuilder
             IsDisplayed = shape.IsVisible
         };
         Rect bounds = shape.GetGeometryBounds(size);
+        if (shape.Stretch == Stretch.None)
+        {
+            Rect target = StretchLayout.Fit(bounds.Size, new Rect(0, 0, size.Width, size.Height), Stretch.None);
+            bounds = new Rect(bounds.X - target.X, bounds.Y - target.Y, size.Width, size.Height);
+        }
+
         bounds = bounds with { Width = Math.Max(1, bounds.Width), Height = Math.Max(1, bounds.Height) };
         return new SvgNode(SvgNodeKind.Svg)
         {
