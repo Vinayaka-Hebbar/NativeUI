@@ -94,6 +94,23 @@ public static partial class DomInterop
     [JSImport("insertBefore", "nativeui-dom")]
     public static partial void InsertBefore(JSObject parent, JSObject child, JSObject? reference);
 
+    /// <summary>Reads a child node by its DOM index.</summary>
+    [JSImport("getChildAt", "nativeui-dom")]
+    public static partial JSObject? GetChildAt(JSObject parent, int index);
+
+    /// <summary>Checks a child's position without replacing or moving it.</summary>
+    [JSImport("isChildAt", "nativeui-dom")]
+    public static partial bool IsChildAt(JSObject parent, JSObject child, int index);
+
+    /// <summary>Connects native anchor activation to its shared inline event.</summary>
+    [JSImport("setHyperlinkHandler", "nativeui-dom")]
+    public static partial void SetHyperlinkHandler(JSObject element,
+        [JSMarshalAs<JSType.Function<JSType.Boolean>>] Func<bool> dispatch);
+
+    /// <summary>Releases a native anchor's activation callback.</summary>
+    [JSImport("clearHyperlinkHandler", "nativeui-dom")]
+    public static partial void ClearHyperlinkHandler(JSObject element);
+
     /// <summary>
     /// Removes a child DOM element from a parent DOM element.
     /// </summary>

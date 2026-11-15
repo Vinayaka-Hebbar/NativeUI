@@ -400,19 +400,22 @@ public sealed class VisualTreeRenderer : IDisposable
             {
                 DrawSvgControl(context, svg, box.ContentBox, svg.Stretch, drawOpacity);
             }
-            else if (box.Element is Text textControl && !string.IsNullOrEmpty(textControl.Value))
+            else if (box.Element is Text textControl && !string.IsNullOrEmpty(textControl.TextContent))
             {
                 ITextLayout textLayout = box.TextLayout ?? _textMeasurer.CreateTextLayout(
-                    textControl.Value,
+                    textControl.TextContent,
                     box.ContentBox.Size,
                     style);
 
+                textControl.UpdateTextLayout(textLayout, box.ContentBox);
                 DrawSelectableText(
                     context,
                     box,
                     textControl,
                     textLayout,
                     new Paint(style.TextColor ?? Colors.Black, drawOpacity));
+                textControl.DrawInlineDecorations(context, textLayout,
+                    new Point(box.ContentBox.X, box.ContentBox.Y), drawOpacity);
             }
             else if (box.Element is Button button && !string.IsNullOrEmpty(button.Text) && button.Children.Count == 0)
             {
@@ -925,7 +928,7 @@ public sealed class VisualTreeRenderer : IDisposable
         try
         {
             context.ClipRegion(region, ClipMode.Intersect);
-            context.DrawTextLayout(textLayout, origin, new Paint(selectedTextColor, textPaint.Opacity));
+            context.DrawTextLayout(textLayout, origin, selectedTextColor, textPaint.Opacity);
         }
         finally
         {
@@ -1046,6 +1049,36 @@ public sealed class VisualTreeRenderer : IDisposable
             return inner.MeasureText(text, availableSize, style);
         }
 
+        public Size MeasureText(ITextSource source, Size availableSize, ComputedStyle style)
+        {
+            return source.TextRuns.Count == 0 ? MeasureText(source.Text ?? string.Empty, availableSize, style) : inner.MeasureText(source, availableSize, style);
+        }
+
+        public ITextLayout CreateTextLayout(ITextSource source, Size availableSize, ComputedStyle style)
+        {
+            IReadOnlyList<TextRun> runs = source.TextRuns;
+            string text = source.Text ?? string.Empty;
+            if (runs.Count == 0)
+            {
+                return CreateTextLayout(text, availableSize, style);
+            }
+
+            LayoutKey key = new(text, availableSize, style.FontSize, style.FontWeight, style.FontFamily, style.TextAlign, style.LineHeight, runs);
+            if (_current.TryGetValue(key, out ITextLayout? cached))
+            {
+                return cached;
+            }
+
+            if (!_retained.TryGetValue(key, out ITextLayout? layout))
+            {
+                layout = inner.CreateTextLayout(source, availableSize, style);
+                _newlyCreated.Add(layout);
+            }
+
+            _current[key] = layout;
+            return layout;
+        }
+
         public ITextLayout CreateTextLayout(string text, Size availableSize, ComputedStyle style)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -1110,6 +1143,7 @@ public sealed class VisualTreeRenderer : IDisposable
             FontWeight FontWeight,
             string? FontFamily,
             TextAlign TextAlign,
-            LineHeight LineHeight);
+            LineHeight LineHeight,
+            IReadOnlyList<TextRun>? Runs = null);
     }
 }

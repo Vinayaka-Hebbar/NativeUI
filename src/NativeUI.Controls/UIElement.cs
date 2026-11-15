@@ -1055,9 +1055,6 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <inheritdoc />
-    string? ILayoutNode.TextContent => GetLayoutTextContent();
-
-    /// <inheritdoc />
     IReadOnlyList<ILayoutNode> ILayoutNode.LayoutChildren => GetLayoutChildren();
 
     /// <summary>
@@ -1269,14 +1266,6 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     {
         VisualInvalidated?.Invoke(this, EventArgs.Empty);
         _parent?.InvalidateVisual();
-    }
-
-    /// <summary>
-    /// Returns the text content used by <see cref="LayoutEngine"/> when measuring leaf text controls.
-    /// </summary>
-    protected virtual string? GetLayoutTextContent()
-    {
-        return null;
     }
 
     /// <summary>

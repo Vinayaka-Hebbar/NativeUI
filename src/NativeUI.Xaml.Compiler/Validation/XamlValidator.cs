@@ -237,6 +237,23 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["IsEnabled"] = XamlPropertyKind.Boolean,
                 ["ClipToBounds"] = XamlPropertyKind.Boolean
             },
+            ["Run"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Value"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList
+            },
+            ["Span"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Class"] = XamlPropertyKind.ClassList
+            },
+            ["Hyperlink"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Class"] = XamlPropertyKind.ClassList
+            },
+            ["LineBreak"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Class"] = XamlPropertyKind.ClassList
+            },
             ["Text"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
                 ["Id"] = XamlPropertyKind.String,
@@ -748,7 +765,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 : null);
 
         // Support <Text>Hello</Text> inner text syntax when Value attribute is not explicitly provided.
-        if (string.Equals(element.LocalName, "Text", StringComparison.Ordinal) &&
+        if (element.LocalName is "Text" or "Run" &&
             !string.IsNullOrEmpty(element.InnerText) &&
             !validProps.Any(static p => p.PropertyName == "Value"))
         {

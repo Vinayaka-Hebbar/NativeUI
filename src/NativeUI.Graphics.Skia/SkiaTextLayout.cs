@@ -22,6 +22,7 @@ public sealed class SkiaTextLayout : ITextLayout, IDisposable
     private readonly int[] _characterBoundaries;
     private readonly ImmutableArray<TextRange> _clusters;
     private readonly ImmutableArray<ShapedTextBlobRun> _blobRuns;
+    private readonly IReadOnlyList<TextRun> _textRuns;
     private bool _disposed;
 
     /// <summary>
@@ -33,8 +34,10 @@ public sealed class SkiaTextLayout : ITextLayout, IDisposable
         ImmutableArray<TextLine> lines,
         ImmutableArray<ShapedTextBlobRun> blobRuns,
         int[]? characterBoundaries = null,
-        ImmutableArray<TextRange> clusters = default)
+        ImmutableArray<TextRange> clusters = default,
+        IReadOnlyList<TextRun>? textRuns = null)
     {
+        _textRuns = textRuns ?? [];
         Text = text ?? string.Empty;
         Size = size;
         Lines = lines.IsDefault ? ImmutableArray<TextLine>.Empty : lines;
@@ -240,7 +243,7 @@ public sealed class SkiaTextLayout : ITextLayout, IDisposable
     /// <summary>
     /// Draws the HarfBuzz-shaped <see cref="SKTextBlob"/> runs onto <paramref name="canvas"/> at <paramref name="origin"/>.
     /// </summary>
-    public void Draw(SKCanvas canvas, Point origin, Color color, double opacity = 1.0)
+    public void Draw(SKCanvas canvas, Point origin, Color color, double opacity = 1.0, Color? foreground = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(canvas);
@@ -256,13 +259,41 @@ public sealed class SkiaTextLayout : ITextLayout, IDisposable
             IsAntialias = true
         };
 
+        if (_textRuns.Count == 0)
+        {
+            DrawBlobs(canvas, origin, paint);
+            return;
+        }
+
+        foreach (TextRun run in _textRuns)
+        {
+            ImmutableArray<Rect> rectangles = HitTestTextRange(run.Range.Start, run.Range.Length);
+            using SKPath clip = new();
+            foreach (Rect rectangle in rectangles)
+            {
+                clip.AddRect(new SKRect((float)(origin.X + rectangle.X), (float)(origin.Y + rectangle.Y),
+                    (float)(origin.X + rectangle.Right), (float)(origin.Y + rectangle.Bottom)));
+            }
+
+            canvas.Save();
+            try
+            {
+                canvas.ClipPath(clip);
+                paint.Color = (foreground ?? run.Style.TextColor ?? color).ToSKColor(opacity);
+                DrawBlobs(canvas, origin, paint);
+            }
+            finally
+            {
+                canvas.Restore();
+            }
+        }
+    }
+
+    private void DrawBlobs(SKCanvas canvas, Point origin, SKPaint paint)
+    {
         foreach (ShapedTextBlobRun run in _blobRuns)
         {
-            canvas.DrawText(
-                run.Blob,
-                (float)(origin.X + run.OriginX),
-                (float)(origin.Y + run.BaselineY),
-                paint);
+            canvas.DrawText(run.Blob, (float)(origin.X + run.OriginX), (float)(origin.Y + run.BaselineY), paint);
         }
     }
 

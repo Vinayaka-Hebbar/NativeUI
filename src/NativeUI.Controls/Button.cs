@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using NativeUI.Core;
+using NativeUI.Layout;
 using NativeUI.Media;
 
 namespace NativeUI.Controls;
@@ -9,7 +10,7 @@ namespace NativeUI.Controls;
 /// state transitions (<see cref="ElementStates.Hover"/>, <see cref="ElementStates.Pressed"/>, <see cref="ElementStates.Disabled"/>),
 /// routed <see cref="ClickEvent"/>, and <see cref="ICommand"/> execution.
 /// </summary>
-public class Button : View
+public class Button : View, ITextSource
 {
     static Button()
     {
@@ -138,11 +139,8 @@ public class Button : View
 
     }
 
-    /// <inheritdoc />
-    protected override string? GetLayoutTextContent()
-    {
-        return Children.Count == 0 ? Text : null;
-    }
+    string? ITextSource.Text => Children.Count == 0 ? Text : null;
+
 
     private void OnTextPropertyChanged()
     {

@@ -9,10 +9,10 @@ namespace NativeUI.Controls;
 /// </summary>
 internal static class ViewStyleResolver
 {
-    public static ComputedStyle Resolve(UIElement element, ComputedStyle baseStyle, IStyleResolver? resolver)
+    public static ComputedStyle Resolve(IUIElement element, ComputedStyle baseStyle, IStyleResolver? resolver)
     {
         List<(View OwningView, StyleSheet Sheet)>? sheets = null;
-        for (UIElement? current = element; current is not null; current = current.Parent)
+        for (IUIElement? current = element; current is not null; current = current.Parent)
         {
             if (current is View { StyleSheet: StyleSheet sheet } view && sheet.HasRules)
             {

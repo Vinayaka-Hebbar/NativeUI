@@ -55,11 +55,25 @@ public sealed class SkiaTextShaper : ITextMeasurer
         return ShapeInternal(text, availableSize, style, createBlobs: true);
     }
 
+    /// <inheritdoc />
+    public Size MeasureText(ITextSource source, Size availableSize, ComputedStyle style)
+    {
+        using SkiaTextLayout layout = ShapeInternal(source.Text ?? string.Empty, availableSize, style, false, source.TextRuns);
+        return layout.Size;
+    }
+
+    /// <inheritdoc />
+    public ITextLayout CreateTextLayout(ITextSource source, Size availableSize, ComputedStyle style)
+    {
+        return ShapeInternal(source.Text ?? string.Empty, availableSize, style, true, source.TextRuns);
+    }
+
     private SkiaTextLayout ShapeInternal(
         string text,
         Size availableSize,
         ComputedStyle style,
-        bool createBlobs)
+        bool createBlobs,
+        IReadOnlyList<TextRun>? textRuns = null)
     {
         double fontSize = style.FontSize > 0 ? style.FontSize : 14.0;
         SKTypeface primaryTypeface = _resourceCache.GetTypeface(style.FontFamily, style.FontWeight);
@@ -86,12 +100,14 @@ public sealed class SkiaTextShaper : ITextMeasurer
                 ImmutableArray<TextRange>.Empty);
         }
 
+        textRuns ??= [];
         int[] allBoundaries = UnicodeTextSegmentation.GetCharacterBoundaries(text);
         ImmutableArray<TextRange> allClusters = UnicodeTextSegmentation.GetGraphemeClusters(
             text,
             allBoundaries,
             0,
             text.Length);
+        textRuns = NormalizeRuns(textRuns, allClusters, style);
 
         double maxWidth = double.IsNaN(availableSize.Width)
             ? double.PositiveInfinity
@@ -134,11 +150,14 @@ public sealed class SkiaTextShaper : ITextMeasurer
                 primaryTypeface,
                 style.FontWeight,
                 fontSize,
-                maxWidth);
+                maxWidth,
+                textRuns);
 
             foreach (TextRange lineRange in wrappedLineRanges)
             {
-                double baselineY = currentY + halfLeading + ascent;
+                (double lineAscent, double lineDescent, double resolvedHeight) =
+                    GetLineMetrics(textRuns, lineRange, ascent, descent, lineHeight);
+                double baselineY = currentY + (resolvedHeight - lineAscent - lineDescent) / 2 + lineAscent;
                 TextLine shapedLine = BuildShapedLine(
                     text,
                     allBoundaries,
@@ -147,20 +166,21 @@ public sealed class SkiaTextShaper : ITextMeasurer
                     lineIndex++,
                     currentY,
                     baselineY,
-                    lineHeight,
-                    ascent,
-                    descent,
+                    resolvedHeight,
+                    lineAscent,
+                    lineDescent,
                     maxWidth,
                     style.TextAlign,
                     primaryTypeface,
                     style.FontWeight,
                     fontSize,
+                    textRuns,
                     createBlobs,
                     blobsBuilder);
 
                 linesBuilder.Add(shapedLine);
                 maxLineWidth = Math.Max(maxLineWidth, shapedLine.Bounds.Width);
-                currentY += lineHeight;
+                currentY += resolvedHeight;
             }
         }
 
@@ -170,7 +190,81 @@ public sealed class SkiaTextShaper : ITextMeasurer
             linesBuilder.ToImmutable(),
             blobsBuilder.ToImmutable(),
             allBoundaries,
-            allClusters);
+            allClusters,
+            textRuns);
+    }
+
+    private static ComputedStyle? FindStyle(IReadOnlyList<TextRun> runs, int position)
+    {
+        int low = 0;
+        int high = runs.Count - 1;
+        while (low <= high)
+        {
+            int middle = low + (high - low) / 2;
+            TextRun run = runs[middle];
+            if (position < run.Range.Start)
+            {
+                high = middle - 1;
+            }
+            else if (position >= run.Range.End)
+            {
+                low = middle + 1;
+            }
+            else
+            {
+                return run.Style;
+            }
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyList<TextRun> NormalizeRuns(
+        IReadOnlyList<TextRun> runs, ImmutableArray<TextRange> clusters, ComputedStyle fallback)
+    {
+        if (runs.Count == 0)
+        {
+            return runs;
+        }
+
+        List<TextRun> normalized = [];
+        foreach (TextRange cluster in clusters)
+        {
+            ComputedStyle style = FindStyle(runs, cluster.Start) ?? fallback;
+            if (normalized.Count > 0 && normalized[^1].Style == style && normalized[^1].Range.End == cluster.Start)
+            {
+                TextRun previous = normalized[^1];
+                normalized[^1] = previous with { Range = new TextRange(previous.Range.Start, cluster.End - previous.Range.Start) };
+            }
+            else
+            {
+                normalized.Add(new TextRun(cluster, style));
+            }
+        }
+
+        return normalized.ToArray();
+    }
+
+    private (double Ascent, double Descent, double Height) GetLineMetrics(
+        IReadOnlyList<TextRun> runs, TextRange line, double ascent, double descent, double height)
+    {
+        foreach (TextRun run in runs)
+        {
+            if (run.Range.End <= line.Start || run.Range.Start >= line.End)
+            {
+                continue;
+            }
+
+            ComputedStyle style = run.Style;
+            using SKFont font = CreateSkiaFont(_resourceCache.GetTypeface(style.FontFamily, style.FontWeight), style.FontSize);
+            font.GetFontMetrics(out SKFontMetrics metrics);
+            ascent = Math.Max(ascent, -metrics.Ascent);
+            descent = Math.Max(descent, metrics.Descent);
+            double normal = -metrics.Ascent + metrics.Descent + Math.Max(0, metrics.Leading);
+            height = Math.Max(height, style.LineHeight.Resolve(style.FontSize, normal));
+        }
+
+        return (ascent, descent, height);
     }
 
     private static ImmutableArray<TextRange> SliceClusters(ImmutableArray<TextRange> allClusters, TextRange slice)
@@ -247,7 +341,8 @@ public sealed class SkiaTextShaper : ITextMeasurer
         SKTypeface primaryTypeface,
         FontWeight fontWeight,
         double fontSize,
-        double maxWidth)
+        double maxWidth,
+        IReadOnlyList<TextRun> textRuns)
     {
         if (!double.IsFinite(maxWidth) || clusters.Length <= 1)
         {
@@ -260,7 +355,8 @@ public sealed class SkiaTextShaper : ITextMeasurer
             in bidiData,
             primaryTypeface,
             fontWeight,
-            fontSize);
+            fontSize,
+            textRuns);
 
         ImmutableArray<LineBreakOpportunity> opportunities = LineBreakEnumerator.GetBreakOpportunities(text, clusters);
         HashSet<int> validBreakPositions = new(opportunities.Length);
@@ -326,7 +422,8 @@ public sealed class SkiaTextShaper : ITextMeasurer
         in BidiAlgorithm.ParagraphBidiData bidiData,
         SKTypeface primaryTypeface,
         FontWeight fontWeight,
-        double fontSize)
+        double fontSize,
+        IReadOnlyList<TextRun> textRuns)
     {
         double[] advances = new double[clusters.Length];
         ImmutableArray<BiDiTextRun> runs = BidiAlgorithm.BuildLogicalRuns(in bidiData);
@@ -352,7 +449,7 @@ public sealed class SkiaTextShaper : ITextMeasurer
             }
 
             ReadOnlySpan<TextRange> runClusters = clusters.AsSpan(runStartCluster, runClusterCount);
-            List<FontSubRun> fontSubRuns = PartitionIntoFontSubRuns(text, run, runClusters, primaryTypeface, fontWeight);
+            List<FontSubRun> fontSubRuns = PartitionIntoFontSubRuns(text, run, runClusters, primaryTypeface, fontWeight, fontSize, textRuns);
 
             int localOffset = 0;
             foreach (FontSubRun subRun in fontSubRuns)
@@ -362,7 +459,7 @@ public sealed class SkiaTextShaper : ITextMeasurer
                     text,
                     subRun,
                     subClusters,
-                    fontSize,
+                    subRun.FontSize,
                     createBlob: false);
 
                 for (int i = 0; i < subRun.ClusterCount; i++)
@@ -393,6 +490,7 @@ public sealed class SkiaTextShaper : ITextMeasurer
         SKTypeface primaryTypeface,
         FontWeight fontWeight,
         double fontSize,
+        IReadOnlyList<TextRun> textRuns,
         bool createBlobs,
         ImmutableArray<ShapedTextBlobRun>.Builder blobsBuilder)
     {
@@ -418,7 +516,9 @@ public sealed class SkiaTextShaper : ITextMeasurer
                 run,
                 runClusters.AsSpan(),
                 primaryTypeface,
-                fontWeight);
+                fontWeight,
+                fontSize,
+                textRuns);
 
             if (run.IsRightToLeft && fontSubRuns.Count > 1)
             {
@@ -432,7 +532,7 @@ public sealed class SkiaTextShaper : ITextMeasurer
                     text,
                     subRun,
                     subClusters,
-                    fontSize,
+                    subRun.FontSize,
                     createBlobs);
 
                 shapedVisualSubRuns.Add(shaped);
@@ -493,14 +593,17 @@ public sealed class SkiaTextShaper : ITextMeasurer
         int StartClusterOffset,
         int ClusterCount,
         bool IsRightToLeft,
-        SKTypeface Typeface);
+        SKTypeface Typeface,
+        double FontSize);
 
     private List<FontSubRun> PartitionIntoFontSubRuns(
         string text,
         BiDiTextRun run,
         ReadOnlySpan<TextRange> runClusters,
         SKTypeface primaryTypeface,
-        FontWeight fontWeight)
+        FontWeight fontWeight,
+        double fontSize,
+        IReadOnlyList<TextRun> textRuns)
     {
         List<FontSubRun> subRuns = [];
         if (runClusters.IsEmpty)
@@ -508,13 +611,19 @@ public sealed class SkiaTextShaper : ITextMeasurer
             return subRuns;
         }
 
-        SKTypeface currentTypeface = ResolveClusterTypeface(text, runClusters[0], primaryTypeface, fontWeight);
+        ComputedStyle? firstStyle = FindStyle(textRuns, runClusters[0].Start);
+        double currentFontSize = firstStyle?.FontSize ?? fontSize;
+        SKTypeface currentPrimary = firstStyle is null ? primaryTypeface : _resourceCache.GetTypeface(firstStyle.FontFamily, firstStyle.FontWeight);
+        SKTypeface currentTypeface = ResolveClusterTypeface(text, runClusters[0], currentPrimary, firstStyle?.FontWeight ?? fontWeight);
         int subStartCluster = 0;
 
         for (int i = 1; i < runClusters.Length; i++)
         {
-            SKTypeface tf = ResolveClusterTypeface(text, runClusters[i], currentTypeface, fontWeight);
-            if (!ReferenceEquals(tf, currentTypeface))
+            ComputedStyle? clusterStyle = FindStyle(textRuns, runClusters[i].Start);
+            double clusterFontSize = clusterStyle?.FontSize ?? fontSize;
+            SKTypeface primary = clusterStyle is null ? primaryTypeface : _resourceCache.GetTypeface(clusterStyle.FontFamily, clusterStyle.FontWeight);
+            SKTypeface tf = ResolveClusterTypeface(text, runClusters[i], primary, clusterStyle?.FontWeight ?? fontWeight);
+            if (!ReferenceEquals(tf, currentTypeface) || currentFontSize != clusterFontSize)
             {
                 int textStart = runClusters[subStartCluster].Start;
                 int textEnd = runClusters[i - 1].End;
@@ -524,9 +633,11 @@ public sealed class SkiaTextShaper : ITextMeasurer
                     subStartCluster,
                     i - subStartCluster,
                     run.IsRightToLeft,
-                    currentTypeface));
+                    currentTypeface,
+                    currentFontSize));
 
                 currentTypeface = tf;
+                currentFontSize = clusterFontSize;
                 subStartCluster = i;
             }
         }
@@ -539,7 +650,8 @@ public sealed class SkiaTextShaper : ITextMeasurer
             subStartCluster,
             runClusters.Length - subStartCluster,
             run.IsRightToLeft,
-            currentTypeface));
+            currentTypeface,
+            currentFontSize));
 
         return subRuns;
     }
@@ -577,7 +689,7 @@ public sealed class SkiaTextShaper : ITextMeasurer
         {
             using Font hbFont = CreateHarfBuzzFont(hbFace, fontSize);
             using Buffer buffer = new();
-            buffer.AddUtf16(text.AsSpan(subRun.StartIndex, subRun.Length));
+            buffer.AddUtf16(text.AsSpan(), subRun.StartIndex, subRun.Length);
             buffer.GuessSegmentProperties();
             buffer.Direction = subRun.IsRightToLeft ? Direction.RightToLeft : Direction.LeftToRight;
 
@@ -654,7 +766,7 @@ public sealed class SkiaTextShaper : ITextMeasurer
         int[] glyphToClusterIdx = new int[infos.Length];
         for (int g = 0; g < infos.Length; g++)
         {
-            int absoluteIndex = subRun.StartIndex + (int)infos[g].Cluster;
+            int absoluteIndex = (int)infos[g].Cluster;
             int foundIdx = 0;
             for (int c = 0; c < clusterCount; c++)
             {

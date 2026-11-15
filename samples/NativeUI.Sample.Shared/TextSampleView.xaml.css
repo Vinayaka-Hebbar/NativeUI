@@ -1,0 +1,45 @@
+.text-page {
+    --foreground: #0a0a0a;
+    --accent: #2563eb;
+    --border: #d4d4d4;
+    color: var(--foreground);
+    font-family: Arial;
+    font-size: 16px;
+    padding: 24px;
+}
+
+@media (prefers-color-scheme: dark) {
+    .text-page {
+        --foreground: #fafafa;
+        --accent: #60a5fa;
+        --border: #404040;
+    }
+}
+
+.text-title {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.bold {
+    font-weight: 700;
+}
+
+.accent {
+    color: var(--accent);
+    font-size: 22px;
+}
+
+.link {
+    color: var(--accent);
+    cursor: pointer;
+}
+
+Input {
+    color: var(--foreground);
+    background-color: transparent;
+    padding: 8px 12px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 6px;
+}

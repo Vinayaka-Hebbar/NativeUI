@@ -10,6 +10,20 @@ using NativeUI.Media;
 using NativeUI.Sample;
 using NativeUI.Tests;
 
+if (args.Contains("--inlines"))
+{
+    return TestRunner.RunSuite("Text inlines",
+    [
+        ("Plain values retain their fast path and inline precedence is reversible", TextInlineTests.VerifyPlainTextAndPrecedence),
+        ("Compiled mixed content preserves whitespace, inheritance, and bindings", TextInlineTests.VerifyCompiledContentAndBindings),
+        ("Inline ownership rejects cycles and detached content releases its owner", TextInlineTests.VerifyOwnershipAndLifetime),
+        ("Formatted shaping preserves bidi text and grapheme selection", TextInlineTests.VerifyShapingAndUnicodeSelection),
+        ("Mixed font metrics and styled glyph colors render through Skia", TextInlineTests.VerifyMixedFontMetricsAndDrawing),
+        ("Hyperlinks handle keyboard and pointer activation without selection clicks", TextInlineTests.VerifyHyperlinkInput),
+        ("Hyperlink hover underlines wrapped text and clears on exit", TextInlineTests.VerifyHyperlinkHoverUnderline)
+    ]);
+}
+
 if (args.Contains("--tabs"))
 {
     return TestRunner.RunSuite("Tabs",

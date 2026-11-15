@@ -1,0 +1,29 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.TextSampleView"
+      x:DataType="NativeUI.Sample.TextSampleViewModel"
+      Class="text-page">
+    <StackPanel Spacing="20">
+        <Text Class="text-title" Value="Inline text" />
+        <Text x:Name="PlainText">Hello world</Text>
+        <Text x:Name="FormattedText">Hello <Span Class="bold">formatted <Span Class="accent">world</Span></Span>!</Text>
+        <Text x:Name="NameText">
+            <Run Value="{Binding FirstName}" />
+            <Run Value=" " />
+            <Run Value="{Binding LastName}" />
+        </Text>
+        <Input Value="{Binding FirstName, Mode=TwoWay}" />
+        <Text x:Name="BreakText">
+            First line
+            <LineBreak />
+            Second line
+        </Text>
+        <Text x:Name="LinkText">
+            Read our
+            <Hyperlink x:Name="TermsLink" Class="link" NavigateUri="https://example.com">
+                terms and conditions
+            </Hyperlink>.
+        </Text>
+        <Text x:Name="UnicodeText">Latin <Span Class="bold">العربية</Span> and <Span Class="accent">👨‍👩‍👧‍👦</Span> stay selectable.</Text>
+    </StackPanel>
+</View>

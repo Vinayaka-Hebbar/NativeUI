@@ -3,6 +3,7 @@ namespace NativeUI.Controls.Web;
 using System.Collections.Generic;
 using System.Text;
 using NativeUI.Css;
+using NativeUI.Core;
 using NativeUI.Styling;
 
 /// <summary>
@@ -309,6 +310,27 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
     /// </summary>
     private static void AddTextRules(List<CssRule> rules)
     {
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("a"))),
+            new()
+            {
+                ["text-decoration"] = "none"
+            }));
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"),
+                CssSelector.Type("a").State(ElementStates.Hover))),
+            new()
+            {
+                ["text-decoration"] = "underline"
+            }));
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"),
+                CssSelector.Type("a").State(ElementStates.FocusVisible))),
+            new()
+            {
+                ["text-decoration"] = "underline"
+            }));
+
         rules.Add(Rule(
             CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("span"))),
             new()

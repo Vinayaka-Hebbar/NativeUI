@@ -1,4 +1,5 @@
 using NativeUI.Core;
+using NativeUI.Layout;
 
 namespace NativeUI.Controls;
 
@@ -7,7 +8,7 @@ namespace NativeUI.Controls;
 /// which own the caret, selection, IME, and clipboard. The platform control presents <see cref="Value"/> and
 /// <see cref="Placeholder"/>; the desktop renderer draws only the element's background.
 /// </summary>
-public class Input : UIElement, IFormControl
+public class Input : UIElement, IFormControl, ITextSource
 {
     // Layout measures one line of the font and never the value, because a long value scrolls instead of wrapping.
     private const string LineMeasureText = "Mg";
@@ -195,9 +196,6 @@ public class Input : UIElement, IFormControl
         set => SetValue(IsReadOnlyProperty, value);
     }
 
-    /// <inheritdoc />
-    protected override string? GetLayoutTextContent()
-    {
-        return LineMeasureText;
-    }
+    string? ITextSource.Text => LineMeasureText;
+
 }

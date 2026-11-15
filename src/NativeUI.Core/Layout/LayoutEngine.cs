@@ -18,11 +18,6 @@ public interface ILayoutNode
     ComputedStyle ComputedStyle { get; }
 
     /// <summary>
-    /// Gets the text content if this element is a text leaf, or <see langword="null"/> for container elements.
-    /// </summary>
-    string? TextContent { get; }
-
-    /// <summary>
     /// Gets the child layout nodes of this element.
     /// </summary>
     IReadOnlyList<ILayoutNode> LayoutChildren { get; }
@@ -177,10 +172,11 @@ public sealed class LayoutEngine
         {
             width = intrinsic.GetIntrinsicSize().Width + style.ContentInsets.Horizontal;
         }
-        else if (node.TextContent is string text)
+        else if (node is ITextSource { Text: not null } source)
         {
             Size unconstrained = new(double.PositiveInfinity, double.PositiveInfinity);
-            width = _textMeasurer.MeasureText(text, unconstrained, style).Width + style.ContentInsets.Horizontal;
+            Size measured = _textMeasurer.MeasureText(source, unconstrained, style);
+            width = measured.Width + style.ContentInsets.Horizontal;
         }
         else
         {
@@ -764,11 +760,11 @@ public sealed class LayoutEngine
                 new Rect(contentX, contentY, contentMaxWidth, Math.Max(0, height - padding.Vertical)), []);
         }
 
-        if (node.TextContent is string text)
+        if (node is ITextSource { Text: not null } source)
         {
             double finalBorderWidth = borderWidth;
             Size availableTextSize = new(contentMaxWidth, specifiedHeight ?? double.PositiveInfinity);
-            ITextLayout textLayout = _textMeasurer.CreateTextLayout(text, availableTextSize, style);
+            ITextLayout textLayout = _textMeasurer.CreateTextLayout(source, availableTextSize, style);
             Size measured = textLayout.Size;
 
             double finalBorderHeight = specifiedHeight ?? ClampHeight(style, measured.Height + padding.Vertical);
@@ -782,7 +778,7 @@ public sealed class LayoutEngine
                 textLayout);
         }
 
-        double? contentDefiniteHeight = specifiedHeight is double borderHeight ?Math.Max(0, borderHeight - padding.Vertical) : null;
+        double? contentDefiniteHeight = specifiedHeight is double borderHeight ? Math.Max(0, borderHeight - padding.Vertical) : null;
 
         double padX = borderX + style.BorderWidth;
         double padY = borderY + style.BorderWidth;

@@ -208,6 +208,7 @@ public sealed class Window : IDisposable, IRenderHost
             if (_content is not null)
             {
                 _content.VisualInvalidated -= OnContentVisualInvalidated;
+                _content.RemoveHandler(Hyperlink.RequestNavigateEvent, OnRequestNavigate);
             }
 
             using IDisposable? previousAnimationRoot = _animationRoot;
@@ -230,6 +231,7 @@ public sealed class Window : IDisposable, IRenderHost
                 _animationRoot = AnimationClock.AttachRoot(_content);
                 SyncContentStyle();
                 _content.VisualInvalidated += OnContentVisualInvalidated;
+                _content.AddHandler(Hyperlink.RequestNavigateEvent, OnRequestNavigate);
             }
 
             InvalidateFrame();
@@ -1016,6 +1018,7 @@ public sealed class Window : IDisposable, IRenderHost
         {
             _content.DetachFromVisualTree(_content, _content.Parent);
             _content.VisualInvalidated -= OnContentVisualInvalidated;
+            _content.RemoveHandler(Hyperlink.RequestNavigateEvent, OnRequestNavigate);
             _content = null;
         }
 
@@ -1520,6 +1523,18 @@ public sealed class Window : IDisposable, IRenderHost
         InvalidateFrame();
     }
 
+    private void OnRequestNavigate(object? sender, RoutedEventArgs args)
+    {
+        if (args.Source is Hyperlink { NavigateUri: Uri uri } && uri.IsAbsoluteUri)
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri)
+            {
+                UseShellExecute = true
+            });
+            args.Handled = true;
+        }
+    }
+
     private void OnContentVisualInvalidated(object? sender, EventArgs e)
     {
         InvalidateFrame();
@@ -1626,15 +1641,18 @@ public sealed class Window : IDisposable, IRenderHost
             hovered = null;
         }
 
-        Cursor cursor = _isDraggingSelection
-            ? Cursor.IBeam
-            : (hovered?.ComputedStyle.Cursor ?? Cursor.Auto);
+        Cursor cursor = hovered?.Cursor ?? Cursor.Auto;
 
-        if (cursor == Cursor.Auto)
+        if (_isDraggingSelection)
         {
-            cursor = hovered is Text { IsTextSelectionEnabled: true, IsEffectivelyEnabled: true } or Input { IsEffectivelyEnabled: true }
-                ? Cursor.IBeam
-                : Cursor.Default;
+            cursor = Cursor.IBeam;
+        }
+        else if (cursor == Cursor.Auto)
+        {
+            bool isSelectableText = hovered is Text { IsTextSelectionEnabled: true, IsEffectivelyEnabled: true };
+            bool isEnabledInput = hovered is Input { IsEffectivelyEnabled: true };
+
+            cursor = isSelectableText || isEnabledInput ? Cursor.IBeam : Cursor.Default;
         }
 
         IsTextCursorActive = cursor == Cursor.IBeam;

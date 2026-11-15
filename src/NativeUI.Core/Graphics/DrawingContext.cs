@@ -217,6 +217,18 @@ public abstract class DrawingContext : IDisposable
     public abstract void DrawTextLayout(ITextLayout layout, Point origin, Paint paint);
 
     /// <summary>
+    /// Draws text with an explicit foreground overriding formatted-run colors, as for selected text.
+    /// </summary>
+    /// <param name="layout">The shaped paragraph.</param>
+    /// <param name="origin">The paragraph's top-left origin.</param>
+    /// <param name="foreground">The foreground applied to all runs.</param>
+    /// <param name="opacity">The compositing opacity.</param>
+    public virtual void DrawTextLayout(ITextLayout layout, Point origin, Color foreground, double opacity)
+    {
+        DrawTextLayout(layout, origin, new Paint(foreground, opacity));
+    }
+
+    /// <summary>
     /// Draws one shadow of a rounded rectangle. An outer shadow is drawn only outside <paramref name="rect"/>, the border
     /// box. An inset shadow is drawn only inside <paramref name="rect"/>, the padding box. A shadow without a color is black.
     /// </summary>

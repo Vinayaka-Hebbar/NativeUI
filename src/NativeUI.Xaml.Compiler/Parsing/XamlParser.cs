@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 
@@ -28,7 +29,7 @@ public static class XamlParser
 
         try
         {
-            XDocument doc = XDocument.Parse(xamlText, LoadOptions.SetLineInfo);
+            XDocument doc = XDocument.Parse(xamlText, LoadOptions.SetLineInfo | LoadOptions.PreserveWhitespace);
             if (doc.Root is null)
             {
                 XamlSourcePosition defaultPos = new(1, 1);
@@ -67,13 +68,41 @@ public static class XamlParser
         }
 
         List<XamlElementNode> children = [];
-        foreach (XElement child in element.Elements())
+        bool inlineContent = element.Name.LocalName is "Span" or "Hyperlink" ||
+            (element.Name.LocalName == "Text" && element.Elements().Any(static child => !child.Name.LocalName.Contains('.')));
+        foreach (XNode child in element.Nodes())
         {
-            children.Add(ConvertElement(child));
+            if (child is XElement childElement)
+            {
+                children.Add(ConvertElement(childElement));
+                continue;
+            }
+
+            if (!inlineContent || child is not XText text ||
+                (string.IsNullOrWhiteSpace(text.Value) &&
+                 (text.Value.Contains('\n') || text.Value.Contains('\r'))))
+            {
+                continue;
+            }
+
+            string value = Regex.Replace(text.Value, @"\s+", " ");
+            if (child.PreviousNode is null || child.PreviousNode is XElement { Name.LocalName: "LineBreak" })
+            {
+                value = value.TrimStart();
+            }
+
+            if (child.NextNode is null || child.NextNode is XElement { Name.LocalName: "LineBreak" })
+            {
+                value = value.TrimEnd();
+            }
+
+            XamlSourcePosition textPosition = GetPosition(text);
+            children.Add(new XamlElementNode("Run", NativeUINamespace, textPosition,
+                [new XamlAttributeNode(string.Empty, "Value", string.Empty, value, textPosition)], []));
         }
 
         string? innerText = null;
-        if (children.Count == 0 && !element.IsEmpty)
+        if (!inlineContent && children.Count == 0 && !element.IsEmpty)
         {
             string rawText = element.Value;
             if (!string.IsNullOrWhiteSpace(rawText))

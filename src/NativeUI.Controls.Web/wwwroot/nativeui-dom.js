@@ -899,6 +899,30 @@ export const dom = {
    * @param {string} tagName The tag name.
    * @returns {HTMLElement} The new element.
    */
+  getChildAt(parent, index) {
+    return parent.childNodes[index] ?? null;
+  },
+
+  isChildAt(parent, child, index) {
+    return parent.childNodes[index] === child;
+  },
+
+  setHyperlinkHandler(element, dispatch) {
+    const handler = (event) => {
+      if (event.defaultPrevented) return;
+      if (document.getSelection()?.isCollapsed === false || dispatch()) {
+        event.preventDefault();
+      }
+    };
+    element.nuiHyperlinkHandler = handler;
+    element.addEventListener("click", handler);
+  },
+
+  clearHyperlinkHandler(element) {
+    element.removeEventListener("click", element.nuiHyperlinkHandler);
+    delete element.nuiHyperlinkHandler;
+  },
+
   createElement(tagName) {
     return document.createElement(tagName);
   },

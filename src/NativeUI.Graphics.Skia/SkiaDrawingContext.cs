@@ -331,6 +331,15 @@ public sealed partial class SkiaDrawingContext : DrawingContext
         }
     }
 
+    /// <inheritdoc />
+    public override void DrawTextLayout(ITextLayout layout, Point origin, Color foreground, double opacity)
+    {
+        if (layout is SkiaTextLayout skiaLayout)
+        {
+            skiaLayout.Draw(_canvas, origin, foreground, opacity, foreground);
+        }
+    }
+
     /// <summary>
     /// Creates a rounded rectangle with circular corners. Skia scales radii whose sum exceeds a side down together, as CSS does.
     /// </summary>
