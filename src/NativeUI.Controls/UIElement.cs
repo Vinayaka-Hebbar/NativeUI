@@ -1327,26 +1327,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         IStyleResolver? resolver = StyleResolver;
         ComputedStyle resolvedStyle = resolver?.ResolveStyle(this) ?? ComputedStyle.CreateInitial(this);
         ComputedStyle cascadedStyle = ViewStyleResolver.Resolve(this, resolvedStyle, resolver);
-        return ResolveAutoSizes(cascadedStyle.ApplyInline(Style, resolver, this));
-    }
-
-    /// <summary>
-    /// Replaces an automatic size with the default of this control type, which is its natural size.
-    /// </summary>
-    private ComputedStyle ResolveAutoSizes(ComputedStyle style)
-    {
-        ComputedStyle resolved = style;
-        if (resolved.Width.IsAuto && WidthProperty.GetDefaultValue(this) is WidthValue defaultWidth)
-        {
-            resolved = resolved with { Width = defaultWidth };
-        }
-
-        if (resolved.Height is null && HeightProperty.GetDefaultValue(this) is double defaultHeight)
-        {
-            resolved = resolved with { Height = defaultHeight };
-        }
-
-        return resolved;
+        return cascadedStyle.ApplyInline(Style, resolver, this);
     }
 
     private ComputedStyle ApplyAnimations(ComputedStyle target)

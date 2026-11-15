@@ -10,6 +10,14 @@ using NativeUI.Media;
 using NativeUI.Sample;
 using NativeUI.Tests;
 
+if (args.Contains("--button-group"))
+{
+    return TestRunner.RunSuite("ButtonGroup",
+    [
+        ("Explicit auto width overrides natural control size in vertical groups", ViewStyleSheetTests.VerifyExplicitAutoWidth)
+    ]);
+}
+
 if (args.Contains("--forms"))
 {
     return TestRunner.RunSuite("Forms",
@@ -79,6 +87,7 @@ if (args.Contains("--enabled-state"))
 
 int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
 [
+    ("Explicit auto width overrides natural control size in vertical groups", ViewStyleSheetTests.VerifyExplicitAutoWidth),
     ("Forms validate, submit, gate commands, and reset through bindings", FormTests.VerifySubmissionAndReset),
     ("Fieldsets preserve the first legend exemption and ancestor restrictions", FormTests.VerifyFieldsetLegendSemantics),
     ("Binding errors work outside forms and unsubscribe when sources change", FormTests.VerifyIndependentBindingErrors),

@@ -1,6 +1,8 @@
 using NativeUI.Core;
 using NativeUI.Css;
 using NativeUI.Media;
+using NativeUI.Layout;
+using NativeUI.Graphics.Skia;
 using NativeUI.Styling;
 using NativeUI.Tests;
 
@@ -14,6 +16,43 @@ internal static class ViewStyleSheetTests
 {
     private static readonly Color s_red = Color.FromRgbBytes(255, 0, 0);
     private static readonly Color s_yellow = Color.FromRgbBytes(255, 255, 0);
+
+    internal static void VerifyExplicitAutoWidth()
+    {
+        using Button natural = new() { Text = "Natural" };
+        Assert.True(natural.ComputedStyle.Width.IsFitContent);
+        natural.Width = WidthValue.Auto;
+        Assert.True(natural.ComputedStyle.Width.IsAuto);
+
+        using View root = new()
+        {
+            StyleSheet = new StyleSheet
+            {
+                Rules =
+                {
+                    StyleRule.Selector("ButtonGroup[data-orientation=vertical] Button")
+                        .Style(new Style { Width = WidthValue.Auto })
+                }
+            }
+        };
+        ButtonGroup group = new() { Orientation = Orientation.Vertical };
+        Button top = new() { Text = "Top" };
+        Button middle = new() { Text = "Middle" };
+        Button bottom = new() { Text = "Bottom" };
+        group.Items.Add(top);
+        group.Items.Add(middle);
+        group.Items.Add(bottom);
+        root.Children.Add(group);
+        LayoutEngine engine = new(SkiaTextShaper.Shared);
+        LayoutBox layout = engine.ComputeLayout(group, new Size(400, 200));
+        Assert.True(top.ComputedStyle.Width.IsAuto);
+        Assert.Equal(layout.Children[2].BorderBox.Width, layout.Children[0].BorderBox.Width);
+        Assert.Equal(layout.Children[2].BorderBox.Width, layout.Children[1].BorderBox.Width);
+        group.Orientation = Orientation.Horizontal;
+        layout = engine.ComputeLayout(group, new Size(400, 200));
+        Assert.True(top.ComputedStyle.Width.IsFitContent);
+        Assert.True(layout.Children[0].BorderBox.Width < layout.Children[2].BorderBox.Width);
+    }
 
     internal static void VerifyScopedApplicationAndDescendants()
     {
