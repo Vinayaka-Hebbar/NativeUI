@@ -20,6 +20,11 @@ public partial class FormSampleViewModel : ObservableValidator
     private string _email = string.Empty;
 
     [ObservableProperty]
+    [NotifyDataErrorInfo]
+    [Required(ErrorMessage = "Choose a delivery method.")]
+    private string? _delivery = "standard";
+
+    [ObservableProperty]
     private bool _notifications = true;
 
     [ObservableProperty]

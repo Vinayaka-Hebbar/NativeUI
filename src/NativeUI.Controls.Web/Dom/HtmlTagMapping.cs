@@ -13,6 +13,8 @@ internal static class HtmlTagMapping
     private const string InputTag = "input";
     private const string DialogTag = "dialog";
     private const string SwitchTag = "nui-switch";
+    private const string RadioGroupItemTag = "nui-radiogroupitem";
+    private const string RadioButtonTag = "nui-radiobutton";
     private const string CheckBoxTag = "nui-checkbox";
     private const string ToggleTag = "nui-toggle";
     private const string ToggleGroupTag = "nui-togglegroup";
@@ -77,6 +79,16 @@ internal static class HtmlTagMapping
         if (element is Switch)
         {
             return SwitchTag;
+        }
+
+        if (element is RadioGroupItem)
+        {
+            return RadioGroupItemTag;
+        }
+
+        if (element is RadioButton)
+        {
+            return RadioButtonTag;
         }
 
         if (element is CheckBox)
@@ -228,6 +240,16 @@ internal static class HtmlTagMapping
             return SwitchTag;
         }
 
+        if (typeof(RadioGroupItem).IsAssignableFrom(type))
+        {
+            return RadioGroupItemTag;
+        }
+
+        if (typeof(RadioButton).IsAssignableFrom(type))
+        {
+            return $":is({RadioButtonTag}, {RadioGroupItemTag})";
+        }
+
         if (typeof(CheckBox).IsAssignableFrom(type))
         {
             return CheckBoxTag;
@@ -351,12 +373,14 @@ internal static class HtmlTagMapping
             "image" => ":is(img, svg)",
             "svg" or "path" or "rectangle" or "ellipse" or "line" or "polygon" or "polyline" => "svg",
             "text" => TextTag,
-            "view" or "portal" or "progressbar" => ContainerTag,
+            "view" or "portal" or "progressbar" or "radiogroup" => ContainerTag,
             "dialog" => DialogTag,
             "button" => ButtonTag,
             "canvas" or "canvasview" or "viewport3d" => CanvasTag,
             "input" => InputTag,
             "switch" => SwitchTag,
+            "radiogroupitem" => RadioGroupItemTag,
+            "radiobutton" => $":is({RadioButtonTag}, {RadioGroupItemTag})",
             "checkbox" => CheckBoxTag,
             "toggle" => ToggleTag,
             "togglegroup" => ToggleGroupTag,

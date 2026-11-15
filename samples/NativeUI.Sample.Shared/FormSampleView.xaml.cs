@@ -13,6 +13,7 @@ public partial class FormSampleView
         InitializeComponent();
         NameInput.PropertyChanged += OnValidationChanged;
         EmailInput.PropertyChanged += OnValidationChanged;
+        DeliveryGroup.PropertyChanged += OnValidationChanged;
         EditorForm.PropertyChanged += OnFormPropertyChanged;
         SaveButton.IsEnabled = EditorForm.IsValid && !EditorForm.IsSubmitting;
         UpdateMessages();
@@ -26,6 +27,7 @@ public partial class FormSampleView
             EditorForm.PropertyChanged -= OnFormPropertyChanged;
             NameInput.PropertyChanged -= OnValidationChanged;
             EmailInput.PropertyChanged -= OnValidationChanged;
+            DeliveryGroup.PropertyChanged -= OnValidationChanged;
         }
 
         base.Dispose(disposing);
@@ -42,7 +44,8 @@ public partial class FormSampleView
 
     private void OnValidationChanged(object? sender, BindablePropertyChangedEventArgs args)
     {
-        if (ReferenceEquals(args.Property, Validation.ErrorsProperty) || ReferenceEquals(args.Property, Input.ValueProperty))
+        if (ReferenceEquals(args.Property, Validation.ErrorsProperty) || ReferenceEquals(args.Property, Input.ValueProperty) ||
+            ReferenceEquals(args.Property, RadioGroup.SelectedValueProperty))
         {
             UpdateMessages();
         }
@@ -52,5 +55,6 @@ public partial class FormSampleView
     {
         NameErrors.Value = NameInput.ValidationMessage;
         EmailErrors.Value = EmailInput.ValidationMessage;
+        DeliveryErrors.Value = DeliveryGroup.ValidationMessage;
     }
 }

@@ -335,6 +335,30 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
             }));
 
         rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-radiobutton"))),
+            new()
+            {
+                ["display"] = "flex",
+                ["flex-direction"] = "row",
+                ["align-items"] = "flex-start",
+                ["width"] = "fit-content",
+                ["cursor"] = "pointer",
+                ["user-select"] = "none"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-radiogroupitem"))),
+            new()
+            {
+                ["display"] = "flex",
+                ["flex-direction"] = "row",
+                ["align-items"] = "flex-start",
+                ["width"] = "fit-content",
+                ["cursor"] = "pointer",
+                ["user-select"] = "none"
+            }));
+
+        rules.Add(Rule(
             CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-togglegroup"))),
             new()
             {

@@ -429,7 +429,7 @@ internal static class FormTests
         public override string TagName => "probe";
         public Action? OnValidate { get; set; }
         public bool WillValidate => IsEffectivelyEnabled;
-        public ValidityState Validity => new();
+        public ValidityState Validity => ValidityState.Empty;
         public string ValidationMessage => string.Empty;
         public bool CheckValidity() { OnValidate?.Invoke(); return true; }
         public bool ReportValidity() => CheckValidity();

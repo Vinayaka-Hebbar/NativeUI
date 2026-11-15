@@ -91,7 +91,10 @@ public class Input : UIElement, IFormControl
     public bool WillValidate => IsEffectivelyEnabled && !IsReadOnly;
 
     /// <inheritdoc />
-    public ValidityState Validity => new(ValueMissing: Required && !IsReadOnly && string.IsNullOrEmpty(Value));
+    public ValidityState Validity => new()
+    {
+        ValueMissing = Required && !IsReadOnly && string.IsNullOrEmpty(Value)
+    };
 
     /// <inheritdoc />
     public string ValidationMessage

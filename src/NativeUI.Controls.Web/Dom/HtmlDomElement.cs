@@ -175,6 +175,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
             Input input => new HtmlDomInput(input, element),
             ProgressBar progressBar => new HtmlDomProgressBar(progressBar, element),
             Switch toggleSwitch => new HtmlDomSwitch(toggleSwitch, element, tagName),
+            RadioButton radioButton => new HtmlDomRadioButton(radioButton, element, tagName),
             CheckBox checkBox => new HtmlDomCheckBox(checkBox, element, tagName),
             Toggle toggle => new HtmlDomToggle(toggle, element, tagName),
             ToggleGroup toggleGroup => new HtmlDomToggleGroup(toggleGroup, element, tagName),
@@ -593,7 +594,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
     /// <c>&lt;input&gt;</c> or <c>&lt;button&gt;</c> is focusable without the attribute, and gets <c>-1</c> to leave the tab
     /// order while it is not focusable. A disabled element has no <c>tabindex</c>.
     /// </summary>
-    private void UpdateTabIndex()
+    protected virtual void UpdateTabIndex()
     {
         bool isNativelyFocusable = TagName is "input" or "button";
         string? tabIndex;

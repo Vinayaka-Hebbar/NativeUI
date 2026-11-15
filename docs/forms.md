@@ -22,7 +22,7 @@
 
 The binding system observes `INotifyDataErrorInfo` and `IDataErrorInfo`, and captures conversion failures. `Validation.GetHasError(element)` and `Validation.GetErrors(element)` work on any `UIElement`, including display elements. Errors identify the source property, target bindable property, and error kind. Property bindings query only their own property's errors; an entity-wide error collection is not copied onto unrelated fields. DataAnnotations work through a validating ViewModel such as CommunityToolkit's `ObservableValidator`.
 
-`IFormControl.Validity` describes HTML-style constraints independently of model errors. `Input` and `CheckBox` currently implement the required-value constraint. Other constraint flags are available in `ValidityState` for custom controls; built-in pattern, range, length, and date controls are not implemented by this slice.
+`IFormControl.Validity` describes HTML-style constraints independently of model errors. `Input`, `CheckBox`, and `RadioButton` implement the required-value constraint. For radios, a required group needs one checked option. Other constraint flags are available in `ValidityState` for custom controls; built-in pattern, range, length, and date controls are not implemented by this slice.
 
 `CheckValidity()` combines constraints and binding errors. `ReportValidity()` also marks user interaction and focuses an invalid control. Only participating form controls receive `:valid`, `:invalid`, and `:user-invalid`. A display element can have attached binding errors without receiving these states.
 

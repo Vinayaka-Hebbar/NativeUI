@@ -2,7 +2,7 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       x:Class="NativeUI.Sample.ToggleSampleView"
       Class="toggle-page">
-    <Text Class="toggle-title" Value="Switch, CheckBox, and Toggle" />
+    <Text Class="toggle-title" Value="Switch, CheckBox, RadioButton, and Toggle" />
     <Text Class="toggle-description" Value="State pseudo-classes and ::part() style every control from the stylesheet. The theme button switches between the light and dark variables." />
 
     <View Class="toggle-section">
@@ -28,6 +28,28 @@
             <CheckBox IsThreeState="True">Three states: click to cycle</CheckBox>
             <CheckBox IsChecked="True" IsEnabled="False">Disabled</CheckBox>
         </View>
+    </View>
+
+    <View Class="toggle-section">
+        <Label Class="toggle-heading" Target="{x:Reference FrequencyGroup}" Content="RadioButton" />
+        <RadioGroup x:Name="FrequencyGroup" Spacing="8" SelectedValue="every">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <RadioGroupItem x:Name="EveryNotification" Value="every" />
+                <Label Target="{x:Reference EveryNotification}" Content="Every notification" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <RadioGroupItem x:Name="DailySummary" Value="daily" />
+                <Label Target="{x:Reference DailySummary}" Content="Daily summary" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <RadioGroupItem x:Name="WeeklySummary" Value="weekly" />
+                <Label Target="{x:Reference WeeklySummary}" Content="Weekly summary" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <RadioGroupItem x:Name="DisabledFrequency" Value="disabled" IsEnabled="False" />
+                <Label Class="toggle-muted" Target="{x:Reference DisabledFrequency}" Content="Disabled option" />
+            </StackPanel>
+        </RadioGroup>
     </View>
 
     <View Class="toggle-section">

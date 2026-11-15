@@ -793,10 +793,18 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
                 AttachToVisualTree(root);
             }
 
-            if (ReferenceEquals(_parent, value))
+            if (!ReferenceEquals(_parent, value))
             {
-                OnParentChanged();
+                return;
             }
+
+            OnParentChanged();
+            if (!ReferenceEquals(_parent, value))
+            {
+                return;
+            }
+
+            OnAncestorChanged();
         }
     }
 
@@ -1145,6 +1153,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
             InputManager.Current.PrimaryKeyboardDevice.ClearFocus(this);
         }
 
+        OnVisibilityChanged();
         VisibilityChanged?.Invoke(this, EventArgs.Empty);
         InvalidateVisual();
     }
@@ -1220,6 +1229,20 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// Invoked when this element leaves its platform-hosted visual tree.
     /// </summary>
     protected virtual void OnDetachedFromVisualTree()
+    {
+    }
+
+    /// <summary>
+    /// Notifies tree-dependent controls after the ancestor chain changes.
+    /// </summary>
+    internal virtual void OnAncestorChanged()
+    {
+    }
+
+    /// <summary>
+    /// Notifies controls whose eligibility depends on this element's visibility.
+    /// </summary>
+    internal virtual void OnVisibilityChanged()
     {
     }
 

@@ -30,6 +30,10 @@ public sealed class HtmlDomStackPanel : HtmlDomView
     {
         UpdateStack();
         base.Initialize();
+        if (_panel is RadioGroup)
+        {
+            SetAttribute("role", "radiogroup");
+        }
     }
 
     /// <inheritdoc />
@@ -38,7 +42,8 @@ public sealed class HtmlDomStackPanel : HtmlDomView
         base.OnPropertyChanged(args);
         if (ReferenceEquals(args.Property, StackPanel.OrientationProperty) ||
             ReferenceEquals(args.Property, StackPanel.SpacingProperty) ||
-            ReferenceEquals(args.Property, StackPanel.HorizontalAlignmentProperty))
+            ReferenceEquals(args.Property, StackPanel.HorizontalAlignmentProperty) ||
+            ReferenceEquals(args.Property, RadioGroup.RequiredProperty))
         {
             UpdateStack();
         }
@@ -47,6 +52,12 @@ public sealed class HtmlDomStackPanel : HtmlDomView
     private void UpdateStack()
     {
         bool isHorizontal = _panel.Orientation == Orientation.Horizontal;
+        if (_panel is RadioGroup group)
+        {
+            SetAttribute("aria-orientation", isHorizontal ? "horizontal" : "vertical");
+            SetAttribute("aria-required", group.Required ? "true" : null);
+        }
+
         SetStyleProperty("flex-direction", isHorizontal ? "row" : "column");
         SetStyleProperty("align-items", isHorizontal ? "flex-start" : "stretch");
         SetStyleProperty("justify-content", isHorizontal ? GetJustifyContent(_panel.HorizontalAlignment) : null);

@@ -10,6 +10,30 @@ using NativeUI.Media;
 using NativeUI.Sample;
 using NativeUI.Tests;
 
+if (args.Contains("--radio"))
+{
+    return TestRunner.RunSuite("RadioButton",
+    [
+        ("Radio groups enforce exclusivity and expose routed activation", RadioButtonTests.VerifyGrouping),
+        ("Radio keyboard navigation wraps, skips unavailable options, and uses one tab stop", RadioButtonTests.VerifyKeyboard),
+        ("Radio form constraints remain separate from binding errors and reset through MVVM", RadioButtonTests.VerifyFormsAndBindings),
+        ("Radio required state follows selection removal and enabled changes", RadioButtonTests.VerifyDynamicValidity),
+        ("Explicit radio groups contain nested choices and isolate selection", RadioButtonTests.VerifyExplicitGroups),
+        ("Value-based radio selection follows bindings, labels, and dynamic items", RadioButtonTests.VerifyValueSelection),
+        ("Required radio groups refresh when the selected choice becomes disabled", RadioButtonTests.VerifyEnabledSelectionValidity),
+        ("Structural changes during selection are reconciled without rendering callbacks", RadioButtonTests.VerifyStructuralChangesDuringSelection),
+        ("Unattached ancestor moves update radio registration and preserve nested groups", RadioButtonTests.VerifyUnattachedAncestorRegistration),
+        ("Duplicate radio values follow tree order without selection notifications", RadioButtonTests.VerifyDuplicateTreeOrder),
+        ("Reentrant value changes each raise one selection notification", RadioButtonTests.VerifyReentrantSelectionEvents),
+        ("Radio reset captures initialized bindings and removed items release subscriptions", RadioButtonTests.VerifyResetBaselineAndUnsubscription),
+        ("Visibility and ancestry use separate tree notifications", RadioButtonTests.VerifySeparateTreeNotifications),
+        ("Radio synchronization and focus callbacks tolerate disposal and reparenting", RadioButtonTests.VerifyDisposalAndFocusCallbacks),
+        ("Registration handles temporarily disconnected items during parent callbacks", RadioButtonTests.VerifyDisconnectedRegistration),
+        ("Queued selection notifications survive disposal of a selected item", RadioButtonTests.VerifyQueuedNotificationsAfterDisposal),
+        ("Radio groups remain isolated and follow moves between roots", RadioButtonTests.VerifyRootChanges)
+    ]);
+}
+
 if (args.Contains("--button-group"))
 {
     return TestRunner.RunSuite("ButtonGroup",
@@ -87,6 +111,23 @@ if (args.Contains("--enabled-state"))
 
 int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
 [
+        ("Radio groups enforce exclusivity and expose routed activation", RadioButtonTests.VerifyGrouping),
+        ("Radio keyboard navigation wraps, skips unavailable options, and uses one tab stop", RadioButtonTests.VerifyKeyboard),
+        ("Radio form constraints remain separate from binding errors and reset through MVVM", RadioButtonTests.VerifyFormsAndBindings),
+        ("Radio required state follows selection removal and enabled changes", RadioButtonTests.VerifyDynamicValidity),
+        ("Explicit radio groups contain nested choices and isolate selection", RadioButtonTests.VerifyExplicitGroups),
+        ("Value-based radio selection follows bindings, labels, and dynamic items", RadioButtonTests.VerifyValueSelection),
+        ("Required radio groups refresh when the selected choice becomes disabled", RadioButtonTests.VerifyEnabledSelectionValidity),
+        ("Structural changes during selection are reconciled without rendering callbacks", RadioButtonTests.VerifyStructuralChangesDuringSelection),
+        ("Unattached ancestor moves update radio registration and preserve nested groups", RadioButtonTests.VerifyUnattachedAncestorRegistration),
+        ("Duplicate radio values follow tree order without selection notifications", RadioButtonTests.VerifyDuplicateTreeOrder),
+        ("Reentrant value changes each raise one selection notification", RadioButtonTests.VerifyReentrantSelectionEvents),
+        ("Radio reset captures initialized bindings and removed items release subscriptions", RadioButtonTests.VerifyResetBaselineAndUnsubscription),
+        ("Visibility and ancestry use separate tree notifications", RadioButtonTests.VerifySeparateTreeNotifications),
+        ("Radio synchronization and focus callbacks tolerate disposal and reparenting", RadioButtonTests.VerifyDisposalAndFocusCallbacks),
+        ("Registration handles temporarily disconnected items during parent callbacks", RadioButtonTests.VerifyDisconnectedRegistration),
+        ("Queued selection notifications survive disposal of a selected item", RadioButtonTests.VerifyQueuedNotificationsAfterDisposal),
+        ("Radio groups remain isolated and follow moves between roots", RadioButtonTests.VerifyRootChanges),
     ("Explicit auto width overrides natural control size in vertical groups", ViewStyleSheetTests.VerifyExplicitAutoWidth),
     ("Forms validate, submit, gate commands, and reset through bindings", FormTests.VerifySubmissionAndReset),
     ("Fieldsets preserve the first legend exemption and ancestor restrictions", FormTests.VerifyFieldsetLegendSemantics),

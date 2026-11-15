@@ -221,6 +221,32 @@ public class View : UIElement, IView, IScrollContainer
     }
 
     /// <inheritdoc />
+    internal override void OnAncestorChanged()
+    {
+        base.OnAncestorChanged();
+        foreach (UIElement child in Children)
+        {
+            if (ReferenceEquals(child.Parent, this))
+            {
+                child.OnAncestorChanged();
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    internal override void OnVisibilityChanged()
+    {
+        base.OnVisibilityChanged();
+        foreach (UIElement child in Children)
+        {
+            if (ReferenceEquals(child.Parent, this))
+            {
+                child.OnVisibilityChanged();
+            }
+        }
+    }
+
+    /// <inheritdoc />
     internal override void AttachToVisualTree(UIElement root)
     {
         if (ReferenceEquals(VisualRoot, root))
@@ -340,6 +366,17 @@ public class View : UIElement, IView, IScrollContainer
         UpdateChildPositionStates(e.OldItems);
         if (e.Action == NotifyCollectionChangedAction.Move)
         {
+            if (e.NewItems is not null)
+            {
+                foreach (UIElement child in e.NewItems)
+                {
+                    if (ReferenceEquals(child.Parent, this))
+                    {
+                        child.OnAncestorChanged();
+                    }
+                }
+            }
+
             InvalidateVisual();
             return;
         }

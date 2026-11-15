@@ -11,8 +11,14 @@ using NativeUI.Styling;
 using NativeUI.Tests;
 
 // Verifies proxy state and ownership on the .NET host without creating browser DOM elements.
+if (args.Contains("--radio"))
+{
+    return TestRunner.RunSuite("RadioButton Web", [("Radio proxies preserve shared selection, labels, and disposal", TestRadios)]);
+}
+
 int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
 [
+    ("Radio proxies preserve shared selection, labels, and disposal", TestRadios),
     ("SVG updates emit only changed attributes", NativeUI.Controls.Web.Tests.SvgDomBuilderTests.AttributeChangesAreTargeted),
     ("Immutable SVG edits update only affected attributes", NativeUI.Controls.Web.Tests.SvgDomBuilderTests.ImmutableDefinitionsProduceLocalChanges),
     ("SVG attributes are applied when added and removed when unset", NativeUI.Controls.Web.Tests.SvgDomBuilderTests.AddedAndRemovedAttributesAreApplied),
@@ -110,6 +116,41 @@ static void TestNaturalSizeIcon()
     Assert.Equal(32.0, largerViewport.ViewBox?.Width ?? 0);
     Assert.Equal(32.0, largerViewport.ViewBox?.Height ?? 0);
     icon.Dispose();
+}
+
+static void TestRadios()
+{
+    using RadioGroup root = new();
+    root.SelectedValue = "first";
+    RadioGroupItem first = new() { Value = "first" };
+    RadioGroupItem second = new() { Value = "second" };
+    Label label = new() { Target = second, Content = "Second" };
+    root.Children.Add(first);
+    root.Children.Add(second);
+    root.Children.Add(label);
+    using HtmlDomRoot host = new();
+    host.MountHeadless(root);
+    Assert.True(GetElement(root) is HtmlDomStackPanel);
+    Assert.Equal("div", GetElement(root).TagName);
+    root.Orientation = Orientation.Horizontal;
+    HtmlDomElement proxy = GetElement(first);
+    Assert.True(proxy is HtmlDomRadioButton);
+    Assert.Equal("nui-radiogroupitem", proxy.TagName);
+    Assert.True(first.IsTabStop);
+    Assert.False(second.IsTabStop);
+    host.DispatchLabelEvent(GetElement(label).NodeId);
+    Assert.Equal(true, second.IsChecked);
+    Assert.Equal(false, first.IsChecked);
+    Assert.Equal("second", root.SelectedValue);
+    Assert.Same(proxy, GetElement(first));
+    root.Children.Remove(second);
+    second.Dispose();
+    root.IsEnabled = false;
+    root.IsEnabled = true;
+    Assert.True(first.IsTabStop);
+    host.Unmount();
+    Assert.Null(first.NativeHandle);
+    first.IsChecked = true;
 }
 
 static void TestForms()

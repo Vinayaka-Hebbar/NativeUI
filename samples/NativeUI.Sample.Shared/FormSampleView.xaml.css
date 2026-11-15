@@ -143,3 +143,49 @@ CheckBox:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+RadioButton {
+  gap: 8px;
+  cursor: pointer;
+}
+
+RadioButton::part(indicator) {
+  width: 16px;
+  height: 16px;
+  padding: 3px;
+  border-width: 1px;
+  border-color: var(--border);
+  border-radius: 8px;
+  background-color: var(--background);
+}
+
+RadioButton::part(icon) {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+}
+
+RadioButton:checked::part(indicator) {
+  border-color: var(--primary);
+}
+
+RadioButton:checked::part(icon) {
+  background-color: var(--primary);
+}
+
+RadioButton:focus-visible::part(indicator) {
+  border-color: var(--ring);
+}
+
+RadioButton:invalid::part(indicator) {
+  border-color: var(--destructive);
+}
+
+RadioButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+RadioGroup:invalid RadioGroupItem::part(indicator) {
+  border-color: var(--destructive);
+}

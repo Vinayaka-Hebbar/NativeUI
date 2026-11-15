@@ -123,7 +123,10 @@ public class CheckBox : ContentControl, IStackLayoutNode, IFormControl
     public bool WillValidate => IsEffectivelyEnabled;
 
     /// <inheritdoc />
-    public ValidityState Validity => new(ValueMissing: Required && IsChecked != true);
+    public ValidityState Validity => new()
+    {
+        ValueMissing = Required && IsChecked != true
+    };
 
     /// <inheritdoc />
     public string ValidationMessage

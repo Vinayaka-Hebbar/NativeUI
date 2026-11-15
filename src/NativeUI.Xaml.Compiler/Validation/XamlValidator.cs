@@ -184,6 +184,9 @@ public sealed class XamlValidator : XamlSyntaxVisitor
         new(StringComparer.Ordinal)
         {
             ["Label"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal),
+            ["RadioGroupItem"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal),
+            ["RadioGroup"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal),
+            ["RadioButton"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal),
             ["Form"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal),
             ["Fieldset"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal),
             ["Legend"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal),

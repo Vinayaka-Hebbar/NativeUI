@@ -415,6 +415,8 @@ public static class KeyboardNavigation
     /// </summary>
     private static bool IsTabStop(UIElement element)
     {
-        return element.TabIndex >= 0 && InputManager.Current.PrimaryKeyboardDevice.CanFocus(element);
+        return element.TabIndex >= 0 &&
+            (element is not RadioGroupItem item || item.IsTabStop) &&
+            InputManager.Current.PrimaryKeyboardDevice.CanFocus(element);
     }
 }
