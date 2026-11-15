@@ -10,6 +10,19 @@ using NativeUI.Media;
 using NativeUI.Sample;
 using NativeUI.Tests;
 
+if (args.Contains("--tabs"))
+{
+    return TestRunner.RunSuite("Tabs",
+    [
+        ("Tabs retain pages and follow selection and removals", TabControlTests.VerifySelectionAndContent),
+        ("Keyboard navigation skips unavailable tabs and header buttons stay independent", TabControlTests.VerifyKeyboardAndHeaderButtons),
+        ("Data templates and observable collection changes preserve unaffected pages", TabControlTests.VerifyTemplatesAndCollectionChanges),
+        ("The separate indicator follows header bounds and strip placement", TabControlTests.VerifyIndicatorAndPlacement),
+        ("Compiled tab templates bind editor values and use vector close buttons", TabControlTests.VerifyCompiledSample),
+        ("Editor close icons align and vertical indicators animate through the shared clock", TabControlTests.VerifyAlignmentAndAnimatedVerticalTabs)
+    ]);
+}
+
 if (args.Contains("--radio"))
 {
     return TestRunner.RunSuite("RadioButton",
@@ -63,6 +76,7 @@ if (args.Contains("--focus"))
 {
     return TestRunner.RunSuite("Focus",
     [
+        ("Attached tab-stop state applies to arbitrary focusable elements", FocusTests.VerifyAttachedTabStop),
         ("Keyboard focus preserves navigation, visibility, pointer focus, and routed events", FocusTests.VerifyKeyboardNavigationAndPointerFocus),
         ("Logical focus scopes retain focus independently and clear detached references", FocusTests.VerifyLogicalScopesAndDetach),
         ("Keyboard focus crosses hosted roots without ancestor ownership", FocusTests.VerifyHostedRootIsolation),

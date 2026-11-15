@@ -192,6 +192,8 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
             Popover popover => new HtmlDomPopover(popover, element, tagName),
             Tooltip tooltip => new HtmlDomTooltip(tooltip, element, tagName),
             Badge or Avatar => new HtmlDomView((View)source, element, tagName),
+            TabControl tabs => new HtmlDomTabControl(tabs, element, tagName),
+            TabItem tab => new HtmlDomTabItem(tab, element, tagName),
             Selector selector => new HtmlDomSelector(selector, element, tagName),
             ListItem listItem => new HtmlDomListItem(listItem, element, tagName),
             TableRow tableRow => new HtmlDomTableRow(tableRow, element, tagName),
@@ -571,6 +573,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
         }
         else if (ReferenceEquals(args.Property, UIElement.FocusableProperty) ||
             ReferenceEquals(args.Property, UIElement.TabIndexProperty) ||
+            ReferenceEquals(args.Property, KeyboardNavigation.IsTabStopProperty) ||
             ReferenceEquals(args.Property, UIElement.IsEffectivelyEnabledProperty))
         {
             UpdateTabIndex();
@@ -605,6 +608,10 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
         else if (!Source.Focusable)
         {
             tabIndex = isNativelyFocusable ? "-1" : null;
+        }
+        else if (!KeyboardNavigation.GetIsTabStop(Source))
+        {
+            tabIndex = "-1";
         }
         else if (isNativelyFocusable && Source.TabIndex == 0)
         {

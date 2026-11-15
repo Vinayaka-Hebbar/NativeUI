@@ -7,6 +7,28 @@ namespace NativeUI.Controls.Tests;
 
 internal static class FocusTests
 {
+    public static void VerifyAttachedTabStop()
+    {
+        using StackPanel root = new();
+        Button first = new();
+        View skipped = new() { Focusable = true };
+        Button last = new();
+        root.Children.Add(first);
+        root.Children.Add(skipped);
+        root.Children.Add(last);
+        using Window window = new() { Content = root };
+
+        Assert.True(KeyboardNavigation.GetIsTabStop(skipped));
+        KeyboardNavigation.SetIsTabStop(skipped, false);
+        Assert.Same(last, KeyboardNavigation.GetNext(root, first, FocusNavigationDirection.Next)!);
+        Assert.Same(first, KeyboardNavigation.GetNext(root, last, FocusNavigationDirection.Previous)!);
+        Assert.True(skipped.Focus());
+        Assert.True(skipped.IsFocused);
+
+        KeyboardNavigation.SetIsTabStop(skipped, true);
+        Assert.Same(skipped, KeyboardNavigation.GetNext(root, first, FocusNavigationDirection.Next)!);
+    }
+
     public static void VerifyKeyboardNavigationAndPointerFocus()
     {
         using View root = new() { Width = 300, Height = 200 };

@@ -14,9 +14,14 @@ public class RadioGroupItem : RadioButton, IFormControl
         BindableProperty.Create<RadioGroupItem, object?>(nameof(Value));
 
     internal static readonly BindableProperty<bool> IsTabStopProperty =
-        BindableProperty.Create<RadioGroupItem, bool>(nameof(IsTabStop), defaultValue: false);
+        KeyboardNavigation.IsTabStopProperty.AddOwner<RadioGroupItem>();
 
     private RadioGroup? _group;
+
+    static RadioGroupItem()
+    {
+        IsTabStopProperty.OverrideMetadata<RadioGroupItem>(false);
+    }
 
     internal RadioGroup? Group => _group;
 

@@ -14,6 +14,33 @@ namespace NativeUI.Controls;
 public static class KeyboardNavigation
 {
     /// <summary>
+    /// Identifies whether an element participates in sequential keyboard navigation.
+    /// </summary>
+    public static readonly BindableProperty<bool> IsTabStopProperty =
+        BindableProperty.CreateAttached<bool>("IsTabStop", typeof(KeyboardNavigation), defaultValue: true);
+
+    /// <summary>
+    /// Gets whether Tab navigation may stop at the element. Direct focus remains available.
+    /// </summary>
+    /// <param name="element">The element to inspect.</param>
+    public static bool GetIsTabStop(UIElement element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return element.GetValue(IsTabStopProperty);
+    }
+
+    /// <summary>
+    /// Sets whether the element participates in sequential keyboard navigation.
+    /// </summary>
+    /// <param name="element">The element to configure.</param>
+    /// <param name="value">Whether Tab navigation may stop at the element.</param>
+    public static void SetIsTabStop(UIElement element, bool value)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetValue(IsTabStopProperty, value);
+    }
+
+    /// <summary>
     /// Identifies the <c>KeyboardNavigation.TabNavigation</c> attached property.
     /// </summary>
     public static readonly BindableProperty<KeyboardNavigationMode> TabNavigationProperty =
@@ -416,7 +443,7 @@ public static class KeyboardNavigation
     private static bool IsTabStop(UIElement element)
     {
         return element.TabIndex >= 0 &&
-            (element is not RadioGroupItem item || item.IsTabStop) &&
+            GetIsTabStop(element) &&
             InputManager.Current.PrimaryKeyboardDevice.CanFocus(element);
     }
 }

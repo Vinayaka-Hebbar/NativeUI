@@ -81,6 +81,15 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
         AddReducedMotionRules(rules);
         AddCustomElementRules(rules);
         AddTextRules(rules);
+        rules.Add(Rule(
+            CssSelector.Where(
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-tabcontrol")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-tabitem"))),
+            new()
+            {
+                ["display"] = "block"
+            }));
+
         return rules;
     }
 

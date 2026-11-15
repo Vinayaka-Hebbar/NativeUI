@@ -36,6 +36,7 @@ public partial class HelloView
             (NavToggles, TogglePage),
             (NavDisplay, DisplayPage),
             (NavPopups, PopupPage),
+            (NavTabs, TabsPage),
             (NavForms, FormPage),
             (NavCollections, CollectionPage),
             (NavDialog, DialogPage),

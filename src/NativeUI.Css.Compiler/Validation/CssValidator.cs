@@ -381,6 +381,8 @@ public sealed class CssValidator : CssSyntaxVisitor
             "text" => "span",
             "view" or "radiogroup" => "div",
             "switch" => "nui-switch",
+            "tabcontrol" => "nui-tabcontrol",
+            "tabitem" => "nui-tabitem",
             "radiogroupitem" => "nui-radiogroupitem",
             "radiobutton" => ":is(nui-radiobutton, nui-radiogroupitem)",
             "checkbox" => "nui-checkbox",

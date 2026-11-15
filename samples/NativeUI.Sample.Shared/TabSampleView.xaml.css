@@ -1,0 +1,161 @@
+.tabs-page {
+    --background: #ffffff;
+    --foreground: #0a0a0a;
+    --muted: #f5f5f5;
+    --muted-foreground: #737373;
+    --accent: #e5e5e5;
+    --border: #e5e5e5;
+    --ring: #737373;
+    --primary: #2563eb;
+    font-family: Arial;
+    font-size: 14px;
+    padding: 24px;
+    color: var(--foreground);
+    gap: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+    .tabs-page {
+        --background: #0a0a0a;
+        --foreground: #fafafa;
+        --muted: #262626;
+        --muted-foreground: #a3a3a3;
+        --accent: #404040;
+        --border: #404040;
+        --ring: #a3a3a3;
+        --primary: #60a5fa;
+    }
+}
+
+.tabs-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 8px;
+}
+
+.tabs-description {
+    color: var(--muted-foreground);
+    margin: 0 0 12px;
+}
+
+.tabs-section {
+    margin: 16px 0 0;
+}
+
+.tabs-heading {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+}
+
+TabItem {
+    padding: 10px 16px;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    background-color: transparent;
+}
+
+TabItem:selected {
+    color: var(--foreground);
+}
+
+TabItem:focus-visible {
+    box-shadow: 0 0 0 2px var(--ring);
+}
+
+TabControl::part(content) {
+    padding: 20px 0;
+}
+
+TabControl::part(indicator) {
+    background-color: var(--foreground);
+    height: 2px;
+    transition: left 180ms ease-out, top 180ms ease-out, width 180ms ease-out, height 180ms ease-out;
+}
+
+.segmented-tabs::part(strip) {
+    width: fit-content;
+    padding: 3px;
+    border-radius: 10px;
+    background-color: var(--muted);
+}
+
+.segmented-tabs TabItem {
+    padding: 4px 10px;
+}
+
+.segmented-tabs::part(indicator) {
+    top: 3px;
+    bottom: 3px;
+    height: auto;
+    border-radius: 7px;
+    background-color: var(--background);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
+}
+
+.editor-tabs::part(strip) {
+    background-color: var(--muted);
+}
+
+.editor-tabs::part(indicator) {
+    z-index: 2;
+    top: 0;
+    background-color: var(--primary);
+}
+
+.editor-tabs TabItem {
+    margin: 0 1px 0 0;
+}
+
+.editor-tabs TabItem:selected {
+    background-color: var(--background);
+}
+
+.close-tab {
+    width: 20px;
+    height: 20px;
+    padding: 4px;
+    background-color: transparent;
+    color: var(--muted-foreground);
+    cursor: pointer;
+}
+
+.close-tab:hover {
+    color: var(--foreground);
+    background-color: var(--accent);
+}
+
+Input {
+    padding: 8px 12px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 6px;
+    color: var(--foreground);
+    background-color: var(--background);
+}
+
+.underline-tabs::part(indicator) {
+    bottom: 0;
+}
+
+.editor-tab-title {
+    line-height: 20px;
+}
+
+.vertical-tabs::part(indicator) {
+    left: 0;
+    width: 2px;
+}
+
+.vertical-tabs TabItem {
+    width: auto;
+    padding: 12px 16px;
+}
+
+.vertical-tabs::part(content) {
+    min-height: 160px;
+    margin: 0 0 0 24px;
+    padding: 20px;
+    border-radius: 12px;
+    background-color: var(--muted);
+}

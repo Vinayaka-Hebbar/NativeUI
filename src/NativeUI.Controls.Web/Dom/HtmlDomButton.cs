@@ -60,6 +60,7 @@ public sealed class HtmlDomButton : HtmlDomView
 
     private void UpdateText()
     {
+        SetAttribute("aria-label", _button.Children.Count > 0 ? _button.Text : null);
         if (_button.Children.Count == 0)
         {
             SetTextContent(_button.Text ?? string.Empty);

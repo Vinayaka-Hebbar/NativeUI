@@ -84,6 +84,12 @@ internal sealed class VectorValueConverter(string typeName) : XamlValueConverter
 
     private static ExpressionSyntax? CreateBrush(string literal)
     {
+        if (literal == "currentColor")
+        {
+            return MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                IdentifierName("SvgCurrentColorBrush"), IdentifierName("Instance"));
+        }
+
         if (literal is "None" or "none")
         {
             return LiteralExpression(SyntaxKind.NullLiteralExpression);

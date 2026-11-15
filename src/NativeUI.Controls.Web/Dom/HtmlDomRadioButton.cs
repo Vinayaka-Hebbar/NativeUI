@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 using NativeUI.Core;
@@ -37,29 +36,9 @@ public sealed class HtmlDomRadioButton : HtmlDomControl
     }
 
     /// <inheritdoc />
-    protected override void UpdateTabIndex()
-    {
-        if (Source is RadioGroupItem item)
-        {
-            SetAttribute("tabindex", item.IsTabStop
-                ? item.TabIndex.ToString(CultureInfo.InvariantCulture)
-                : "-1");
-        }
-        else
-        {
-            base.UpdateTabIndex();
-        }
-    }
-
-    /// <inheritdoc />
     protected override void OnPropertyChanged(BindablePropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (ReferenceEquals(args.Property, RadioGroupItem.IsTabStopProperty))
-        {
-            UpdateTabIndex();
-        }
-
         if (ReferenceEquals(args.Property, RadioButton.IsCheckedProperty) ||
             ReferenceEquals(args.Property, RadioButton.RequiredProperty))
         {

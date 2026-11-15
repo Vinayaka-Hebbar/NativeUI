@@ -116,6 +116,16 @@ internal static class HtmlTagMapping
             return VirtualizedListTag;
         }
 
+        if (element is TabControl)
+        {
+            return "nui-tabcontrol";
+        }
+
+        if (element is TabItem)
+        {
+            return "nui-tabitem";
+        }
+
         if (element is ListItem)
         {
             return ListItemTag;
@@ -275,6 +285,16 @@ internal static class HtmlTagMapping
             return VirtualizedListTag;
         }
 
+        if (typeof(TabControl).IsAssignableFrom(type))
+        {
+            return "nui-tabcontrol";
+        }
+
+        if (typeof(TabItem).IsAssignableFrom(type))
+        {
+            return "nui-tabitem";
+        }
+
         if (typeof(ListItem).IsAssignableFrom(type))
         {
             return ListItemTag;
@@ -387,6 +407,8 @@ internal static class HtmlTagMapping
             "list" => ListTag,
             "virtualizedlist" => VirtualizedListTag,
             "listitem" => ListItemTag,
+            "tabcontrol" => "nui-tabcontrol",
+            "tabitem" => "nui-tabitem",
             "table" => TableTag,
             "virtualizedtable" => VirtualizedTableTag,
             "tablerow" => TableRowTag,

@@ -1,0 +1,91 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:shapes="clr-namespace:NativeUI.Controls.Shapes;assembly=NativeUI.Controls"
+      xmlns:local="clr-namespace:NativeUI.Sample"
+      x:Class="NativeUI.Sample.TabSampleView"
+      Class="tabs-page">
+    <Text Class="tabs-title" Value="Tabs" />
+    <Text Class="tabs-description" Value="Custom headers, a separate selection indicator, and retained pages." />
+
+    <StackPanel Class="tabs-section" Spacing="12">
+        <Text Class="tabs-heading" Value="Underline" />
+        <TabControl Class="underline-tabs">
+            <TabItem Header="Overview">
+                <Text Value="Overview content" />
+            </TabItem>
+            <TabItem Header="Analytics">
+                <Text Value="Analytics content" />
+            </TabItem>
+            <TabItem Header="Reports">
+                <Text Value="Reports content" />
+            </TabItem>
+        </TabControl>
+    </StackPanel>
+
+    <StackPanel Class="tabs-section" Spacing="12">
+        <Text Class="tabs-heading" Value="Segmented" />
+        <TabControl Class="segmented-tabs">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <shapes:Path Class="tab-icon" Fill="None" Stroke="currentColor" StrokeThickness="1.5" Width="16" Height="16" Data="M2 2 H14 V14 H2 Z M2 5 H14 M5 2 V5" />
+                        <Text Value="Preview" />
+                    </StackPanel>
+                </TabItem.Header>
+                <Text Value="The rounded indicator is a separate element behind this header." />
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <shapes:Path Class="tab-icon" Fill="None" Stroke="currentColor" StrokeThickness="1.5" Width="16" Height="16" Data="M6 3 L1 8 L6 13 M10 3 L15 8 L10 13" />
+                        <Text Value="Code" />
+                    </StackPanel>
+                </TabItem.Header>
+                <Input Value="Edit here, switch tabs, and return. Your text is retained." />
+            </TabItem>
+        </TabControl>
+    </StackPanel>
+
+    <StackPanel Class="tabs-section" Spacing="12">
+        <Text Class="tabs-heading" Value="Vertical" />
+        <TabControl x:Name="VerticalTabs" Class="vertical-tabs" TabStripPlacement="Left">
+            <TabItem Header="Overview">
+                <Text Value="Content for Tab 1" />
+            </TabItem>
+            <TabItem Header="Projects">
+                <Text Value="Content for Tab 2" />
+            </TabItem>
+            <TabItem Header="Packages">
+                <Text Value="Content for Tab 3" />
+            </TabItem>
+        </TabControl>
+    </StackPanel>
+
+    <StackPanel Class="tabs-section" Spacing="12">
+        <Text Class="tabs-heading" Value="Editor headers with close commands" />
+        <TabControl x:Name="EditorTabs" Class="editor-tabs">
+            <TabControl.ItemTemplate>
+                <DataTemplate DataType="local:TabDocument">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Text Class="editor-tab-title" Value="{Binding Title}" />
+                        <Button Class="close-tab" Text="Close tab"
+                                KeyboardNavigation.IsTabStop="False"
+                                Command="{Binding CloseCommand}">
+                            <shapes:Path Width="12" Height="12"
+                                         Fill="None" Stroke="currentColor" StrokeThickness="1.5"
+                                         Data="M3 3 L9 9 M9 3 L3 9" />
+                        </Button>
+                    </StackPanel>
+                </DataTemplate>
+            </TabControl.ItemTemplate>
+            <TabControl.ContentTemplate>
+                <DataTemplate DataType="local:TabDocument">
+                    <StackPanel Spacing="12">
+                        <Text Value="{Binding Title}" />
+                        <Input Value="{Binding Text, Mode=TwoWay}" />
+                    </StackPanel>
+                </DataTemplate>
+            </TabControl.ContentTemplate>
+        </TabControl>
+    </StackPanel>
+</View>

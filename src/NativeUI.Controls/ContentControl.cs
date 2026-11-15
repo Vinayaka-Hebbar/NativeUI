@@ -23,9 +23,26 @@ public abstract class ContentControl : Control
         BindableProperty.Create<ContentControl, object?>(
             nameof(Content),
             defaultValue: null,
-            propertyChanged: static (owner, _, _) => owner.UpdatePresentedContent());
+            propertyChanged: static (owner, previous, _) => owner.UpdatePresentedContent(previous));
+
+    /// <summary>
+    /// Identifies the template used to present data content.
+    /// </summary>
+    public static readonly BindableProperty<DataTemplate?> ContentTemplateProperty =
+        BindableProperty.Create<ContentControl, DataTemplate?>(
+            nameof(ContentTemplate),
+            propertyChanged: static (owner, _, _) => owner.UpdatePresentedContent(owner.Content));
 
     private UIElement? _presentedContent;
+
+    /// <summary>
+    /// Gets or sets the template used to present non-element content.
+    /// </summary>
+    public DataTemplate? ContentTemplate
+    {
+        get => GetValue(ContentTemplateProperty);
+        set => SetValue(ContentTemplateProperty, value);
+    }
 
     /// <summary>
     /// Gets or sets the content. A <see cref="UIElement"/> is presented as it is. Any other value is presented as a
@@ -46,18 +63,35 @@ public abstract class ContentControl : Control
         return GetTemplateChild<View>(ContentPartName) ?? this;
     }
 
-    private void UpdatePresentedContent()
+    /// <summary>
+    /// Returns the effective template used to present content data.
+    /// </summary>
+    protected virtual DataTemplate? GetContentTemplate()
+    {
+        return ContentTemplate;
+    }
+
+    /// <summary>
+    /// Refreshes the content host after content or its effective template changes.
+    /// </summary>
+    /// <param name="previousContent">The content presented before this update.</param>
+    protected void UpdatePresentedContent(object? previousContent)
     {
         View host = GetContentHost();
         if (_presentedContent is not null)
         {
             host.Children.Remove(_presentedContent);
+            if (!ReferenceEquals(_presentedContent, previousContent))
+            {
+                _presentedContent.Dispose();
+            }
         }
 
         _presentedContent = Content switch
         {
             null => null,
             UIElement element => element,
+            object value when GetContentTemplate() is DataTemplate template => template.Build(value),
             object value => new Text
             {
                 Value = Convert.ToString(value, CultureInfo.CurrentCulture) ?? string.Empty,

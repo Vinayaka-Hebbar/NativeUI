@@ -11,6 +11,11 @@ using NativeUI.Styling;
 using NativeUI.Tests;
 
 // Verifies proxy state and ownership on the .NET host without creating browser DOM elements.
+if (args.Contains("--tabs"))
+{
+    return TestRunner.RunSuite("Tabs Web", [("Tab proxies retain pages, update shared selection, and detach cleanly", TestTabs)]);
+}
+
 if (args.Contains("--radio"))
 {
     return TestRunner.RunSuite("RadioButton Web", [("Radio proxies preserve shared selection, labels, and disposal", TestRadios)]);
@@ -116,6 +121,40 @@ static void TestNaturalSizeIcon()
     Assert.Equal(32.0, largerViewport.ViewBox?.Width ?? 0);
     Assert.Equal(32.0, largerViewport.ViewBox?.Height ?? 0);
     icon.Dispose();
+}
+
+static void TestTabs()
+{
+    using TabControl tabs = new();
+    TabItem first = new() { Header = "One", Content = new Input { Value = "First" } };
+    TabItem second = new() { Header = "Two", Content = new Input { Value = "Second" } };
+    tabs.Items.Add(first);
+    tabs.Items.Add(second);
+    using HtmlDomRoot host = new();
+    host.MountHeadless(tabs);
+    Assert.True(GetElement(tabs) is HtmlDomTabControl);
+    Assert.True(GetElement(first) is HtmlDomTabItem);
+    Assert.Equal("nui-tabcontrol", GetElement(tabs).TagName);
+    Assert.Equal("nui-tabitem", GetElement(first).TagName);
+    Assert.Equal("nui-tabitem", HtmlTagMapping.GetTagSelector(typeof(TabItem)));
+    HtmlDomElement retained = GetElement(first.Page.Children[0]);
+    Assert.True(KeyboardNavigation.GetIsTabStop(first));
+    tabs.SelectedIndex = 1;
+    Assert.False(first.Page.IsVisible);
+    Assert.True(second.Page.IsVisible);
+    Assert.False(KeyboardNavigation.GetIsTabStop(first));
+    Assert.True(KeyboardNavigation.GetIsTabStop(second));
+    tabs.SelectedIndex = 0;
+    Assert.Same(retained, GetElement(first.Page.Children[0]));
+    tabs.Items.Remove(second);
+    Assert.Null(second.NativeHandle);
+    Assert.Null(second.Page.NativeHandle);
+    tabs.TabStripPlacement = Dock.Left;
+    host.Unmount();
+    Assert.Null(first.NativeHandle);
+    Assert.Null(first.Page.NativeHandle);
+    Assert.Null(first.Page.Children[0].NativeHandle);
+    second.Dispose();
 }
 
 static void TestRadios()

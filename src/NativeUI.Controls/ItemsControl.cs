@@ -42,7 +42,7 @@ public abstract class ItemsControl : Control
         BindableProperty.Create<ItemsControl, DataTemplate?>(
             nameof(ItemTemplate),
             defaultValue: null,
-            propertyChanged: static (owner, _, _) => owner.UpdateItemElements(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset)));
+            propertyChanged: static (owner, _, _) => owner.OnItemsCollectionChanged(owner, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset)));
 
     private readonly ItemCollection _items;
     private readonly List<UIElement> _itemElements = [];
@@ -166,6 +166,7 @@ public abstract class ItemsControl : Control
                 {
                     UIElement created = CreateItemElement(args.NewItems[i]);
                     _itemElements.Insert(args.NewStartingIndex + i, created);
+                    PrepareContainerForItemOverride(created, args.NewItems[i]);
                     hostChildren.Insert(Math.Min(_itemsStart + args.NewStartingIndex + i, hostChildren.Count), created);
                 }
 
@@ -173,6 +174,7 @@ public abstract class ItemsControl : Control
             case NotifyCollectionChangedAction.Remove:
                 for (int i = 0; i < args.OldItems!.Count; i++)
                 {
+                    ClearContainerForItemOverride(_itemElements[args.OldStartingIndex], args.OldItems[i]);
                     hostChildren.Remove(_itemElements[args.OldStartingIndex]);
                     _itemElements.RemoveAt(args.OldStartingIndex);
                 }
@@ -180,7 +182,9 @@ public abstract class ItemsControl : Control
                 break;
             case NotifyCollectionChangedAction.Replace:
                 UIElement replaced = _itemElements[args.NewStartingIndex];
+                ClearContainerForItemOverride(replaced, args.OldItems![0]);
                 UIElement replacement = CreateItemElement(args.NewItems![0]);
+                PrepareContainerForItemOverride(replacement, args.NewItems[0]);
                 _itemElements[args.NewStartingIndex] = replacement;
                 hostChildren[hostChildren.IndexOf(replaced)] = replacement;
                 break;
@@ -194,6 +198,7 @@ public abstract class ItemsControl : Control
             default:
                 foreach (UIElement element in _itemElements)
                 {
+                    ClearContainerForItemOverride(element, null);
                     hostChildren.Remove(element);
                 }
 
@@ -202,11 +207,30 @@ public abstract class ItemsControl : Control
                 {
                     UIElement created = CreateItemElement(_items[i]);
                     _itemElements.Add(created);
+                    PrepareContainerForItemOverride(created, _items[i]);
                     hostChildren.Insert(_itemsStart + i, created);
                 }
 
                 break;
         }
+    }
+
+    /// <summary>
+    /// Prepares a newly created item container before it enters the items host.
+    /// </summary>
+    /// <param name="element">The item container.</param>
+    /// <param name="item">The data or element it presents.</param>
+    protected virtual void PrepareContainerForItemOverride(UIElement element, object? item)
+    {
+    }
+
+    /// <summary>
+    /// Releases item-specific associations before a container leaves the items host.
+    /// </summary>
+    /// <param name="element">The departing container.</param>
+    /// <param name="item">The previous item, or null during a complete reset.</param>
+    protected virtual void ClearContainerForItemOverride(UIElement element, object? item)
+    {
     }
 
     /// <summary>
