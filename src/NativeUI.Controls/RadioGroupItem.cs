@@ -46,8 +46,8 @@ public class RadioGroupItem : RadioButton, IFormControl
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
-        View indicator = DefinePart(new View(), "indicator");
-        indicator.Children.Add(DefinePart(new View(), "icon"));
+        View indicator = DefinePart("indicator", new View());
+        indicator.Children.Add(DefinePart("icon", new View()));
         Children.Add(indicator);
     }
 

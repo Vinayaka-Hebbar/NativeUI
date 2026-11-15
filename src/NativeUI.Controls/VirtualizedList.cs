@@ -86,7 +86,7 @@ public class VirtualizedList : Selector
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
-        Children.Add(DefinePart(new VirtualizingStackPanel(), ItemsPartName));
+        Children.Add(DefinePart(ItemsPartName, new VirtualizingStackPanel()));
     }
 
     /// <inheritdoc />
@@ -131,7 +131,7 @@ public class VirtualizedList : Selector
 
     private UIElement CreateRealizedElement(int index)
     {
-        ListItem container = DefinePart(new ListItem(), ItemPartName);
+        ListItem container = DefinePart(ItemPartName, new ListItem());
         container.Children.Add(CreateItemElement(Items[index]));
         ApplySelectedState(container, IsSelectedIndex(index));
         return container;

@@ -54,8 +54,8 @@ public class Switch : Control
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
-        View track = DefinePart(new View(), TrackPartName);
-        track.Children.Add(DefinePart(new View(), ThumbPartName));
+        View track = DefinePart(TrackPartName, new View());
+        track.Children.Add(DefinePart(ThumbPartName, new View()));
         Children.Add(track);
     }
 

@@ -46,8 +46,8 @@ public class MenuGroup : Control
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
-        _headerHost = DefinePart(new View(), "header");
-        _itemsHost = DefinePart(new View(), "items");
+        _headerHost = DefinePart("header", new View());
+        _itemsHost = DefinePart("items", new View());
         Children.Add(_headerHost);
         Children.Add(_itemsHost);
         UpdateHeader();

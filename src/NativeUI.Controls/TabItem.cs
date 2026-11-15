@@ -89,7 +89,7 @@ public class TabItem : ContentControl
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
-        Children.Add(DefinePart(new View(), "header"));
+        Children.Add(DefinePart("header", new View()));
     }
 
     /// <inheritdoc />

@@ -39,7 +39,7 @@ public class DropdownMenu : Popover
     {
         _menuView = new StackPanel { Orientation = Orientation.Vertical, Focusable = true, TabIndex = -1 };
         _menuView.ClearTemplatePart();
-        DefinePart(_menuView, MenuPartName);
+        DefinePart(MenuPartName, _menuView);
         KeyboardNavigation.SetTabNavigation(_menuView, KeyboardNavigationMode.None);
         Content = _menuView;
     }

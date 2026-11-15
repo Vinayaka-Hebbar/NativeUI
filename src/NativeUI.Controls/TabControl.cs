@@ -79,20 +79,20 @@ public class TabControl : Selector
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
-        Grid layout = DefinePart(new Grid
+        Grid layout = DefinePart("layout", new Grid
         {
             Rows = [GridLength.Auto, GridLength.Star()]
-        }, "layout");
-        View strip = DefinePart(new View { Position = LayoutPosition.Relative }, "strip");
-        StackPanel headers = DefinePart(new StackPanel
+        });
+        View strip = DefinePart("strip", new View { Position = LayoutPosition.Relative });
+        StackPanel headers = DefinePart(ItemsPartName, new StackPanel
         {
             Orientation = Orientation.Horizontal,
             Style = new Style { Position = LayoutPosition.Relative, ZIndex = 1 }
-        }, ItemsPartName);
+        });
         KeyboardNavigation.SetTabNavigation(headers, KeyboardNavigationMode.Once);
-        strip.Children.Add(DefinePart(new View { Position = LayoutPosition.Absolute, IsVisible = false }, "indicator"));
+        strip.Children.Add(DefinePart("indicator", new View { Position = LayoutPosition.Absolute, IsVisible = false }));
         strip.Children.Add(headers);
-        View content = DefinePart(new View(), "content");
+        View content = DefinePart("content", new View());
         Grid.SetRow(content, 1);
         layout.Children.Add(strip);
         layout.Children.Add(content);

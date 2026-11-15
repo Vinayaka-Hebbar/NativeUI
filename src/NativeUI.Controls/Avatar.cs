@@ -102,8 +102,8 @@ public class Avatar : Control
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
-        _image = DefinePart(new Image { Stretch = Stretch.UniformToFill, IsVisible = false }, ImagePartName);
-        _fallback = DefinePart(new Text { IsTextSelectionEnabled = false }, FallbackPartName);
+        _image = DefinePart(ImagePartName, new Image { Stretch = Stretch.UniformToFill, IsVisible = false });
+        _fallback = DefinePart(FallbackPartName, new Text { IsTextSelectionEnabled = false });
         FillAvatar(_image);
         FillAvatar(_fallback);
         Children.Add(_fallback);

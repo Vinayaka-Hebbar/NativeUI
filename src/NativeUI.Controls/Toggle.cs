@@ -75,7 +75,7 @@ public class Toggle : ContentControl
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
-        Children.Add(DefinePart(new View(), ContentPartName));
+        Children.Add(DefinePart(ContentPartName, new View()));
     }
 
     private void OnClicked()

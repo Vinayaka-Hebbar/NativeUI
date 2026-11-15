@@ -348,7 +348,7 @@ public class Popover : Control
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
-        _portal = DefinePart(new Portal { Focusable = true, TabIndex = -1 }, ContentPartName);
+        _portal = DefinePart(ContentPartName, new Portal { Focusable = true, TabIndex = -1 });
         Children.Add(_portal);
     }
 
@@ -457,7 +457,7 @@ public class Popover : Control
             if (!ReferenceEquals(nextArrow.TemplatedParent, this))
             {
                 nextArrow.ClearTemplatePart();
-                DefinePart(nextArrow, ArrowPartName);
+                DefinePart(ArrowPartName, nextArrow);
             }
 
             _portal.Children.Add(nextArrow);

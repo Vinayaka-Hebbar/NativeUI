@@ -28,10 +28,10 @@ public abstract class Control : View
     /// Names <paramref name="element"/> as the template part <paramref name="name"/> of this control and returns it.
     /// The caller adds the part to this control or to another part of its template.
     /// </summary>
-    /// <param name="element">The element that forms the part.</param>
     /// <param name="name">The part name that <c>::part()</c> selectors match.</param>
+    /// <param name="element">The element that forms the part.</param>
     /// <exception cref="InvalidOperationException"><paramref name="element"/> is already a template part.</exception>
-    protected TElement DefinePart<TElement>(TElement element, string name)
+    protected TElement DefinePart<TElement>(string name, TElement element)
         where TElement : UIElement
     {
         ArgumentNullException.ThrowIfNull(element);

@@ -325,10 +325,10 @@ public abstract class TableBase : Selector
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
-        _header = DefinePart(new View(), HeaderPartName);
-        _columnHeader = DefinePart(new TableRow { CellPartName = HeaderCellPartName }, ColumnHeaderPartName);
-        View items = DefinePart(CreateItemsHost(), ItemsPartName);
-        _footer = DefinePart(new View(), FooterPartName);
+        _header = DefinePart(HeaderPartName, new View());
+        _columnHeader = DefinePart(ColumnHeaderPartName, new TableRow { CellPartName = HeaderCellPartName });
+        View items = DefinePart(ItemsPartName, CreateItemsHost());
+        _footer = DefinePart(FooterPartName, new View());
         Children.Add(_header);
         Children.Add(_columnHeader);
         Children.Add(items);
@@ -828,7 +828,7 @@ public abstract class TableBase : Selector
     /// </summary>
     private View CreateOverlayPart(string name)
     {
-        View part = DefinePart(new View { Style = new Style { ZIndex = 1 } }, name);
+        View part = DefinePart(name, new View { Style = new Style { ZIndex = 1 } });
         part.Position = NativeUI.Layout.Position.Absolute;
         return part;
     }

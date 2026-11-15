@@ -351,7 +351,7 @@ public class Tooltip : Control
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
-        _portal = DefinePart(new Portal(), ContentPartName);
+        _portal = DefinePart(ContentPartName, new Portal());
         Children.Add(_portal);
     }
 
@@ -559,7 +559,7 @@ public class Tooltip : Control
             if (!ReferenceEquals(nextArrow.TemplatedParent, this))
             {
                 nextArrow.ClearTemplatePart();
-                DefinePart(nextArrow, ArrowPartName);
+                DefinePart(ArrowPartName, nextArrow);
             }
 
             _portal.Children.Add(nextArrow);

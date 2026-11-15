@@ -239,10 +239,10 @@ public class RadioButton : ContentControl, IStackLayoutNode, IFormControl
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
-        View indicator = DefinePart(new View(), IndicatorPartName);
-        indicator.Children.Add(DefinePart(new View(), IconPartName));
+        View indicator = DefinePart(IndicatorPartName, new View());
+        indicator.Children.Add(DefinePart(IconPartName, new View()));
         Children.Add(indicator);
-        Children.Add(DefinePart(new View(), ContentPartName));
+        Children.Add(DefinePart(ContentPartName, new View()));
     }
 
     /// <inheritdoc />

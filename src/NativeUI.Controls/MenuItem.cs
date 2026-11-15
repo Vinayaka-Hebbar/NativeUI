@@ -367,34 +367,34 @@ public class MenuItem : ContentControl, IGridLayoutNode
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
-        _checkMark = DefinePart(new Path
+        _checkMark = DefinePart(CheckMarkPartName, new Path
         {
             Fill = SvgCurrentColorBrush.Instance,
             Stretch = Stretch.None,
             Width = 16,
             Height = 16,
             IsVisible = false
-        }, CheckMarkPartName);
+        });
 
-        _iconHost = DefinePart(new View
+        _iconHost = DefinePart(IconPartName, new View
         {
             Style = new Style { Margin = new Thickness(0, 8, 0, 0) }
-        }, IconPartName);
+        });
         _iconHost.Children.Add(_checkMark);
 
-        _contentHost = DefinePart(new View(), LabelPartName);
+        _contentHost = DefinePart(LabelPartName, new View());
 
-        _shortcutText = DefinePart(new Text
+        _shortcutText = DefinePart(ShortcutPartName, new Text
         {
             IsTextSelectionEnabled = false,
             IsVisible = false,
             Style = new Style { Margin = new Thickness(0, 0, 0, 16) }
-        }, ShortcutPartName);
+        });
 
         Children.Add(_iconHost);
         Children.Add(_contentHost);
         Children.Add(_shortcutText);
-        _submenuIndicator = DefinePart(new Path
+        _submenuIndicator = DefinePart(SubmenuIndicatorPartName, new Path
         {
             Data = Icons.ChevronRight,
             Fill = SvgCurrentColorBrush.Instance,
@@ -402,7 +402,7 @@ public class MenuItem : ContentControl, IGridLayoutNode
             Width = 16,
             Height = 16,
             IsVisible = false
-        }, SubmenuIndicatorPartName);
+        });
         Children.Add(_submenuIndicator);
         UpdateIcon();
         UpdateShortcut();

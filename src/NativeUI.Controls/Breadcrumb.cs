@@ -84,11 +84,11 @@ public class Breadcrumb : ItemsControl, IStackLayoutNode
     /// <inheritdoc />
     protected override UIElement CreateItemElement(object? item)
     {
-        BreadcrumbItem container = DefinePart(new BreadcrumbItem(), ItemPartName);
+        BreadcrumbItem container = DefinePart(ItemPartName, new BreadcrumbItem());
         UIElement separator = SeparatorTemplate is DataTemplate template
             ? template.Build(null)
             : new Text { Value = Separator, IsTextSelectionEnabled = false };
-        container.Children.Add(DefinePart(separator, SeparatorPartName));
+        container.Children.Add(DefinePart(SeparatorPartName, separator));
         container.Children.Add(base.CreateItemElement(item));
         ClickGesture.Attach(container, () => OnItemClicked(container));
         return container;

@@ -61,7 +61,7 @@ public class List : Selector, IStackLayoutNode
     /// <inheritdoc />
     protected override UIElement CreateItemElement(object? item)
     {
-        ListItem container = DefinePart(new ListItem(), ItemPartName);
+        ListItem container = DefinePart(ItemPartName, new ListItem());
         if (double.IsFinite(ItemHeight))
         {
             container.Height = ItemHeight;
