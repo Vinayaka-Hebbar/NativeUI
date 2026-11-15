@@ -208,6 +208,12 @@ class NativeUIRoot extends HTMLElement {
   /** @type {KeyDispatcher | null} */
   keyDispatcher = null;
 
+  /** @type {((formId: number, kind: number, submitterId: number) => void) | null} */
+  formDispatcher = null;
+
+  /** @type {((nodeId: number) => void) | null} */
+  labelDispatcher = null;
+
   /** @type {ScrollDispatcher | null} */
   closeDispatcher = null;
 
@@ -331,6 +337,34 @@ class NativeUIRoot extends HTMLElement {
     }
   };
 
+  #handleLabelClick = (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const label = target?.closest("label");
+    if (!label || !this.contains(label)) return;
+    const interactive = target?.closest("input, button, select, textarea, a[href]");
+    if (interactive && label.contains(interactive)) return;
+    event.preventDefault();
+    if (event.detail === 0) this.labelDispatcher?.(findNodeId(label, this));
+  };
+
+  #handleForm = (event) => {
+    if (!(event.target instanceof HTMLFormElement)) return;
+    event.preventDefault();
+    const submitter = event instanceof SubmitEvent ? event.submitter : null;
+    this.formDispatcher?.(findNodeId(event.target, this), event.type === "reset" ? 1 : 0, findNodeId(submitter, this));
+  };
+
+  #handleFormClick = (event) => {
+    const button = event.target instanceof Element ? event.target.closest('button[type="submit"], button[type="reset"]') : null;
+    const form = button?.closest("form");
+    if (!form || !this.contains(form)) return;
+    // Pointer activation already ran in C#; cancel the browser's duplicate form action.
+    event.preventDefault();
+    if (event.detail === 0) {
+      this.formDispatcher?.(findNodeId(form, this), 2, findNodeId(button, this));
+    }
+  };
+
   /**
    * Forwards a key press or release to C# and prevents the browser's default action when a handler handled it.
    * Keys typed into a text input belong to the input and are not forwarded.
@@ -396,6 +430,10 @@ class NativeUIRoot extends HTMLElement {
       passive: true,
     });
     this.addEventListener("input", this.#handleInput);
+    this.addEventListener("submit", this.#handleForm);
+    this.addEventListener("reset", this.#handleForm);
+    this.addEventListener("click", this.#handleFormClick);
+    this.addEventListener("click", this.#handleLabelClick);
     this.addEventListener("focusin", this.#handleFocus);
     this.addEventListener("focusout", this.#handleFocus);
     this.addEventListener("contextmenu", this.#handleContextMenu);
@@ -431,6 +469,10 @@ class NativeUIRoot extends HTMLElement {
 
     this.removeEventListener("scroll", this.#handleScroll, { capture: true });
     this.removeEventListener("input", this.#handleInput);
+    this.removeEventListener("submit", this.#handleForm);
+    this.removeEventListener("reset", this.#handleForm);
+    this.removeEventListener("click", this.#handleFormClick);
+    this.removeEventListener("click", this.#handleLabelClick);
     this.removeEventListener("focusin", this.#handleFocus);
     this.removeEventListener("focusout", this.#handleFocus);
     this.removeEventListener("contextmenu", this.#handleContextMenu);
@@ -560,6 +602,14 @@ export const dom = {
    * @param {InputDispatcher} dispatch The callback.
    * @returns {void}
    */
+  setLabelDispatcher(root, dispatch) {
+    root.labelDispatcher = dispatch;
+  },
+
+  setFormDispatcher(root, dispatch) {
+    root.formDispatcher = dispatch;
+  },
+
   setInputDispatcher(root, dispatch) {
     root.inputDispatcher = dispatch;
   },

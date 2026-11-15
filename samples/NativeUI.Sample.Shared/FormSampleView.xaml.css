@@ -1,0 +1,145 @@
+.form-page {
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --muted-foreground: #64748b;
+  --border: #cbd5e1;
+  --destructive: #b91c1c;
+  --ring: #2563eb;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #e2e8f0;
+  --secondary-foreground: #0f172a;
+  color: var(--foreground);
+  font-family: Arial;
+  font-size: 14px;
+  gap: 16px;
+  max-width: 560px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .form-page {
+    --background: #0f172a;
+    --foreground: #f8fafc;
+    --muted-foreground: #cbd5e1;
+    --border: #475569;
+    --destructive: #fca5a5;
+    --ring: #93c5fd;
+    --primary: #93c5fd;
+    --primary-foreground: #0f172a;
+    --secondary: #334155;
+    --secondary-foreground: #f8fafc;
+  }
+}
+
+.form-heading {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.form-description {
+  color: var(--muted-foreground);
+  margin: 0 0 16px 0;
+}
+
+.form-group {
+  padding: 16px;
+  border-width: 1px;
+  border-color: var(--border);
+  border-radius: 8px;
+  margin: 0;
+}
+
+Legend {
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.form-input {
+  padding: 8px 10px;
+  border-width: 1px;
+  border-color: var(--border);
+  border-radius: 6px;
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+Input:invalid {
+  border-color: var(--destructive);
+}
+
+Input:focus-visible {
+  border-color: var(--ring);
+}
+
+Fieldset:disabled {
+  opacity: 0.5;
+}
+
+.form-error {
+  color: var(--destructive);
+  font-size: 12px;
+}
+
+.form-submit,
+.form-reset {
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border-width: 1px;
+  border-color: var(--border);
+}
+
+.form-submit {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.form-reset {
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+.form-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-status {
+  color: var(--muted-foreground);
+}
+
+CheckBox {
+  margin: 1px 0 0 0;
+  cursor: pointer;
+}
+
+CheckBox::part(indicator) {
+  width: 16px;
+  height: 16px;
+  padding: 1px;
+  border-width: 1px;
+  border-color: var(--border);
+  border-radius: 4px;
+  background-color: var(--background);
+}
+
+CheckBox::part(icon) {
+  width: 12px;
+  height: 12px;
+  color: var(--primary-foreground);
+}
+
+CheckBox:checked::part(indicator),
+CheckBox:indeterminate::part(indicator) {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+CheckBox:focus-visible::part(indicator) {
+  border-color: var(--ring);
+}
+
+CheckBox:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

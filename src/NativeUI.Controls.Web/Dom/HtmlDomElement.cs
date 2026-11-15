@@ -28,6 +28,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
     private string _className = string.Empty;
     private string? _text;
     private bool _disposed;
+    private Label? _label;
 
     /// <summary>
     /// Gets the inline <c>display</c> value while the element is visible, or null to leave it to stylesheets.
@@ -181,6 +182,10 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
             Breadcrumb breadcrumb => new HtmlDomBreadcrumb(breadcrumb, element, tagName),
             BreadcrumbItem breadcrumbItem => new HtmlDomBreadcrumbItem(breadcrumbItem, element, tagName),
             Separator separator => new HtmlDomSeparator(separator, element, tagName),
+            Form form => new HtmlDomForm(form, element),
+            Fieldset fieldset => new HtmlDomFieldset(fieldset, element),
+            Label label => new HtmlDomLabel(label, element),
+            Legend legend => new HtmlDomView(legend, element, "legend"),
             MenuItem menuItem => new HtmlDomMenuItem(menuItem, element, tagName),
             MenuGroup menuGroup => new HtmlDomMenuGroup(menuGroup, element, tagName),
             Popover popover => new HtmlDomPopover(popover, element, tagName),
@@ -425,6 +430,11 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
         _disposed = true;
         _attached = false;
         Source.PropertyChanged -= OnElementPropertyChanged;
+        if (_label is not null)
+        {
+            _label.PropertyChanged -= OnLabelPropertyChanged;
+            _label = null;
+        }
         if (_inlineStyle is not null)
         {
             _inlineStyle.PropertyChanged -= OnInlineStyleChanged;
@@ -456,12 +466,51 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
     protected virtual void Initialize()
     {
         SetAttribute("id", Source.Id);
+        UpdateValidation();
+        UpdateLabeledBy();
         SetAttribute(StyleSheetCss.PartAttribute, Source.PartName);
         SetClassName(Source.Class.ToString());
         UpdateTypeTokens();
         UpdateVisibility();
         UpdateTabIndex();
         _parent?.ApplyAttachedProperties(this);
+    }
+
+    private void UpdateLabeledBy()
+    {
+        Label? label = Label.GetLabeledBy(Source);
+        if (!ReferenceEquals(_label, label))
+        {
+            if (_label is not null)
+            {
+                _label.PropertyChanged -= OnLabelPropertyChanged;
+            }
+
+            _label = label;
+            if (_label is not null)
+            {
+                _label.PropertyChanged += OnLabelPropertyChanged;
+            }
+        }
+
+        SetAttribute("aria-labelledby", label?.Id);
+    }
+
+    private void OnLabelPropertyChanged(object? sender, BindablePropertyChangedEventArgs args)
+    {
+        if (ReferenceEquals(args.Property, UIElement.IdProperty))
+        {
+            UpdateLabeledBy();
+        }
+    }
+
+    private void UpdateValidation()
+    {
+        SetAttribute("aria-invalid", Source.States.HasFlag(ElementStates.Invalid) ? "true" : null);
+        SetAttribute("data-valid", Source.States.HasFlag(ElementStates.Valid) ? string.Empty : null);
+        SetAttribute("data-user-invalid", Source.States.HasFlag(ElementStates.UserInvalid) ? string.Empty : null);
+        string errors = Source is IFormControl control ? control.ValidationMessage : string.Empty;
+        SetAttribute("aria-description", errors.Length == 0 ? null : errors);
     }
 
     /// <inheritdoc />
@@ -495,7 +544,15 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
     /// </summary>
     protected virtual void OnPropertyChanged(BindablePropertyChangedEventArgs args)
     {
-        if (ReferenceEquals(args.Property, UIElement.IdProperty))
+        if (ReferenceEquals(args.Property, Validation.HasErrorProperty) || ReferenceEquals(args.Property, Validation.ErrorsProperty) || ReferenceEquals(args.Property, ValidityState.StateProperty))
+        {
+            UpdateValidation();
+        }
+        else if (ReferenceEquals(args.Property, Label.LabeledByProperty))
+        {
+            UpdateLabeledBy();
+        }
+        else if (ReferenceEquals(args.Property, UIElement.IdProperty))
         {
             SetAttribute("id", Source.Id);
         }

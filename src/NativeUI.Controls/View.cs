@@ -399,6 +399,15 @@ public class View : UIElement, IView, IScrollContainer
         InvalidateVisual();
     }
 
+    /// <summary>Validates a child before collection mutation, allowing semantic containers to constrain descendants.</summary>
+    protected internal virtual void ValidateChild(UIElement child)
+    {
+        if (Parent is View parent)
+        {
+            parent.ValidateChild(child);
+        }
+    }
+
     private sealed class UIElementCollection(View owner) : ObservableCollection<UIElement>
     {
         protected override void InsertItem(int index, UIElement item)
@@ -421,6 +430,7 @@ public class View : UIElement, IView, IScrollContainer
         private void Validate(UIElement item)
         {
             ArgumentNullException.ThrowIfNull(item);
+            owner.ValidateChild(item);
             if (item.Parent is not null || Contains(item))
             {
                 throw new InvalidOperationException("The element already belongs to a parent collection.");

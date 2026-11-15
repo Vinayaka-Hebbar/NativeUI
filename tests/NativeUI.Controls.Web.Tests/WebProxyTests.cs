@@ -26,6 +26,7 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
     ("WebHost unmounts subscriptions and proxies before remounting", TestMountLifetime),
     ("Web hosts attach existing trees and detach them on unmount", TestVisualTreeAttachment),
     ("Web focus reports share the keyboard device and respect host teardown", TestKeyboardFocusLifetime),
+    ("Native form tags and delegated actions use shared MVVM form logic", TestForms),
     ("WebHost rejects elements mounted by another host without disposing their proxies", TestHostOwnership),
     ("Disposing a control disposes its proxy and the proxies of its children", TestControlDisposal),
     ("Each browser pointer event routes once and updates hover in C#", TestPointerEventRouting),
@@ -109,6 +110,53 @@ static void TestNaturalSizeIcon()
     Assert.Equal(32.0, largerViewport.ViewBox?.Width ?? 0);
     Assert.Equal(32.0, largerViewport.ViewBox?.Height ?? 0);
     icon.Dispose();
+}
+
+static void TestForms()
+{
+    using Form form = new();
+    Fieldset group = new() { Name = "personal" };
+    Legend legend = new() { Content = "Personal information" };
+    Input input = new() { Required = true, Value = "Initial" };
+    Label label = new() { Target = input, Content = "Full name" };
+    Button save = new() { Type = ButtonType.Submit };
+    Button reset = new() { Type = ButtonType.Reset };
+    group.Children.Add(legend);
+    group.Children.Add(label);
+    group.Children.Add(input);
+    form.Children.Add(group);
+    form.Children.Add(save);
+    form.Children.Add(reset);
+    using HtmlDomRoot host = new();
+    host.MountHeadless(form);
+    Assert.Equal("form", GetElement(form).TagName);
+    Assert.Equal("fieldset", GetElement(group).TagName);
+    Assert.Equal("legend", GetElement(legend).TagName);
+    Assert.Equal("input", GetElement(input).TagName);
+    Assert.Equal("button", GetElement(save).TagName);
+    int submits = 0;
+    form.Submit += (_, args) => { submits++; Assert.Same(save, args.Submitter ?? throw new InvalidOperationException("Missing submitter.")); };
+    int formId = GetElement(form).NodeId;
+    int saveId = GetElement(save).NodeId;
+    host.DispatchFormEvent(formId, 0, saveId);
+    Assert.Equal(1, submits);
+    input.Value = string.Empty;
+    host.DispatchFormEvent(formId, 0, saveId);
+    Assert.Equal(1, submits);
+    Assert.False(Validation.GetHasError(input));
+    Assert.True(input.Validity.ValueMissing);
+    Assert.True(input.States.HasFlag(ElementStates.Invalid));
+    Assert.Equal("label", GetElement(label).TagName);
+    host.DispatchFormEvent(formId, 1, GetElement(reset).NodeId);
+    Assert.Equal("Initial", input.Value);
+    Assert.False(Validation.GetHasError(input));
+    host.DispatchFormEvent(formId, 2, saveId);
+    Assert.Equal(2, submits);
+    group.IsEnabled = false;
+    Assert.False(input.IsEffectivelyEnabled);
+    host.Unmount();
+    host.DispatchFormEvent(formId, 0, saveId);
+    Assert.Equal(2, submits);
 }
 
 static void TestKeyboardFocusLifetime()

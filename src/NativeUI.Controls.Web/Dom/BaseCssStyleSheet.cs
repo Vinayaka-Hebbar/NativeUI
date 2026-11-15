@@ -119,6 +119,12 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
     private static void AddControlResetRules(List<CssRule> rules)
     {
         rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("fieldset")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("legend")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("form"))),
+            new() { ["margin"] = "0", ["padding"] = "0", ["min-width"] = "0", ["font"] = "inherit", ["color"] = "inherit" }));
+
+        rules.Add(Rule(
             CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("button"))),
             new()
             {

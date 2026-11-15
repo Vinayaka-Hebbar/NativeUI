@@ -25,6 +25,7 @@ public sealed class HtmlDomInput : HtmlDomElement
     {
         if (_input.IsEffectivelyEnabled && !_input.IsReadOnly)
         {
+            ValidityState.MarkUserInteraction(_input);
             _input.Value = value;
         }
     }
@@ -37,6 +38,7 @@ public sealed class HtmlDomInput : HtmlDomElement
         UpdateValue();
         UpdatePlaceholder();
         UpdateReadOnly();
+        UpdateConstraints();
         UpdateEnabledState();
     }
 
@@ -51,6 +53,10 @@ public sealed class HtmlDomInput : HtmlDomElement
         else if (ReferenceEquals(args.Property, Input.PlaceholderProperty))
         {
             UpdatePlaceholder();
+        }
+        else if (ReferenceEquals(args.Property, Input.RequiredProperty))
+        {
+            UpdateConstraints();
         }
         else if (ReferenceEquals(args.Property, Input.IsReadOnlyProperty))
         {
@@ -72,6 +78,12 @@ public sealed class HtmlDomInput : HtmlDomElement
         {
             DomInterop.SetValue(element, value);
         }
+    }
+
+    private void UpdateConstraints()
+    {
+        SetAttribute("required", _input.Required ? string.Empty : null);
+        SetAttribute("aria-required", _input.Required ? "true" : null);
     }
 
     private void UpdatePlaceholder()

@@ -374,6 +374,10 @@ public sealed class CssValidator : CssSyntaxVisitor
     {
         return typeName.ToLowerInvariant() switch
         {
+            "label" => "label",
+            "form" => "form",
+            "fieldset" => "fieldset",
+            "legend" => "legend",
             "text" => "span",
             "view" => "div",
             "switch" => "nui-switch",
@@ -412,6 +416,9 @@ public sealed class CssValidator : CssSyntaxVisitor
     {
         return state switch
         {
+            "Valid" => "[data-valid]",
+            "UserInvalid" => "[data-user-invalid]",
+            "Invalid" => "[aria-invalid=\"true\"]",
             "Disabled" => ":is(:disabled, [aria-disabled=\"true\"])",
             "Checked" => "[aria-checked=\"true\"]",
             "Unchecked" => "[aria-checked=\"false\"]",

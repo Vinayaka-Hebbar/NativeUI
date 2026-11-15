@@ -295,6 +295,9 @@ internal static class StyleSheetCss
         AppendState(builder, states, ElementStates.Selected, "[aria-selected=\"true\"]");
         AppendState(builder, states, ElementStates.PopoverOpen, "[data-open]");
         AppendState(builder, states, ElementStates.Open, "[data-open]");
+        AppendState(builder, states, ElementStates.Valid, "[data-valid]");
+        AppendState(builder, states, ElementStates.UserInvalid, "[data-user-invalid]");
+        AppendState(builder, states, ElementStates.Invalid, "[aria-invalid=\"true\"]");
         return builder.ToString();
     }
 

@@ -134,14 +134,16 @@ public static class XamlEmitter
     private static MethodDeclarationSyntax BuildInitializeComponentMethod(ValidatedXamlDocument document)
     {
         List<StatementSyntax> statements = [];
+        List<StatementSyntax> references = [];
 
         ValidatedXamlElement root = document.RootElement!;
-        EmitElementPropertyStatements(statements, ThisExpression(), root, document.DataType, document.NamespaceName);
+        EmitElementPropertyStatements(statements, ThisExpression(), root, document.DataType, document.NamespaceName, references);
 
         statements.Add(ExpressionStatement(InvocationExpression(IdentifierName("AttachStyles"))));
 
         int counter = 0;
-        EmitNestedElements(statements, ThisExpression(), root, document.DataType, document.NamespaceName, ref counter);
+        EmitNestedElements(statements, ThisExpression(), root, document.DataType, document.NamespaceName, ref counter, references);
+        statements.AddRange(references);
 
         return MethodDeclaration(PredefinedType(Token(SyntaxKind.VoidKeyword)), Identifier("InitializeComponent"))
             .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
@@ -186,18 +188,19 @@ public static class XamlEmitter
         ValidatedXamlElement element,
         string? dataType,
         string viewNamespace,
-        ref int counter)
+        ref int counter,
+        List<StatementSyntax>? references = null)
     {
         foreach (ValidatedXamlElement child in element.Children)
         {
-            EmitChildElementStatements(statements, elementExpr, element.ContentProperty, isCollection: true, child, dataType, viewNamespace, ref counter);
+            EmitChildElementStatements(statements, elementExpr, element.ContentProperty, isCollection: true, child, dataType, viewNamespace, ref counter, references);
         }
 
         foreach (ValidatedXamlPropertyElement propertyElement in element.PropertyElements)
         {
             foreach (ValidatedXamlElement child in propertyElement.Children)
             {
-                EmitChildElementStatements(statements, elementExpr, propertyElement.PropertyName, propertyElement.IsCollection, child, dataType, viewNamespace, ref counter);
+                EmitChildElementStatements(statements, elementExpr, propertyElement.PropertyName, propertyElement.IsCollection, child, dataType, viewNamespace, ref counter, references);
             }
         }
     }
@@ -210,7 +213,8 @@ public static class XamlEmitter
         ValidatedXamlElement element,
         string? dataType,
         string viewNamespace,
-        ref int counter)
+        ref int counter,
+        List<StatementSyntax>? references = null)
     {
         ExpressionSyntax parentMember = parentExpr is ThisExpressionSyntax
             ? IdentifierName(parentProperty)
@@ -226,9 +230,9 @@ public static class XamlEmitter
             return;
         }
 
-        IdentifierNameSyntax currentVarExpr = EmitElementCreation(statements, element, dataType, viewNamespace, ref counter);
+        IdentifierNameSyntax currentVarExpr = EmitElementCreation(statements, element, dataType, viewNamespace, ref counter, references);
         statements.Add(BuildAttachStatement(parentMember, isCollection, currentVarExpr));
-        EmitNestedElements(statements, currentVarExpr, element, dataType, viewNamespace, ref counter);
+        EmitNestedElements(statements, currentVarExpr, element, dataType, viewNamespace, ref counter, references);
     }
 
     /// <summary>
@@ -264,7 +268,8 @@ public static class XamlEmitter
         ValidatedXamlElement element,
         string? dataType,
         string viewNamespace,
-        ref int counter)
+        ref int counter,
+        List<StatementSyntax>? references = null)
     {
         counter++;
         string varName = !string.IsNullOrWhiteSpace(element.XName)
@@ -286,14 +291,14 @@ public static class XamlEmitter
         else
         {
             statements.Add(LocalDeclarationStatement(
-                VariableDeclaration(IdentifierName("var"))
+                VariableDeclaration(controlType)
                     .WithVariables(SingletonSeparatedList(
                         VariableDeclarator(Identifier(varName))
                             .WithInitializer(EqualsValueClause(newControl))))));
         }
 
         IdentifierNameSyntax currentVarExpr = IdentifierName(varName);
-        EmitElementPropertyStatements(statements, currentVarExpr, element, dataType, viewNamespace);
+        EmitElementPropertyStatements(statements, currentVarExpr, element, dataType, viewNamespace, references);
         return currentVarExpr;
     }
 
@@ -314,7 +319,8 @@ public static class XamlEmitter
         ExpressionSyntax targetExpr,
         ValidatedXamlElement element,
         string? dataType,
-        string viewNamespace)
+        string viewNamespace,
+        List<StatementSyntax>? references = null)
     {
         foreach (ValidatedXamlProperty prop in element.Properties.OrderBy(static property => property.Kind == XamlPropertyKind.Event ? 0 : 1))
         {
@@ -324,7 +330,15 @@ public static class XamlEmitter
             }
             else if (prop.ConvertedValue is not null)
             {
-                statements.Add(BuildPropertyAssignmentStatement(targetExpr, prop.PropertyName, prop.ConvertedValue));
+                ExpressionStatementSyntax assignment = BuildPropertyAssignmentStatement(targetExpr, prop.PropertyName, prop.ConvertedValue);
+                if (references is not null && prop.LiteralValue?.TrimStart().StartsWith("{x:Reference", StringComparison.Ordinal) == true)
+                {
+                    references.Add(assignment);
+                }
+                else
+                {
+                    statements.Add(assignment);
+                }
             }
             else if (prop.LiteralValue is not null)
             {

@@ -91,5 +91,12 @@ public enum ElementStates
     /// <summary>
     /// The element is open, selected by the <c>:open</c> pseudo-class.
     /// </summary>
-    Open = 1 << 15
+    Open = 1 << 15,
+
+    /// <summary>The element has validation errors, selected by :invalid.</summary>
+    Invalid = 1 << 16,
+    /// <summary>A participating form control has no effective validation errors.</summary>
+    Valid = 1 << 17,
+    /// <summary>A form control is invalid after interaction or an explicit report.</summary>
+    UserInvalid = 1 << 18
 }

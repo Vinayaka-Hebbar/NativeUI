@@ -24,6 +24,9 @@ public abstract class BindableObject : IDisposable
     private object? _inheritedDataContext;
     private bool _disposed;
 
+    /// <summary>Gets whether this object has released its bindings and resources.</summary>
+    public bool IsDisposed => _disposed;
+
     /// <summary>
     /// Gets or sets the UI thread dispatcher used to marshal bound property changes.
     /// </summary>
@@ -55,6 +58,26 @@ public abstract class BindableObject : IDisposable
     /// propagates to the caller of <see cref="SetValue"/> and skips the remaining listeners, but the value stays stored.
     /// </summary>
     public event EventHandler<BindablePropertyChangedEventArgs>? PropertyChanged;
+
+    /// <summary>Gets the current validation errors across this object's bindings.</summary>
+    public IReadOnlyList<ValidationError> GetBindingErrors()
+    {
+        return Array.AsReadOnly(_bindings.Values.SelectMany(static binding => binding.Errors).Distinct().ToArray());
+    }
+
+    /// <summary>Refreshes synchronous binding validation without transferring property values.</summary>
+    public void ValidateBindings()
+    {
+        foreach (IBindingSubscription binding in _bindings.Values.ToArray())
+        {
+            binding.Validate();
+        }
+    }
+
+    /// <summary>Notifies derived objects that their binding error projection changed.</summary>
+    protected virtual void OnBindingValidationChanged() { }
+
+    internal void NotifyBindingValidationChanged() => OnBindingValidationChanged();
 
     /// <summary>
     /// Gets the current value of the specified strongly typed <paramref name="property"/>.

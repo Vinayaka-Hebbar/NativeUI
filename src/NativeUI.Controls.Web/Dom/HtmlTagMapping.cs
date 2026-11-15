@@ -42,6 +42,10 @@ internal static class HtmlTagMapping
     /// </summary>
     public static string GetTag(UIElement element)
     {
+        if (element is Label) return "label";
+        if (element is Form) return "form";
+        if (element is Fieldset) return "fieldset";
+        if (element is Legend) return "legend";
         if (element is Image) return "img";
         if (element is Svg or Shapes.Shape) return "svg";
 

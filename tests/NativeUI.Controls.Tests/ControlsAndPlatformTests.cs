@@ -10,6 +10,23 @@ using NativeUI.Media;
 using NativeUI.Sample;
 using NativeUI.Tests;
 
+if (args.Contains("--forms"))
+{
+    return TestRunner.RunSuite("Forms",
+    [
+        ("Forms validate, submit, gate commands, and reset through bindings", FormTests.VerifySubmissionAndReset),
+        ("Fieldsets preserve the first legend exemption and ancestor restrictions", FormTests.VerifyFieldsetLegendSemantics),
+        ("Binding errors work outside forms and unsubscribe when sources change", FormTests.VerifyIndependentBindingErrors),
+        ("Conversion and legacy errors preserve unfinished input and model values", FormTests.VerifyConversionAndLegacyErrors),
+        ("Async submission exposes completion and prevents duplicate execution", FormTests.VerifyAsyncSubmission),
+        ("Nested forms are rejected and dynamic fields update aggregate validity", FormTests.VerifyNestedAndDynamicForms),
+        ("Submission focuses invalid fields and handles reentrant callbacks", FormTests.VerifyValidationFocusAndReentrancy),
+        ("Binding validation remains general and form validity combines both layers", FormTests.VerifyValidationLayers),
+        ("Labels focus, toggle, retarget, localize, and release associations", FormTests.VerifyLabels),
+        ("Compiled form sample uses ViewModel DataAnnotations and reset semantics", FormTests.VerifyCompiledSample)
+    ]);
+}
+
 if (args.Contains("--focus"))
 {
     return TestRunner.RunSuite("Focus",
@@ -62,6 +79,16 @@ if (args.Contains("--enabled-state"))
 
 int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
 [
+    ("Forms validate, submit, gate commands, and reset through bindings", FormTests.VerifySubmissionAndReset),
+    ("Fieldsets preserve the first legend exemption and ancestor restrictions", FormTests.VerifyFieldsetLegendSemantics),
+    ("Binding errors work outside forms and unsubscribe when sources change", FormTests.VerifyIndependentBindingErrors),
+    ("Conversion and legacy errors preserve unfinished input and model values", FormTests.VerifyConversionAndLegacyErrors),
+    ("Async submission exposes completion and prevents duplicate execution", FormTests.VerifyAsyncSubmission),
+    ("Nested forms are rejected and dynamic fields update aggregate validity", FormTests.VerifyNestedAndDynamicForms),
+    ("Submission focuses invalid fields and handles reentrant callbacks", FormTests.VerifyValidationFocusAndReentrancy),
+    ("Binding validation remains general and form validity combines both layers", FormTests.VerifyValidationLayers),
+        ("Labels focus, toggle, retarget, localize, and release associations", FormTests.VerifyLabels),
+        ("Compiled form sample uses ViewModel DataAnnotations and reset semantics", FormTests.VerifyCompiledSample),
     ("Keyboard focus preserves navigation, visibility, pointer focus, and routed events", FocusTests.VerifyKeyboardNavigationAndPointerFocus),
     ("Logical focus scopes retain focus independently and clear detached references", FocusTests.VerifyLogicalScopesAndDetach),
     ("Keyboard focus crosses hosted roots without ancestor ownership", FocusTests.VerifyHostedRootIsolation),

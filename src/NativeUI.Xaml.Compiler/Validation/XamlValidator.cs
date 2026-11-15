@@ -183,6 +183,10 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     private static readonly Dictionary<string, Dictionary<string, XamlPropertyKind>> s_controlProperties =
         new(StringComparer.Ordinal)
         {
+            ["Label"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal),
+            ["Form"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal),
+            ["Fieldset"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal),
+            ["Legend"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal),
             ["View"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
                 ["Id"] = XamlPropertyKind.String,
@@ -393,6 +397,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     private readonly Dictionary<string, XamlViewReference> _knownViews = new(StringComparer.Ordinal);
     private readonly List<Diagnostic> _diagnostics = [];
     private readonly Dictionary<string, INamedTypeSymbol?> _namedElements = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, INamedTypeSymbol?> _referenceElements = new(StringComparer.Ordinal);
     private string _fullClassName = string.Empty;
     private string? _dataType;
     private string? _explicitStyleSheetId;
@@ -504,7 +509,31 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             return;
         }
 
+        CollectReferenceNames(node.RootElement, isRoot: true);
         _validatedRoot = ValidateElementRecursive(node.RootElement, isRoot: true);
+    }
+
+    private void CollectReferenceNames(XamlElementNode element, bool isRoot)
+    {
+        if (element.LocalName == DataTemplateElementName)
+        {
+            return;
+        }
+
+        if (!isRoot)
+        {
+            XamlAttributeNode? name = element.Attributes.FirstOrDefault(static attribute =>
+                attribute.NamespaceUri == XamlParser.XamlDirectiveNamespace && attribute.LocalName == "Name");
+            if (name is not null && TryResolveControl(element, isRoot: false, out ResolvedControl control))
+            {
+                _referenceElements.TryAdd(name.Value, control.Type);
+            }
+        }
+
+        foreach (XamlElementNode child in element.Children)
+        {
+            CollectReferenceNames(child, isRoot: false);
+        }
     }
 
     private ValidatedXamlElement? ValidateElementRecursive(XamlElementNode element, bool isRoot)
@@ -808,7 +837,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     }
 
     /// <summary>
-    /// Accepts <c>{x:Reference Name}</c> on a typed property when an element declared earlier in the document has that
+    /// Accepts <c>{x:Reference Name}</c> on a typed property when an element in the document has that
     /// <c>x:Name</c> and its type converts implicitly to the property type. The value is the field that <c>x:Name</c> creates.
     /// </summary>
     private void ValidateReference(
@@ -829,7 +858,7 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             return;
         }
 
-        if (!SyntaxFacts.IsValidIdentifier(name) || !_namedElements.TryGetValue(name, out INamedTypeSymbol? type))
+        if (!SyntaxFacts.IsValidIdentifier(name) || !(_templateDepth == 0 ? _referenceElements : _namedElements).TryGetValue(name, out INamedTypeSymbol? type))
         {
             _diagnostics.Add(Diagnostic.Create(
                 XamlDiagnostics.UnknownReference,

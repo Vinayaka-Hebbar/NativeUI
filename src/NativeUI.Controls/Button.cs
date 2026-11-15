@@ -51,6 +51,16 @@ public class Button : View
             defaultValue: null,
             propertyChanged: static (owner, _, _) => owner.UpdateIsEnabledFromCommand());
 
+    /// <summary>Identifies the form action; ordinary buttons remain the default.</summary>
+    public static readonly BindableProperty<ButtonType> TypeProperty = BindableProperty.Create<Button, ButtonType>(nameof(Type), ButtonType.Button);
+
+    /// <summary>Gets or sets this button's form action.</summary>
+    public ButtonType Type
+    {
+        get => GetValue(TypeProperty);
+        set => SetValue(TypeProperty, value);
+    }
+
     private readonly EventHandler _canExecuteChangedHandler;
     private bool _canExecuteCommand = true;
 
@@ -125,6 +135,7 @@ public class Button : View
         {
             command.Execute(CommandParameter);
         }
+
     }
 
     /// <inheritdoc />

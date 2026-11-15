@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Globalization;
+using System.Runtime.ExceptionServices;
 
 namespace NativeUI.Core;
 
@@ -75,7 +77,18 @@ public sealed class PathBinding
         PropertyInfo? prop = source.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
         if (prop is not null && prop.CanWrite)
         {
-            prop.SetValue(source, value);
+            Type type = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
+            object? converted = value is null || type.IsInstanceOfType(value)
+                ? value
+                : type.IsEnum && value is string text ? Enum.Parse(type, text) : Convert.ChangeType(value, type, CultureInfo.CurrentCulture);
+            try
+            {
+                prop.SetValue(source, converted);
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException is not null)
+            {
+                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+            }
         }
     }
 }

@@ -226,7 +226,7 @@ public sealed class KeyboardDevice
     /// </summary>
     internal bool CanFocus(UIElement element)
     {
-        if (!element.Focusable || !element.IsEffectivelyEnabled || element.VisualRoot is not UIElement root)
+        if (element.IsDisposed || !element.Focusable || !element.IsEffectivelyEnabled || element.VisualRoot is not UIElement root)
         {
             return false;
         }

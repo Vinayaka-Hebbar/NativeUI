@@ -32,6 +32,7 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
     private ComputedStyle? _appliedStyle;
     private Theme? _appliedTheme;
     private bool _disposed;
+    private Label? _label;
 
     /// <summary>
     /// Creates the native views as children of <paramref name="parentView"/> and becomes the handle of <paramref name="input"/>.
@@ -65,6 +66,8 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
 
         UpdateValue();
         UpdatePlaceholder();
+        UpdateLabel();
+        SetString("setAccessibilityHelp:", _input.ValidationMessage);
         UpdateEditable();
         UpdateEnabled();
 
@@ -153,6 +156,11 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
 
         _disposed = true;
         _input.PropertyChanged -= OnInputPropertyChanged;
+        if (_label is not null)
+        {
+            _label.VisualInvalidated -= OnLabelInvalidated;
+            _label = null;
+        }
         InputManager.Current.PrimaryKeyboardDevice.HandleLostFocus(_input);
         if (ReferenceEquals(_input.NativeHandle, this))
         {
@@ -229,6 +237,12 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
         {
             handled = field._window.TryCloseModalDialog();
         }
+        else if (selector == AppKitInterop.GetSelector("insertNewline:") && Form.GetForm(field._input) is Form form &&
+            (AppKitInterop.SendMessage(textView, AppKitInterop.GetSelector("hasMarkedText")) & 0xFF) == 0)
+        {
+            form.RequestSubmit();
+            handled = true;
+        }
         else if (selector == AppKitInterop.GetSelector("insertTab:"))
         {
             handled = InputManager.Current.PrimaryKeyboardDevice.MoveFocus(field._input, FocusNavigationDirection.Next, FocusState.Keyboard);
@@ -250,6 +264,7 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
     {
         if (s_fields.TryGetValue(self, out NativeTextField? field))
         {
+            ValidityState.MarkUserInteraction(field._input);
             field._input.Value = field.ReadFieldValue();
         }
     }
@@ -277,11 +292,46 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
         AppKitInterop.SendMessageVoid(cell, AppKitInterop.GetSelector("setUsesSingleLineMode:"), true);
     }
 
+    private void UpdateLabel()
+    {
+        Label? label = Label.GetLabeledBy(_input);
+        if (!ReferenceEquals(_label, label))
+        {
+            if (_label is not null)
+            {
+                _label.VisualInvalidated -= OnLabelInvalidated;
+            }
+
+            _label = label;
+            if (_label is not null)
+            {
+                _label.VisualInvalidated += OnLabelInvalidated;
+            }
+        }
+
+        SetString("setAccessibilityLabel:", Label.GetAccessibleName(_input));
+    }
+
+    private void OnLabelInvalidated(object? sender, EventArgs args)
+    {
+        SetString("setAccessibilityLabel:", Label.GetAccessibleName(_input));
+    }
+
     private void OnInputPropertyChanged(object? sender, BindablePropertyChangedEventArgs args)
     {
         if (ReferenceEquals(args.Property, Input.ValueProperty))
         {
             UpdateValue();
+        }
+        else if (ReferenceEquals(args.Property, Validation.ErrorsProperty) ||
+            ReferenceEquals(args.Property, ValidityState.StateProperty) ||
+            ReferenceEquals(args.Property, Input.RequiredErrorMessageProperty))
+        {
+            SetString("setAccessibilityHelp:", _input.ValidationMessage);
+        }
+        else if (ReferenceEquals(args.Property, Label.LabeledByProperty))
+        {
+            UpdateLabel();
         }
         else if (ReferenceEquals(args.Property, Input.PlaceholderProperty))
         {

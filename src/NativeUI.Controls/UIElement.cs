@@ -470,7 +470,13 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// <summary>
     /// Gets whether this element, its ancestors, and its control-specific conditions permit interaction.
     /// </summary>
-    public bool IsEffectivelyEnabled => IsEnabled && IsEnabledCore && (Parent?.IsEffectivelyEnabled ?? true);
+    public bool IsEffectivelyEnabled => IsEnabled && IsEnabledCore && (Parent?.IsEnabledForChild(this) ?? true);
+
+    /// <summary>Gets whether this element permits inherited interaction for a child.</summary>
+    protected internal virtual bool IsEnabledForChild(UIElement child) => IsEffectivelyEnabled;
+
+    /// <inheritdoc />
+    protected override void OnBindingValidationChanged() => Validation.Refresh(this);
 
     /// <summary>
     /// Gets whether the element participates in pointer hit testing while it is drawn.
@@ -1450,9 +1456,10 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     {
         if (!isEnabled)
         {
-            if (States.HasFlag(ElementStates.FocusWithin))
+            KeyboardDevice keyboard = InputManager.Current.PrimaryKeyboardDevice;
+            if (States.HasFlag(ElementStates.FocusWithin) && keyboard.FocusedElement is { IsEffectivelyEnabled: false })
             {
-                InputManager.Current.PrimaryKeyboardDevice.ClearFocus(this);
+                keyboard.ClearFocus(this);
             }
 
             SetState(ElementStates.Pressed, false);

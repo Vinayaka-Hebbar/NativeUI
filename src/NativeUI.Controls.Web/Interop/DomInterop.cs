@@ -154,6 +154,16 @@ public static partial class DomInterop
         JSObject root,
         [JSMarshalAs<JSType.Function<JSType.Object>>] Action<JSObject> dispatch);
 
+    /// <summary>Routes accessibility or programmatic native label activation to its shared control.</summary>
+    [JSImport("setLabelDispatcher", "nativeui-dom")]
+    public static partial void SetLabelDispatcher(JSObject root,
+        [JSMarshalAs<JSType.Function<JSType.Number>>] Action<int> dispatch);
+
+    /// <summary>Connects native form actions to the shared C# form pipeline.</summary>
+    [JSImport("setFormDispatcher", "nativeui-dom")]
+    public static partial void SetFormDispatcher(JSObject root,
+        [JSMarshalAs<JSType.Function<JSType.Number, JSType.Number, JSType.Number>>] Action<int, int, int> dispatch);
+
     /// <summary>
     /// Sets the callback that a <c>native-ui</c> element invokes with the node identifier and value of each edited input.
     /// The element adds its listener when connected and removes it when disconnected.

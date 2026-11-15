@@ -22,7 +22,7 @@ public sealed class HtmlDomButton : HtmlDomView
     protected override void Initialize()
     {
         base.Initialize();
-        SetAttribute("type", "button");
+        UpdateType();
         UpdateEnabledState();
         UpdateText();
     }
@@ -31,7 +31,11 @@ public sealed class HtmlDomButton : HtmlDomView
     protected override void OnPropertyChanged(BindablePropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (ReferenceEquals(args.Property, UIElement.IsEffectivelyEnabledProperty))
+        if (ReferenceEquals(args.Property, Button.TypeProperty))
+        {
+            UpdateType();
+        }
+        else if (ReferenceEquals(args.Property, UIElement.IsEffectivelyEnabledProperty))
         {
             UpdateEnabledState();
         }
@@ -40,6 +44,13 @@ public sealed class HtmlDomButton : HtmlDomView
             UpdateText();
         }
     }
+
+    private void UpdateType() => SetAttribute("type", _button.Type switch
+    {
+        ButtonType.Submit => "submit",
+        ButtonType.Reset => "reset",
+        _ => "button"
+    });
 
     private void UpdateEnabledState()
     {

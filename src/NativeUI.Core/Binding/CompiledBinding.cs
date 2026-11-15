@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 
 namespace NativeUI.Core;
 
@@ -85,6 +87,7 @@ public sealed class CompiledBinding<TSource, TValue>
         private TSource? _currentSource;
         private INotifyPropertyChanged? _observableSource;
         private BindableObject? _bindableSource;
+        private readonly BindingValidation _validation;
         private bool _isUpdating;
         private bool _disposed;
 
@@ -96,6 +99,7 @@ public sealed class CompiledBinding<TSource, TValue>
             _target = target;
             _targetProperty = targetProperty;
             _binding = binding;
+            _validation = new BindingValidation(target, targetProperty, binding.PropertyName);
 
             if (_binding.Mode == BindingMode.TwoWay && _binding.Setter is not null)
             {
@@ -118,6 +122,7 @@ public sealed class CompiledBinding<TSource, TValue>
             }
 
             _currentSource = typedSource;
+            _validation.SetSource(typedSource);
             PushSourceToTarget(typedSource);
 
             if (_binding.Mode == BindingMode.OneTime)
@@ -136,6 +141,10 @@ public sealed class CompiledBinding<TSource, TValue>
                 _bindableSource.PropertyChanged += OnBindableSourcePropertyChanged;
             }
         }
+
+        public IReadOnlyList<ValidationError> Errors => _validation.Errors;
+
+        public void Validate() => _validation.Refresh();
 
         public void Dispose()
         {
@@ -200,35 +209,51 @@ public sealed class CompiledBinding<TSource, TValue>
                 return;
             }
 
-            if (e.NewValue is TValue typedValue)
+            try
             {
+                _isUpdating = true;
+                TValue value;
                 try
                 {
-                    _isUpdating = true;
-                    _binding.Setter(_currentSource, typedValue);
+                    value = e.NewValue is TValue typedValue ? typedValue : ConvertTargetValue(e.NewValue);
                 }
-                finally
+                catch (Exception exception) when (exception is FormatException or OverflowException or InvalidCastException or ArgumentException)
                 {
-                    _isUpdating = false;
+                    _validation.SetConversionError(exception);
+                    return;
                 }
+
+                _binding.Setter(_currentSource, value);
+                _validation.SetConversionError(null);
             }
-            else if (e.NewValue is null && default(TValue) is null)
+            catch (Exception exception) when (exception is FormatException or OverflowException or ValidationException)
             {
-                try
-                {
-                    _isUpdating = true;
-                    _binding.Setter(_currentSource, default!);
-                }
-                finally
-                {
-                    _isUpdating = false;
-                }
+                _validation.SetConversionError(exception);
             }
+            finally
+            {
+                _isUpdating = false;
+            }
+        }
+
+        private static TValue ConvertTargetValue(object? value)
+        {
+            if (value is null && default(TValue) is null)
+            {
+                return default!;
+            }
+
+            Type type = Nullable.GetUnderlyingType(typeof(TValue)) ?? typeof(TValue);
+            object? converted = type.IsEnum && value is string text
+                ? Enum.Parse(type, text)
+                : Convert.ChangeType(value, type, CultureInfo.CurrentCulture);
+            return (TValue)converted!;
         }
 
         private void PushSourceToTarget(TSource source)
         {
-            if (_isUpdating)
+            _validation.Refresh();
+            if (_isUpdating || _validation.HasConversionError)
             {
                 return;
             }
@@ -250,6 +275,10 @@ public sealed class CompiledBinding<TSource, TValue>
                     _target.SetValue(_targetProperty, _targetProperty.ConvertValue(value));
                 }
             }
+            catch (Exception exception) when (exception is FormatException or OverflowException or ValidationException)
+            {
+                _validation.SetConversionError(exception);
+            }
             finally
             {
                 _isUpdating = false;
@@ -258,6 +287,7 @@ public sealed class CompiledBinding<TSource, TValue>
 
         private void DetachFromSource()
         {
+            _validation.SetSource(null);
             if (_observableSource is not null)
             {
                 _observableSource.PropertyChanged -= OnSourcePropertyChanged;

@@ -34,7 +34,7 @@ public sealed class HtmlDomCheckBox : HtmlDomControl
     protected override void OnPropertyChanged(BindablePropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (ReferenceEquals(args.Property, CheckBox.IsCheckedProperty))
+        if (ReferenceEquals(args.Property, CheckBox.IsCheckedProperty) || ReferenceEquals(args.Property, CheckBox.RequiredProperty))
         {
             UpdateChecked();
         }
@@ -49,5 +49,6 @@ public sealed class HtmlDomCheckBox : HtmlDomControl
             null => "mixed"
         };
         SetAttribute("aria-checked", state);
+        SetAttribute("aria-required", _checkBox.Required ? "true" : null);
     }
 }
