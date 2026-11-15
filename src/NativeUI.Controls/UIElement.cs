@@ -241,6 +241,25 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
 
     static UIElement()
     {
+        EventManager.RegisterClassHandler<UIElement, PointerEventArgs>(
+            PointerPressedEvent,
+            static (element, args) => element.OnPointerPressed(args));
+        EventManager.RegisterClassHandler<UIElement, PointerEventArgs>(
+            PointerReleasedEvent,
+            static (element, args) => element.OnPointerReleased(args));
+        EventManager.RegisterClassHandler<UIElement, PointerEventArgs>(
+            PointerMovedEvent,
+            static (element, args) => element.OnPointerMoved(args));
+        EventManager.RegisterClassHandler<UIElement, PointerEventArgs>(
+            PointerExitedEvent,
+            static (element, args) => element.OnPointerExited(args));
+        EventManager.RegisterClassHandler<UIElement, KeyEventArgs>(
+            KeyDownEvent,
+            static (element, args) => element.OnKeyDown(args));
+        EventManager.RegisterClassHandler<UIElement, RoutedEventArgs>(
+            GotFocusEvent,
+            static (element, args) => element.OnGotFocus(args));
+
         EventManager.RegisterEventObserver<UIElement>(
             SizeChangedEvent,
             static element => element.CreateSizeObserver());
@@ -1129,6 +1148,8 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         (UIElement Element, RoutedHandler[] Handlers)[] route = CreateRoute(routedEvent);
         foreach ((UIElement element, RoutedHandler[] handlers) in route)
         {
+            routedEvent.InvokeClassHandlers(element, args);
+
             foreach (RoutedHandler entry in handlers)
             {
                 if (!args.Handled || entry.HandledEventsToo)
@@ -1137,6 +1158,54 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Handles an unhandled <see cref="PointerPressed"/> event before instance handlers run.
+    /// </summary>
+    /// <param name="args">The routed event data.</param>
+    protected virtual void OnPointerPressed(PointerEventArgs args)
+    {
+    }
+
+    /// <summary>
+    /// Handles an unhandled <see cref="PointerReleased"/> event before instance handlers run.
+    /// </summary>
+    /// <param name="args">The routed event data.</param>
+    protected virtual void OnPointerReleased(PointerEventArgs args)
+    {
+    }
+
+    /// <summary>
+    /// Handles an unhandled <see cref="PointerMoved"/> event before instance handlers run.
+    /// </summary>
+    /// <param name="args">The routed event data.</param>
+    protected virtual void OnPointerMoved(PointerEventArgs args)
+    {
+    }
+
+    /// <summary>
+    /// Handles an unhandled <see cref="PointerExited"/> event before instance handlers run.
+    /// </summary>
+    /// <param name="args">The routed event data.</param>
+    protected virtual void OnPointerExited(PointerEventArgs args)
+    {
+    }
+
+    /// <summary>
+    /// Handles an unhandled <see cref="KeyDown"/> event before instance handlers run.
+    /// </summary>
+    /// <param name="args">The routed event data.</param>
+    protected virtual void OnKeyDown(KeyEventArgs args)
+    {
+    }
+
+    /// <summary>
+    /// Handles an unhandled <see cref="GotFocus"/> event before instance handlers run.
+    /// </summary>
+    /// <param name="args">The routed event data.</param>
+    protected virtual void OnGotFocus(RoutedEventArgs args)
+    {
     }
 
     /// <summary>

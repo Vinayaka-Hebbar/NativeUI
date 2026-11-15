@@ -10,7 +10,7 @@ namespace NativeUI.Core;
 public delegate IDisposable? EventObserverFactory(object owner);
 
 /// <summary>
-/// Provides routed event registration and class-level event observer factory lookup.
+/// Provides routed event and class-handler registration and class-level event observer factory lookup.
 /// </summary>
 public static class EventManager
 {
@@ -28,6 +28,27 @@ public static class EventManager
         where TArgs : RoutedEventArgs
     {
         return RoutedEvent.Register<TOwner, TArgs>(name, routingStrategy);
+    }
+
+    /// <summary>
+    /// Registers a class handler invoked before instance handlers on matching owners.
+    /// The handler remains registered for the event's lifetime.
+    /// </summary>
+    /// <typeparam name="TOwner">The owner type, including derived types, that receives the handler.</typeparam>
+    /// <typeparam name="TArgs">The routed event arguments type.</typeparam>
+    /// <param name="routedEvent">The event to handle.</param>
+    /// <param name="handler">The class handler, normally registered during static initialization.</param>
+    /// <param name="handledEventsToo">Whether the handler receives events already marked handled.</param>
+    public static void RegisterClassHandler<TOwner, TArgs>(
+        RoutedEvent<TArgs> routedEvent,
+        Action<TOwner, TArgs> handler,
+        bool handledEventsToo = false)
+        where TArgs : RoutedEventArgs
+    {
+        ArgumentNullException.ThrowIfNull(routedEvent);
+        ArgumentNullException.ThrowIfNull(handler);
+
+        routedEvent.AddClassHandler(handler, handledEventsToo);
     }
 
     /// <summary>

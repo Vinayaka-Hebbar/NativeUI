@@ -75,8 +75,35 @@ public abstract class RoutedEvent
 public sealed class RoutedEvent<TArgs> : RoutedEvent
     where TArgs : RoutedEventArgs
 {
+    private Action<object, TArgs>? _classHandlers;
+
     internal RoutedEvent(string name, Type ownerType, RoutingStrategy routingStrategy)
         : base(name, ownerType, routingStrategy)
     {
+    }
+
+    /// <summary>
+    /// Adds a class handler for instances of <typeparamref name="TOwner"/> and its derived types.
+    /// Class handlers run before instance handlers and remain registered for the event's lifetime.
+    /// </summary>
+    /// <typeparam name="TOwner">The type that receives the class handler.</typeparam>
+    /// <param name="handler">The class handler, normally registered during static initialization.</param>
+    /// <param name="handledEventsToo">Whether the handler also receives events already marked handled.</param>
+    internal void AddClassHandler<TOwner>(Action<TOwner, TArgs> handler, bool handledEventsToo = false)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+
+        _classHandlers += (owner, args) =>
+        {
+            if ((!args.Handled || handledEventsToo) && owner is TOwner target)
+            {
+                handler(target, args);
+            }
+        };
+    }
+
+    internal void InvokeClassHandlers(object owner, TArgs args)
+    {
+        _classHandlers?.Invoke(owner, args);
     }
 }

@@ -29,17 +29,6 @@ public class Text : UIElement, ITextSource
     private int _selectionStart;
     private int _selectionLength;
 
-    /// <summary>Initializes inline pointer and keyboard activation.</summary>
-    public Text()
-    {
-        PointerPressed += OnPointerPressed;
-        PointerReleased += OnPointerReleased;
-        PointerMoved += OnPointerMoved;
-        PointerExited += OnPointerExited;
-        KeyDown += OnKeyDown;
-        GotFocus += OnGotFocus;
-    }
-
     /// <inheritdoc />
     public override Cursor Cursor => _hoveredHyperlink?.ComputedStyle.Cursor ?? base.Cursor;
 
@@ -327,13 +316,17 @@ public class Text : UIElement, ITextSource
         _textBounds = bounds;
     }
 
-    private void OnGotFocus(object? sender, RoutedEventArgs args)
+    /// <inheritdoc />
+    protected override void OnGotFocus(RoutedEventArgs args)
     {
+        base.OnGotFocus(args);
         _focusedHyperlink = GetHyperlinks(Inlines).FirstOrDefault();
     }
 
-    private void OnKeyDown(object? sender, KeyEventArgs args)
+    /// <inheritdoc />
+    protected override void OnKeyDown(KeyEventArgs args)
     {
+        base.OnKeyDown(args);
         // Native DOM anchors own their keyboard activation and tab order.
         if (NativeHandle is not null || !IsEffectivelyEnabled || !IsFocused)
         {
@@ -358,8 +351,10 @@ public class Text : UIElement, ITextSource
         }
     }
 
-    private void OnPointerPressed(object? sender, PointerEventArgs args)
+    /// <inheritdoc />
+    protected override void OnPointerPressed(PointerEventArgs args)
     {
+        base.OnPointerPressed(args);
         if (NativeHandle is null && args.Buttons.HasFlag(PointerButtons.Primary))
         {
             _pressedHyperlink = GetHyperlinkAt(args.Position);
@@ -367,8 +362,10 @@ public class Text : UIElement, ITextSource
         }
     }
 
-    private void OnPointerReleased(object? sender, PointerEventArgs args)
+    /// <inheritdoc />
+    protected override void OnPointerReleased(PointerEventArgs args)
     {
+        base.OnPointerReleased(args);
         Hyperlink? link = _pressedHyperlink;
         _pressedHyperlink = null;
         if (link is null || HasSelection || !IsEffectivelyEnabled ||
@@ -384,8 +381,10 @@ public class Text : UIElement, ITextSource
         }
     }
 
-    private void OnPointerMoved(object? sender, PointerEventArgs args)
+    /// <inheritdoc />
+    protected override void OnPointerMoved(PointerEventArgs args)
     {
+        base.OnPointerMoved(args);
         Hyperlink? hovered = GetHyperlinkAt(args.Position);
         if (!ReferenceEquals(_hoveredHyperlink, hovered))
         {
@@ -394,8 +393,10 @@ public class Text : UIElement, ITextSource
         }
     }
 
-    private void OnPointerExited(object? sender, PointerEventArgs args)
+    /// <inheritdoc />
+    protected override void OnPointerExited(PointerEventArgs args)
     {
+        base.OnPointerExited(args);
         _pressedHyperlink = null;
         if (_hoveredHyperlink is not null)
         {
