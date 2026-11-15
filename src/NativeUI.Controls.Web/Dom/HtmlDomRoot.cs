@@ -299,14 +299,34 @@ internal sealed class HtmlDomRoot : IDisposable
 
             string key = keyEvent.GetPropertyAsString("key") ?? string.Empty;
             (Key logicalKey, string? text) = MapKey(key);
+            InputModifiers modifiers = (InputModifiers)keyEvent.GetPropertyAsInt32("modifiers");
+            bool isDown = keyEvent.GetPropertyAsBoolean("isDown");
             KeyEventArgs args = new(
                 logicalKey,
                 text,
-                (InputModifiers)keyEvent.GetPropertyAsInt32("modifiers"),
+                modifiers,
                 keyEvent.GetPropertyAsBoolean("isRepeat"));
             UIElement target = HtmlDomElement.FindByNodeId(keyEvent.GetPropertyAsInt32("nodeId"))?.Source ?? _root;
-            target.RaiseEvent(keyEvent.GetPropertyAsBoolean("isDown") ? UIElement.KeyDownEvent : UIElement.KeyUpEvent, args);
-            return args.Handled;
+            target.RaiseEvent(isDown ? UIElement.KeyDownEvent : UIElement.KeyUpEvent, args);
+            if (args.Handled)
+            {
+                return true;
+            }
+
+            if (isDown && logicalKey == Key.Tab && _focusManager is not null)
+            {
+                UIElement focused = _focusManager.FocusedElement ?? target;
+                if (KeyboardNavigation.HasActiveMode(focused))
+                {
+                    FocusNavigationDirection direction = modifiers.HasFlag(InputModifiers.Shift)
+                        ? FocusNavigationDirection.Previous
+                        : FocusNavigationDirection.Next;
+                    _focusManager.MoveFocus(direction);
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 

@@ -1,29 +1,62 @@
+using NativeUI.Core;
+
 namespace NativeUI.Controls;
 
 /// <summary>
-/// Computes the keyboard navigation order of the tree that a <see cref="FocusManager"/> owns, and finds the element that
-/// a <see cref="FocusNavigationDirection"/> moves focus to.
+/// Provides attached properties and methods to configure and evaluate keyboard tab navigation.
 /// </summary>
 /// <remarks>
-/// The order holds the focusable elements with a non-negative <see cref="UIElement.TabIndex"/>: positive values first in
+/// The tab order holds the focusable elements with a non-negative <see cref="UIElement.TabIndex"/>: positive values first in
 /// ascending order, then zero in tree order, as in HTML. Hidden subtrees, subtrees with their own focus manager, and
 /// portals that are closed are skipped. The elements of an open portal with an anchor follow the anchor's subtree instead
 /// of the portal's own position. Tab moves from a popup's target into the popup.
 /// </remarks>
-internal static class KeyboardNavigation
+public static class KeyboardNavigation
 {
     /// <summary>
+    /// Identifies the <c>KeyboardNavigation.TabNavigation</c> attached property.
+    /// </summary>
+    public static readonly BindableProperty<KeyboardNavigationMode> TabNavigationProperty =
+        BindableProperty.CreateAttached<KeyboardNavigationMode>(
+            "TabNavigation",
+            typeof(KeyboardNavigation),
+            KeyboardNavigationMode.Continue);
+
+    /// <summary>
+    /// Gets the <see cref="KeyboardNavigationMode"/> that specifies tab navigation behavior for <paramref name="element"/>.
+    /// </summary>
+    /// <param name="element">The element whose tab navigation mode is requested.</param>
+    /// <returns>The configured mode, or <see cref="KeyboardNavigationMode.Continue"/> by default.</returns>
+    public static KeyboardNavigationMode GetTabNavigation(UIElement element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return element.GetValue(TabNavigationProperty);
+    }
+
+    /// <summary>
+    /// Sets the <see cref="KeyboardNavigationMode"/> that specifies tab navigation behavior for <paramref name="element"/>.
+    /// </summary>
+    /// <param name="element">The element on which to set the tab navigation mode.</param>
+    /// <param name="mode">The tab navigation mode to set.</param>
+    public static void SetTabNavigation(UIElement element, KeyboardNavigationMode mode)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetValue(TabNavigationProperty, mode);
+    }
+
+    /// <summary>
     /// Returns the element that focus moves to from <paramref name="origin"/> in <paramref name="direction"/>, or
-    /// <see langword="null"/> when there is none. <see cref="FocusNavigationDirection.Next"/> and
-    /// <see cref="FocusNavigationDirection.Previous"/> wrap at either end and start at an end when
-    /// <paramref name="origin"/> is not in the order. <see cref="FocusNavigationDirection.First"/> and
-    /// <see cref="FocusNavigationDirection.Last"/> look only inside <paramref name="origin"/>.
+    /// <see langword="null"/> when there is none. When moving inside <paramref name="origin"/>,
+    /// <see cref="FocusNavigationDirection.First"/> and <see cref="FocusNavigationDirection.Last"/> search descendants.
     /// </summary>
     /// <param name="focusManager">The focus manager that owns the tree.</param>
     /// <param name="origin">The element that focus moves from, or the element to search inside.</param>
     /// <param name="direction">The direction to move focus.</param>
     public static UIElement? GetNext(FocusManager focusManager, UIElement origin, FocusNavigationDirection direction)
     {
+        ArgumentNullException.ThrowIfNull(focusManager);
+        ArgumentNullException.ThrowIfNull(origin);
+
         List<UIElement> order = GetTabOrder(focusManager);
         if (direction is FocusNavigationDirection.First or FocusNavigationDirection.Last)
         {
@@ -50,12 +83,12 @@ internal static class KeyboardNavigation
         }
 
         int current = order.IndexOf(origin);
-        if (direction == FocusNavigationDirection.Next)
+        if (current < 0)
         {
-            return current < 0 ? order[0] : order[(current + 1) % order.Count];
+            return direction == FocusNavigationDirection.Next ? order[0] : order[^1];
         }
 
-        return current < 0 ? order[^1] : order[(current - 1 + order.Count) % order.Count];
+        return FindNextRespectingModes(focusManager, order, current, direction);
     }
 
     /// <summary>
@@ -72,6 +105,202 @@ internal static class KeyboardNavigation
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Returns whether <paramref name="element"/> or any of its ancestors up to the root sets a non-default
+    /// <see cref="KeyboardNavigationMode"/>.
+    /// </summary>
+    internal static bool HasActiveMode(UIElement element)
+    {
+        for (UIElement? current = element; current is not null; current = current.Parent)
+        {
+            if (current.GetValue(TabNavigationProperty) != KeyboardNavigationMode.Continue)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Finds the next focusable element from <paramref name="currentIndex"/> respecting the
+    /// <see cref="KeyboardNavigationMode"/> of containers in the focus path.
+    /// </summary>
+    private static UIElement? FindNextRespectingModes(
+        FocusManager focusManager,
+        List<UIElement> order,
+        int currentIndex,
+        FocusNavigationDirection direction)
+    {
+        UIElement origin = order[currentIndex];
+        UIElement? modeContainer = FindModeContainer(origin, focusManager.Root);
+        if (modeContainer is not null)
+        {
+            KeyboardNavigationMode mode = modeContainer.GetValue(TabNavigationProperty);
+            if (mode == KeyboardNavigationMode.None)
+            {
+                return null;
+            }
+
+            List<UIElement> containerTabStops = [];
+            foreach (UIElement element in order)
+            {
+                if (IsInclusiveAncestor(modeContainer, element))
+                {
+                    containerTabStops.Add(element);
+                }
+            }
+
+            int indexInContainer = containerTabStops.IndexOf(origin);
+            if (mode == KeyboardNavigationMode.Cycle)
+            {
+                if (containerTabStops.Count == 0)
+                {
+                    return null;
+                }
+
+                if (direction == FocusNavigationDirection.Next)
+                {
+                    return containerTabStops[(indexInContainer + 1) % containerTabStops.Count];
+                }
+
+                return containerTabStops[(indexInContainer - 1 + containerTabStops.Count) % containerTabStops.Count];
+            }
+
+            if (mode == KeyboardNavigationMode.Contained)
+            {
+                if (direction == FocusNavigationDirection.Next)
+                {
+                    return indexInContainer < containerTabStops.Count - 1 ? containerTabStops[indexInContainer + 1] : null;
+                }
+
+                return indexInContainer > 0 ? containerTabStops[indexInContainer - 1] : null;
+            }
+
+            if (mode == KeyboardNavigationMode.Once)
+            {
+                // When moving inside a Once container, moving next or previous leaves the container.
+                return FindNextOutsideContainer(order, modeContainer, currentIndex, direction);
+            }
+        }
+
+        int step = direction == FocusNavigationDirection.Next ? 1 : -1;
+        int nextIndex = currentIndex + step;
+        while (nextIndex >= 0 && nextIndex < order.Count)
+        {
+            UIElement candidate = order[nextIndex];
+            UIElement? candidateContainer = FindModeContainer(candidate, focusManager.Root);
+            if (candidateContainer is not null && !IsInclusiveAncestor(candidateContainer, origin))
+            {
+                KeyboardNavigationMode candidateMode = candidateContainer.GetValue(TabNavigationProperty);
+                if (candidateMode == KeyboardNavigationMode.None)
+                {
+                    nextIndex = SkipContainer(order, candidateContainer, nextIndex, direction);
+                    continue;
+                }
+            }
+
+            return candidate;
+        }
+
+        // Wrap around at the tree boundaries for normal navigation.
+        int wrappedIndex = direction == FocusNavigationDirection.Next ? 0 : order.Count - 1;
+        while (wrappedIndex != currentIndex && wrappedIndex >= 0 && wrappedIndex < order.Count)
+        {
+            UIElement candidate = order[wrappedIndex];
+            UIElement? candidateContainer = FindModeContainer(candidate, focusManager.Root);
+            if (candidateContainer is not null && !IsInclusiveAncestor(candidateContainer, origin))
+            {
+                KeyboardNavigationMode candidateMode = candidateContainer.GetValue(TabNavigationProperty);
+                if (candidateMode == KeyboardNavigationMode.None)
+                {
+                    wrappedIndex = SkipContainer(order, candidateContainer, wrappedIndex, direction);
+                    continue;
+                }
+            }
+
+            return candidate;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Finds the nearest ancestor of <paramref name="element"/> up to <paramref name="root"/> that specifies a
+    /// non-default <see cref="KeyboardNavigationMode"/>.
+    /// </summary>
+    private static UIElement? FindModeContainer(UIElement element, UIElement root)
+    {
+        for (UIElement? current = element; current is not null; current = current.Parent)
+        {
+            if (current.GetValue(TabNavigationProperty) != KeyboardNavigationMode.Continue)
+            {
+                return current;
+            }
+
+            if (ReferenceEquals(current, root))
+            {
+                break;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Finds the next element in <paramref name="order"/> that is outside <paramref name="container"/>.
+    /// </summary>
+    private static UIElement? FindNextOutsideContainer(
+        List<UIElement> order,
+        UIElement container,
+        int currentIndex,
+        FocusNavigationDirection direction)
+    {
+        int step = direction == FocusNavigationDirection.Next ? 1 : -1;
+        int nextIndex = currentIndex + step;
+        while (nextIndex >= 0 && nextIndex < order.Count)
+        {
+            if (!IsInclusiveAncestor(container, order[nextIndex]))
+            {
+                return order[nextIndex];
+            }
+
+            nextIndex += step;
+        }
+
+        int wrapped = direction == FocusNavigationDirection.Next ? 0 : order.Count - 1;
+        while (wrapped != currentIndex && wrapped >= 0 && wrapped < order.Count)
+        {
+            if (!IsInclusiveAncestor(container, order[wrapped]))
+            {
+                return order[wrapped];
+            }
+
+            wrapped += step;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Skips past all elements in <paramref name="order"/> belonging to <paramref name="container"/> in the given direction.
+    /// </summary>
+    private static int SkipContainer(
+        List<UIElement> order,
+        UIElement container,
+        int startIndex,
+        FocusNavigationDirection direction)
+    {
+        int step = direction == FocusNavigationDirection.Next ? 1 : -1;
+        int index = startIndex;
+        while (index >= 0 && index < order.Count && IsInclusiveAncestor(container, order[index]))
+        {
+            index += step;
+        }
+
+        return index;
     }
 
     /// <summary>
@@ -111,7 +340,6 @@ internal static class KeyboardNavigation
             }
         }
 
-        // Each entry is an element to visit, or the end of an element's subtree, where its anchored portals follow.
         List<UIElement> tabStops = [];
         HashSet<Portal> reachedPortals = new(ReferenceEqualityComparer.Instance);
         Stack<(UIElement Element, bool IsSubtreeEnd)> pending = new();
@@ -156,7 +384,6 @@ internal static class KeyboardNavigation
                 }
             }
 
-            // A portal whose anchor is not in the navigation tree follows every other element.
             foreach (UIElement anchor in portalsByAnchor.Keys)
             {
                 pending.Push((anchor, true));
@@ -173,7 +400,6 @@ internal static class KeyboardNavigation
             }
         }
 
-        // A stable sort keeps tree order among equal positive values.
         List<UIElement> order = positive.Count > 1 ? [.. positive.OrderBy(static element => element.TabIndex)] : positive;
         foreach (UIElement tabStop in tabStops)
         {
