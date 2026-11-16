@@ -202,6 +202,8 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
             ResizablePanel resizablePanel => new HtmlDomResizablePanel(resizablePanel, element, tagName),
             ResizableHandle resizableHandle => new HtmlDomResizableHandle(resizableHandle, element, tagName),
             SplitView splitView => new HtmlDomSplitView(splitView, element, tagName),
+            NavigationView navigationView => new HtmlDomNavigationView(navigationView, element, tagName),
+            NavigationViewItem navigationViewItem => new HtmlDomNavigationViewItem(navigationViewItem, element, tagName),
             Sheet sheet => new HtmlDomSheet(sheet, element, tagName),
             Dialog dialog => new HtmlDomDialog(dialog, element, tagName),
             Portal portal => new HtmlDomPortal(portal, element, tagName),

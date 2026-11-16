@@ -25,13 +25,19 @@
             Text="{Binding ThemeButtonText}"
             Command="{Binding ToggleThemeCommand}" />
 
-    <!-- The side nav shows one example page at a time; the wheel moves the innermost view that can still scroll. -->
-    <Grid Class="shell" Columns="150,*" ColumnSpacing="20">
-        <StackPanel Spacing="4">
-            <Button x:Name="NavStack" Class="nav-item" Text="StackPanel" />
-            <Button x:Name="NavGrid" Class="nav-item" Text="Grid" />
-            <Button x:Name="NavScroll" Class="nav-item" Text="Scrolling" />
-            <Button x:Name="NavImages" Class="nav-item" Text="Images &amp; SVG" />
+    <!-- The side nav shows one example page at a time; the shell uses SplitView for the collapsible sidebar. -->
+    <SplitView x:Name="AppShell"
+               DisplayMode="Inline"
+               IsPaneOpen="True"
+               OpenPaneLength="170"
+               Class="shell">
+        <SplitView.Pane>
+            <StackPanel Spacing="4">
+                <Button x:Name="NavStack" Class="nav-item" Text="StackPanel" />
+                <Button x:Name="NavGrid" Class="nav-item" Text="Grid" />
+                <Button x:Name="NavSplitView" Class="nav-item" Text="SplitView" />
+                <Button x:Name="NavScroll" Class="nav-item" Text="Scrolling" />
+                <Button x:Name="NavImages" Class="nav-item" Text="Images &amp; SVG" />
             <Button x:Name="NavCanvas" Class="nav-item" Text="Canvas" />
             <Button x:Name="NavInput" Class="nav-item" Text="Input" />
             <Button x:Name="NavToggles" Class="nav-item" Text="Toggles" />
@@ -46,8 +52,9 @@
             <Button x:Name="NavScene3D" Class="nav-item" Text="3D" />
             <Button x:Name="NavResize" Class="nav-item" Text="ResizeObserver" />
         </StackPanel>
+        </SplitView.Pane>
 
-        <ScrollView x:Name="ExamplesScroll" Grid.Column="1" Class="examples">
+        <ScrollView x:Name="ExamplesScroll" Class="examples">
             <View x:Name="StackPage">
                 <Text Class="section" Value="StackPanel" />
                 <StackPanel Class="panel-box" Orientation="Horizontal" Spacing="8" Padding="12">
@@ -90,32 +97,9 @@
                         <Text Class="scroll-line" Value="DefaultSize 70%, MinSize 30%. Drag the divider to resize both panels." />
                     </ResizablePanel>
                 </Resizable>
-
-                <Text Class="section" Value="SplitView (Navigation Shell)" />
-                <Text Class="scroll-status" Value="Toggle the navigation pane open or closed." />
-                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0, 0, 0, 8">
-                    <Button Command="{Binding ToggleSplitViewPaneCommand}" Class="btn-action" Text="Toggle Pane" />
-                </StackPanel>
-                <SplitView IsPaneOpen="{Binding IsSplitViewPaneOpen}"
-                           DisplayMode="CompactInline"
-                           OpenPaneLength="160"
-                           CompactPaneLength="44"
-                           Class="splitview-container">
-                    <SplitView.Pane>
-                        <View Class="splitview-pane">
-                            <Text Class="grid-title" Value="Navigation" />
-                            <Text Class="grid-sidebar" Value="Home" />
-                            <Text Class="grid-sidebar" Value="Projects" />
-                            <Text Class="grid-sidebar" Value="Settings" />
-                        </View>
-                    </SplitView.Pane>
-
-                    <View Class="splitview-content">
-                        <Text Class="grid-title" Value="Main Page" />
-                        <Text Class="scroll-line" Value="Content area beside the navigation pane. In CompactInline mode, the pane collapses into a compact rail when closed." />
-                    </View>
-                </SplitView>
             </View>
+
+            <SplitViewSampleView x:Name="SplitViewPage" />
 
             <View x:Name="ScrollPage">
                 <Text Class="section" Value="ScrollView" />
@@ -234,5 +218,5 @@
                 <Text x:Name="ObserverStateText" Class="scroll-status" Value="Observer Status: Active (Listening to SizeChanged)" />
             </View>
         </ScrollView>
-    </Grid>
+    </SplitView>
 </View>

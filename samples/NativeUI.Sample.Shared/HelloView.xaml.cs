@@ -29,6 +29,7 @@ public partial class HelloView
         [
             (NavStack, StackPage),
             (NavGrid, GridPage),
+            (NavSplitView, SplitViewPage),
             (NavScroll, ScrollPage),
             (NavCanvas, CanvasPage),
             (NavImages, ImagePage),
@@ -51,7 +52,7 @@ public partial class HelloView
             nav.Click += (_, _) => ShowPage(page);
         }
 
-        ShowPage(StackPage);
+        ShowPage(SplitViewPage);
 
         int resizeEvents = 0;
         bool isObserving = true;

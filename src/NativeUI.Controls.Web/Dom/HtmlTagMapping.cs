@@ -51,6 +51,10 @@ internal static class HtmlTagMapping
         if (element is ResizablePanel) return ResizablePanelTag;
         if (element is ResizableHandle) return ResizableHandleTag;
         if (element is SplitView) return "nui-splitview";
+        if (element is NavigationView) return "nav";
+        if (element is NavigationViewItem) return "nui-navitem";
+        if (element is NavigationViewItemHeader) return "nui-navitem-header";
+        if (element is NavigationViewItemSeparator) return "hr";
         if (element is Sheet) return "nui-sheet";
         if (element is Label) return "label";
         if (element is Form) return "form";
@@ -332,6 +336,10 @@ internal static class HtmlTagMapping
         if (typeof(ResizablePanel).IsAssignableFrom(type)) return ResizablePanelTag;
         if (typeof(ResizableHandle).IsAssignableFrom(type)) return ResizableHandleTag;
         if (typeof(SplitView).IsAssignableFrom(type)) return "nui-splitview";
+        if (typeof(NavigationView).IsAssignableFrom(type)) return "nav";
+        if (typeof(NavigationViewItem).IsAssignableFrom(type)) return "nui-navitem";
+        if (typeof(NavigationViewItemHeader).IsAssignableFrom(type)) return "nui-navitem-header";
+        if (typeof(NavigationViewItemSeparator).IsAssignableFrom(type)) return "hr";
         if (typeof(Sheet).IsAssignableFrom(type)) return "nui-sheet";
         if (typeof(MenuGroup).IsAssignableFrom(type)) return MenuGroupTag;
         if (typeof(MenuSeparator).IsAssignableFrom(type)) return MenuSeparatorTag;
@@ -413,6 +421,10 @@ internal static class HtmlTagMapping
             "resizablepanel" => ResizablePanelTag,
             "resizablehandle" => ResizableHandleTag,
             "splitview" => "nui-splitview",
+            "navigationview" => "nav",
+            "navigationviewitem" => "nui-navitem",
+            "navigationviewitemheader" => "nui-navitem-header",
+            "navigationviewitemseparator" => "hr",
             "button" => ButtonTag,
             "canvas" or "canvasview" or "viewport3d" => CanvasTag,
             "input" => InputTag,

@@ -403,6 +403,45 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["IsPaneOpen"] = XamlPropertyKind.Boolean,
                 ["OpenPaneLength"] = XamlPropertyKind.Double,
                 ["CompactPaneLength"] = XamlPropertyKind.Double
+            },
+            ["NavigationView"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["IsPaneOpen"] = XamlPropertyKind.Boolean,
+                ["IsPaneToggleButtonVisible"] = XamlPropertyKind.Boolean,
+                ["IsSettingsVisible"] = XamlPropertyKind.Boolean,
+                ["OpenPaneLength"] = XamlPropertyKind.Double,
+                ["CompactPaneLength"] = XamlPropertyKind.Double
+            },
+            ["NavigationViewItem"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["Content"] = XamlPropertyKind.String,
+                ["Tag"] = XamlPropertyKind.String,
+                ["Icon"] = XamlPropertyKind.String,
+                ["IsSelected"] = XamlPropertyKind.Boolean,
+                ["IsExpanded"] = XamlPropertyKind.Boolean
+            },
+            ["NavigationViewItemHeader"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["Content"] = XamlPropertyKind.String
+            },
+            ["NavigationViewItemSeparator"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean
             }
         };
 
@@ -430,6 +469,18 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             ["SplitView"] = new Dictionary<string, PropertyElementTarget>(StringComparer.Ordinal)
             {
                 ["Pane"] = new PropertyElementTarget("Pane", IsCollection: false)
+            },
+            ["NavigationView"] = new Dictionary<string, PropertyElementTarget>(StringComparer.Ordinal)
+            {
+                ["MenuItems"] = new PropertyElementTarget("MenuItems", IsCollection: true),
+                ["FooterMenuItems"] = new PropertyElementTarget("FooterMenuItems", IsCollection: true),
+                ["PaneHeader"] = new PropertyElementTarget("PaneHeader", IsCollection: false),
+                ["PaneFooter"] = new PropertyElementTarget("PaneFooter", IsCollection: false),
+                ["Header"] = new PropertyElementTarget("Header", IsCollection: false)
+            },
+            ["NavigationViewItem"] = new Dictionary<string, PropertyElementTarget>(StringComparer.Ordinal)
+            {
+                ["MenuItems"] = new PropertyElementTarget("MenuItems", IsCollection: true)
             },
             ["Viewport3D"] = new Dictionary<string, PropertyElementTarget>(StringComparer.Ordinal)
             {
