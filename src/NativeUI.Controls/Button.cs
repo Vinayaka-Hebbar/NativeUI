@@ -145,7 +145,7 @@ public class Button : View, ITextSource
     private void OnTextPropertyChanged()
     {
         InvalidateStyle();
-        InvalidateVisual();
+        InvalidateMeasure();
     }
 
     private void OnCommandPropertyChanged(ICommand? oldCommand, ICommand? newCommand)

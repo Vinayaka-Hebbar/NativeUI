@@ -10,7 +10,7 @@ public class Svg : UIElement, IIntrinsicSize
     /// <summary>Identifies the ViewBox bindable property.</summary>
     public static readonly BindableProperty<Rect> ViewBoxProperty =
         BindableProperty.Create<Svg, Rect>(nameof(ViewBox), defaultValue: new Rect(0, 0, 300, 150),
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>Gets or sets the ViewBox value.</summary>
     public Rect ViewBox
@@ -22,7 +22,7 @@ public class Svg : UIElement, IIntrinsicSize
     /// <summary>Identifies the Definition bindable property.</summary>
     public static readonly BindableProperty<SvgNode?> DefinitionProperty =
         BindableProperty.Create<Svg, SvgNode?>(nameof(Definition), defaultValue: null,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>Gets or sets the Definition value.</summary>
     public SvgNode? Definition

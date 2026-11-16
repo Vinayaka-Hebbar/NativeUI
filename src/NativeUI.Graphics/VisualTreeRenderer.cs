@@ -23,7 +23,7 @@ public sealed class VisualTreeRenderer : IDisposable
     private static readonly Color s_darkSelectionColor = Color.FromRgbBytes(96, 165, 250, 96);
 
     private readonly LayoutEngine _layoutEngine;
-    private readonly RetainedTextMeasurer _textMeasurer;
+    private readonly RetainedTextMeasurer _drawTextMeasurer;
     private readonly ITextMeasurer _overlayTextMeasurer;
     private bool _disposed;
     private readonly DrawingResourceCache _resources = new();
@@ -36,9 +36,9 @@ public sealed class VisualTreeRenderer : IDisposable
     public VisualTreeRenderer(ITextMeasurer textMeasurer)
     {
         ArgumentNullException.ThrowIfNull(textMeasurer);
-        _textMeasurer = new RetainedTextMeasurer(textMeasurer);
+        _drawTextMeasurer = new RetainedTextMeasurer(textMeasurer);
         _overlayTextMeasurer = textMeasurer;
-        _layoutEngine = new LayoutEngine(_textMeasurer);
+        _layoutEngine = new LayoutEngine(textMeasurer);
     }
 
     /// <summary>
@@ -75,19 +75,8 @@ public sealed class VisualTreeRenderer : IDisposable
         context.UseResources(_resources);
         _resources.BeginPass();
         long layoutStart = Stopwatch.GetTimestamp();
-        _textMeasurer.BeginPass();
-        LayoutBox rootBox;
-        try
-        {
-            rootBox = _layoutEngine.ComputeLayout(root, logicalViewport);
-            PortalBoxes = LayoutPortals(root, rootBox, logicalViewport);
-            _textMeasurer.CommitPass();
-        }
-        catch
-        {
-            _textMeasurer.RollbackPass();
-            throw;
-        }
+        LayoutBox rootBox = _layoutEngine.ComputeLayout(root, logicalViewport);
+        PortalBoxes = LayoutPortals(root, rootBox, logicalViewport);
 
         NotifySizeChanged(rootBox);
         foreach (LayoutBox portalBox in PortalBoxes)
@@ -97,6 +86,7 @@ public sealed class VisualTreeRenderer : IDisposable
 
         TimeSpan layoutDuration = Stopwatch.GetElapsedTime(layoutStart);
 
+        _drawTextMeasurer.BeginPass();
         context.Save();
         _currentRoot = root;
         _pixelScale = scaleFactor > 0 ? scaleFactor : 1;
@@ -116,6 +106,13 @@ public sealed class VisualTreeRenderer : IDisposable
             {
                 overlay.Draw(context, pass);
             }
+
+            _drawTextMeasurer.CommitPass();
+        }
+        catch
+        {
+            _drawTextMeasurer.RollbackPass();
+            throw;
         }
         finally
         {
@@ -127,7 +124,8 @@ public sealed class VisualTreeRenderer : IDisposable
     }
 
     /// <summary>
-    /// Disposes the retained text layouts. Layout boxes returned by <see cref="Render"/> can no longer be drawn.
+    /// Releases the retained layout of the last rendered tree and the fallback text layouts. Layout boxes returned by
+    /// <see cref="Render"/> can no longer be drawn.
     /// </summary>
     public void Dispose()
     {
@@ -137,7 +135,13 @@ public sealed class VisualTreeRenderer : IDisposable
         }
 
         _disposed = true;
-        _textMeasurer.Dispose();
+        _drawTextMeasurer.Dispose();
+        _currentRoot?.ReleaseLayout();
+        foreach (LayoutBox portalBox in PortalBoxes)
+        {
+            (portalBox.Element as UIElement)?.ReleaseLayout();
+        }
+
         foreach (Image image in _images) image.Detach();
         _images.Clear();
         _resources.Dispose();
@@ -402,7 +406,7 @@ public sealed class VisualTreeRenderer : IDisposable
             }
             else if (box.Element is Text textControl && !string.IsNullOrEmpty(textControl.TextContent))
             {
-                ITextLayout textLayout = box.TextLayout ?? _textMeasurer.CreateTextLayout(
+                ITextLayout textLayout = box.TextLayout ?? _drawTextMeasurer.CreateTextLayout(
                     textControl.TextContent,
                     box.ContentBox.Size,
                     style);
@@ -419,7 +423,7 @@ public sealed class VisualTreeRenderer : IDisposable
             }
             else if (box.Element is Button button && !string.IsNullOrEmpty(button.Text) && button.Children.Count == 0)
             {
-                ITextLayout textLayout = box.TextLayout ?? _textMeasurer.CreateTextLayout(
+                ITextLayout textLayout = box.TextLayout ?? _drawTextMeasurer.CreateTextLayout(
                     button.Text,
                     box.ContentBox.Size,
                     style);
@@ -994,8 +998,8 @@ public sealed class VisualTreeRenderer : IDisposable
     }
 
     /// <summary>
-    /// Reuses shaped layouts between layout passes while text, typography, and available size are unchanged,
-    /// and disposes layouts that the latest pass no longer uses. Color changes never affect the cache key.
+    /// Reuses shaped layouts between draw passes for text that has no retained layout in its layout node, and disposes
+    /// layouts that the latest pass no longer uses. Color changes never affect the cache key.
     /// </summary>
     private sealed class RetainedTextMeasurer(ITextMeasurer inner) : ITextMeasurer, IDisposable
     {

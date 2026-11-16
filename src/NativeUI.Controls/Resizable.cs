@@ -118,6 +118,6 @@ public class Resizable : View, IResizableLayoutNode
             }
         }
 
-        InvalidateVisual();
+        InvalidateMeasure();
     }
 }

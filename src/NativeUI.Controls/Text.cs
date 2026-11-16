@@ -43,7 +43,7 @@ public class Text : UIElement, ITextSource
             {
                 owner._textLayout = null;
                 owner.ClampSelection();
-                owner.InvalidateVisual();
+                owner.InvalidateMeasure();
             });
 
     /// <summary>
@@ -306,7 +306,7 @@ public class Text : UIElement, ITextSource
 
         _hoveredHyperlink = null;
         ClampSelection();
-        InvalidateVisual();
+        InvalidateMeasure();
         InlinesChanged?.Invoke(this, EventArgs.Empty);
     }
 

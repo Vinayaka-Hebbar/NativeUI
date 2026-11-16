@@ -138,7 +138,7 @@ public class Image : UIElement, IIntrinsicSize
         _cancellation = null;
         ClearContent();
         SetValue(IsLoadingProperty, false);
-        InvalidateVisual();
+        InvalidateMeasure();
         if (_decoder is null || Source is null) return;
         _cancellation = new CancellationTokenSource();
         SetValue(IsLoadingProperty, true);
@@ -194,7 +194,7 @@ public class Image : UIElement, IIntrinsicSize
                 _vector.Parent = this;
             }
             SetValue(IsLoadingProperty, false);
-            InvalidateVisual();
+            InvalidateMeasure();
             if (generation != _generation || _disposed) return;
             if (failure is not null) ImageFailed?.Invoke(this, new ImageFailedEventArgs(source, failure));
             else ImageOpened?.Invoke(this, EventArgs.Empty);

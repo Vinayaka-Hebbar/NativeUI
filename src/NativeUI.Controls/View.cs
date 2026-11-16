@@ -101,7 +101,7 @@ public class View : UIElement, IView, IScrollContainer
 
         _scroll = _scroll with { Offset = offset };
         ScrollChanged?.Invoke(this, EventArgs.Empty);
-        InvalidateVisual();
+        InvalidateArrange();
     }
 
     /// <summary>
@@ -377,7 +377,7 @@ public class View : UIElement, IView, IScrollContainer
                 }
             }
 
-            InvalidateVisual();
+            InvalidateMeasure();
             return;
         }
 
@@ -405,7 +405,7 @@ public class View : UIElement, IView, IScrollContainer
                 child.Parent = this;
             }
 
-            InvalidateVisual();
+            InvalidateMeasure();
             return;
         }
 
@@ -433,7 +433,7 @@ public class View : UIElement, IView, IScrollContainer
             }
         }
 
-        InvalidateVisual();
+        InvalidateMeasure();
     }
 
     /// <summary>Validates a child before collection mutation, allowing semantic containers to constrain descendants.</summary>

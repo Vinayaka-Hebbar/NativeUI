@@ -16,7 +16,7 @@ public class Grid : View, IGridLayoutNode
         BindableProperty.Create<Grid, IReadOnlyList<GridLength>>(
             nameof(Rows),
             defaultValue: [],
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>
     /// Identifies the <see cref="Columns"/> bindable property.
@@ -25,7 +25,7 @@ public class Grid : View, IGridLayoutNode
         BindableProperty.Create<Grid, IReadOnlyList<GridLength>>(
             nameof(Columns),
             defaultValue: [],
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>
     /// Identifies the <see cref="RowSpacing"/> bindable property.
@@ -34,7 +34,7 @@ public class Grid : View, IGridLayoutNode
         BindableProperty.Create<Grid, double>(
             nameof(RowSpacing),
             defaultValue: 0,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>
     /// Identifies the <see cref="ColumnSpacing"/> bindable property.
@@ -43,7 +43,7 @@ public class Grid : View, IGridLayoutNode
         BindableProperty.Create<Grid, double>(
             nameof(ColumnSpacing),
             defaultValue: 0,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>
     /// Identifies the attached zero-based row of a child.
@@ -189,6 +189,6 @@ public class Grid : View, IGridLayoutNode
         return BindableProperty.CreateAttached<Grid, int>(
             name,
             defaultValue,
-            static (target, _, _) => (target as UIElement)?.InvalidateVisual());
+            static (target, _, _) => (target as UIElement)?.InvalidateMeasure());
     }
 }

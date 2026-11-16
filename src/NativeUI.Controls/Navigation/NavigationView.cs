@@ -945,7 +945,7 @@ public class NavigationView : ContentControl
             _isSyncingPaneOpen = false;
         }
 
-        InvalidateVisual();
+        InvalidateMeasure();
     }
 
     private void UpdateToggleButtonVisibility()
@@ -987,7 +987,7 @@ public class NavigationView : ContentControl
 
         UpdateToggleButtonVisibility();
         SyncHostChildren();
-        InvalidateVisual();
+        InvalidateMeasure();
     }
 
     private static SplitViewDisplayMode ToSplitViewDisplayMode(NavigationViewPaneDisplayMode mode)

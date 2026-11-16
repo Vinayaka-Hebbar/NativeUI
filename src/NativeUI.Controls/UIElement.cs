@@ -18,6 +18,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     private SelectionStyle _selectionStyle = SelectionStyle.Default;
     private Theme _computedTheme = Theme.Light;
     private UIElement? _parent;
+    private LayoutState? _layoutState;
     private Control? _templatedParent;
     private string? _partName;
     private INativeHandle? _nativeHandle;
@@ -835,6 +836,8 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
 
             UIElement? previousParent = _parent;
             _parent = value;
+            previousParent?.InvalidateMeasure();
+            InvalidateMeasure();
             if (VisualRoot is UIElement previousRoot && !ReferenceEquals(previousRoot, this))
             {
                 DetachFromVisualTree(previousRoot, previousParent);
@@ -1115,6 +1118,13 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// <inheritdoc />
     IReadOnlyList<ILayoutNode> ILayoutNode.LayoutChildren => GetLayoutChildren();
 
+    /// <inheritdoc />
+    LayoutState? ILayoutNode.LayoutState
+    {
+        get => _layoutState;
+        set => _layoutState = value;
+    }
+
     /// <summary>
     /// Invalidates and recomputes the element's <see cref="ComputedStyle"/> and propagates style invalidation.
     /// </summary>
@@ -1273,7 +1283,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
 
         OnVisibilityChanged();
         VisibilityChanged?.Invoke(this, EventArgs.Empty);
-        InvalidateVisual();
+        InvalidateMeasure();
     }
 
     /// <summary>
@@ -1392,6 +1402,49 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
+    /// Invalidates the measurement of this element and of every ancestor whose size can depend on it, then requests a frame.
+    /// </summary>
+    internal void InvalidateMeasure()
+    {
+        for (UIElement? element = this; element is not null; element = element._parent)
+        {
+            element._layoutState?.InvalidateMeasure();
+        }
+
+        InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Invalidates the arrangement of this element and of every ancestor that positions it, then requests a frame.
+    /// </summary>
+    internal void InvalidateArrange()
+    {
+        for (UIElement? element = this; element is not null; element = element._parent)
+        {
+            element._layoutState?.InvalidateArrange();
+        }
+
+        InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Releases the retained layout results of this element and of its descendants, which disposes their text layouts.
+    /// </summary>
+    internal void ReleaseLayout()
+    {
+        _layoutState?.ReleaseTextLayout();
+        _layoutState = null;
+        IReadOnlyList<ILayoutNode> children = GetLayoutChildren();
+        for (int i = 0; i < children.Count; i++)
+        {
+            if (children[i] is UIElement child)
+            {
+                child.ReleaseLayout();
+            }
+        }
+    }
+
+    /// <summary>
     /// Returns the child layout nodes for container controls.
     /// </summary>
     protected virtual IReadOnlyList<ILayoutNode> GetLayoutChildren()
@@ -1412,6 +1465,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
 
             _animator?.Cancel();
             _animator = null;
+            _layoutState?.ReleaseTextLayout();
             _nativeHandle?.Dispose();
             _nativeHandle = null;
             _routedHandlers?.Dispose();
@@ -1497,7 +1551,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         _computedStyle = computedStyle;
         _selectionStyle = selectionStyle;
         _computedTheme = theme;
-        InvalidateVisual();
+        InvalidateMeasure();
     }
 
     private string FindScopeTypeName()

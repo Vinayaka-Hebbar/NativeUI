@@ -16,7 +16,7 @@ public class ResizablePanel : View, IResizablePanelLayoutNode
         BindableProperty.Create<ResizablePanel, double>(
             nameof(DefaultSize),
             defaultValue: 0.0,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>
     /// Identifies the <see cref="Size"/> bindable property.
@@ -25,7 +25,7 @@ public class ResizablePanel : View, IResizablePanelLayoutNode
         BindableProperty.Create<ResizablePanel, double>(
             nameof(Size),
             defaultValue: 0.0,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>
     /// Identifies the <see cref="MinSize"/> bindable property.
@@ -34,7 +34,7 @@ public class ResizablePanel : View, IResizablePanelLayoutNode
         BindableProperty.Create<ResizablePanel, double>(
             nameof(MinSize),
             defaultValue: 0.0,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>
     /// Identifies the <see cref="MaxSize"/> bindable property.
@@ -43,7 +43,7 @@ public class ResizablePanel : View, IResizablePanelLayoutNode
         BindableProperty.Create<ResizablePanel, double>(
             nameof(MaxSize),
             defaultValue: 100.0,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>
     /// Identifies the <see cref="IsCollapsed"/> bindable property.
@@ -52,7 +52,7 @@ public class ResizablePanel : View, IResizablePanelLayoutNode
         BindableProperty.Create<ResizablePanel, bool>(
             nameof(IsCollapsed),
             defaultValue: false,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>
     /// Identifies the <see cref="CollapsedSize"/> bindable property.
@@ -61,7 +61,7 @@ public class ResizablePanel : View, IResizablePanelLayoutNode
         BindableProperty.Create<ResizablePanel, double>(
             nameof(CollapsedSize),
             defaultValue: 0.0,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <inheritdoc />
     public override string TagName => "resizablepanel";

@@ -28,7 +28,7 @@ public class List : Selector, IStackLayoutNode
         BindableProperty.Create<List, double>(
             nameof(ItemSpacing),
             defaultValue: 0,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <inheritdoc />
     public override string TagName => "list";

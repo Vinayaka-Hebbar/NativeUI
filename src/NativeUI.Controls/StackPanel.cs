@@ -15,7 +15,7 @@ public class StackPanel : View, IStackLayoutNode
         BindableProperty.Create<StackPanel, Orientation>(
             nameof(Orientation),
             defaultValue: Orientation.Vertical,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>
     /// Identifies the <see cref="Spacing"/> bindable property.
@@ -24,7 +24,7 @@ public class StackPanel : View, IStackLayoutNode
         BindableProperty.Create<StackPanel, double>(
             nameof(Spacing),
             defaultValue: 0,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>
     /// Identifies the <see cref="HorizontalAlignment"/> bindable property.
@@ -33,7 +33,7 @@ public class StackPanel : View, IStackLayoutNode
         BindableProperty.Create<StackPanel, Alignment>(
             nameof(HorizontalAlignment),
             defaultValue: Alignment.Start,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>
     /// Gets or sets where a horizontal stack places its children within its width. A vertical stack ignores this.

@@ -37,7 +37,7 @@ public class TableRow : View, IGridLayoutNode
         BindableProperty.Create<TableRow, IReadOnlyList<GridLength>>(
             nameof(ColumnWidths),
             defaultValue: [],
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     private readonly ObservableCollection<TableCell> _cells = [];
     private Control? _owner;
@@ -174,7 +174,7 @@ public class TableRow : View, IGridLayoutNode
             }
         }
 
-        InvalidateVisual();
+        InvalidateMeasure();
     }
 
     private void OnIsSelectedChanged(bool isSelected)

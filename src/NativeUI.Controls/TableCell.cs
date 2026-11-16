@@ -15,7 +15,7 @@ public class TableCell : ContentControl
         BindableProperty.Create<TableCell, int>(
             nameof(ColumnSpan),
             defaultValue: 1,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>
     /// Identifies the sort direction that a column header cell shows.

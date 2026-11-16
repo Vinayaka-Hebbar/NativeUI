@@ -21,13 +21,23 @@ public interface ILayoutNode
     /// Gets the child layout nodes of this element.
     /// </summary>
     IReadOnlyList<ILayoutNode> LayoutChildren { get; }
+
+    /// <summary>
+    /// Gets or sets the retained desktop layout results of the element. Only <see cref="LayoutEngine"/> allocates it.
+    /// </summary>
+    internal LayoutState? LayoutState { get; set; }
 }
 
 /// <summary>
 /// Calculates CSS box-model geometry (<c>margin</c>, <c>padding</c>, <c>width</c>, <c>height</c>,
 /// block/vertical flow, and text measurement) for a tree of <see cref="ILayoutNode"/> elements.
 /// </summary>
-public sealed class LayoutEngine
+/// <remarks>
+/// Layout runs in two passes. <c>Measure</c> resolves the size of each node and the flow offsets of its children. It does
+/// not depend on where the node is placed. <c>Arrange</c> positions out-of-flow children and applies scrolling and sticky
+/// offsets. The results are retained in the <see cref="LayoutState"/> of each node.
+/// </remarks>
+public sealed partial class LayoutEngine
 {
     private readonly ITextMeasurer _textMeasurer;
 
@@ -51,18 +61,168 @@ public sealed class LayoutEngine
             return new LayoutBox(root, root.ComputedStyle, Rect.Empty, Rect.Empty, []);
         }
 
-        double width = Math.Max(0, viewport.Width);
-        double height = Math.Max(0, viewport.Height);
-        Size clampedViewport = new(width, height);
-        Rect viewportRect = new(0, 0, width, height);
-        return LayoutNodeRecursive(root, Point.Zero, clampedViewport, viewportRect, clampedViewport);
+        LayoutConstraints constraints = new(new Size(Math.Max(0, viewport.Width), Math.Max(0, viewport.Height)));
+        Measure(root, constraints);
+
+        LayoutState state = GetState(root);
+        Thickness margin = root.ComputedStyle.Margin;
+        state.VisualOffset = new Point(margin.Left, margin.Top);
+        state.Bounds = new Rect(state.VisualOffset.X, state.VisualOffset.Y, state.RenderSize.Width, state.RenderSize.Height);
+        Rect viewportBounds = new(0, 0, constraints.Viewport.Width, constraints.Viewport.Height);
+        Arrange(root, state.VisualOffset, viewportBounds, constraints.Viewport);
+
+        return CreateBox(root, Point.Zero);
+    }
+
+    private static LayoutState GetState(ILayoutNode node)
+    {
+        return node.LayoutState ??= new LayoutState();
+    }
+
+    /// <summary>
+    /// Resolves the border-box size of <paramref name="node"/> and the flow offsets of its children, or returns the retained
+    /// size when the node and <paramref name="constraints"/> are unchanged since the last pass. The result does not depend
+    /// on where the node is placed.
+    /// </summary>
+    private Size Measure(ILayoutNode node, LayoutConstraints constraints)
+    {
+        LayoutState state = GetState(node);
+        if (state.IsMeasureValid && state.PreviousConstraints == constraints)
+        {
+            return state.DesiredSize;
+        }
+
+        state.IsMeasureValid = false;
+        state.PreviousConstraints = constraints;
+
+        ComputedStyle style = node.ComputedStyle;
+        Thickness insets = style.ContentInsets;
+        Size availableSize = constraints.AvailableSize;
+        double borderWidth = ResolveBorderWidth(node, availableSize.Width);
+        double contentWidth = Math.Max(0, borderWidth - insets.Horizontal);
+        double? specifiedHeight = ResolveSpecifiedHeight(style, availableSize.Height);
+
+        if (node is IIntrinsicSize intrinsic)
+        {
+            return MeasureIntrinsic(state, intrinsic, style, availableSize, borderWidth, contentWidth, specifiedHeight);
+        }
+
+        if (node is ITextSource { Text: not null } source)
+        {
+            return MeasureText(state, source, style, borderWidth, contentWidth, specifiedHeight);
+        }
+
+        double? contentDefiniteHeight = specifiedHeight is double height ? Math.Max(0, height - insets.Vertical) : null;
+        double borderInset = style.BorderWidth * 2;
+        double paddingBoxWidth = Math.Max(0, borderWidth - borderInset);
+        Point contentOrigin = new(insets.Left, insets.Top);
+        LayoutConstraints childConstraints = constraints with
+        {
+            ContainingBlock = style.IsPositioned ? new Size(paddingBoxWidth, 0) : constraints.ContainingBlock
+        };
+
+        Size content = node switch
+        {
+            IGridLayoutNode grid => MeasureGrid(grid, contentOrigin, contentWidth, contentDefiniteHeight, childConstraints),
+            IResizableLayoutNode resizable => MeasureResizable(resizable, contentOrigin, contentWidth, contentDefiniteHeight, childConstraints),
+            IStackLayoutNode { Orientation: Orientation.Horizontal } stack => MeasureHorizontalStack(stack, contentOrigin, contentWidth, childConstraints),
+            IStackLayoutNode stack => MeasureBlock(stack, GetStackSpacing(stack), contentOrigin, contentWidth, childConstraints),
+            _ => MeasureBlock(node, 0, contentOrigin, contentWidth, childConstraints)
+        };
+
+        double borderHeight = specifiedHeight ?? ClampHeight(style, content.Height + insets.Vertical);
+        Size outOfFlowContainingBlock = style.IsPositioned
+            ? new Size(paddingBoxWidth, Math.Max(0, borderHeight - borderInset))
+            : constraints.ContainingBlock;
+        MeasureOutOfFlowChildren(node, childConstraints with { ContainingBlock = outOfFlowContainingBlock });
+
+        state.Extent = new Size(content.Width, content.Height);
+        state.ReleaseTextLayout();
+        return Complete(state, new Size(borderWidth, borderHeight));
+    }
+
+    /// <summary>
+    /// Records the result of a measure pass in <paramref name="state"/>.
+    /// </summary>
+    private static Size Complete(LayoutState state, Size size)
+    {
+        state.DesiredSize = size;
+        state.RenderSize = size;
+        state.IsMeasureValid = true;
+        return size;
+    }
+
+    /// <summary>
+    /// Positions out-of-flow children, applies scrolling and sticky offsets, and arranges all children. The
+    /// <paramref name="origin"/> is the absolute position of the border box of <paramref name="node"/>, and
+    /// <paramref name="containingBlock"/> is the absolute rectangle that non-positioned descendants inherit.
+    /// </summary>
+    private void Arrange(ILayoutNode node, Point origin, Rect containingBlock, Size viewport)
+    {
+        LayoutState state = GetState(node);
+        state.IsArrangeValid = true;
+        if (!LaysOutChildren(node))
+        {
+            return;
+        }
+
+        ComputedStyle style = node.ComputedStyle;
+        Size size = state.DesiredSize;
+        double borderWidth = style.BorderWidth;
+        Rect paddingBox = new(
+            origin.X + borderWidth,
+            origin.Y + borderWidth,
+            Math.Max(0, size.Width - (borderWidth * 2)),
+            Math.Max(0, size.Height - (borderWidth * 2)));
+        Rect outOfFlowContainingBlock = style.IsPositioned ? paddingBox : containingBlock;
+
+        List<ILayoutNode> flowChildren = [];
+        List<ILayoutNode> outOfFlowChildren = [];
+        IReadOnlyList<ILayoutNode> children = node.LayoutChildren;
+        for (int i = 0; i < children.Count; i++)
+        {
+            ILayoutNode child = children[i];
+            if (IsInFlow(child))
+            {
+                LayoutState childState = GetState(child);
+                childState.Bounds = new Rect(childState.VisualOffset.X, childState.VisualOffset.Y, childState.RenderSize.Width, childState.RenderSize.Height);
+                flowChildren.Add(child);
+            }
+            else if (IsPositionedOutOfFlow(child))
+            {
+                ArrangeOutOfFlowChild(child, GetContainingBlock(child, outOfFlowContainingBlock, viewport), origin);
+                outOfFlowChildren.Add(child);
+            }
+        }
+
+        Point scrollOffset = ArrangeScrollContainer(node, state, flowChildren, outOfFlowChildren);
+        Rect inFlowContainingBlock = style.IsPositioned
+            ? new Rect(paddingBox.X - scrollOffset.X, paddingBox.Y - scrollOffset.Y, paddingBox.Width, 0)
+            : containingBlock;
+
+        for (int i = 0; i < flowChildren.Count; i++)
+        {
+            ArrangeChild(flowChildren[i], origin, inFlowContainingBlock, viewport);
+        }
+
+        for (int i = 0; i < outOfFlowChildren.Count; i++)
+        {
+            ILayoutNode child = outOfFlowChildren[i];
+            ArrangeChild(child, origin, GetContainingBlock(child, outOfFlowContainingBlock, viewport), viewport);
+        }
+    }
+
+    private void ArrangeChild(ILayoutNode child, Point parentOrigin, Rect containingBlock, Size viewport)
+    {
+        Rect bounds = GetState(child).Bounds;
+        Arrange(child, new Point(parentOrigin.X + bounds.X, parentOrigin.Y + bounds.Y), containingBlock, viewport);
     }
 
     /// <summary>
     /// Returns the border-box width of <paramref name="node"/> within <paramref name="availableWidth"/>, clamped to its
     /// <see cref="ComputedStyle.MinWidth"/> and <see cref="ComputedStyle.MaxWidth"/>.
     /// </summary>
-    private double ResolveBorderWidth(ILayoutNode node, double availableWidth, double? knownMaxContentWidth = null)
+    private double ResolveBorderWidth(ILayoutNode node, double availableWidth)
     {
         ComputedStyle style = node.ComputedStyle;
         double fillWidth = Math.Max(0, availableWidth - style.Margin.Horizontal);
@@ -79,9 +239,9 @@ public sealed class LayoutEngine
             {
                 { IsPixels: true } pixels => pixels.Value,
                 { IsPercent: true } percent => Math.Max(0, availableWidth * percent.Value / 100.0),
-                { IsFitContent: true } => Math.Min(knownMaxContentWidth ?? MeasureMaxContentWidth(node), fillWidth),
+                { IsFitContent: true } => Math.Min(MeasureMaxContentWidth(node), fillWidth),
                 _ => (style.IsOutOfFlow && !(style.Left.HasValue && style.Right.HasValue))
-                    ? Math.Min(knownMaxContentWidth ?? MeasureMaxContentWidth(node), fillWidth)
+                    ? Math.Min(MeasureMaxContentWidth(node), fillWidth)
                     : fillWidth
             };
         }
@@ -153,938 +313,28 @@ public sealed class LayoutEngine
     }
 
     /// <summary>
-    /// Returns the border-box width of <paramref name="node"/> when none of its text wraps.
+    /// Returns whether <paramref name="node"/> takes part in the normal flow of its parent.
     /// </summary>
-    private double MeasureMaxContentWidth(ILayoutNode node)
+    private static bool IsInFlow(ILayoutNode node)
     {
-        if (!node.IsVisible)
-        {
-            return 0;
-        }
-
-        ComputedStyle style = node.ComputedStyle;
-        double width;
-        if (style.Width is { IsPixels: true } fixedWidth)
-        {
-            width = fixedWidth.Value;
-        }
-        else if (node is IIntrinsicSize intrinsic)
-        {
-            width = intrinsic.GetIntrinsicSize().Width + style.ContentInsets.Horizontal;
-        }
-        else if (node is ITextSource { Text: not null } source)
-        {
-            Size unconstrained = new(double.PositiveInfinity, double.PositiveInfinity);
-            Size measured = _textMeasurer.MeasureText(source, unconstrained, style);
-            width = measured.Width + style.ContentInsets.Horizontal;
-        }
-        else
-        {
-            width = MeasureMaxContentOfChildren(node) + style.ContentInsets.Horizontal;
-        }
-
-        // Only pixel limits apply. The containing width is unknown during measurement.
-        return ClampWidth(style, width, double.PositiveInfinity);
+        return node.IsVisible && !node.ComputedStyle.IsOutOfFlow;
     }
 
     /// <summary>
-    /// Returns the logical pixels between adjacent children of <paramref name="stack"/>. A positive
-    /// <see cref="IStackLayoutNode.Spacing"/> overrides the computed <c>gap</c>.
+    /// Returns whether the parent of <paramref name="node"/> positions it against a containing block. Portals are excluded
+    /// because the host lays each one out as its own root.
     /// </summary>
-    private static double GetStackSpacing(IStackLayoutNode stack)
+    private static bool IsPositionedOutOfFlow(ILayoutNode node)
     {
-        double spacing = stack.Spacing > 0 ? stack.Spacing : stack.ComputedStyle.Gap;
-        return double.IsFinite(spacing) ? Math.Max(0, spacing) : 0;
-    }
-
-    private double MeasureMaxContentOfChildren(ILayoutNode node)
-    {
-        if (node is IGridLayoutNode grid)
-        {
-            return MeasureMaxContentOfGrid(grid);
-        }
-
-        bool horizontal = node is IStackLayoutNode { Orientation: Orientation.Horizontal };
-        double width = 0;
-        int count = 0;
-        IReadOnlyList<ILayoutNode> children = node.LayoutChildren;
-        for (int i = 0; i < children.Count; i++)
-        {
-            ILayoutNode child = children[i];
-            if (!child.IsVisible)
-            {
-                continue;
-            }
-
-            ComputedStyle style = child.ComputedStyle;
-            if (style.IsOutOfFlow)
-            {
-                continue;
-            }
-
-            double childWidth = MeasureMaxContentWidth(child) + style.Margin.Horizontal;
-            width = horizontal ? width + childWidth : Math.Max(width, childWidth);
-            count++;
-        }
-
-        if (horizontal && count > 1 && node is IStackLayoutNode stack)
-        {
-            width += GetStackSpacing(stack) * (count - 1);
-        }
-
-        return width;
+        return node.IsVisible && node is not IPortalLayoutNode && node.ComputedStyle.IsOutOfFlow;
     }
 
     /// <summary>
-    /// Sizes each non-fixed column to its single-column children, the maximum content width of a grid.
+    /// Returns whether <paramref name="node"/> lays out child nodes, which leaf text and intrinsically sized nodes do not.
     /// </summary>
-    private double MeasureMaxContentOfGrid(IGridLayoutNode grid)
+    private static bool LaysOutChildren(ILayoutNode node)
     {
-        List<GridLength> columns = grid.Columns.Count > 0 ? [.. grid.Columns] : [GridLength.Star()];
-        double[] sizes = new double[columns.Count];
-        for (int i = 0; i < columns.Count; i++)
-        {
-            sizes[i] = columns[i].IsPixels ? Math.Max(0, columns[i].Value) : 0;
-        }
-
-        int rowCount = Math.Max(1, grid.Rows.Count);
-        List<(ILayoutNode Node, GridPlacement Placement)> children = GetGridChildren(grid, rowCount, columns.Count);
-        for (int i = 0; i < children.Count; i++)
-        {
-            (ILayoutNode node, GridPlacement placement) = children[i];
-            if (placement.ColumnSpan == 1 && !columns[placement.Column].IsPixels)
-            {
-                double size = MeasureMaxContentWidth(node) + node.ComputedStyle.Margin.Horizontal;
-                sizes[placement.Column] = Math.Max(sizes[placement.Column], size);
-            }
-        }
-
-        double spacing = double.IsFinite(grid.ColumnSpacing) ? Math.Max(0, grid.ColumnSpacing) : 0;
-        for (int i = 0; i < children.Count; i++)
-        {
-            (ILayoutNode node, GridPlacement placement) = children[i];
-            if (placement.ColumnSpan > 1)
-            {
-                double childWidth = MeasureMaxContentWidth(node) + node.ComputedStyle.Margin.Horizontal;
-                double currentSpan = MeasureSpan(sizes, placement.Column, placement.ColumnSpan, spacing);
-                double missing = childWidth - currentSpan;
-                if (missing > 0)
-                {
-                    int growable = 0;
-                    for (int c = placement.Column; c < placement.Column + placement.ColumnSpan; c++)
-                    {
-                        if (!columns[c].IsPixels)
-                        {
-                            growable++;
-                        }
-                    }
-
-                    if (growable > 0)
-                    {
-                        double add = missing / growable;
-                        for (int c = placement.Column; c < placement.Column + placement.ColumnSpan; c++)
-                        {
-                            if (!columns[c].IsPixels)
-                            {
-                                sizes[c] += add;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return MeasureSpan(sizes, 0, sizes.Length, spacing);
+        return node is not IIntrinsicSize && node is not ITextSource { Text: not null };
     }
 
-    private ContentLayout LayoutVerticalChildren(
-        ILayoutNode node,
-        double spacing,
-        double x,
-        double y,
-        double width,
-        Rect containingBlock,
-        Size viewport)
-    {
-        List<LayoutBox> boxes = [];
-        double currentY = y;
-        double maxWidth = 0;
-        double effectiveSpacing = double.IsFinite(spacing) ? Math.Max(0, spacing) : 0;
-        IReadOnlyList<ILayoutNode> children = node.LayoutChildren;
-        for (int i = 0; i < children.Count; i++)
-        {
-            ILayoutNode child = children[i];
-            if (!child.IsVisible)
-            {
-                continue;
-            }
-
-            ComputedStyle style = child.ComputedStyle;
-            if (style.IsOutOfFlow)
-            {
-                continue;
-            }
-
-            if (boxes.Count > 0)
-            {
-                currentY += effectiveSpacing;
-            }
-
-            Point origin = new(x, currentY);
-            Size available = new(width, double.PositiveInfinity);
-            LayoutBox box = LayoutNodeRecursive(child, origin, available, containingBlock, viewport);
-            boxes.Add(ApplyRelativeOffset(box));
-            currentY += box.BorderBox.Height + style.Margin.Vertical;
-            maxWidth = Math.Max(maxWidth, box.BorderBox.Width + style.Margin.Horizontal);
-        }
-
-        return new ContentLayout(boxes, maxWidth, Math.Max(0, currentY - y));
-    }
-
-    private ContentLayout LayoutResizable(
-        IResizableLayoutNode resizable,
-        double x,
-        double y,
-        double width,
-        double? definiteHeight,
-        Rect containingBlock,
-        Size viewport)
-    {
-        List<LayoutBox> boxes = [];
-        IReadOnlyList<ILayoutNode> children = resizable.LayoutChildren;
-        if (children.Count == 0)
-        {
-            return new ContentLayout(boxes, width, definiteHeight ?? 0);
-        }
-
-        bool isHorizontal = resizable.Orientation == Orientation.Horizontal;
-        double totalMainLength = isHorizontal ? width : (definiteHeight ?? viewport.Height);
-        double crossLength = isHorizontal ? (definiteHeight ?? viewport.Height) : width;
-
-        double handlesTotalLength = 0;
-        double totalPanelShares = 0;
-        int uncollapsedPanelCount = 0;
-
-        for (int i = 0; i < children.Count; i++)
-        {
-            ILayoutNode child = children[i];
-            if (!child.IsVisible)
-            {
-                continue;
-            }
-
-            ComputedStyle childStyle = child.ComputedStyle;
-            if (childStyle.IsOutOfFlow)
-            {
-                continue;
-            }
-
-            if (child is IResizablePanelLayoutNode panel)
-            {
-                if (!panel.IsCollapsed)
-                {
-                    totalPanelShares += Math.Max(0, panel.EffectiveSize);
-                    uncollapsedPanelCount++;
-                }
-            }
-            else
-            {
-                double handleSize = isHorizontal
-                    ? (childStyle.Width switch { { IsPixels: true } p => p.Value, _ => 6.0 })
-                    : (childStyle.Height ?? 6.0);
-                handlesTotalLength += handleSize;
-            }
-        }
-
-        if (totalPanelShares <= 0)
-        {
-            totalPanelShares = uncollapsedPanelCount > 0 ? uncollapsedPanelCount : 1.0;
-        }
-
-        double availablePanelLength = Math.Max(0, totalMainLength - handlesTotalLength);
-        double currentMainPos = isHorizontal ? x : y;
-
-        for (int i = 0; i < children.Count; i++)
-        {
-            ILayoutNode child = children[i];
-            if (!child.IsVisible)
-            {
-                continue;
-            }
-
-            ComputedStyle childStyle = child.ComputedStyle;
-            if (childStyle.IsOutOfFlow)
-            {
-                continue;
-            }
-
-            double childMainLength;
-            if (child is IResizablePanelLayoutNode panel)
-            {
-                if (panel.IsCollapsed)
-                {
-                    childMainLength = 0;
-                }
-                else
-                {
-                    double share = Math.Max(0, panel.EffectiveSize) / totalPanelShares;
-                    childMainLength = share * availablePanelLength;
-                }
-            }
-            else
-            {
-                childMainLength = isHorizontal
-                    ? (childStyle.Width switch { { IsPixels: true } p => p.Value, _ => 6.0 })
-                    : (childStyle.Height ?? 6.0);
-            }
-
-            double childWidth = isHorizontal ? childMainLength : width;
-            double childHeight = isHorizontal ? (childStyle.Height ?? crossLength) : childMainLength;
-            if (!isHorizontal && childStyle.Width is { IsPixels: true } explicitW)
-            {
-                childWidth = explicitW.Value;
-            }
-
-            Point origin = isHorizontal ? new Point(currentMainPos, y) : new Point(x, currentMainPos);
-            Size available = new Size(childWidth, childHeight);
-
-            LayoutBox box = LayoutNodeRecursive(child, origin, available, containingBlock, viewport, childWidth);
-
-            if (box.BorderBox.Width != childWidth || box.BorderBox.Height != childHeight)
-            {
-                Rect newBorderBox = new Rect(origin.X, origin.Y, childWidth, childHeight);
-                Rect newContentBox = new Rect(
-                    origin.X + childStyle.ContentInsets.Left,
-                    origin.Y + childStyle.ContentInsets.Top,
-                    Math.Max(0, childWidth - childStyle.ContentInsets.Horizontal),
-                    Math.Max(0, childHeight - childStyle.ContentInsets.Vertical));
-                box = new LayoutBox(box.Element, box.Style, newBorderBox, newContentBox, box.Children);
-            }
-
-            boxes.Add(ApplyRelativeOffset(box));
-            currentMainPos += childMainLength;
-        }
-
-        double finalWidth = isHorizontal ? totalMainLength : width;
-        double finalHeight = isHorizontal ? crossLength : totalMainLength;
-        return new ContentLayout(boxes, finalWidth, finalHeight);
-    }
-
-    private ContentLayout LayoutHorizontalStack(
-        IStackLayoutNode stack,
-        double x,
-        double y,
-        double width,
-        Rect containingBlock,
-        Size viewport)
-    {
-        List<LayoutBox> boxes = [];
-        double currentX = x;
-        double maxHeight = 0;
-        double spacing = GetStackSpacing(stack);
-        IReadOnlyList<ILayoutNode> children = stack.LayoutChildren;
-        for (int i = 0; i < children.Count; i++)
-        {
-            ILayoutNode child = children[i];
-            if (!child.IsVisible)
-            {
-                continue;
-            }
-
-            ComputedStyle style = child.ComputedStyle;
-            if (style.IsOutOfFlow)
-            {
-                continue;
-            }
-
-            if (boxes.Count > 0)
-            {
-                currentX += spacing;
-            }
-
-            Thickness margin = style.Margin;
-            double remaining = Math.Max(0, x + width - currentX);
-            double desiredWidth = MeasureMaxContentWidth(child);
-            double availableWidth = Math.Min(desiredWidth + margin.Horizontal, remaining);
-
-            Point origin = new(currentX, y);
-            Size available = new(availableWidth, double.PositiveInfinity);
-            LayoutBox box = LayoutNodeRecursive(child, origin, available, containingBlock, viewport, desiredWidth);
-            boxes.Add(ApplyRelativeOffset(box));
-            currentX += box.BorderBox.Width + margin.Horizontal;
-            maxHeight = Math.Max(maxHeight, box.BorderBox.Height + margin.Vertical);
-        }
-
-        double usedWidth = Math.Max(0, currentX - x);
-        double shift = stack.HorizontalAlignment switch
-        {
-            Alignment.End => Math.Max(0, width - usedWidth),
-            Alignment.Center => Math.Max(0, width - usedWidth) / 2.0,
-            _ => 0
-        };
-
-        if (shift > 0)
-        {
-            for (int i = 0; i < boxes.Count; i++)
-            {
-                boxes[i] = boxes[i].Translated(shift, 0);
-            }
-        }
-
-        return new ContentLayout(boxes, usedWidth, maxHeight);
-    }
-
-    /// <summary>
-    /// Resolves columns, lays out each child in its column width to learn its height, resolves rows, then moves each
-    /// child to its cell. Children keep their own height, so a child does not stretch to fill its row.
-    /// </summary>
-    private ContentLayout LayoutGrid(
-        IGridLayoutNode grid,
-        double x,
-        double y,
-        double width,
-        double? definiteHeight,
-        Rect containingBlock,
-        Size viewport)
-    {
-        List<GridLength> rows = grid.Rows.Count > 0 ? [.. grid.Rows] : [GridLength.Star()];
-        List<GridLength> columns = grid.Columns.Count > 0 ? [.. grid.Columns] : [GridLength.Star()];
-        List<(ILayoutNode Node, GridPlacement Placement)> children = GetGridChildren(grid, rows.Count, columns.Count);
-
-        List<(int Track, double ContentSize)> singleColContent = [];
-        for (int i = 0; i < children.Count; i++)
-        {
-            if (children[i].Placement.ColumnSpan == 1)
-            {
-                singleColContent.Add((children[i].Placement.Column, MeasureMaxContentWidth(children[i].Node) + children[i].Node.ComputedStyle.Margin.Horizontal));
-            }
-        }
-
-        double colSpacing = double.IsFinite(grid.ColumnSpacing) ? Math.Max(0, grid.ColumnSpacing) : 0;
-        double rowSpacing = double.IsFinite(grid.RowSpacing) ? Math.Max(0, grid.RowSpacing) : 0;
-        double[] columnWidths = ResolveTracks(columns, colSpacing, width, singleColContent);
-
-        List<LayoutBox> placedAtOrigin = [];
-        for (int i = 0; i < children.Count; i++)
-        {
-            (ILayoutNode node, GridPlacement placement) = children[i];
-            double cellWidth = MeasureSpan(columnWidths, placement.Column, placement.ColumnSpan, colSpacing);
-            Point origin = Point.Zero;
-            Size available = new(cellWidth, double.PositiveInfinity);
-            placedAtOrigin.Add(LayoutNodeRecursive(node, origin, available, containingBlock, viewport));
-        }
-
-        double[] rowHeights = ResolveRowHeights(grid, rows, children, placedAtOrigin, definiteHeight);
-        double[] columnOffsets = GetTrackOffsets(columnWidths, colSpacing);
-        double[] rowOffsets = GetTrackOffsets(rowHeights, rowSpacing);
-
-        List<LayoutBox> boxes = [];
-        for (int i = 0; i < children.Count; i++)
-        {
-            GridPlacement placement = children[i].Placement;
-            double cellX = x + columnOffsets[placement.Column];
-            double cellY = y + rowOffsets[placement.Row];
-            boxes.Add(ApplyRelativeOffset(placedAtOrigin[i].Translated(cellX, cellY)));
-        }
-
-        return new ContentLayout(
-            boxes,
-            MeasureSpan(columnWidths, 0, columnWidths.Length, colSpacing),
-            MeasureSpan(rowHeights, 0, rowHeights.Length, rowSpacing));
-    }
-
-    private double[] ResolveRowHeights(
-        IGridLayoutNode grid,
-        List<GridLength> rows,
-        List<(ILayoutNode Node, GridPlacement Placement)> children,
-        List<LayoutBox> boxes,
-        double? definiteHeight)
-    {
-        double[] heights = new double[rows.Count];
-        for (int i = 0; i < rows.Count; i++)
-        {
-            heights[i] = rows[i].IsPixels ? Math.Max(0, rows[i].Value) : 0;
-        }
-
-        for (int i = 0; i < children.Count; i++)
-        {
-            GridPlacement placement = children[i].Placement;
-            if (placement.RowSpan == 1 && !rows[placement.Row].IsPixels)
-            {
-                heights[placement.Row] = Math.Max(heights[placement.Row], GetOuterHeight(children[i].Node, boxes[i]));
-            }
-        }
-
-        double rowSpacing = double.IsFinite(grid.RowSpacing) ? Math.Max(0, grid.RowSpacing) : 0;
-        // A child spanning rows gives any height the rows lack to the last spanned row that can grow.
-        for (int i = 0; i < children.Count; i++)
-        {
-            GridPlacement placement = children[i].Placement;
-            if (placement.RowSpan <= 1)
-            {
-                continue;
-            }
-
-            double missing = GetOuterHeight(children[i].Node, boxes[i]) - MeasureSpan(heights, placement.Row, placement.RowSpan, rowSpacing);
-            int growRow = Enumerable.Range(placement.Row, placement.RowSpan).LastOrDefault(row => !rows[row].IsPixels, -1);
-            if (missing > 0 && growRow >= 0)
-            {
-                heights[growRow] += missing;
-            }
-        }
-
-        if (definiteHeight is double available)
-        {
-            DistributeToStarRows(rows, heights, available - MeasureSpan(heights, 0, heights.Length, rowSpacing));
-        }
-
-        return heights;
-    }
-
-    /// <summary>
-    /// Gives each star row its weighted share of the free height, without shrinking it below its content.
-    /// </summary>
-    private static void DistributeToStarRows(List<GridLength> rows, double[] heights, double freeHeight)
-    {
-        double totalHeight = freeHeight;
-        double totalWeight = 0;
-        for (int i = 0; i < rows.Count; i++)
-        {
-            if (rows[i].IsStar)
-            {
-                totalHeight += heights[i];
-                totalWeight += Math.Max(0, rows[i].Value);
-            }
-        }
-
-        if (totalWeight <= 0)
-        {
-            return;
-        }
-
-        for (int i = 0; i < rows.Count; i++)
-        {
-            if (rows[i].IsStar)
-            {
-                heights[i] = Math.Max(heights[i], totalHeight * rows[i].Value / totalWeight);
-            }
-        }
-    }
-
-    private static double[] ResolveTracks(
-        List<GridLength> tracks,
-        double spacing,
-        double available,
-        List<(int Track, double ContentSize)> items)
-    {
-        double[] sizes = new double[tracks.Count];
-        double[] contentSizes = new double[tracks.Count];
-
-        for (int i = 0; i < tracks.Count; i++)
-        {
-            sizes[i] = tracks[i].IsPixels ? Math.Max(0, tracks[i].Value) : 0;
-        }
-
-        for (int i = 0; i < items.Count; i++)
-        {
-            (int track, double contentSize) = items[i];
-            contentSizes[track] = Math.Max(contentSizes[track], contentSize);
-            if (tracks[track].IsAuto)
-            {
-                sizes[track] = Math.Max(sizes[track], contentSize);
-            }
-        }
-
-        double fixedAndAuto = MeasureSpan(sizes, 0, sizes.Length, spacing);
-        double free = Math.Max(0, available - fixedAndAuto);
-        double totalWeight = 0;
-        for (int i = 0; i < tracks.Count; i++)
-        {
-            if (tracks[i].IsStar)
-            {
-                totalWeight += Math.Max(0, tracks[i].Value);
-            }
-        }
-
-        for (int i = 0; i < tracks.Count; i++)
-        {
-            if (tracks[i].IsStar)
-            {
-                if (double.IsPositiveInfinity(available))
-                {
-                    sizes[i] = contentSizes[i];
-                }
-                else if (totalWeight > 0)
-                {
-                    sizes[i] = free * tracks[i].Value / totalWeight;
-                }
-            }
-        }
-
-        return sizes;
-    }
-
-    private static List<(ILayoutNode Node, GridPlacement Placement)> GetGridChildren(IGridLayoutNode grid, int rowCount, int columnCount)
-    {
-        List<(ILayoutNode Node, GridPlacement Placement)> children = [];
-        IReadOnlyList<ILayoutNode> allChildren = grid.LayoutChildren;
-        for (int i = 0; i < allChildren.Count; i++)
-        {
-            ILayoutNode child = allChildren[i];
-            if (!child.IsVisible)
-            {
-                continue;
-            }
-
-            if (child.ComputedStyle.IsOutOfFlow)
-            {
-                continue;
-            }
-
-            children.Add((child, ClampPlacement(grid.GetPlacement(child), rowCount, columnCount)));
-        }
-
-        return children;
-    }
-
-    private static GridPlacement ClampPlacement(GridPlacement placement, int rowCount, int columnCount)
-    {
-        int row = Math.Clamp(placement.Row, 0, rowCount - 1);
-        int column = Math.Clamp(placement.Column, 0, columnCount - 1);
-        return new GridPlacement(
-            row,
-            column,
-            Math.Clamp(placement.RowSpan, 1, rowCount - row),
-            Math.Clamp(placement.ColumnSpan, 1, columnCount - column));
-    }
-
-    private static double[] GetTrackOffsets(double[] sizes, double spacing)
-    {
-        double[] offsets = new double[sizes.Length];
-        double offset = 0;
-        for (int i = 0; i < sizes.Length; i++)
-        {
-            offsets[i] = offset;
-            offset += sizes[i] + spacing;
-        }
-
-        return offsets;
-    }
-
-    private static double MeasureSpan(double[] sizes, int start, int count, double spacing)
-    {
-        double total = spacing * Math.Max(0, count - 1);
-        for (int i = start; i < start + count; i++)
-        {
-            total += sizes[i];
-        }
-
-        return total;
-    }
-
-    private static double GetOuterHeight(ILayoutNode node, LayoutBox box)
-    {
-        return box.BorderBox.Height + node.ComputedStyle.Margin.Vertical;
-    }
-
-    private static LayoutBox ApplyRelativeOffset(LayoutBox box)
-    {
-        ComputedStyle style = box.Style;
-        if (style.Position != Position.Relative)
-        {
-            return box;
-        }
-
-        double dx = style.Left.HasValue ? style.Left.Value : (style.Right.HasValue ? -style.Right.Value : 0);
-        double dy = style.Top.HasValue ? style.Top.Value : (style.Bottom.HasValue ? -style.Bottom.Value : 0);
-        return (dx != 0 || dy != 0) ? box.Translated(dx, dy) : box;
-    }
-
-    /// <summary>
-    /// Returns the boxes in CSS paint order: positioned boxes with a negative <c>z-index</c>, then boxes in normal flow,
-    /// then the other positioned boxes by ascending <c>z-index</c>. Boxes with equal values keep tree order.
-    /// </summary>
-    private static List<LayoutBox> OrderForPainting(List<LayoutBox> boxes)
-    {
-        List<LayoutBox> below = [];
-        List<LayoutBox> inFlow = [];
-        List<LayoutBox> above = [];
-        foreach (LayoutBox box in boxes)
-        {
-            if (!box.Style.IsPositioned)
-            {
-                inFlow.Add(box);
-            }
-            else if (box.Style.ZIndex < 0)
-            {
-                below.Add(box);
-            }
-            else
-            {
-                above.Add(box);
-            }
-        }
-
-        List<LayoutBox> ordered = new(boxes.Count);
-        ordered.AddRange(below.OrderBy(static box => box.Style.ZIndex));
-        ordered.AddRange(inFlow);
-        ordered.AddRange(above.OrderBy(static box => box.Style.ZIndex));
-        return ordered;
-    }
-
-    /// <summary>
-    /// Moves a sticky box vertically to stay within the scrollport, inset by its <c>top</c> and <c>bottom</c>, without
-    /// leaving the scroll content.
-    /// </summary>
-    private static LayoutBox ApplyStickyOffset(LayoutBox box, double scrollportTop, double scrollportBottom, double contentTop, double contentBottom)
-    {
-        ComputedStyle style = box.Style;
-        double dy = 0;
-        if (style.Top is double top && box.BorderBox.Y < scrollportTop + top)
-        {
-            dy = Math.Min(scrollportTop + top - box.BorderBox.Y, contentBottom - box.BorderBox.Bottom);
-        }
-        else if (style.Bottom is double bottom && box.BorderBox.Bottom > scrollportBottom - bottom)
-        {
-            dy = Math.Max(scrollportBottom - bottom - box.BorderBox.Bottom, contentTop - box.BorderBox.Y);
-        }
-
-        return dy != 0 ? box.Translated(0, dy) : box;
-    }
-
-    private readonly record struct ContentLayout(List<LayoutBox> Boxes, double Width, double Height);
-
-    private LayoutBox LayoutNodeRecursive(
-        ILayoutNode node,
-        Point origin,
-        Size availableSize,
-        Rect containingBlock,
-        Size viewport,
-        double? knownMaxContentWidth = null)
-    {
-        if (!node.IsVisible)
-        {
-            return new LayoutBox(node, node.ComputedStyle, Rect.Empty, Rect.Empty, []);
-        }
-
-        ComputedStyle style = node.ComputedStyle;
-        Thickness margin = style.Margin;
-        Thickness padding = style.ContentInsets;
-
-        double borderX = origin.X + margin.Left;
-        double borderY = origin.Y + margin.Top;
-        double borderWidth = ResolveBorderWidth(node, availableSize.Width, knownMaxContentWidth);
-        double contentX = borderX + padding.Left;
-        double contentY = borderY + padding.Top;
-        double contentMaxWidth = Math.Max(0, borderWidth - padding.Horizontal);
-
-        double? specifiedHeight = ResolveSpecifiedHeight(style, availableSize.Height);
-
-        if (node is IIntrinsicSize intrinsic)
-        {
-            Size natural = intrinsic.GetIntrinsicSize(new Size(availableSize.Width, specifiedHeight ?? double.PositiveInfinity));
-            double height = specifiedHeight ?? ClampHeight(style, (natural.Width > 0 ? contentMaxWidth * natural.Height / natural.Width : natural.Height) + padding.Vertical);
-            return new LayoutBox(node, style,
-                new Rect(borderX, borderY, borderWidth, height),
-                new Rect(contentX, contentY, contentMaxWidth, Math.Max(0, height - padding.Vertical)), []);
-        }
-
-        if (node is ITextSource { Text: not null } source)
-        {
-            double finalBorderWidth = borderWidth;
-            Size availableTextSize = new(contentMaxWidth, specifiedHeight ?? double.PositiveInfinity);
-            ITextLayout textLayout = _textMeasurer.CreateTextLayout(source, availableTextSize, style);
-            Size measured = textLayout.Size;
-
-            double finalBorderHeight = specifiedHeight ?? ClampHeight(style, measured.Height + padding.Vertical);
-
-            return new LayoutBox(
-                node,
-                style,
-                new Rect(borderX, borderY, finalBorderWidth, finalBorderHeight),
-                new Rect(contentX, contentY, Math.Max(0, finalBorderWidth - padding.Horizontal), measured.Height),
-                [],
-                textLayout);
-        }
-
-        double? contentDefiniteHeight = specifiedHeight is double borderHeight ? Math.Max(0, borderHeight - padding.Vertical) : null;
-
-        double padX = borderX + style.BorderWidth;
-        double padY = borderY + style.BorderWidth;
-        double padWidth = Math.Max(0, borderWidth - (style.BorderWidth * 2));
-        Rect inFlowContainingBlock = style.IsPositioned
-            ? new Rect(padX, padY, padWidth, 0)
-            : containingBlock;
-
-        ContentLayout content = node switch
-        {
-            IGridLayoutNode grid => LayoutGrid(grid, contentX, contentY, contentMaxWidth, contentDefiniteHeight, inFlowContainingBlock, viewport),
-            IResizableLayoutNode resizable => LayoutResizable(resizable, contentX, contentY, contentMaxWidth, contentDefiniteHeight, inFlowContainingBlock, viewport),
-            IStackLayoutNode { Orientation: Orientation.Horizontal } stack => LayoutHorizontalStack(stack, contentX, contentY, contentMaxWidth, inFlowContainingBlock, viewport),
-            IStackLayoutNode stack => LayoutVerticalChildren(stack, GetStackSpacing(stack), contentX, contentY, contentMaxWidth, inFlowContainingBlock, viewport),
-            _ => LayoutVerticalChildren(node, 0, contentX, contentY, contentMaxWidth, inFlowContainingBlock, viewport)
-        };
-
-        List<LayoutBox> childBoxes = content.Boxes;
-        double maxChildWidth = content.Width;
-        double contentHeight = content.Height;
-        double resolvedBorderHeight = specifiedHeight ?? ClampHeight(style, contentHeight + padding.Vertical);
-
-        double padHeight = Math.Max(0, resolvedBorderHeight - (style.BorderWidth * 2));
-        Rect outOfFlowContainingBlock = style.IsPositioned
-            ? new Rect(padX, padY, padWidth, padHeight)
-            : containingBlock;
-
-        IReadOnlyList<ILayoutNode> allChildren = node.LayoutChildren;
-        for (int i = 0; i < allChildren.Count; i++)
-        {
-            ILayoutNode child = allChildren[i];
-            if (!child.IsVisible || child is IPortalLayoutNode)
-            {
-                continue;
-            }
-
-            ComputedStyle childStyle = child.ComputedStyle;
-            if (childStyle.Position is not (Position.Absolute or Position.Fixed))
-            {
-                continue;
-            }
-
-            Rect targetCb = childStyle.Position == Position.Fixed
-                ? new Rect(0, 0, viewport.Width, viewport.Height)
-                : outOfFlowContainingBlock;
-
-            Thickness childMargin = childStyle.Margin;
-            bool isPercentWidth = childStyle.Width is { IsPercent: true };
-            double? explicitW = childStyle.Width switch
-            {
-                { IsPixels: true } pixels => pixels.Value,
-                { IsPercent: true } percent => Math.Max(0, targetCb.Width * percent.Value / 100.0),
-                _ => null
-            };
-            double childW;
-            double knownContentW = 0;
-            bool hasKnownContentW = false;
-
-            if (explicitW.HasValue)
-            {
-                childW = explicitW.Value;
-            }
-            else if (childStyle.Left.HasValue && childStyle.Right.HasValue)
-            {
-                childW = Math.Max(0, targetCb.Width - childStyle.Left.Value - childStyle.Right.Value - childMargin.Horizontal);
-            }
-            else
-            {
-                knownContentW = MeasureMaxContentWidth(child);
-                hasKnownContentW = true;
-                double avail = targetCb.Width - (childStyle.Left ?? 0) - (childStyle.Right ?? 0) - childMargin.Horizontal;
-                childW = Math.Min(knownContentW, Math.Max(0, avail));
-            }
-
-            childW = ClampWidth(childStyle, childW, targetCb.Width);
-
-            double originX;
-            if (childStyle.Left.HasValue)
-            {
-                originX = targetCb.X + childStyle.Left.Value;
-            }
-            else if (childStyle.Right.HasValue)
-            {
-                originX = targetCb.Right - childStyle.Right.Value - childMargin.Horizontal - childW;
-            }
-            else
-            {
-                originX = targetCb.X;
-            }
-
-            double originY;
-            if (childStyle.Top.HasValue)
-            {
-                originY = targetCb.Y + childStyle.Top.Value;
-            }
-            else
-            {
-                originY = targetCb.Y;
-            }
-
-            double availHeight = childStyle.Height ?? (childStyle.Top.HasValue && childStyle.Bottom.HasValue
-                ? Math.Max(0, targetCb.Height - childStyle.Top.Value - childStyle.Bottom.Value - childMargin.Vertical)
-                : double.PositiveInfinity);
-
-            // A percentage resolves against the available width, so it needs the containing block and not its own result.
-            Size childAvail = new(isPercentWidth ? targetCb.Width : childW + childMargin.Horizontal, availHeight);
-            LayoutBox childBox = LayoutNodeRecursive(
-                child,
-                new Point(originX, originY),
-                childAvail,
-                targetCb,
-                viewport,
-                hasKnownContentW ? knownContentW : null);
-
-            if (!childStyle.Top.HasValue && childStyle.Bottom.HasValue)
-            {
-                double targetBorderY = targetCb.Bottom - childStyle.Bottom.Value - childMargin.Bottom - childBox.BorderBox.Height;
-                double dy = targetBorderY - childBox.BorderBox.Y;
-                if (dy != 0)
-                {
-                    childBox = childBox.Translated(0, dy);
-                }
-            }
-
-            childBoxes.Add(childBox);
-        }
-
-        if (style.ClipsOverflow && node is IScrollContainer scrollContainer)
-        {
-            double maxRight = borderWidth;
-            double maxBottom = resolvedBorderHeight;
-            for (int i = 0; i < childBoxes.Count; i++)
-            {
-                LayoutBox b = childBoxes[i];
-                if (b.Style.Position != Position.Fixed)
-                {
-                    maxRight = Math.Max(maxRight, b.BorderBox.Right + b.Style.Margin.Right - borderX);
-                    maxBottom = Math.Max(maxBottom, b.BorderBox.Bottom + b.Style.Margin.Bottom - borderY);
-                }
-            }
-
-            Size scrollViewport = new(borderWidth, resolvedBorderHeight);
-            Size extent = new(
-                Math.Max(borderWidth, Math.Max(maxChildWidth + padding.Horizontal, maxRight)),
-                Math.Max(resolvedBorderHeight, Math.Max(contentHeight + padding.Vertical, maxBottom)));
-            Point offset = scrollContainer.UpdateScrollMetrics(extent, scrollViewport);
-            if (offset != default)
-            {
-                for (int i = 0; i < childBoxes.Count; i++)
-                {
-                    if (childBoxes[i].Style.Position != Position.Fixed)
-                    {
-                        childBoxes[i] = childBoxes[i].Translated(-offset.X, -offset.Y);
-                    }
-                }
-            }
-
-            double scrollportTop = borderY + style.BorderWidth;
-            double scrollportBottom = borderY + resolvedBorderHeight - style.BorderWidth;
-            double contentTop = scrollportTop - offset.Y;
-            double contentBottom = borderY + extent.Height - offset.Y;
-            for (int i = 0; i < childBoxes.Count; i++)
-            {
-                if (childBoxes[i].Style.Position == Position.Sticky)
-                {
-                    childBoxes[i] = ApplyStickyOffset(childBoxes[i], scrollportTop, scrollportBottom, contentTop, contentBottom);
-                }
-            }
-        }
-
-        childBoxes = OrderForPainting(childBoxes);
-
-        return new LayoutBox(
-            node,
-            style,
-            new Rect(borderX, borderY, borderWidth, resolvedBorderHeight),
-            new Rect(contentX, contentY, contentMaxWidth, Math.Max(0, resolvedBorderHeight - padding.Vertical)),
-            childBoxes);
-    }
 }

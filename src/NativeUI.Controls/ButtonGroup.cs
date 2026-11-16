@@ -60,6 +60,6 @@ public class ButtonGroup : ItemsControl, IStackLayoutNode
     private void OnOrientationChanged()
     {
         InvalidateStyle();
-        InvalidateVisual();
+        InvalidateMeasure();
     }
 }

@@ -627,7 +627,7 @@ public class MenuItem : ContentControl, IGridLayoutNode
         }
 
         InvalidateStyle();
-        InvalidateVisual();
+        InvalidateMeasure();
     }
 
     private void OnIsSubmenuOpenChanged(bool isOpen)

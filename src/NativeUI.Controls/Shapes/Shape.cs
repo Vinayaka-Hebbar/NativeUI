@@ -25,7 +25,7 @@ public abstract class Shape : UIElement, IIntrinsicSize
     /// <summary>Identifies the Stroke bindable property.</summary>
     public static readonly BindableProperty<Brush?> StrokeProperty =
         BindableProperty.Create<Shape, Brush?>(nameof(Stroke), defaultValue: null,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>Gets or sets the Stroke value.</summary>
     public Brush? Stroke
@@ -37,7 +37,7 @@ public abstract class Shape : UIElement, IIntrinsicSize
     /// <summary>Identifies the StrokeThickness bindable property.</summary>
     public static readonly BindableProperty<double> StrokeThicknessProperty =
         BindableProperty.Create<Shape, double>(nameof(StrokeThickness), defaultValue: 1,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>Gets or sets the StrokeThickness value.</summary>
     public double StrokeThickness
@@ -49,7 +49,7 @@ public abstract class Shape : UIElement, IIntrinsicSize
     /// <summary>Identifies the Stretch bindable property.</summary>
     public static readonly BindableProperty<Stretch> StretchProperty =
         BindableProperty.Create<Shape, Stretch>(nameof(Stretch), defaultValue: Stretch.Uniform,
-            propertyChanged: static (owner, _, _) => owner.InvalidateVisual());
+            propertyChanged: static (owner, _, _) => owner.InvalidateMeasure());
 
     /// <summary>Gets or sets the Stretch value.</summary>
     public Stretch Stretch
@@ -108,7 +108,7 @@ public abstract class Shape : UIElement, IIntrinsicSize
     protected void InvalidateGeometry()
     {
         _geometry = null;
-        InvalidateVisual();
+        InvalidateMeasure();
     }
 
     /// <summary>Builds immutable geometry for the shape's logical content dimensions.</summary>

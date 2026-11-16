@@ -370,7 +370,7 @@ public class ResizableHandle : Control
 
         prev.Size = targetPrev;
         next.Size = targetNext;
-        (Parent as UIElement)?.InvalidateVisual();
+        (Parent as UIElement)?.InvalidateMeasure();
     }
 
     private void ExpandOrMaxPrevious()
@@ -393,7 +393,7 @@ public class ResizableHandle : Control
 
         prev.Size = targetPrev;
         next.Size = targetNext;
-        (Parent as UIElement)?.InvalidateVisual();
+        (Parent as UIElement)?.InvalidateMeasure();
     }
 
     private static void ApplyPanelResize(
@@ -411,7 +411,7 @@ public class ResizableHandle : Control
 
         prev.Size = clampedPrev;
         next.Size = clampedNext;
-        (prev.Parent as UIElement)?.InvalidateVisual();
+        (prev.Parent as UIElement)?.InvalidateMeasure();
     }
 
     private void OnWithHandleChanged(bool withHandle)
