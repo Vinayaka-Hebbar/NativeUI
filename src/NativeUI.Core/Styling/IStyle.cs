@@ -27,6 +27,12 @@ public interface IStyle
     /// <summary>Gets the specified horizontal text alignment.</summary>
     TextAlign? TextAlign { get; }
 
+    /// <summary>Gets the specified line breaking of text.</summary>
+    WhiteSpace? WhiteSpace { get; }
+
+    /// <summary>Gets the specified display of a line of text that does not fit its width.</summary>
+    TextOverflow? TextOverflow { get; }
+
     /// <summary>Gets the specified alignment of the children of a horizontal stack on the vertical axis.</summary>
     Alignment? AlignItems { get; }
 

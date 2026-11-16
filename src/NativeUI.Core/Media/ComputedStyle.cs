@@ -54,6 +54,16 @@ public sealed record ComputedStyle
     public LineHeight LineHeight { get; init; } = LineHeight.Multiple(1.25);
 
     /// <summary>
+    /// Gets how text breaks into lines. The value is inherited.
+    /// </summary>
+    public WhiteSpace WhiteSpace { get; init; } = WhiteSpace.Normal;
+
+    /// <summary>
+    /// Gets how a line of text that does not fit its width is shown. The value is not inherited.
+    /// </summary>
+    public TextOverflow TextOverflow { get; init; } = TextOverflow.Clip;
+
+    /// <summary>
     /// Gets where the children of a horizontal stack sit on the vertical axis, within the height of the tallest child.
     /// </summary>
     public Alignment AlignItems { get; init; } = Alignment.Start;
@@ -277,6 +287,7 @@ public sealed record ComputedStyle
             FontFamily = parent is null ? Default.FontFamily : parent.FontFamily,
             TextAlign = parent is null ? Default.TextAlign : parent.TextAlign,
             LineHeight = parent is null ? Default.LineHeight : parent.LineHeight,
+            WhiteSpace = parent is null ? Default.WhiteSpace : parent.WhiteSpace,
             Cursor = element.Cursor ?? (parent is null ? Default.Cursor : parent.Cursor),
             ScrollbarThumbColor = parent is null ? Default.ScrollbarThumbColor : parent.ScrollbarThumbColor,
             ScrollbarTrackColor = parent is null ? Default.ScrollbarTrackColor : parent.ScrollbarTrackColor,
@@ -315,6 +326,8 @@ public sealed record ComputedStyle
             FontFamily = inlineStyle.FontFamily ?? FontFamily,
             TextAlign = inlineStyle.TextAlign ?? TextAlign,
             LineHeight = inlineStyle.LineHeight ?? LineHeight,
+            WhiteSpace = inlineStyle.WhiteSpace ?? WhiteSpace,
+            TextOverflow = inlineStyle.TextOverflow ?? TextOverflow,
             AlignItems = inlineStyle.AlignItems ?? AlignItems,
             Padding = inlineStyle.Padding ?? Padding,
             Margin = inlineStyle.Margin ?? Margin,

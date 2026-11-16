@@ -361,7 +361,8 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
             CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("span"))),
             new()
             {
-                ["overflow-wrap"] = "anywhere"
+                ["overflow-wrap"] = "anywhere",
+                ["flex-shrink"] = "0"
             }));
     }
 

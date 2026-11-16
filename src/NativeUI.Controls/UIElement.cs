@@ -1579,7 +1579,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// </summary>
     protected override BindableObject? GetPropertyStore(BindableProperty property, bool createIfMissing)
     {
-        if (property.OwnerType != typeof(Style) || !property.HasOwner(typeof(UIElement)))
+        if (property.OwnerType != typeof(Style) || !property.HasOwner(GetType()))
         {
             return this;
         }

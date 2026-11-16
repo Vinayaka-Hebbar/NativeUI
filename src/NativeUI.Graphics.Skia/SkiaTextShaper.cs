@@ -15,6 +15,7 @@ namespace NativeUI.Graphics.Skia;
 public sealed class SkiaTextShaper : ITextMeasurer
 {
     private const float HarfBuzzSubpixelScale = 64.0f;
+    private const string Ellipsis = "\u2026";
     private readonly SkiaResourceCache _resourceCache;
 
     /// <summary>
@@ -113,6 +114,17 @@ public sealed class SkiaTextShaper : ITextMeasurer
             ? double.PositiveInfinity
             : Math.Max(0.0, availableSize.Width);
 
+        bool isNoWrap = style.WhiteSpace == WhiteSpace.NoWrap;
+        if (isNoWrap && style.TextOverflow == TextOverflow.Ellipsis && double.IsFinite(maxWidth))
+        {
+            string? trimmedText = TrimToEllipsis(text, allClusters, primaryTypeface, primarySkFont, style.FontWeight, fontSize, maxWidth, textRuns);
+            if (trimmedText is not null)
+            {
+                return ShapeInternal(trimmedText, availableSize, style with { TextOverflow = TextOverflow.Clip }, createBlobs, textRuns);
+            }
+        }
+
+        double wrapWidth = isNoWrap ? double.PositiveInfinity : maxWidth;
         ImmutableArray<TextLine>.Builder linesBuilder = ImmutableArray.CreateBuilder<TextLine>();
         ImmutableArray<ShapedTextBlobRun>.Builder blobsBuilder = ImmutableArray.CreateBuilder<ShapedTextBlobRun>();
 
@@ -150,7 +162,7 @@ public sealed class SkiaTextShaper : ITextMeasurer
                 primaryTypeface,
                 style.FontWeight,
                 fontSize,
-                maxWidth,
+                wrapWidth,
                 textRuns);
 
             foreach (TextRange lineRange in wrappedLineRanges)
@@ -192,6 +204,55 @@ public sealed class SkiaTextShaper : ITextMeasurer
             allBoundaries,
             allClusters,
             textRuns);
+    }
+
+    /// <summary>
+    /// Returns <paramref name="text"/> shortened at a grapheme cluster and ended with an ellipsis so that it fits
+    /// <paramref name="maxWidth"/>, or <see langword="null"/> when the text fits or has more than one paragraph.
+    /// </summary>
+    private string? TrimToEllipsis(
+        string text,
+        ImmutableArray<TextRange> clusters,
+        SKTypeface primaryTypeface,
+        SKFont primaryFont,
+        FontWeight fontWeight,
+        double fontSize,
+        double maxWidth,
+        IReadOnlyList<TextRun> textRuns)
+    {
+        List<TextRange> paragraphs = SplitParagraphs(text);
+        if (paragraphs.Count != 1)
+        {
+            return null;
+        }
+
+        TextRange paragraph = paragraphs[0];
+        ImmutableArray<TextRange> paragraphClusters = SliceClusters(clusters, paragraph);
+        BidiAlgorithm.ParagraphBidiData bidiData = BidiAlgorithm.AnalyzeParagraph(text, paragraph.Start, paragraphClusters);
+        double[] advances = MeasureClusterAdvances(text, paragraphClusters, in bidiData, primaryTypeface, fontWeight, fontSize, textRuns);
+
+        double totalWidth = 0;
+        for (int i = 0; i < advances.Length; i++)
+        {
+            totalWidth += advances[i];
+        }
+
+        if (totalWidth <= maxWidth)
+        {
+            return null;
+        }
+
+        double availableWidth = maxWidth - primaryFont.MeasureText(Ellipsis);
+        double keptWidth = 0;
+        int keptClusters = 0;
+        while (keptClusters < advances.Length && keptWidth + advances[keptClusters] <= availableWidth)
+        {
+            keptWidth += advances[keptClusters];
+            keptClusters++;
+        }
+
+        int cutIndex = keptClusters == 0 ? paragraph.Start : paragraphClusters[keptClusters - 1].End;
+        return string.Concat(text.AsSpan(0, cutIndex), Ellipsis);
     }
 
     private static ComputedStyle? FindStyle(IReadOnlyList<TextRun> runs, int position)

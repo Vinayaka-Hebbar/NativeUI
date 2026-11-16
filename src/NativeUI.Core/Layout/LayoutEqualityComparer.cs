@@ -35,6 +35,8 @@ internal sealed class LayoutEqualityComparer : IEqualityComparer<ComputedStyle>
             && x.FontFamily == y.FontFamily
             && x.TextAlign == y.TextAlign
             && x.LineHeight == y.LineHeight
+            && x.WhiteSpace == y.WhiteSpace
+            && x.TextOverflow == y.TextOverflow
             && x.AlignItems == y.AlignItems
             && x.Padding == y.Padding
             && x.Margin == y.Margin
@@ -68,6 +70,8 @@ internal sealed class LayoutEqualityComparer : IEqualityComparer<ComputedStyle>
         hash.Add(obj.FontFamily);
         hash.Add(obj.TextAlign);
         hash.Add(obj.LineHeight);
+        hash.Add(obj.WhiteSpace);
+        hash.Add(obj.TextOverflow);
         hash.Add(obj.AlignItems);
         hash.Add(obj.Padding);
         hash.Add(obj.Margin);

@@ -296,7 +296,9 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("Absolute positioning applies margin once without double offset", NativeUI.Controls.Tests.PositioningTests.VerifyAbsolutePositioningAppliesMarginOnce),
     ("Absolute positioning resolves against nearest positioned ancestor", NativeUI.Controls.Tests.PositioningTests.VerifyAbsolutePositioningUsesNearestPositionedAncestor),
     ("Fixed positioning against viewport and immunity from scroll translation", NativeUI.Controls.Tests.PositioningTests.VerifyFixedPositioningAgainstViewportAndScrollImmunity),
-    ("Text measurement obeys fit-content rather than stretching", NativeUI.Controls.Tests.PositioningTests.VerifyTextMeasurementObeysFitContent)
+    ("Text measurement obeys fit-content rather than stretching", NativeUI.Controls.Tests.PositioningTests.VerifyTextMeasurementObeysFitContent),
+    ("white-space nowrap keeps text on one line", NativeUI.Controls.Tests.TextOverflowTests.VerifyNoWrapKeepsOneLine),
+    ("text-overflow ellipsis shortens text to the available width", NativeUI.Controls.Tests.TextOverflowTests.VerifyEllipsisShortensToWidth)
 ]);
 
 return exitCode;

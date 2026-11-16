@@ -25,6 +25,8 @@ internal static class StyleCssDeclarations
             ("font-family", style?.FontFamily),
             ("text-align", FormatTextAlign(style?.TextAlign)),
             ("line-height", FormatLineHeight(style?.LineHeight)),
+            ("white-space", style?.WhiteSpace switch { WhiteSpace.NoWrap => "nowrap", WhiteSpace.Normal => "normal", _ => null }),
+            ("text-overflow", style?.TextOverflow switch { TextOverflow.Ellipsis => "ellipsis", TextOverflow.Clip => "clip", _ => null }),
             ("align-items", FormatAlignItems(style?.AlignItems)),
             ("padding", FormatThickness(style?.Padding)),
             ("margin", FormatThickness(style?.Margin)),

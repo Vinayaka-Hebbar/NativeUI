@@ -361,6 +361,10 @@ public class CssStyleSheet : StyleSheet
                 return style with { FontFamily = fontFamily.Value };
             case ("text-align", CssTextAlignValue textAlign):
                 return style with { TextAlign = textAlign.Align };
+            case ("white-space", CssWhiteSpaceValue whiteSpace):
+                return style with { WhiteSpace = whiteSpace.WhiteSpace };
+            case ("text-overflow", CssTextOverflowValue textOverflow):
+                return style with { TextOverflow = textOverflow.Overflow };
             case ("align-items", CssAlignItemsValue alignItems):
                 return style with { AlignItems = alignItems.Align };
             case ("line-height", CssNumberValue multiple):

@@ -87,6 +87,8 @@ internal static class CssValueSyntaxBuilder
             "font-weight" => TryBuildFontWeightSyntax(valueNode, out expression),
             "text-align" => TryBuildTextAlignSyntax(valueNode, out expression),
             "align-items" => TryBuildAlignItemsSyntax(valueNode, out expression),
+            "white-space" => TryBuildWhiteSpaceSyntax(valueNode, out expression),
+            "text-overflow" => TryBuildTextOverflowSyntax(valueNode, out expression),
             "line-height" => TryBuildLineHeightSyntax(valueNode, out expression),
             "box-shadow" => TryBuildBoxShadowSyntax(valueNode, out expression),
             "opacity" => TryBuildOpacitySyntax(valueNode, out expression),
@@ -1024,6 +1026,52 @@ internal static class CssValueSyntaxBuilder
                 expression = BuildNewCssValue(
                     "CssTextAlignValue",
                     BuildEnumMember("TextAlign", align));
+                return true;
+            }
+        }
+
+        expression = null;
+        return false;
+    }
+
+    private static bool TryBuildWhiteSpaceSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        if (node is CssKeywordValueNode kw)
+        {
+            string? whiteSpace = kw.Keyword.ToLowerInvariant() switch
+            {
+                "normal" => "Normal",
+                "nowrap" => "NoWrap",
+                _ => null
+            };
+            if (whiteSpace is not null)
+            {
+                expression = BuildNewCssValue(
+                    "CssWhiteSpaceValue",
+                    BuildEnumMember("WhiteSpace", whiteSpace));
+                return true;
+            }
+        }
+
+        expression = null;
+        return false;
+    }
+
+    private static bool TryBuildTextOverflowSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        if (node is CssKeywordValueNode kw)
+        {
+            string? overflow = kw.Keyword.ToLowerInvariant() switch
+            {
+                "clip" => "Clip",
+                "ellipsis" => "Ellipsis",
+                _ => null
+            };
+            if (overflow is not null)
+            {
+                expression = BuildNewCssValue(
+                    "CssTextOverflowValue",
+                    BuildEnumMember("TextOverflow", overflow));
                 return true;
             }
         }

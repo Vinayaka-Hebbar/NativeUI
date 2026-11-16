@@ -72,6 +72,16 @@ public class Text : UIElement, ITextSource
             nameof(AriaLabel),
             defaultValue: null);
 
+    /// <summary>
+    /// Identifies the <see cref="WhiteSpace"/> property, which is <see cref="Style.WhiteSpaceProperty"/>.
+    /// </summary>
+    public static readonly BindableProperty<WhiteSpace?> WhiteSpaceProperty = Style.WhiteSpaceProperty.AddOwner<Text>();
+
+    /// <summary>
+    /// Identifies the <see cref="TextOverflow"/> property, which is <see cref="Style.TextOverflowProperty"/>.
+    /// </summary>
+    public static readonly BindableProperty<TextOverflow?> TextOverflowProperty = Style.TextOverflowProperty.AddOwner<Text>();
+
     /// <inheritdoc />
     public override string TagName => "text";
 
@@ -82,6 +92,27 @@ public class Text : UIElement, ITextSource
     {
         get => GetValue(ValueProperty) ?? string.Empty;
         set => SetValue(ValueProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets how the text breaks into lines, the same value as <see cref="Controls.Style.WhiteSpace"/> on
+    /// <see cref="UIElement.Style"/>. Setting it creates the style when none exists.
+    /// </summary>
+    public WhiteSpace? WhiteSpace
+    {
+        get => GetValue(WhiteSpaceProperty);
+        set => SetValue(WhiteSpaceProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets how a line of text that does not fit its width is shown, the same value as
+    /// <see cref="Controls.Style.TextOverflow"/> on <see cref="UIElement.Style"/>. Setting it creates the style when none
+    /// exists.
+    /// </summary>
+    public TextOverflow? TextOverflow
+    {
+        get => GetValue(TextOverflowProperty);
+        set => SetValue(TextOverflowProperty, value);
     }
 
     /// <summary>

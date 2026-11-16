@@ -50,6 +50,18 @@ public sealed class Style : BindableObject, IStyle
         BindableProperty.Create<Style, TextAlign?>(nameof(TextAlign));
 
     /// <summary>
+    /// Identifies the <see cref="WhiteSpace"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<WhiteSpace?> WhiteSpaceProperty =
+        BindableProperty.Create<Style, WhiteSpace?>(nameof(WhiteSpace));
+
+    /// <summary>
+    /// Identifies the <see cref="TextOverflow"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<TextOverflow?> TextOverflowProperty =
+        BindableProperty.Create<Style, TextOverflow?>(nameof(TextOverflow));
+
+    /// <summary>
     /// Identifies the <see cref="AlignItems"/> bindable property.
     /// </summary>
     public static readonly BindableProperty<Alignment?> AlignItemsProperty =
@@ -275,6 +287,24 @@ public sealed class Style : BindableObject, IStyle
     {
         get => GetValue(TextAlignProperty);
         set => SetValue(TextAlignProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets how text breaks into lines. Text inherits the value of its parent.
+    /// </summary>
+    public WhiteSpace? WhiteSpace
+    {
+        get => GetValue(WhiteSpaceProperty);
+        set => SetValue(WhiteSpaceProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets how a line of text that does not fit its width is shown. An ellipsis applies to text that does not wrap.
+    /// </summary>
+    public TextOverflow? TextOverflow
+    {
+        get => GetValue(TextOverflowProperty);
+        set => SetValue(TextOverflowProperty, value);
     }
 
     /// <summary>

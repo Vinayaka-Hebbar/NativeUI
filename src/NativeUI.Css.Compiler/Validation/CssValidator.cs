@@ -70,6 +70,8 @@ public sealed class CssValidator : CssSyntaxVisitor
         "text-align",
         "line-height",
         "align-items",
+        "white-space",
+        "text-overflow",
         "padding",
         "margin",
         "gap",
