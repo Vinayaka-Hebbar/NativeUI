@@ -341,6 +341,135 @@ public sealed class LayoutEngine
         return new ContentLayout(boxes, maxWidth, Math.Max(0, currentY - y));
     }
 
+    private ContentLayout LayoutResizable(
+        IResizableLayoutNode resizable,
+        double x,
+        double y,
+        double width,
+        double? definiteHeight,
+        Rect containingBlock,
+        Size viewport)
+    {
+        List<LayoutBox> boxes = [];
+        IReadOnlyList<ILayoutNode> children = resizable.LayoutChildren;
+        if (children.Count == 0)
+        {
+            return new ContentLayout(boxes, width, definiteHeight ?? 0);
+        }
+
+        bool isHorizontal = resizable.Orientation == Orientation.Horizontal;
+        double totalMainLength = isHorizontal ? width : (definiteHeight ?? viewport.Height);
+        double crossLength = isHorizontal ? (definiteHeight ?? viewport.Height) : width;
+
+        double handlesTotalLength = 0;
+        double totalPanelShares = 0;
+        int uncollapsedPanelCount = 0;
+
+        for (int i = 0; i < children.Count; i++)
+        {
+            ILayoutNode child = children[i];
+            if (!child.IsVisible)
+            {
+                continue;
+            }
+
+            ComputedStyle childStyle = child.ComputedStyle;
+            if (childStyle.IsOutOfFlow)
+            {
+                continue;
+            }
+
+            if (child is IResizablePanelLayoutNode panel)
+            {
+                if (!panel.IsCollapsed)
+                {
+                    totalPanelShares += Math.Max(0, panel.EffectiveSize);
+                    uncollapsedPanelCount++;
+                }
+            }
+            else
+            {
+                double handleSize = isHorizontal
+                    ? (childStyle.Width switch { { IsPixels: true } p => p.Value, _ => 6.0 })
+                    : (childStyle.Height ?? 6.0);
+                handlesTotalLength += handleSize;
+            }
+        }
+
+        if (totalPanelShares <= 0)
+        {
+            totalPanelShares = uncollapsedPanelCount > 0 ? uncollapsedPanelCount : 1.0;
+        }
+
+        double availablePanelLength = Math.Max(0, totalMainLength - handlesTotalLength);
+        double currentMainPos = isHorizontal ? x : y;
+
+        for (int i = 0; i < children.Count; i++)
+        {
+            ILayoutNode child = children[i];
+            if (!child.IsVisible)
+            {
+                continue;
+            }
+
+            ComputedStyle childStyle = child.ComputedStyle;
+            if (childStyle.IsOutOfFlow)
+            {
+                continue;
+            }
+
+            double childMainLength;
+            if (child is IResizablePanelLayoutNode panel)
+            {
+                if (panel.IsCollapsed)
+                {
+                    childMainLength = 0;
+                }
+                else
+                {
+                    double share = Math.Max(0, panel.EffectiveSize) / totalPanelShares;
+                    childMainLength = share * availablePanelLength;
+                }
+            }
+            else
+            {
+                childMainLength = isHorizontal
+                    ? (childStyle.Width switch { { IsPixels: true } p => p.Value, _ => 6.0 })
+                    : (childStyle.Height ?? 6.0);
+            }
+
+            double childWidth = isHorizontal ? childMainLength : width;
+            double childHeight = isHorizontal ? (childStyle.Height ?? crossLength) : childMainLength;
+            if (!isHorizontal && childStyle.Width is { IsPixels: true } explicitW)
+            {
+                childWidth = explicitW.Value;
+            }
+
+            Point origin = isHorizontal ? new Point(currentMainPos, y) : new Point(x, currentMainPos);
+            Size available = new Size(childWidth, childHeight);
+
+            LayoutBox box = LayoutNodeRecursive(child, origin, available, containingBlock, viewport, childWidth);
+
+            if (box.BorderBox.Width != childWidth || box.BorderBox.Height != childHeight)
+            {
+                Rect newBorderBox = new Rect(origin.X, origin.Y, childWidth, childHeight);
+                Rect newContentBox = new Rect(
+                    origin.X + childStyle.ContentInsets.Left,
+                    origin.Y + childStyle.ContentInsets.Top,
+                    Math.Max(0, childWidth - childStyle.ContentInsets.Horizontal),
+                    Math.Max(0, childHeight - childStyle.ContentInsets.Vertical));
+                box = new LayoutBox(box.Element, box.Style, newBorderBox, newContentBox, box.Children);
+            }
+
+            boxes.Add(ApplyRelativeOffset(box));
+            currentMainPos += childMainLength;
+        }
+
+        double finalWidth = isHorizontal ? totalMainLength : width;
+        double finalHeight = isHorizontal ? crossLength : totalMainLength;
+        return new ContentLayout(boxes, finalWidth, finalHeight);
+    }
+
     private ContentLayout LayoutHorizontalStack(
         IStackLayoutNode stack,
         double x,
@@ -790,6 +919,7 @@ public sealed class LayoutEngine
         ContentLayout content = node switch
         {
             IGridLayoutNode grid => LayoutGrid(grid, contentX, contentY, contentMaxWidth, contentDefiniteHeight, inFlowContainingBlock, viewport),
+            IResizableLayoutNode resizable => LayoutResizable(resizable, contentX, contentY, contentMaxWidth, contentDefiniteHeight, inFlowContainingBlock, viewport),
             IStackLayoutNode { Orientation: Orientation.Horizontal } stack => LayoutHorizontalStack(stack, contentX, contentY, contentMaxWidth, inFlowContainingBlock, viewport),
             IStackLayoutNode stack => LayoutVerticalChildren(stack, GetStackSpacing(stack), contentX, contentY, contentMaxWidth, inFlowContainingBlock, viewport),
             _ => LayoutVerticalChildren(node, 0, contentX, contentY, contentMaxWidth, inFlowContainingBlock, viewport)

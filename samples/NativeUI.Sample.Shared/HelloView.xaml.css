@@ -306,3 +306,48 @@
   font-size: 15px;
   font-weight: 600;
 }
+
+.resizable-container {
+  height: 220px;
+  background-color: var(--color-background);
+  border-width: 1px;
+  border-color: var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.split-pane {
+  background-color: var(--color-surface);
+  padding: 12px;
+}
+
+.resizable-handle {
+  background-color: var(--color-muted);
+}
+
+.resizable-handle:hover,
+.resizable-handle[data-dragging="true"],
+.resizable-handle[data-dragging] {
+  background-color: var(--color-primary);
+}
+
+.splitview-container {
+  height: 200px;
+  background-color: var(--color-background);
+  border-width: 1px;
+  border-color: var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.splitview-pane {
+  background-color: var(--color-surface);
+  padding: 12px;
+  height: 100%;
+}
+
+.splitview-content {
+  background-color: var(--color-background);
+  padding: 12px;
+  height: 100%;
+}

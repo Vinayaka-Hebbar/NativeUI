@@ -1144,6 +1144,7 @@ internal static class CssValueSyntaxBuilder
                 "not-allowed" => "NotAllowed",
                 "crosshair" => "Crosshair",
                 "col-resize" => "ColumnResize",
+                "row-resize" => "RowResize",
                 "wait" => "Wait",
                 _ => null
             };

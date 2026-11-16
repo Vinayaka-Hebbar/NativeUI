@@ -38,12 +38,19 @@ internal static class HtmlTagMapping
     private const string MenuGroupTag = "nui-menugroup";
     private const string MenuSeparatorTag = "nui-menuseparator";
     private const string MenuItemTag = "nui-menuitem";
+    private const string ResizableTag = "nui-resizable";
+    private const string ResizablePanelTag = "nui-resizablepanel";
+    private const string ResizableHandleTag = "nui-resizablehandle";
 
     /// <summary>
     /// Gets the tag created for <paramref name="element"/>.
     /// </summary>
     public static string GetTag(UIElement element)
     {
+        if (element is Resizable) return ResizableTag;
+        if (element is ResizablePanel) return ResizablePanelTag;
+        if (element is ResizableHandle) return ResizableHandleTag;
+        if (element is SplitView) return "nui-splitview";
         if (element is Sheet) return "nui-sheet";
         if (element is Label) return "label";
         if (element is Form) return "form";
@@ -321,6 +328,11 @@ internal static class HtmlTagMapping
             return TableCellTag;
         }
 
+        if (typeof(Resizable).IsAssignableFrom(type)) return ResizableTag;
+        if (typeof(ResizablePanel).IsAssignableFrom(type)) return ResizablePanelTag;
+        if (typeof(ResizableHandle).IsAssignableFrom(type)) return ResizableHandleTag;
+        if (typeof(SplitView).IsAssignableFrom(type)) return "nui-splitview";
+        if (typeof(Sheet).IsAssignableFrom(type)) return "nui-sheet";
         if (typeof(MenuGroup).IsAssignableFrom(type)) return MenuGroupTag;
         if (typeof(MenuSeparator).IsAssignableFrom(type)) return MenuSeparatorTag;
 
@@ -396,6 +408,11 @@ internal static class HtmlTagMapping
             "text" => TextTag,
             "view" or "portal" or "progressbar" or "radiogroup" => ContainerTag,
             "dialog" => DialogTag,
+            "sheet" => "nui-sheet",
+            "resizable" => ResizableTag,
+            "resizablepanel" => ResizablePanelTag,
+            "resizablehandle" => ResizableHandleTag,
+            "splitview" => "nui-splitview",
             "button" => ButtonTag,
             "canvas" or "canvasview" or "viewport3d" => CanvasTag,
             "input" => InputTag,

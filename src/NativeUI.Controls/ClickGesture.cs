@@ -54,7 +54,7 @@ internal static class ClickGesture
     {
         public void OnPointerPressed(object? sender, PointerEventArgs args)
         {
-            if (!args.Handled && element.IsEffectivelyEnabled && args.Buttons.HasFlag(PointerButtons.Primary))
+            if (!args.Handled && element.IsEffectivelyEnabled && (args.Buttons == PointerButtons.None || args.Buttons.HasFlag(PointerButtons.Primary)))
             {
                 SetPressed(element, true);
             }

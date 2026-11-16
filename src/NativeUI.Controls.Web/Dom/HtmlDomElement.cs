@@ -38,7 +38,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
     /// <summary>
     /// Gets a value indicating whether this proxy has been disposed.
     /// </summary>
-    protected bool IsDisposed => _disposed;
+    internal bool IsDisposed => _disposed;
 
     internal HtmlDomElement(UIElement source, JSObject? element, string tagName)
     {
@@ -198,6 +198,10 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
             ListItem listItem => new HtmlDomListItem(listItem, element, tagName),
             TableRow tableRow => new HtmlDomTableRow(tableRow, element, tagName),
             TableCell tableCell => new HtmlDomTableCell(tableCell, element, tagName),
+            Resizable resizable => new HtmlDomResizable(resizable, element, tagName),
+            ResizablePanel resizablePanel => new HtmlDomResizablePanel(resizablePanel, element, tagName),
+            ResizableHandle resizableHandle => new HtmlDomResizableHandle(resizableHandle, element, tagName),
+            SplitView splitView => new HtmlDomSplitView(splitView, element, tagName),
             Sheet sheet => new HtmlDomSheet(sheet, element, tagName),
             Dialog dialog => new HtmlDomDialog(dialog, element, tagName),
             Portal portal => new HtmlDomPortal(portal, element, tagName),
@@ -517,7 +521,6 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
         SetAttribute("aria-description", errors.Length == 0 ? null : errors);
     }
 
-    /// <inheritdoc />
     void IFocusPeer.Focus()
     {
         if (_element is not null)

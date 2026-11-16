@@ -560,7 +560,7 @@ public sealed class Window : IDisposable, IRenderHost
             }
 
             UIElement? hoveredElement = HitTest(viewportPoint);
-            UIElement? inputElement = hoveredElement?.GetInputTarget();
+            UIElement? inputElement = InputManager.Current.GetPointerCapture(_content, MousePointerId) ?? hoveredElement?.GetInputTarget();
             UpdateHoverState(hoveredElement);
             if (inputElement is not null)
             {
@@ -629,7 +629,7 @@ public sealed class Window : IDisposable, IRenderHost
             }
 
             UIElement? hoveredElement = HitTest(viewportPoint);
-            UIElement? inputElement = hoveredElement?.GetInputTarget();
+            UIElement? inputElement = InputManager.Current.GetPointerCapture(_content, MousePointerId) ?? hoveredElement?.GetInputTarget();
             UpdateHoverState(hoveredElement);
             inputElement?.RaiseEvent(
                 UIElement.PointerReleasedEvent,
@@ -645,6 +645,8 @@ public sealed class Window : IDisposable, IRenderHost
         }
         finally
         {
+            UIElement? captured = InputManager.Current.GetPointerCapture(_content, MousePointerId);
+            captured?.ReleasePointerCapture(MousePointerId);
             EndFrameBatch();
         }
     }
@@ -706,6 +708,10 @@ public sealed class Window : IDisposable, IRenderHost
         BeginFrameBatch();
         try
         {
+            if (_content is UIElement root)
+            {
+                InputManager.Current.ReleasePointerCaptures(root);
+            }
             ClearPointerState();
         }
         finally
@@ -1641,7 +1647,7 @@ public sealed class Window : IDisposable, IRenderHost
             hovered = null;
         }
 
-        Cursor cursor = hovered?.Cursor ?? Cursor.Auto;
+        Cursor cursor = (_content is UIElement root ? InputManager.Current.GetPointerCapture(root, MousePointerId) : null)?.Cursor ?? hovered?.Cursor ?? Cursor.Auto;
 
         if (_isDraggingSelection)
         {

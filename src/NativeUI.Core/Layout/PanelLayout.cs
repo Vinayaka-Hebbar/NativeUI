@@ -199,3 +199,31 @@ public interface IGridLayoutNode : ILayoutNode
     /// </summary>
     GridPlacement GetPlacement(ILayoutNode child);
 }
+
+/// <summary>
+/// Implemented by layout nodes that arrange resizable panels and handles along an orientation.
+/// </summary>
+public interface IResizableLayoutNode : ILayoutNode
+{
+    /// <summary>
+    /// Gets the direction in which panels and handles are arranged.
+    /// </summary>
+    Orientation Orientation { get; }
+}
+
+/// <summary>
+/// Implemented by panel nodes within an <see cref="IResizableLayoutNode"/>.
+/// </summary>
+public interface IResizablePanelLayoutNode : ILayoutNode
+{
+    /// <summary>
+    /// Gets the proportional size of the panel.
+    /// </summary>
+    double EffectiveSize { get; }
+
+    /// <summary>
+    /// Gets whether the panel is collapsed.
+    /// </summary>
+    bool IsCollapsed { get; }
+}
+

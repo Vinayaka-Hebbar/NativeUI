@@ -38,6 +38,9 @@ public partial class HelloViewModel : ObservableObject
     [ObservableProperty]
     private string _greeting = "Nothing typed yet";
 
+    [ObservableProperty]
+    private bool _isSplitViewPaneOpen = true;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="HelloViewModel"/> class that follows the application's theme.
     /// </summary>
@@ -45,6 +48,12 @@ public partial class HelloViewModel : ObservableObject
     {
         IsDarkMode = Application.Current.CurrentTheme == Theme.Dark;
         Application.Current.CurrentThemeChanged += OnCurrentThemeChanged;
+    }
+
+    [RelayCommand]
+    private void ToggleSplitViewPane()
+    {
+        IsSplitViewPaneOpen = !IsSplitViewPaneOpen;
     }
 
     [RelayCommand]

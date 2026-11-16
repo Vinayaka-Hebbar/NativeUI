@@ -42,5 +42,11 @@ public enum Cursor
     /// A horizontal double arrow for resizing a column.
     /// Corresponds to CSS cursor: col-resize.
     /// </summary>
-    ColumnResize = 8
+    ColumnResize = 8,
+
+    /// <summary>
+    /// A vertical double arrow for resizing a row.
+    /// Corresponds to CSS cursor: row-resize.
+    /// </summary>
+    RowResize = 9
 }

@@ -361,6 +361,48 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["IsModal"] = XamlPropertyKind.Boolean,
                 ["Title"] = XamlPropertyKind.String,
                 ["Description"] = XamlPropertyKind.String
+            },
+            ["Resizable"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["Orientation"] = XamlPropertyKind.Orientation
+            },
+            ["ResizablePanel"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["DefaultSize"] = XamlPropertyKind.Double,
+                ["Size"] = XamlPropertyKind.Double,
+                ["MinSize"] = XamlPropertyKind.Double,
+                ["MaxSize"] = XamlPropertyKind.Double,
+                ["IsCollapsed"] = XamlPropertyKind.Boolean,
+                ["CollapsedSize"] = XamlPropertyKind.Double
+            },
+            ["ResizableHandle"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["Disabled"] = XamlPropertyKind.Boolean,
+                ["KeyboardIncrement"] = XamlPropertyKind.Double,
+                ["Orientation"] = XamlPropertyKind.Orientation,
+                ["WithHandle"] = XamlPropertyKind.Boolean
+            },
+            ["SplitView"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Id"] = XamlPropertyKind.String,
+                ["Class"] = XamlPropertyKind.ClassList,
+                ["IsVisible"] = XamlPropertyKind.Boolean,
+                ["IsEnabled"] = XamlPropertyKind.Boolean,
+                ["IsPaneOpen"] = XamlPropertyKind.Boolean,
+                ["OpenPaneLength"] = XamlPropertyKind.Double,
+                ["CompactPaneLength"] = XamlPropertyKind.Double
             }
         };
 
@@ -384,6 +426,10 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["Title"] = new PropertyElementTarget("TitleContent", IsCollection: false),
                 ["Description"] = new PropertyElementTarget("DescriptionContent", IsCollection: false),
                 ["Footer"] = new PropertyElementTarget("Footer", IsCollection: true)
+            },
+            ["SplitView"] = new Dictionary<string, PropertyElementTarget>(StringComparer.Ordinal)
+            {
+                ["Pane"] = new PropertyElementTarget("Pane", IsCollection: false)
             },
             ["Viewport3D"] = new Dictionary<string, PropertyElementTarget>(StringComparer.Ordinal)
             {

@@ -60,6 +60,12 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         RoutedEvent.Register<UIElement, PointerEventArgs>(nameof(PointerExited), RoutingStrategy.Direct);
 
     /// <summary>
+    /// Identifies the event raised when this element loses pointer capture.
+    /// </summary>
+    public static readonly RoutedEvent<PointerEventArgs> PointerCaptureLostEvent =
+        RoutedEvent.Register<UIElement, PointerEventArgs>(nameof(PointerCaptureLost), RoutingStrategy.Direct);
+
+    /// <summary>
     /// Identifies the <see cref="SizeChanged"/> routed event.
     /// </summary>
     public static readonly RoutedEvent<SizeChangedEventArgs> SizeChangedEvent =
@@ -242,6 +248,9 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     static UIElement()
     {
         EventManager.RegisterClassHandler<UIElement, PointerEventArgs>(
+            PointerCaptureLostEvent,
+            static (element, args) => element.OnPointerCaptureLost(args));
+        EventManager.RegisterClassHandler<UIElement, PointerEventArgs>(
             PointerPressedEvent,
             static (element, args) => element.OnPointerPressed(args));
         EventManager.RegisterClassHandler<UIElement, PointerEventArgs>(
@@ -263,6 +272,34 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         EventManager.RegisterEventObserver<UIElement>(
             SizeChangedEvent,
             static element => element.CreateSizeObserver());
+    }
+
+    /// <summary>
+    /// Occurs when this element loses pointer capture through release, cancellation, or detachment.
+    /// </summary>
+    public event EventHandler<PointerEventArgs> PointerCaptureLost
+    {
+        add => AddHandler(PointerCaptureLostEvent, value);
+        remove => RemoveHandler(PointerCaptureLostEvent, value);
+    }
+
+    /// <summary>
+    /// Captures a pointer so subsequent moves and releases are routed to this element.
+    /// </summary>
+    /// <param name="pointerId">The pointer identity from the press event.</param>
+    /// <returns>Whether capture was acquired.</returns>
+    public bool CapturePointer(long pointerId)
+    {
+        return InputManager.Current.CapturePointer(this, pointerId);
+    }
+
+    /// <summary>
+    /// Releases this element's capture of the specified pointer.
+    /// </summary>
+    /// <param name="pointerId">The captured pointer identity.</param>
+    public void ReleasePointerCapture(long pointerId)
+    {
+        InputManager.Current.ReleasePointerCapture(this, pointerId);
     }
 
     /// <summary>
@@ -658,7 +695,9 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// <summary>
     /// Gets the mouse pointer cursor appearance resolved for this element.
     /// </summary>
-    public virtual Cursor Cursor => ComputedStyle.Cursor;
+    public virtual Cursor Cursor => ComputedStyle.Cursor != Cursor.Auto
+        ? ComputedStyle.Cursor
+        : (GetValue(CursorProperty) ?? Cursor.Auto);
 
     /// <summary>
     /// Gets or sets the inline C# <see cref="Controls.Style"/> applied to this element.
@@ -1161,6 +1200,14 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     }
 
     /// <summary>
+    /// Handles the loss of pointer capture before instance handlers run.
+    /// </summary>
+    /// <param name="args">The pointer that lost capture.</param>
+    protected virtual void OnPointerCaptureLost(PointerEventArgs args)
+    {
+    }
+
+    /// <summary>
     /// Handles an unhandled <see cref="PointerPressed"/> event before instance handlers run.
     /// </summary>
     /// <param name="args">The routed event data.</param>
@@ -1214,6 +1261,11 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// </summary>
     protected virtual void OnIsVisibleChanged()
     {
+        if (!IsVisible)
+        {
+            InputManager.Current.ReleasePointerCaptures(this);
+        }
+
         if (!IsVisible && States.HasFlag(ElementStates.FocusWithin))
         {
             InputManager.Current.PrimaryKeyboardDevice.ClearFocus(this);
@@ -1276,6 +1328,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
             return;
         }
 
+        InputManager.Current.ReleasePointerCaptures(this);
         VisualRoot = null;
         InputManager.Current.PrimaryKeyboardDevice.ClearFocus(this);
         if (VisualRoot is null)
@@ -1321,6 +1374,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         UpdateEffectiveEnabledState();
         if (_parent is null)
         {
+            InputManager.Current.ReleasePointerCaptures(this);
             _animator?.Cancel();
         }
 
@@ -1518,6 +1572,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     {
         if (!isEnabled)
         {
+            InputManager.Current.ReleasePointerCaptures(this);
             KeyboardDevice keyboard = InputManager.Current.PrimaryKeyboardDevice;
             if (States.HasFlag(ElementStates.FocusWithin) && keyboard.FocusedElement is { IsEffectivelyEnabled: false })
             {

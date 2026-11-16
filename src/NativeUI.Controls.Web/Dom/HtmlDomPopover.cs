@@ -72,7 +72,7 @@ public sealed class HtmlDomPopover : HtmlDomView
             return;
         }
 
-        if (target?.NativeHandle is HtmlDomElement element)
+        if (target?.NativeHandle is HtmlDomElement { IsDisposed: false } element)
         {
             element.SetAttribute("data-nui-context-menu", value);
         }
@@ -103,7 +103,7 @@ public sealed class HtmlDomPopover : HtmlDomView
     /// </summary>
     private static void SetTargetAttributes(UIElement? target, bool? isOpen, string? contentId, string popupType = "dialog")
     {
-        if (target?.NativeHandle is not HtmlDomElement targetElement)
+        if (target?.NativeHandle is not HtmlDomElement { IsDisposed: false } targetElement)
         {
             return;
         }

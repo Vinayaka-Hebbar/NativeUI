@@ -150,7 +150,14 @@ internal sealed class HtmlDomRoot : IDisposable
             return;
         }
 
-        UIElement? inputElement = hoveredElement?.GetInputTarget();
+        UIElement? captured = InputManager.Current.GetPointerCapture(root, pointerEvent.PointerId);
+        if (pointerEvent.Kind == PointerEventKind.Cancel)
+        {
+            captured?.ReleasePointerCapture(pointerEvent.PointerId);
+            return;
+        }
+
+        UIElement? inputElement = captured ?? hoveredElement?.GetInputTarget();
         if (routedEvent is not null && inputElement is not null)
         {
             inputElement.RaiseEvent(routedEvent, new PointerEventArgs(
@@ -159,6 +166,11 @@ internal sealed class HtmlDomRoot : IDisposable
                 pointerEvent.Buttons,
                 pointerEvent.Modifiers,
                 pointerEvent.ClickCount));
+        }
+
+        if (pointerEvent.Kind == PointerEventKind.Release)
+        {
+            InputManager.Current.GetPointerCapture(root, pointerEvent.PointerId)?.ReleasePointerCapture(pointerEvent.PointerId);
         }
     }
 

@@ -472,11 +472,92 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
         rules.Add(Rule(
             CssSelector.Where(
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-separator")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-resizablepanel")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-splitview")),
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-menuseparator")),
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-menugroup"))),
             new()
             {
                 ["display"] = "block"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-resizable"))),
+            new()
+            {
+                ["display"] = "flex",
+                ["width"] = "100%",
+                ["height"] = "100%",
+                ["overflow"] = "hidden"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(
+                CssSelector.Type("native-ui"),
+                CssSelector.Type("nui-resizable").Attribute("data-orientation", "horizontal"))),
+            new()
+            {
+                ["flex-direction"] = "row"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(
+                CssSelector.Type("native-ui"),
+                CssSelector.Type("nui-resizable").Attribute("data-orientation", "vertical"))),
+            new()
+            {
+                ["flex-direction"] = "column"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-resizablepanel"))),
+            new()
+            {
+                ["display"] = "block",
+                ["box-sizing"] = "border-box",
+                ["overflow"] = "auto",
+                ["position"] = "relative"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-resizablehandle"))),
+            new()
+            {
+                ["display"] = "block",
+                ["user-select"] = "none",
+                ["touch-action"] = "none",
+                ["flex"] = "0 0 auto",
+                ["align-self"] = "stretch"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(
+                CssSelector.Type("native-ui"),
+                CssSelector.Type("nui-resizablehandle").Attribute("data-orientation", "horizontal"))),
+            new()
+            {
+                ["cursor"] = "col-resize",
+                ["width"] = "6px"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(
+                CssSelector.Type("native-ui"),
+                CssSelector.Type("nui-resizablehandle").Attribute("data-orientation", "vertical"))),
+            new()
+            {
+                ["cursor"] = "row-resize",
+                ["height"] = "6px"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(
+                [CssSelector.Type("native-ui"), CssSelector.Type("nui-splitview")],
+                CssSelector.Attribute(StyleSheetCss.PartAttribute, "layout"))),
+            new()
+            {
+                ["height"] = "100%",
+                ["min-height"] = "inherit"
             }));
 
         rules.Add(Rule(
