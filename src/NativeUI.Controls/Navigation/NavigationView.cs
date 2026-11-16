@@ -175,6 +175,12 @@ public class NavigationView : ContentControl
     private bool _isSyncingSelection;
     private bool _isSyncingPaneOpen;
 
+    static NavigationView()
+    {
+        WidthProperty.OverrideMetadata<NavigationView>(WidthValue.Percent(100));
+        HeightProperty.OverrideMetadata<NavigationView>(HeightValue.Percent(100));
+    }
+
     /// <summary>
     /// Initializes a new instance of the <see cref="NavigationView"/> class.
     /// </summary>
@@ -407,11 +413,12 @@ public class NavigationView : ContentControl
             }
         };
 
-        View paneRoot = new View { Class = ["navigation-pane-root"] };
+        View paneRoot = new View { Class = ["navigation-pane-root"], Height = HeightValue.Percent(100) };
         Grid paneLayout = new Grid
         {
             Rows = [GridLength.Auto, GridLength.Star(), GridLength.Auto],
-            Class = ["navigation-pane-grid"]
+            Class = ["navigation-pane-grid"],
+            Height = HeightValue.Percent(100)
         };
 
         StackPanel paneHeaderSection = new StackPanel { Spacing = 4 };
@@ -476,7 +483,7 @@ public class NavigationView : ContentControl
         paneRoot.Children.Add(paneLayout);
         _splitView.Pane = paneRoot;
 
-        View contentArea = new View { Class = ["navigation-content-area"] };
+        View contentArea = new View { Class = ["navigation-content-area"], Height = HeightValue.Percent(100) };
         Grid contentLayout = DefinePart("layout", new Grid
         {
             Rows = [GridLength.Auto, GridLength.Auto, GridLength.Star()]
@@ -501,7 +508,8 @@ public class NavigationView : ContentControl
 
         _contentHost = DefinePart(ContentPartName, new View
         {
-            Class = ["navigation-content-host"]
+            Class = ["navigation-content-host"],
+            Height = HeightValue.Percent(100)
         });
         Grid.SetRow(_contentHost, 2);
         contentLayout.Children.Add(_contentHost);

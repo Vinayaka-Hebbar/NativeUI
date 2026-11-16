@@ -89,6 +89,12 @@ public class SplitView : ContentControl
     /// </summary>
     public event EventHandler? PaneClosed;
 
+    static SplitView()
+    {
+        WidthProperty.OverrideMetadata<SplitView>(WidthValue.Percent(100));
+        HeightProperty.OverrideMetadata<SplitView>(HeightValue.Percent(100));
+    }
+
     /// <inheritdoc />
     public override string TagName => "splitview";
 
@@ -185,9 +191,10 @@ public class SplitView : ContentControl
         _layout = DefinePart("layout", new Grid
         {
             Position = NativeUI.Layout.Position.Relative,
-            Rows = [GridLength.Star()]
+            Rows = [GridLength.Star()],
+            Height = HeightValue.Percent(100)
         });
-        _content = DefinePart(ContentPartName, new View());
+        _content = DefinePart(ContentPartName, new View { Height = HeightValue.Percent(100) });
         _backdrop = DefinePart("backdrop", new View
         {
             Position = NativeUI.Layout.Position.Absolute,
@@ -200,7 +207,7 @@ public class SplitView : ContentControl
         });
         _pane = DefinePart("pane", new View
         {
-            Style = new Style { ZIndex = 2 }
+            Style = new Style { ZIndex = 2, Height = HeightValue.Percent(100) }
         });
 
         _layout.Children.Add(_content);

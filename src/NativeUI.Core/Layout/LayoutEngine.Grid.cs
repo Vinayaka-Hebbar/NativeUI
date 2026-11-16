@@ -24,9 +24,10 @@ public sealed partial class LayoutEngine
         List<(int Column, double MaxContentWidth)> columnContents = [];
         for (int i = 0; i < children.Count; i++)
         {
-            if (children[i].Placement.ColumnSpan == 1)
+            (ILayoutNode node, GridPlacement placement) = children[i];
+            if (placement.ColumnSpan == 1)
             {
-                columnContents.Add((children[i].Placement.Column, MeasureMaxContentWidth(children[i].Node) + children[i].Node.ComputedStyle.Margin.Horizontal));
+                columnContents.Add((placement.Column, MeasureMaxContentWidth(node) + node.ComputedStyle.Margin.Horizontal));
             }
         }
 
@@ -81,6 +82,11 @@ public sealed partial class LayoutEngine
             MeasureSpan(rowHeights, 0, rowHeights.Length, rowSpacing));
     }
 
+    /// <summary>
+    /// Resolves the height of each row. Pixel rows keep their length and auto rows fit their tallest item. When the grid
+    /// has a definite height, star rows share the height that the other rows leave, and their items do not enlarge them.
+    /// Otherwise star rows fit their tallest item.
+    /// </summary>
     private static double[] ResolveRowHeights(
         IGridLayoutNode grid,
         List<GridLength> rows,
@@ -88,6 +94,7 @@ public sealed partial class LayoutEngine
         Size[] sizes,
         double? definiteHeight)
     {
+        bool isSizedToContent = definiteHeight is null;
         double[] heights = new double[rows.Count];
         for (int i = 0; i < rows.Count; i++)
         {
@@ -96,10 +103,11 @@ public sealed partial class LayoutEngine
 
         for (int i = 0; i < children.Count; i++)
         {
-            GridPlacement placement = children[i].Placement;
-            if (placement.RowSpan == 1 && !rows[placement.Row].IsPixels)
+            (ILayoutNode node, GridPlacement placement) = children[i];
+            GridLength row = rows[placement.Row];
+            if (placement.RowSpan == 1 && !row.IsPixels && (isSizedToContent || !row.IsStar))
             {
-                heights[placement.Row] = Math.Max(heights[placement.Row], GetOuterHeight(children[i].Node, sizes[i]));
+                heights[placement.Row] = Math.Max(heights[placement.Row], GetOuterHeight(node, sizes[i]));
             }
         }
 
@@ -107,14 +115,15 @@ public sealed partial class LayoutEngine
         // A child spanning rows gives any height the rows lack to the last spanned row that can grow.
         for (int i = 0; i < children.Count; i++)
         {
-            GridPlacement placement = children[i].Placement;
+            (ILayoutNode node, GridPlacement placement) = children[i];
             if (placement.RowSpan <= 1)
             {
                 continue;
             }
 
-            double missing = GetOuterHeight(children[i].Node, sizes[i]) - MeasureSpan(heights, placement.Row, placement.RowSpan, rowSpacing);
-            int growRow = Enumerable.Range(placement.Row, placement.RowSpan).LastOrDefault(row => !rows[row].IsPixels, -1);
+            double missing = GetOuterHeight(node, sizes[i]) - MeasureSpan(heights, placement.Row, placement.RowSpan, rowSpacing);
+            int growRow = Enumerable.Range(placement.Row, placement.RowSpan)
+                .LastOrDefault(row => !rows[row].IsPixels && (isSizedToContent || !rows[row].IsStar), -1);
             if (missing > 0 && growRow >= 0)
             {
                 heights[growRow] += missing;
@@ -130,17 +139,16 @@ public sealed partial class LayoutEngine
     }
 
     /// <summary>
-    /// Gives each star row its weighted share of the free height, without shrinking it below its content.
+    /// Gives each star row its weighted share of <paramref name="freeHeight"/>, which is the height that the other rows
+    /// leave.
     /// </summary>
     private static void DistributeToStarRows(List<GridLength> rows, double[] heights, double freeHeight)
     {
-        double totalHeight = freeHeight;
         double totalWeight = 0;
         for (int i = 0; i < rows.Count; i++)
         {
             if (rows[i].IsStar)
             {
-                totalHeight += heights[i];
                 totalWeight += Math.Max(0, rows[i].Value);
             }
         }
@@ -154,7 +162,7 @@ public sealed partial class LayoutEngine
         {
             if (rows[i].IsStar)
             {
-                heights[i] = Math.Max(heights[i], totalHeight * rows[i].Value / totalWeight);
+                heights[i] = Math.Max(0, freeHeight) * Math.Max(0, rows[i].Value) / totalWeight;
             }
         }
     }
