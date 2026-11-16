@@ -19,12 +19,12 @@ public sealed partial class LayoutEngine
         LayoutState state = GetState(node);
         Rect borderBox = new(parentOrigin.X + state.Bounds.X, parentOrigin.Y + state.Bounds.Y, state.Bounds.Width, state.Bounds.Height);
         Thickness insets = style.ContentInsets;
-        ITextLayout? textLayout = state.RenderSize == state.DesiredSize ? state.TextLayout : null;
+        ITextLayout? textLayout = state.TextLayout;
         Rect contentBox = new(
             borderBox.X + insets.Left,
             borderBox.Y + insets.Top,
             Math.Max(0, borderBox.Width - insets.Horizontal),
-            textLayout?.Size.Height ?? Math.Max(0, borderBox.Height - insets.Vertical));
+            ResolveContentHeight(state, borderBox, insets));
 
         if (!LaysOutChildren(node))
         {
@@ -51,6 +51,20 @@ public sealed partial class LayoutEngine
         }
 
         return new LayoutBox(node, style, borderBox, contentBox, OrderForPainting(boxes));
+    }
+
+    /// <summary>
+    /// Returns the content height of a node. The height of the retained text layout applies while the arranged size equals
+    /// <see cref="LayoutState.DesiredSize"/>. Otherwise the height is what remains of the border box after the insets.
+    /// </summary>
+    private static double ResolveContentHeight(LayoutState state, Rect borderBox, Thickness insets)
+    {
+        if (state.TextLayout is ITextLayout textLayout && state.RenderSize == state.DesiredSize)
+        {
+            return textLayout.Size.Height;
+        }
+
+        return Math.Max(0, borderBox.Height - insets.Vertical);
     }
 
     /// <summary>

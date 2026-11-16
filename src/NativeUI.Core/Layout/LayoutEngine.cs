@@ -245,7 +245,7 @@ public sealed partial class LayoutEngine
                 { IsPixels: true } pixels => pixels.Value,
                 { IsPercent: true } percent => Math.Max(0, availableWidth * percent.Value / 100.0),
                 { IsFitContent: true } => Math.Min(MeasureMaxContentWidth(node), fillWidth),
-                _ => (style.IsOutOfFlow && !(style.Left.HasValue && style.Right.HasValue))
+                _ => (style.IsOutOfFlow && (style.Left.IsAuto || style.Right.IsAuto))
                     ? Math.Min(MeasureMaxContentWidth(node), fillWidth)
                     : fillWidth
             };
@@ -315,7 +315,7 @@ public sealed partial class LayoutEngine
             return ClampHeight(style, height, availableHeight);
         }
 
-        return style.IsOutOfFlow && style.Top.HasValue && style.Bottom.HasValue ? ClampHeight(style, availableHeight, availableHeight) : null;
+        return style.IsOutOfFlow && !style.Top.IsAuto && !style.Bottom.IsAuto ? ClampHeight(style, availableHeight, availableHeight) : null;
     }
 
     /// <summary>

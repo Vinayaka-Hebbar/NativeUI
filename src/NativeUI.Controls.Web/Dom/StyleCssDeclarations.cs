@@ -47,10 +47,10 @@ internal static class StyleCssDeclarations
             ("transform", FormatTransform(style?.Transform)),
             ("z-index", style?.ZIndex?.ToString(CultureInfo.InvariantCulture)),
             ("position", FormatPosition(style?.Position)),
-            ("top", FormatLength(style?.Top)),
-            ("right", FormatLength(style?.Right)),
-            ("bottom", FormatLength(style?.Bottom)),
-            ("left", FormatLength(style?.Left))
+            ("top", FormatInset(style?.Top)),
+            ("right", FormatInset(style?.Right)),
+            ("bottom", FormatInset(style?.Bottom)),
+            ("left", FormatInset(style?.Left))
         ];
     }
 
@@ -140,6 +140,17 @@ internal static class StyleCssDeclarations
             null => null,
             { IsAuto: true } => "auto",
             { IsFitContent: true } => "fit-content",
+            { IsPercent: true } percent => percent.Value.ToString("R", CultureInfo.InvariantCulture) + "%",
+            { } pixels => FormatLength(pixels.Value)
+        };
+    }
+
+    private static string? FormatInset(InsetValue? value)
+    {
+        return value switch
+        {
+            null => null,
+            { IsAuto: true } => "auto",
             { IsPercent: true } percent => percent.Value.ToString("R", CultureInfo.InvariantCulture) + "%",
             { } pixels => FormatLength(pixels.Value)
         };

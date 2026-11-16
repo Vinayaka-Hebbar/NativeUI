@@ -193,22 +193,22 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// <summary>
     /// Identifies the <see cref="Top"/> property, which is <see cref="Style.TopProperty"/>.
     /// </summary>
-    public static readonly BindableProperty<double?> TopProperty = Style.TopProperty.AddOwner<UIElement>();
+    public static readonly BindableProperty<InsetValue?> TopProperty = Style.TopProperty.AddOwner<UIElement>();
 
     /// <summary>
     /// Identifies the <see cref="Right"/> property, which is <see cref="Style.RightProperty"/>.
     /// </summary>
-    public static readonly BindableProperty<double?> RightProperty = Style.RightProperty.AddOwner<UIElement>();
+    public static readonly BindableProperty<InsetValue?> RightProperty = Style.RightProperty.AddOwner<UIElement>();
 
     /// <summary>
     /// Identifies the <see cref="Bottom"/> property, which is <see cref="Style.BottomProperty"/>.
     /// </summary>
-    public static readonly BindableProperty<double?> BottomProperty = Style.BottomProperty.AddOwner<UIElement>();
+    public static readonly BindableProperty<InsetValue?> BottomProperty = Style.BottomProperty.AddOwner<UIElement>();
 
     /// <summary>
     /// Identifies the <see cref="Left"/> property, which is <see cref="Style.LeftProperty"/>.
     /// </summary>
-    public static readonly BindableProperty<double?> LeftProperty = Style.LeftProperty.AddOwner<UIElement>();
+    public static readonly BindableProperty<InsetValue?> LeftProperty = Style.LeftProperty.AddOwner<UIElement>();
 
     /// <summary>
     /// Identifies the <see cref="Bounds"/> computed bindable property.
@@ -763,7 +763,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// Gets or sets the inline top offset, the same value as <see cref="Controls.Style.Top"/> on <see cref="Style"/>.
     /// Setting it creates <see cref="Style"/> when none exists.
     /// </summary>
-    public double? Top
+    public InsetValue? Top
     {
         get => GetValue(TopProperty);
         set => SetValue(TopProperty, value);
@@ -773,7 +773,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// Gets or sets the inline right offset, the same value as <see cref="Controls.Style.Right"/> on <see cref="Style"/>.
     /// Setting it creates <see cref="Style"/> when none exists.
     /// </summary>
-    public double? Right
+    public InsetValue? Right
     {
         get => GetValue(RightProperty);
         set => SetValue(RightProperty, value);
@@ -783,7 +783,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// Gets or sets the inline bottom offset, the same value as <see cref="Controls.Style.Bottom"/> on <see cref="Style"/>.
     /// Setting it creates <see cref="Style"/> when none exists.
     /// </summary>
-    public double? Bottom
+    public InsetValue? Bottom
     {
         get => GetValue(BottomProperty);
         set => SetValue(BottomProperty, value);
@@ -793,7 +793,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// Gets or sets the inline left offset, the same value as <see cref="Controls.Style.Left"/> on <see cref="Style"/>.
     /// Setting it creates <see cref="Style"/> when none exists.
     /// </summary>
-    public double? Left
+    public InsetValue? Left
     {
         get => GetValue(LeftProperty);
         set => SetValue(LeftProperty, value);
@@ -990,13 +990,13 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
 
     Cursor? IUIElement.Cursor => GetValue(CursorProperty);
 
-    double? IUIElement.Top => Top;
+    InsetValue? IUIElement.Top => Top;
 
-    double? IUIElement.Right => Right;
+    InsetValue? IUIElement.Right => Right;
 
-    double? IUIElement.Bottom => Bottom;
+    InsetValue? IUIElement.Bottom => Bottom;
 
-    double? IUIElement.Left => Left;
+    InsetValue? IUIElement.Left => Left;
 
     ComputedStyle IUIElement.ComputedStyle => ComputedStyle;
 

@@ -184,26 +184,26 @@ public sealed class Style : BindableObject, IStyle
     /// <summary>
     /// Identifies the <see cref="Top"/> bindable property.
     /// </summary>
-    public static readonly BindableProperty<double?> TopProperty =
-        BindableProperty.Create<Style, double?>(nameof(Top));
+    public static readonly BindableProperty<InsetValue?> TopProperty =
+        BindableProperty.Create<Style, InsetValue?>(nameof(Top));
 
     /// <summary>
     /// Identifies the <see cref="Right"/> bindable property.
     /// </summary>
-    public static readonly BindableProperty<double?> RightProperty =
-        BindableProperty.Create<Style, double?>(nameof(Right));
+    public static readonly BindableProperty<InsetValue?> RightProperty =
+        BindableProperty.Create<Style, InsetValue?>(nameof(Right));
 
     /// <summary>
     /// Identifies the <see cref="Bottom"/> bindable property.
     /// </summary>
-    public static readonly BindableProperty<double?> BottomProperty =
-        BindableProperty.Create<Style, double?>(nameof(Bottom));
+    public static readonly BindableProperty<InsetValue?> BottomProperty =
+        BindableProperty.Create<Style, InsetValue?>(nameof(Bottom));
 
     /// <summary>
     /// Identifies the <see cref="Left"/> bindable property.
     /// </summary>
-    public static readonly BindableProperty<double?> LeftProperty =
-        BindableProperty.Create<Style, double?>(nameof(Left));
+    public static readonly BindableProperty<InsetValue?> LeftProperty =
+        BindableProperty.Create<Style, InsetValue?>(nameof(Left));
 
     /// <summary>
     /// Identifies the <see cref="Transform"/> bindable property.
@@ -474,36 +474,36 @@ public sealed class Style : BindableObject, IStyle
     }
 
     /// <summary>
-    /// Gets or sets the top offset in logical pixels.
+    /// Gets or sets the top inset, as a length in logical pixels or <see cref="InsetValue.Percent"/>.
     /// </summary>
-    public double? Top
+    public InsetValue? Top
     {
         get => GetValue(TopProperty);
         set => SetValue(TopProperty, value);
     }
 
     /// <summary>
-    /// Gets or sets the right offset in logical pixels.
+    /// Gets or sets the right inset, as a length in logical pixels or <see cref="InsetValue.Percent"/>.
     /// </summary>
-    public double? Right
+    public InsetValue? Right
     {
         get => GetValue(RightProperty);
         set => SetValue(RightProperty, value);
     }
 
     /// <summary>
-    /// Gets or sets the bottom offset in logical pixels.
+    /// Gets or sets the bottom inset, as a length in logical pixels or <see cref="InsetValue.Percent"/>.
     /// </summary>
-    public double? Bottom
+    public InsetValue? Bottom
     {
         get => GetValue(BottomProperty);
         set => SetValue(BottomProperty, value);
     }
 
     /// <summary>
-    /// Gets or sets the left offset in logical pixels.
+    /// Gets or sets the left inset, as a length in logical pixels or <see cref="InsetValue.Percent"/>.
     /// </summary>
-    public double? Left
+    public InsetValue? Left
     {
         get => GetValue(LeftProperty);
         set => SetValue(LeftProperty, value);

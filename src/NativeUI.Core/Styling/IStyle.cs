@@ -93,17 +93,17 @@ public interface IStyle
     /// <summary>Gets the specified positioning scheme.</summary>
     Position? Position { get; }
 
-    /// <summary>Gets the specified top offset in logical pixels.</summary>
-    double? Top { get; }
+    /// <summary>Gets the specified top inset.</summary>
+    InsetValue? Top { get; }
 
-    /// <summary>Gets the specified right offset in logical pixels.</summary>
-    double? Right { get; }
+    /// <summary>Gets the specified right inset.</summary>
+    InsetValue? Right { get; }
 
-    /// <summary>Gets the specified bottom offset in logical pixels.</summary>
-    double? Bottom { get; }
+    /// <summary>Gets the specified bottom inset.</summary>
+    InsetValue? Bottom { get; }
 
-    /// <summary>Gets the specified left offset in logical pixels.</summary>
-    double? Left { get; }
+    /// <summary>Gets the specified left inset.</summary>
+    InsetValue? Left { get; }
 
     /// <summary>Gets the specified transform.</summary>
     StyleTransform? Transform { get; }

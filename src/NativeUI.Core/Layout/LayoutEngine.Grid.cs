@@ -74,7 +74,7 @@ public sealed partial class LayoutEngine
             Point borderOrigin = new(
                 contentOrigin.X + columnOffsets[placement.Column] + margin.Left,
                 contentOrigin.Y + rowOffsets[placement.Row] + margin.Top);
-            GetState(node).VisualOffset = ApplyRelativeOffset(node.ComputedStyle, borderOrigin);
+            GetState(node).VisualOffset = ApplyRelativeOffset(node.ComputedStyle, borderOrigin, new Size(width, definiteHeight ?? double.PositiveInfinity));
         }
 
         return new Size(

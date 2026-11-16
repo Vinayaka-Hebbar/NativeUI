@@ -172,24 +172,24 @@ public sealed record ComputedStyle
     public Position Position { get; init; } = Position.Static;
 
     /// <summary>
-    /// Gets the explicit top offset in logical pixels, or <see langword="null"/> when auto/unspecified.
+    /// Gets the resolved top inset, which is <see cref="InsetValue.Auto"/> when nothing specifies one.
     /// </summary>
-    public double? Top { get; init; }
+    public InsetValue Top { get; init; } = InsetValue.Auto;
 
     /// <summary>
-    /// Gets the explicit right offset in logical pixels, or <see langword="null"/> when auto/unspecified.
+    /// Gets the resolved right inset, which is <see cref="InsetValue.Auto"/> when nothing specifies one.
     /// </summary>
-    public double? Right { get; init; }
+    public InsetValue Right { get; init; } = InsetValue.Auto;
 
     /// <summary>
-    /// Gets the explicit bottom offset in logical pixels, or <see langword="null"/> when auto/unspecified.
+    /// Gets the resolved bottom inset, which is <see cref="InsetValue.Auto"/> when nothing specifies one.
     /// </summary>
-    public double? Bottom { get; init; }
+    public InsetValue Bottom { get; init; } = InsetValue.Auto;
 
     /// <summary>
-    /// Gets the explicit left offset in logical pixels, or <see langword="null"/> when auto/unspecified.
+    /// Gets the resolved left inset, which is <see cref="InsetValue.Auto"/> when nothing specifies one.
     /// </summary>
-    public double? Left { get; init; }
+    public InsetValue Left { get; init; } = InsetValue.Auto;
 
     /// <summary>
     /// Gets the resolved transform, or <see langword="null"/> for none. A transform does not affect layout.
@@ -273,10 +273,10 @@ public sealed record ComputedStyle
             OverflowX = element.OverflowX,
             OverflowY = element.OverflowY,
             Position = element.Position ?? Default.Position,
-            Top = element.Top,
-            Right = element.Right,
-            Bottom = element.Bottom,
-            Left = element.Left
+            Top = element.Top ?? InsetValue.Auto,
+            Right = element.Right ?? InsetValue.Auto,
+            Bottom = element.Bottom ?? InsetValue.Auto,
+            Left = element.Left ?? InsetValue.Auto
         };
     }
 

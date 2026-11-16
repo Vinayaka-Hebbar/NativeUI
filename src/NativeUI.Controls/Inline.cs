@@ -62,10 +62,10 @@ public abstract class Inline : BindableObject, IUIElement
     Overflow? IUIElement.OverflowX => null;
     Overflow? IUIElement.OverflowY => null;
     Position? IUIElement.Position => null;
-    double? IUIElement.Top => null;
-    double? IUIElement.Right => null;
-    double? IUIElement.Bottom => null;
-    double? IUIElement.Left => null;
+    InsetValue? IUIElement.Top => null;
+    InsetValue? IUIElement.Right => null;
+    InsetValue? IUIElement.Bottom => null;
+    InsetValue? IUIElement.Left => null;
     SelectionStyle IUIElement.SelectionStyle => Parent?.SelectionStyle ?? SelectionStyle.Default;
     ElementStates IUIElement.States => ElementStates.None;
     double? IUIElement.FontSize => Style?.FontSize;

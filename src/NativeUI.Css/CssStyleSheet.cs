@@ -450,13 +450,13 @@ public class CssStyleSheet : StyleSheet
             case ("position", CssPositionValue position):
                 return style with { Position = position.Position };
             case ("top", CssLengthValue top):
-                return style with { Top = top.ToLogicalPixels(fontSize) };
+                return style with { Top = ToInset(top, fontSize) };
             case ("right", CssLengthValue right):
-                return style with { Right = right.ToLogicalPixels(fontSize) };
+                return style with { Right = ToInset(right, fontSize) };
             case ("bottom", CssLengthValue bottom):
-                return style with { Bottom = bottom.ToLogicalPixels(fontSize) };
+                return style with { Bottom = ToInset(bottom, fontSize) };
             case ("left", CssLengthValue left):
-                return style with { Left = left.ToLogicalPixels(fontSize) };
+                return style with { Left = ToInset(left, fontSize) };
             case ("transform", CssTransformValue transform):
                 return style with { Transform = transform.Transform };
             case ("transition", CssTransitionValue transition):
@@ -523,6 +523,13 @@ public class CssStyleSheet : StyleSheet
         return length.Unit == CssLengthUnit.Percent
             ? WidthValue.Percent(length.Value)
             : WidthValue.Pixels(length.ToLogicalPixels(fontSize));
+    }
+
+    private static InsetValue ToInset(CssLengthValue length, double fontSize)
+    {
+        return length.Unit == CssLengthUnit.Percent
+            ? InsetValue.Percent(length.Value)
+            : InsetValue.Pixels(length.ToLogicalPixels(fontSize));
     }
 
     private static HeightValue ToHeight(CssLengthValue length, double fontSize)

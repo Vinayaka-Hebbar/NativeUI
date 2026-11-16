@@ -84,24 +84,24 @@ public interface IUIElement
     Position? Position { get; }
 
     /// <summary>
-    /// Gets the offset from the top edge of the containing block in logical pixels.
+    /// Gets the inset from the top edge of the containing block, in logical pixels or as a percentage of its size.
     /// </summary>
-    double? Top { get; }
+    InsetValue? Top { get; }
 
     /// <summary>
-    /// Gets the offset from the right edge of the containing block in logical pixels.
+    /// Gets the inset from the right edge of the containing block, in logical pixels or as a percentage of its size.
     /// </summary>
-    double? Right { get; }
+    InsetValue? Right { get; }
 
     /// <summary>
-    /// Gets the offset from the bottom edge of the containing block in logical pixels.
+    /// Gets the inset from the bottom edge of the containing block, in logical pixels or as a percentage of its size.
     /// </summary>
-    double? Bottom { get; }
+    InsetValue? Bottom { get; }
 
     /// <summary>
-    /// Gets the offset from the left edge of the containing block in logical pixels.
+    /// Gets the inset from the left edge of the containing block, in logical pixels or as a percentage of its size.
     /// </summary>
-    double? Left { get; }
+    InsetValue? Left { get; }
 
     /// <summary>
     /// Gets the most recently computed style snapshot.

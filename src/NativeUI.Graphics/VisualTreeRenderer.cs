@@ -23,7 +23,6 @@ public sealed class VisualTreeRenderer : IDisposable
     private static readonly Color s_darkSelectionColor = Color.FromRgbBytes(96, 165, 250, 96);
 
     private readonly LayoutEngine _layoutEngine;
-    private readonly RetainedTextMeasurer _drawTextMeasurer;
     private readonly ITextMeasurer _overlayTextMeasurer;
     private bool _disposed;
     private readonly DrawingResourceCache _resources = new();
@@ -36,7 +35,6 @@ public sealed class VisualTreeRenderer : IDisposable
     public VisualTreeRenderer(ITextMeasurer textMeasurer)
     {
         ArgumentNullException.ThrowIfNull(textMeasurer);
-        _drawTextMeasurer = new RetainedTextMeasurer(textMeasurer);
         _overlayTextMeasurer = textMeasurer;
         _layoutEngine = new LayoutEngine(textMeasurer);
     }
@@ -86,7 +84,6 @@ public sealed class VisualTreeRenderer : IDisposable
 
         TimeSpan layoutDuration = Stopwatch.GetElapsedTime(layoutStart);
 
-        _drawTextMeasurer.BeginPass();
         context.Save();
         _currentRoot = root;
         _pixelScale = scaleFactor > 0 ? scaleFactor : 1;
@@ -106,13 +103,6 @@ public sealed class VisualTreeRenderer : IDisposable
             {
                 overlay.Draw(context, pass);
             }
-
-            _drawTextMeasurer.CommitPass();
-        }
-        catch
-        {
-            _drawTextMeasurer.RollbackPass();
-            throw;
         }
         finally
         {
@@ -124,7 +114,7 @@ public sealed class VisualTreeRenderer : IDisposable
     }
 
     /// <summary>
-    /// Releases the retained layout of the last rendered tree and the fallback text layouts. Layout boxes returned by
+    /// Releases the retained layout of the last rendered tree. Layout boxes returned by
     /// <see cref="Render"/> can no longer be drawn.
     /// </summary>
     public void Dispose()
@@ -135,7 +125,6 @@ public sealed class VisualTreeRenderer : IDisposable
         }
 
         _disposed = true;
-        _drawTextMeasurer.Dispose();
         _currentRoot?.ReleaseLayout();
         foreach (LayoutBox portalBox in PortalBoxes)
         {
@@ -404,13 +393,8 @@ public sealed class VisualTreeRenderer : IDisposable
             {
                 DrawSvgControl(context, svg, box.ContentBox, svg.Stretch, drawOpacity);
             }
-            else if (box.Element is Text textControl && !string.IsNullOrEmpty(textControl.TextContent))
+            else if (box.Element is Text textControl && !string.IsNullOrEmpty(textControl.TextContent) && box.TextLayout is ITextLayout textLayout)
             {
-                ITextLayout textLayout = box.TextLayout ?? _drawTextMeasurer.CreateTextLayout(
-                    textControl.TextContent,
-                    box.ContentBox.Size,
-                    style);
-
                 textControl.UpdateTextLayout(textLayout, box.ContentBox);
                 DrawSelectableText(
                     context,
@@ -421,18 +405,13 @@ public sealed class VisualTreeRenderer : IDisposable
                 textControl.DrawInlineDecorations(context, textLayout,
                     new Point(box.ContentBox.X, box.ContentBox.Y), drawOpacity);
             }
-            else if (box.Element is Button button && !string.IsNullOrEmpty(button.Text) && button.Children.Count == 0)
+            else if (box.Element is Button button && !string.IsNullOrEmpty(button.Text) && button.Children.Count == 0 && box.TextLayout is ITextLayout buttonLayout)
             {
-                ITextLayout textLayout = box.TextLayout ?? _drawTextMeasurer.CreateTextLayout(
-                    button.Text,
-                    box.ContentBox.Size,
-                    style);
-
-                double offsetX = box.ContentBox.X + (box.ContentBox.Width - textLayout.Size.Width) / 2.0;
-                double offsetY = box.ContentBox.Y + (box.ContentBox.Height - textLayout.Size.Height) / 2.0;
+                double offsetX = box.ContentBox.X + (box.ContentBox.Width - buttonLayout.Size.Width) / 2.0;
+                double offsetY = box.ContentBox.Y + (box.ContentBox.Height - buttonLayout.Size.Height) / 2.0;
                 Point origin = new(Math.Max(box.ContentBox.X, offsetX), Math.Max(box.ContentBox.Y, offsetY));
                 Paint textPaint = new(style.TextColor ?? Colors.Black, drawOpacity);
-                context.DrawTextLayout(textLayout, origin, textPaint);
+                context.DrawTextLayout(buttonLayout, origin, textPaint);
             }
             else if (box.Element is CanvasView canvasView && box.ContentBox.Width > 0 && box.ContentBox.Height > 0)
             {
@@ -995,159 +974,5 @@ public sealed class VisualTreeRenderer : IDisposable
         {
             NotifySizeChanged(child);
         }
-    }
-
-    /// <summary>
-    /// Reuses shaped layouts between draw passes for text that has no retained layout in its layout node, and disposes
-    /// layouts that the latest pass no longer uses. Color changes never affect the cache key.
-    /// </summary>
-    private sealed class RetainedTextMeasurer(ITextMeasurer inner) : ITextMeasurer, IDisposable
-    {
-        private Dictionary<LayoutKey, ITextLayout> _retained = [];
-        private Dictionary<LayoutKey, ITextLayout> _current = [];
-        private readonly List<ITextLayout> _newlyCreated = [];
-        private bool _disposed;
-
-        public void BeginPass()
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            _current = [];
-            _newlyCreated.Clear();
-        }
-
-        public void CommitPass()
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            foreach (KeyValuePair<LayoutKey, ITextLayout> entry in _retained)
-            {
-                if (!_current.ContainsKey(entry.Key))
-                {
-                    (entry.Value as IDisposable)?.Dispose();
-                }
-            }
-
-            _retained = _current;
-            _current = [];
-            _newlyCreated.Clear();
-        }
-
-        public void RollbackPass()
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            foreach (ITextLayout layout in _newlyCreated)
-            {
-                (layout as IDisposable)?.Dispose();
-            }
-
-            _newlyCreated.Clear();
-            _current.Clear();
-        }
-
-        public Size MeasureText(string text, Size availableSize, ComputedStyle style)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            return inner.MeasureText(text, availableSize, style);
-        }
-
-        public Size MeasureText(ITextSource source, Size availableSize, ComputedStyle style)
-        {
-            return source.TextRuns.Count == 0 ? MeasureText(source.Text ?? string.Empty, availableSize, style) : inner.MeasureText(source, availableSize, style);
-        }
-
-        public ITextLayout CreateTextLayout(ITextSource source, Size availableSize, ComputedStyle style)
-        {
-            IReadOnlyList<TextRun> runs = source.TextRuns;
-            string text = source.Text ?? string.Empty;
-            if (runs.Count == 0)
-            {
-                return CreateTextLayout(text, availableSize, style);
-            }
-
-            LayoutKey key = new(text, availableSize, style.FontSize, style.FontWeight, style.FontFamily, style.TextAlign, style.LineHeight, runs);
-            if (_current.TryGetValue(key, out ITextLayout? cached))
-            {
-                return cached;
-            }
-
-            if (!_retained.TryGetValue(key, out ITextLayout? layout))
-            {
-                layout = inner.CreateTextLayout(source, availableSize, style);
-                _newlyCreated.Add(layout);
-            }
-
-            _current[key] = layout;
-            return layout;
-        }
-
-        public ITextLayout CreateTextLayout(string text, Size availableSize, ComputedStyle style)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            LayoutKey key = new(text, availableSize, style.FontSize, style.FontWeight, style.FontFamily, style.TextAlign, style.LineHeight);
-            if (_current.TryGetValue(key, out ITextLayout? current))
-            {
-                return current;
-            }
-
-            if (!_retained.TryGetValue(key, out ITextLayout? layout))
-            {
-                layout = inner.CreateTextLayout(text, availableSize, style);
-                _newlyCreated.Add(layout);
-            }
-
-            _current[key] = layout;
-            return layout;
-        }
-
-        public void Dispose()
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            _disposed = true;
-            HashSet<ITextLayout> toDispose = new(ReferenceEqualityComparer.Instance);
-            foreach (ITextLayout layout in _retained.Values)
-            {
-                toDispose.Add(layout);
-            }
-
-            foreach (ITextLayout layout in _current.Values)
-            {
-                toDispose.Add(layout);
-            }
-
-            foreach (ITextLayout layout in _newlyCreated)
-            {
-                toDispose.Add(layout);
-            }
-
-            foreach (ITextLayout layout in toDispose)
-            {
-                (layout as IDisposable)?.Dispose();
-            }
-
-            _retained.Clear();
-            _current.Clear();
-            _newlyCreated.Clear();
-        }
-
-        /// <summary>
-        /// Cache key identifying shaped text layout inputs.
-        /// Includes all typographic parameters supported by <see cref="ComputedStyle"/> and <see cref="ITextMeasurer"/>.
-        /// </summary>
-        private readonly record struct LayoutKey(
-            string Text,
-            Size AvailableSize,
-            double FontSize,
-            FontWeight FontWeight,
-            string? FontFamily,
-            TextAlign TextAlign,
-            LineHeight LineHeight,
-            IReadOnlyList<TextRun>? Runs = null);
     }
 }

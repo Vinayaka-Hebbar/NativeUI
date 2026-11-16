@@ -50,7 +50,7 @@ public sealed partial class LayoutEngine
             Size size = Measure(child, constraints with { AvailableSize = new Size(availableWidth, constraints.AvailableSize.Height) });
             LayoutState childState = GetState(child);
             Point borderOrigin = new(currentX + margin.Left, contentOrigin.Y + margin.Top);
-            childState.VisualOffset = ApplyRelativeOffset(child.ComputedStyle, borderOrigin);
+            childState.VisualOffset = ApplyRelativeOffset(child.ComputedStyle, borderOrigin, new Size(width, constraints.AvailableSize.Height));
             count++;
             currentX += size.Width + margin.Horizontal;
             maxHeight = Math.Max(maxHeight, size.Height + margin.Vertical);

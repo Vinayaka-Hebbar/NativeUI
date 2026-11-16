@@ -29,18 +29,25 @@ public sealed partial class LayoutEngine
                 _ => null
             };
 
+            // A containing block of zero height has no definite height to resolve against.
+            double blockHeight = targetBlock.Height > 0 ? targetBlock.Height : double.PositiveInfinity;
+            double? left = ResolveInset(childStyle.Left, targetBlock.Width);
+            double? right = ResolveInset(childStyle.Right, targetBlock.Width);
+            double? top = ResolveInset(childStyle.Top, blockHeight);
+            double? bottom = ResolveInset(childStyle.Bottom, blockHeight);
+
             double childWidth;
             if (explicitWidth.HasValue)
             {
                 childWidth = explicitWidth.Value;
             }
-            else if (childStyle.Left.HasValue && childStyle.Right.HasValue)
+            else if (left is double leftInset && right is double rightInset)
             {
-                childWidth = Math.Max(0, targetBlock.Width - childStyle.Left.Value - childStyle.Right.Value - childMargin.Horizontal);
+                childWidth = Math.Max(0, targetBlock.Width - leftInset - rightInset - childMargin.Horizontal);
             }
             else
             {
-                double available = targetBlock.Width - (childStyle.Left ?? 0) - (childStyle.Right ?? 0) - childMargin.Horizontal;
+                double available = targetBlock.Width - (left ?? 0) - (right ?? 0) - childMargin.Horizontal;
                 childWidth = Math.Min(MeasureMaxContentWidth(child), Math.Max(0, available));
             }
 
@@ -49,8 +56,7 @@ public sealed partial class LayoutEngine
             double availableHeight;
             if (childStyle.Height.IsPercent)
             {
-                // A containing block of zero height has no definite height to resolve against.
-                availableHeight = targetBlock.Height > 0 ? targetBlock.Height : double.PositiveInfinity;
+                availableHeight = blockHeight;
             }
             else if (childStyle.Height.IsPixels)
             {
@@ -58,8 +64,8 @@ public sealed partial class LayoutEngine
             }
             else
             {
-                availableHeight = childStyle.Top.HasValue && childStyle.Bottom.HasValue
-                    ? Math.Max(0, targetBlock.Height - childStyle.Top.Value - childStyle.Bottom.Value - childMargin.Vertical)
+                availableHeight = top is double topInset && bottom is double bottomInset
+                    ? Math.Max(0, targetBlock.Height - topInset - bottomInset - childMargin.Vertical)
                     : double.PositiveInfinity;
             }
 
@@ -94,14 +100,15 @@ public sealed partial class LayoutEngine
         Thickness margin = style.Margin;
         LayoutState state = GetState(child);
 
+        double blockHeight = containingBlock.Height > 0 ? containingBlock.Height : double.PositiveInfinity;
         double borderX;
-        if (style.Left.HasValue)
+        if (ResolveInset(style.Left, containingBlock.Width) is double left)
         {
-            borderX = containingBlock.X + style.Left.Value + margin.Left;
+            borderX = containingBlock.X + left + margin.Left;
         }
-        else if (style.Right.HasValue)
+        else if (ResolveInset(style.Right, containingBlock.Width) is double right)
         {
-            borderX = containingBlock.Right - style.Right.Value - margin.Right - state.RenderSize.Width;
+            borderX = containingBlock.Right - right - margin.Right - state.RenderSize.Width;
         }
         else
         {
@@ -109,13 +116,13 @@ public sealed partial class LayoutEngine
         }
 
         double borderY;
-        if (style.Top.HasValue)
+        if (ResolveInset(style.Top, blockHeight) is double top)
         {
-            borderY = containingBlock.Y + style.Top.Value + margin.Top;
+            borderY = containingBlock.Y + top + margin.Top;
         }
-        else if (style.Bottom.HasValue)
+        else if (ResolveInset(style.Bottom, blockHeight) is double bottom)
         {
-            borderY = containingBlock.Bottom - style.Bottom.Value - margin.Bottom - state.RenderSize.Height;
+            borderY = containingBlock.Bottom - bottom - margin.Bottom - state.RenderSize.Height;
         }
         else
         {
@@ -128,18 +135,34 @@ public sealed partial class LayoutEngine
 
     /// <summary>
     /// Returns <paramref name="offset"/> moved by the <c>top</c>, <c>right</c>, <c>bottom</c> and <c>left</c> insets of a
-    /// relatively positioned element, or <paramref name="offset"/> unchanged for any other element.
+    /// relatively positioned element, or <paramref name="offset"/> unchanged for any other element. A percentage resolves
+    /// against <paramref name="containingSize"/>, the content box of the parent.
     /// </summary>
-    private static Point ApplyRelativeOffset(ComputedStyle style, Point offset)
+    private static Point ApplyRelativeOffset(ComputedStyle style, Point offset, Size containingSize)
     {
         if (style.Position != Position.Relative)
         {
             return offset;
         }
 
-        double dx = style.Left ?? -style.Right ?? 0;
-        double dy = style.Top ?? -style.Bottom ?? 0;
+        double dx = ResolveInset(style.Left, containingSize.Width) ?? -ResolveInset(style.Right, containingSize.Width) ?? 0;
+        double dy = ResolveInset(style.Top, containingSize.Height) ?? -ResolveInset(style.Bottom, containingSize.Height) ?? 0;
         return new Point(offset.X + dx, offset.Y + dy);
+    }
+
+    /// <summary>
+    /// Returns the distance that <paramref name="inset"/> places an element from an edge: its length in pixels, or its
+    /// percentage of <paramref name="containingLength"/> when that length is definite. Returns null for
+    /// <see cref="InsetValue.Auto"/> and for a percentage of an indefinite length.
+    /// </summary>
+    private static double? ResolveInset(InsetValue inset, double containingLength)
+    {
+        return inset switch
+        {
+            { IsPixels: true } pixels => pixels.Value,
+            { IsPercent: true } percent when double.IsFinite(containingLength) => containingLength * percent.Value / 100.0,
+            _ => null
+        };
     }
 
     /// <summary>
@@ -148,12 +171,13 @@ public sealed partial class LayoutEngine
     /// </summary>
     private static double GetStickyOffset(ComputedStyle style, Rect bounds, double scrollportTop, double scrollportBottom, double contentTop, double contentBottom)
     {
-        if (style.Top is double top && bounds.Y < scrollportTop + top)
+        double scrollportHeight = scrollportBottom - scrollportTop;
+        if (ResolveInset(style.Top, scrollportHeight) is double top && bounds.Y < scrollportTop + top)
         {
             return Math.Min(scrollportTop + top - bounds.Y, contentBottom - bounds.Bottom);
         }
 
-        if (style.Bottom is double bottom && bounds.Bottom > scrollportBottom - bottom)
+        if (ResolveInset(style.Bottom, scrollportHeight) is double bottom && bounds.Bottom > scrollportBottom - bottom)
         {
             return Math.Max(scrollportBottom - bottom - bounds.Bottom, contentTop - bounds.Y);
         }

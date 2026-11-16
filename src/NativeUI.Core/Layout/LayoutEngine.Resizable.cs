@@ -103,7 +103,7 @@ public sealed partial class LayoutEngine
                 borderOrigin = new Point(origin.X + childStyle.Margin.Left, origin.Y + childStyle.Margin.Top);
             }
 
-            childState.VisualOffset = ApplyRelativeOffset(childStyle, borderOrigin);
+            childState.VisualOffset = ApplyRelativeOffset(childStyle, borderOrigin, new Size(width, definiteHeight ?? double.PositiveInfinity));
             currentMainPosition += childMainLength;
         }
 
