@@ -111,4 +111,29 @@
             <MenuItem Content="Show Hidden Files" IsCheckable="True" />
         </ContextMenu>
     </View>
+    <View Class="popup-section">
+        <Text Class="popup-heading" Value="Sheet" />
+        <Text Class="popup-description" Value="Open a modal panel from any edge. Tab stays inside; Escape, the backdrop, and Close dismiss it." />
+        <StackPanel Class="popup-row" Orientation="Horizontal">
+            <Button Class="popup-trigger" Text="Left" Command="{Binding OpenSheetCommand}" CommandParameter="Left" />
+            <Button Class="popup-trigger" Text="Right" Command="{Binding OpenSheetCommand}" CommandParameter="Right" />
+            <Button Class="popup-trigger" Text="Top" Command="{Binding OpenSheetCommand}" CommandParameter="Top" />
+            <Button Class="popup-trigger" Text="Bottom" Command="{Binding OpenSheetCommand}" CommandParameter="Bottom" />
+        </StackPanel>
+        <Sheet Title="Account settings"
+               Placement="{Binding SheetPlacement}"
+               IsOpen="{Binding IsSheetOpen, Mode=TwoWay}">
+            <StackPanel Spacing="20">
+                <StackPanel Spacing="8">
+                    <Text Class="popup-title" Value="Account settings" />
+                    <Text Class="popup-muted" Value="Update your profile. The same content works on all four edges." />
+                </StackPanel>
+                <StackPanel Spacing="8">
+                    <Label Target="{x:Reference SheetNameInput}" Content="Display name" />
+                    <Input x:Name="SheetNameInput" Class="popup-input sheet-input" Value="Ada Lovelace" />
+                </StackPanel>
+                <Button Class="popup-trigger" Text="Close" Command="{Binding CloseSheetCommand}" />
+            </StackPanel>
+        </Sheet>
+    </View>
 </View>

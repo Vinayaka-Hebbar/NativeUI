@@ -9,7 +9,7 @@ namespace NativeUI.Controls.Web;
 /// <summary>
 /// Mounts a <see cref="Portal"/> while it is open, and removes it from the DOM while it is closed. A portal is appended to
 /// its parent's element and shown as a manual HTML popover in the browser's top layer, so selectors through its ancestors
-/// match it, as they do on desktop. A <see cref="Dialog"/> is mounted at the end of the <c>native-ui</c> element as a
+/// match it, as they do on desktop. A <see cref="Dialog"/> keeps its DOM ancestry and is shown as a
 /// native <c>&lt;dialog&gt;</c> element, so the browser provides the top layer, focus containment, the inert page behind
 /// a modal dialog, and closing on Escape. The position is calculated when the portal opens or its placement changes. It
 /// does not follow a later scroll or resize.

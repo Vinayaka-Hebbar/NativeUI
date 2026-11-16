@@ -44,6 +44,7 @@ internal static class HtmlTagMapping
     /// </summary>
     public static string GetTag(UIElement element)
     {
+        if (element is Sheet) return "nui-sheet";
         if (element is Label) return "label";
         if (element is Form) return "form";
         if (element is Fieldset) return "fieldset";

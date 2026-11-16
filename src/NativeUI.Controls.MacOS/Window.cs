@@ -1342,11 +1342,11 @@ public sealed class Window : IDisposable, IRenderHost
         foreach (UIElement child in view.Children)
         {
             // A dialog keeps its window until its exit animations finish.
-            if (child is Dialog { IsVisible: true } dialog)
+            if (child is Dialog { IsVisible: true, HasOwnWindow: true } dialog)
             {
                 open.Add(dialog);
             }
-            else if (child is not Portal { IsVisible: false } and not Dialog)
+            else if (child is not Portal { IsVisible: false } and not Dialog { HasOwnWindow: true })
             {
                 CollectOpenDialogs(child, open);
             }

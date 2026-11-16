@@ -682,16 +682,19 @@ export const dom = {
   },
 
   /**
-   * Appends an element to the `native-ui` element containing a parent element.
+   * Appends a dialog to its connected parent, preserving inherited styles and ancestor selectors.
    *
-   * @param {Element} parent The element whose `native-ui` ancestor receives the portal.
+   * @param {Element} parent The element that receives the dialog.
    * @param {Element} element The portal element.
-   * @returns {boolean} Whether a `native-ui` ancestor exists.
+   * @returns {boolean} Whether the parent is connected.
    */
   mountPortal(parent, element) {
-    const root = parent.closest("native-ui");
-    root?.appendChild(element);
-    return root !== null;
+    if (!parent.isConnected) {
+      return false;
+    }
+
+    parent.appendChild(element);
+    return true;
   },
 
   /**

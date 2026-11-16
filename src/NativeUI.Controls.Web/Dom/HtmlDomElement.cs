@@ -198,6 +198,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
             ListItem listItem => new HtmlDomListItem(listItem, element, tagName),
             TableRow tableRow => new HtmlDomTableRow(tableRow, element, tagName),
             TableCell tableCell => new HtmlDomTableCell(tableCell, element, tagName),
+            Sheet sheet => new HtmlDomSheet(sheet, element, tagName),
             Dialog dialog => new HtmlDomDialog(dialog, element, tagName),
             Portal portal => new HtmlDomPortal(portal, element, tagName),
             StackPanel stackPanel => new HtmlDomStackPanel(stackPanel, element),

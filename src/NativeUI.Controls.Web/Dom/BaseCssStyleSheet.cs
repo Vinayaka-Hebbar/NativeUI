@@ -174,6 +174,32 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
     private static void AddComponentRules(List<CssRule> rules)
     {
         rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-sheet"))),
+            new()
+            {
+                ["display"] = "block"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(
+                [CssSelector.Type("native-ui"), CssSelector.Type("nui-sheet")],
+                CssSelector.Attribute(StyleSheetCss.PartAttribute, "popup"))),
+            new()
+            {
+                ["border"] = "0",
+                ["box-sizing"] = "border-box"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(
+                [CssSelector.Type("native-ui"), CssSelector.Type("nui-sheet")],
+                CssSelector.Attribute(StyleSheetCss.PartAttribute, "popup"))).PseudoElement("backdrop"),
+            new()
+            {
+                ["background"] = "transparent"
+            }));
+
+        rules.Add(Rule(
             CssSelector.Where(CssSelector.Attribute(StyleSheetCss.PortalAttribute)),
             new()
             {

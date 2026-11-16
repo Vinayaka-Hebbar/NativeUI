@@ -409,6 +409,7 @@ public sealed class CssValidator : CssSyntaxVisitor
             "contextmenu" => "nui-contextmenu",
             "menuitem" => "nui-menuitem",
             "popover" => "nui-popover",
+            "sheet" => "nui-sheet",
             "tooltip" => "nui-tooltip",
             _ => null
         };

@@ -256,3 +256,54 @@ MenuItem:open {
 MenuItem:checked::part(checkmark) {
   color: var(--foreground);
 }
+
+Sheet::part(popup) {
+  background-color: rgb(0 0 0 / 0.45);
+  border-width: 0;
+  opacity: 1;
+  transition: opacity 180ms ease;
+}
+
+Sheet::part(panel) {
+  background-color: var(--background);
+  color: var(--foreground);
+  padding: 28px;
+  max-width: 100%;
+  overflow: auto;
+  transform: translateX(0);
+  transition: transform 180ms ease;
+}
+
+Sheet[data-side="left"]::part(panel),
+Sheet[data-side="right"]::part(panel) {
+  width: 360px;
+}
+
+Sheet[data-starting-style]::part(popup),
+Sheet[data-ending-style]::part(popup) {
+  opacity: 0;
+}
+
+Sheet[data-side="left"][data-starting-style]::part(panel),
+Sheet[data-side="left"][data-ending-style]::part(panel) {
+  transform: translateX(-100%);
+}
+
+Sheet[data-side="right"][data-starting-style]::part(panel),
+Sheet[data-side="right"][data-ending-style]::part(panel) {
+  transform: translateX(100%);
+}
+
+Sheet[data-side="top"][data-starting-style]::part(panel),
+Sheet[data-side="top"][data-ending-style]::part(panel) {
+  transform: translateY(-100%);
+}
+
+Sheet[data-side="bottom"][data-starting-style]::part(panel),
+Sheet[data-side="bottom"][data-ending-style]::part(panel) {
+  transform: translateY(100%);
+}
+
+.sheet-input {
+  width: auto;
+}

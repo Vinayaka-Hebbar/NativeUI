@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using NativeUI.Controls;
 
 namespace NativeUI.Sample;
 
@@ -8,6 +9,28 @@ namespace NativeUI.Sample;
 /// </summary>
 public partial class PopupSampleViewModel : ObservableObject
 {
+    [ObservableProperty]
+    private bool _isSheetOpen;
+
+    [ObservableProperty]
+    private Dock _sheetPlacement = Dock.Right;
+
+    [RelayCommand]
+    private void OpenSheet(string? edge)
+    {
+        if (Enum.TryParse(edge, out Dock placement))
+        {
+            SheetPlacement = placement;
+            IsSheetOpen = true;
+        }
+    }
+
+    [RelayCommand]
+    private void CloseSheet()
+    {
+        IsSheetOpen = false;
+    }
+
     [ObservableProperty]
     private bool _showToolbar = true;
 

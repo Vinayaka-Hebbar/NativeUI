@@ -235,7 +235,9 @@ internal sealed class NativeTextField : INativeHandle, IFocusPeer
         bool handled;
         if (selector == AppKitInterop.GetSelector("cancelOperation:"))
         {
-            handled = field._window.TryCloseModalDialog();
+            KeyEventArgs args = new(Key.Escape);
+            field._input.RaiseEvent(UIElement.KeyDownEvent, args);
+            handled = args.Handled || field._window.TryCloseModalDialog();
         }
         else if (selector == AppKitInterop.GetSelector("insertNewline:") && Form.GetForm(field._input) is Form form &&
             (AppKitInterop.SendMessage(textView, AppKitInterop.GetSelector("hasMarkedText")) & 0xFF) == 0)
