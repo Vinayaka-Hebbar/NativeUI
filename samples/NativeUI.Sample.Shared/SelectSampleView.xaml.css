@@ -1,0 +1,129 @@
+.select-page {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --muted-foreground: #737373;
+  --accent: #f5f5f5;
+  --accent-foreground: #171717;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #a3a3a3;
+  color: var(--foreground);
+  font-family: Arial;
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .select-page {
+    --background: #0a0a0a;
+    --foreground: #fafafa;
+    --muted-foreground: #a3a3a3;
+    --accent: #262626;
+    --accent-foreground: #fafafa;
+    --border: rgb(255 255 255 / 0.1);
+    --input: rgb(255 255 255 / 0.15);
+    --ring: #737373;
+  }
+}
+
+.select-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.select-description {
+  color: var(--muted-foreground);
+  margin: 0 0 20px 0;
+}
+
+.select-section {
+  background-color: var(--background);
+  border-width: 1px;
+  border-color: var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 0 0 16px 0;
+}
+
+.select-heading {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.select-status {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  margin: 8px 0 0 0;
+}
+
+Select {
+  width: 240px;
+  cursor: pointer;
+}
+
+Select::part(trigger) {
+  width: 240px;
+  height: 36px;
+  padding: 0 12px;
+  align-items: center;
+  border-width: 1px;
+  border-color: var(--input);
+  border-radius: 8px;
+  background-color: var(--background);
+  transition: border-color 150ms ease;
+}
+
+Select:focus-visible::part(trigger) {
+  border-color: var(--ring);
+}
+
+Select[data-open]::part(trigger) {
+  border-color: var(--ring);
+}
+
+Select::part(value) {
+  width: 192px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+Select[data-placeholder]::part(value) {
+  color: var(--muted-foreground);
+}
+
+Select::part(icon) {
+  margin: 0 0 0 8px;
+  color: var(--muted-foreground);
+}
+
+Select::part(items) {
+  min-width: 240px;
+  max-height: 240px;
+  padding: 4px;
+  border-width: 1px;
+  border-color: var(--border);
+  border-radius: 8px;
+  background-color: var(--background);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+}
+
+Select::part(item) {
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+Select::part(item):hover {
+  background-color: var(--accent);
+}
+
+Select::part(item):selected {
+  background-color: var(--accent);
+  font-weight: 600;
+}
+
+Select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

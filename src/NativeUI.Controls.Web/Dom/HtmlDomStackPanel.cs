@@ -52,6 +52,7 @@ public sealed class HtmlDomStackPanel : HtmlDomView
     private void UpdateStack()
     {
         bool isHorizontal = _panel.Orientation == Orientation.Horizontal;
+        SetAttribute("data-orientation", isHorizontal ? "horizontal" : "vertical");
         if (_panel is RadioGroup group)
         {
             SetAttribute("aria-orientation", isHorizontal ? "horizontal" : "vertical");

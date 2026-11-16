@@ -49,6 +49,23 @@ internal static class Icons
     /// <summary>
     /// Gets the right-pointing chevron geometry used by submenu indicators.
     /// </summary>
+    internal static readonly PathGeometry ChevronDown = new(
+    [
+        new PathFigure
+        {
+            StartPoint = new Point(13, 6),
+            IsClosed = true,
+            Segments =
+            [
+                new LineSegment(new Point(8, 11)),
+                new LineSegment(new Point(3, 6)),
+                new LineSegment(new Point(4.25, 4.75)),
+                new LineSegment(new Point(8, 8.5)),
+                new LineSegment(new Point(11.75, 4.75))
+            ]
+        }
+    ]);
+
     internal static readonly PathGeometry ChevronRight = new(
     [
         new PathFigure

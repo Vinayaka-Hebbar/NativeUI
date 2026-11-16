@@ -194,6 +194,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
             Badge or Avatar => new HtmlDomView((View)source, element, tagName),
             TabControl tabs => new HtmlDomTabControl(tabs, element, tagName),
             TabItem tab => new HtmlDomTabItem(tab, element, tagName),
+            Select select => new HtmlDomSelect(select, element, tagName),
             Selector selector => new HtmlDomSelector(selector, element, tagName),
             ListItem listItem => new HtmlDomListItem(listItem, element, tagName),
             TableRow tableRow => new HtmlDomTableRow(tableRow, element, tagName),
@@ -396,7 +397,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
             }
         }
 
-        if (_element is not null && child._element is not null)
+        if (_element is not null && child._element is not null && child is not HtmlDomPortal)
         {
             DomInterop.InsertBefore(_element, child._element, reference?._element);
         }
@@ -418,7 +419,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
             throw new InvalidOperationException("The element is not a child of this element.");
         }
 
-        if (_element is not null && child._element is not null)
+        if (_element is not null && child._element is not null && child is not HtmlDomPortal)
         {
             DomInterop.RemoveChild(_element, child._element);
         }

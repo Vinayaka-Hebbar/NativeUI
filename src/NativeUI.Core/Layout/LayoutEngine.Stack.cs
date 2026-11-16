@@ -66,7 +66,8 @@ public sealed partial class LayoutEngine
         };
 
         Alignment alignItems = stack.ComputedStyle.AlignItems;
-        if (shift > 0 || (alignItems != Alignment.Start && maxHeight > 0))
+        double contentHeight = constraints.GetContentHeight(maxHeight);
+        if (shift > 0 || (alignItems != Alignment.Start && contentHeight > 0))
         {
             for (int i = 0; i < children.Count; i++)
             {
@@ -76,7 +77,7 @@ public sealed partial class LayoutEngine
                 }
 
                 LayoutState childState = GetState(children[i]);
-                double freeHeight = Math.Max(0, maxHeight - childState.RenderSize.Height - childState.Margin.Vertical);
+                double freeHeight = Math.Max(0, contentHeight - childState.RenderSize.Height - childState.Margin.Vertical);
                 double shiftY = alignItems switch
                 {
                     Alignment.Center => freeHeight / 2.0,

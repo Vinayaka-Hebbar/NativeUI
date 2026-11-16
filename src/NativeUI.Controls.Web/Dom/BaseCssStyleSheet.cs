@@ -427,6 +427,24 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
             }));
 
         rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Attribute("data-orientation", "horizontal"))),
+            new()
+            {
+                ["display"] = "flex",
+                ["flex-direction"] = "row",
+                ["align-items"] = "flex-start"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Attribute("data-orientation", "vertical"))),
+            new()
+            {
+                ["display"] = "flex",
+                ["flex-direction"] = "column",
+                ["align-items"] = "stretch"
+            }));
+
+        rules.Add(Rule(
             CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-list"))),
             new()
             {
@@ -643,6 +661,7 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
 
         rules.Add(Rule(
             CssSelector.Where(
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-select")),
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-popover")),
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-tooltip")),
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-dropdownmenu")),

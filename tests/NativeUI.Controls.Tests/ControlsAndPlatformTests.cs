@@ -298,7 +298,11 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("Fixed positioning against viewport and immunity from scroll translation", NativeUI.Controls.Tests.PositioningTests.VerifyFixedPositioningAgainstViewportAndScrollImmunity),
     ("Text measurement obeys fit-content rather than stretching", NativeUI.Controls.Tests.PositioningTests.VerifyTextMeasurementObeysFitContent),
     ("white-space nowrap keeps text on one line", NativeUI.Controls.Tests.TextOverflowTests.VerifyNoWrapKeepsOneLine),
-    ("text-overflow ellipsis shortens text to the available width", NativeUI.Controls.Tests.TextOverflowTests.VerifyEllipsisShortensToWidth)
+    ("text-overflow ellipsis shortens text to the available width", NativeUI.Controls.Tests.TextOverflowTests.VerifyEllipsisShortensToWidth),
+    ("Select shows the placeholder and the selected item", NativeUI.Controls.Tests.SelectTests.VerifyValueShowsPlaceholderAndSelectedItem),
+    ("Select opens and closes its drop-down from the keyboard", NativeUI.Controls.Tests.SelectTests.VerifyDropDownOpensAndClosesFromKeyboard),
+    ("Select arrow keys change the selection while closed", NativeUI.Controls.Tests.SelectTests.VerifyArrowKeysSelectWhileClosed),
+    ("Select reports a missing selection and resets", NativeUI.Controls.Tests.SelectTests.VerifyRequiredValidityAndReset)
 ]);
 
 return exitCode;

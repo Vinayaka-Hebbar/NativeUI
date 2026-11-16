@@ -69,6 +69,12 @@ public partial class GalleryViewModel : ObservableObject
             },
             new NavigationItemViewModel
             {
+                Name = "Select",
+                Tag = "Select",
+                IconData = "M12 3l5 5H7l5-5zm0 18l-5-5h10l-5 5z"
+            },
+            new NavigationItemViewModel
+            {
                 Name = "Forms",
                 Tag = "Forms",
                 IconData = "M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm3 5h10V6H7v2zm0 5h10v-2H7v2zm0 5h6v-2H7v2z"
@@ -138,6 +144,7 @@ public partial class GalleryViewModel : ObservableObject
             "Images" => new ImageSampleView(),
             "Text" => new TextSampleView(),
             "Toggles" => new ToggleSampleView(),
+            "Select" => new SelectSampleView(),
             "Forms" => new FormSampleView(),
             _ => new SplitViewSampleView()
         };

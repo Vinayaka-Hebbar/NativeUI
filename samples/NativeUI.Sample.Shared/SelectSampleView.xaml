@@ -1,0 +1,28 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.SelectSampleView"
+      Class="select-page">
+    <Text Class="select-title" Value="Select" />
+    <Text Class="select-description" Value="A trigger that shows the selected item and a drop-down list to pick another. Enter, Space, F4, and Alt+Down open it. The arrow keys change the selection while it is closed." />
+
+    <View Class="select-section">
+        <Text Class="select-heading" Value="Placeholder" />
+        <Select x:Name="FruitSelect" Placeholder="Select a fruit" />
+        <Text x:Name="FruitStatus" Class="select-status" Value="Nothing selected" />
+    </View>
+
+    <View Class="select-section">
+        <Text Class="select-heading" Value="Preselected" />
+        <Select x:Name="PreselectedSelect" />
+    </View>
+
+    <View Class="select-section">
+        <Text Class="select-heading" Value="Long list" />
+        <Select x:Name="LongSelect" Placeholder="Select an item" />
+    </View>
+
+    <View Class="select-section">
+        <Text Class="select-heading" Value="Disabled" />
+        <Select x:Name="DisabledSelect" IsEnabled="False" />
+    </View>
+</View>

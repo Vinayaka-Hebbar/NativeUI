@@ -51,6 +51,7 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
     ("The base stylesheet writes zero-specificity block, button, and color-scheme rules", TestBaseStyleSheetCss),
     ("Button mounts as HTML button element and synchronizes disabled and text attributes", TestButtonDomProxy),
     ("CanvasView mounts as HTML canvas element, synchronizes dimensions, and records 2D drawing", TestCanvasDomProxy),
+    ("Select mounts as nui-select custom element and manages selection attributes", TestSelectDomProxy),
     ("UIElement SizeChanged event tracks rendered dimensions and notifies peer", TestSizeChangedSubscription)
 ]);
 
@@ -837,6 +838,31 @@ static void TestCanvasDomProxy()
     // Without a browser element, invalidating cleanly does nothing.
     canvas.InvalidateVisual();
     Assert.False(drawn);
+}
+
+static void TestSelectDomProxy()
+{
+    using Select select = new() { Placeholder = "Choose fruit" };
+    select.Items.Add("Apple");
+    select.Items.Add("Banana");
+
+    using HtmlDomRoot domRoot = new();
+    domRoot.MountHeadless(select);
+
+    HtmlDomElement element = GetElement(select);
+    Assert.True(element is HtmlDomSelect);
+    Assert.Equal("nui-select", element.TagName);
+    Assert.Equal("nui-select", HtmlTagMapping.GetTagSelector(typeof(Select)));
+    Assert.Equal("nui-select", HtmlTagMapping.GetTagSelector("select"));
+    Assert.Equal("", select.GetAttribute("data-closed"));
+    Assert.Equal("", select.GetAttribute("data-placeholder"));
+
+    select.IsDropDownOpen = true;
+    Assert.Equal("", select.GetAttribute("data-open"));
+    Assert.Null(select.GetAttribute("data-closed"));
+
+    select.SelectedIndex = 1;
+    Assert.Null(select.GetAttribute("data-placeholder"));
 }
 
 static void TestSizeChangedSubscription()

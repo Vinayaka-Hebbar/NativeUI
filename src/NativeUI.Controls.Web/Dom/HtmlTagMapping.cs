@@ -41,6 +41,7 @@ internal static class HtmlTagMapping
     private const string ResizableTag = "nui-resizable";
     private const string ResizablePanelTag = "nui-resizablepanel";
     private const string ResizableHandleTag = "nui-resizablehandle";
+    private const string SelectTag = "nui-select";
 
     /// <summary>
     /// Gets the tag created for <paramref name="element"/>.
@@ -209,6 +210,11 @@ internal static class HtmlTagMapping
         if (element is MenuItem)
         {
             return MenuItemTag;
+        }
+
+        if (element is Select)
+        {
+            return SelectTag;
         }
 
         if (element is Popover)
@@ -389,6 +395,11 @@ internal static class HtmlTagMapping
             return MenuItemTag;
         }
 
+        if (typeof(Select).IsAssignableFrom(type))
+        {
+            return SelectTag;
+        }
+
         if (typeof(Popover).IsAssignableFrom(type))
         {
             return PopoverTag;
@@ -454,6 +465,7 @@ internal static class HtmlTagMapping
             "dropdownmenu" => $":is({DropdownMenuTag}, {ContextMenuTag})",
             "contextmenu" => ContextMenuTag,
             "menuitem" => MenuItemTag,
+            "select" => SelectTag,
             "popover" => PopoverTag,
             "tooltip" => TooltipTag,
             _ => throw new NotSupportedException($"The element type '{elementType}' has no HTML element mapping.")

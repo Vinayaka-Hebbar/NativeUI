@@ -31,4 +31,24 @@ internal readonly record struct LayoutConstraints(
         : this(viewport, viewport, viewport, true, false)
     {
     }
+
+    /// <summary>
+    /// Returns the width of the content box of a node whose children occupy <paramref name="extentWidth"/>. It is the width
+    /// of <see cref="AvailableSize"/> when that width is definite and larger, and the extent otherwise.
+    /// </summary>
+    /// <param name="extentWidth">The width that the in-flow children occupy.</param>
+    public double GetContentWidth(double extentWidth)
+    {
+        return double.IsFinite(AvailableSize.Width) ? Math.Max(extentWidth, AvailableSize.Width) : extentWidth;
+    }
+
+    /// <summary>
+    /// Returns the height of the content box of a node whose children occupy <paramref name="extentHeight"/>. It is the
+    /// height of <see cref="AvailableSize"/> when that height is definite and larger, and the extent otherwise.
+    /// </summary>
+    /// <param name="extentHeight">The height that the in-flow children occupy.</param>
+    public double GetContentHeight(double extentHeight)
+    {
+        return double.IsFinite(AvailableSize.Height) ? Math.Max(extentHeight, AvailableSize.Height) : extentHeight;
+    }
 }

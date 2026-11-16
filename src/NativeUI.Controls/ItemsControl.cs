@@ -55,7 +55,7 @@ public abstract class ItemsControl : Control
     protected ItemsControl()
     {
         _items = new ItemCollection(this);
-        _itemsHost = GetTemplateChild<View>(ItemsPartName) ?? this;
+        _itemsHost = FindItemsHost() ?? this;
         _itemsStart = _itemsHost.Children.Count;
         _items.CollectionChanged += OnItemsCollectionChanged;
     }
@@ -81,6 +81,17 @@ public abstract class ItemsControl : Control
     {
         get => GetValue(ItemTemplateProperty);
         set => SetValue(ItemTemplateProperty, value);
+    }
+
+    /// <summary>
+    /// Returns the view that hosts the item elements, or <see langword="null"/> when the control hosts them itself. By
+    /// default this is the template part named <c>items</c> among the parts that this control defined directly. A control
+    /// whose <c>items</c> part lives inside another control, such as a popover, overrides this. The constructor of this
+    /// class calls it, so an override reads only what the template has built.
+    /// </summary>
+    protected virtual View? FindItemsHost()
+    {
+        return GetTemplateChild<View>(ItemsPartName);
     }
 
     /// <summary>

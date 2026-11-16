@@ -418,6 +418,7 @@ public sealed class CssValidator : CssSyntaxVisitor
             "dropdownmenu" => ":is(nui-dropdownmenu, nui-contextmenu)",
             "contextmenu" => "nui-contextmenu",
             "menuitem" => "nui-menuitem",
+            "select" => "nui-select",
             "popover" => "nui-popover",
             "sheet" => "nui-sheet",
             "tooltip" => "nui-tooltip",

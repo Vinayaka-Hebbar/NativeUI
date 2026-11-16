@@ -94,7 +94,7 @@ public sealed class HtmlDomPopover : HtmlDomView
             return;
         }
 
-        string popupType = _popover is DropdownMenu ? "menu" : "dialog";
+        string popupType = _popover is DropdownMenu ? "menu" : _popover.TemplatedParent is Select ? "listbox" : "dialog";
         SetTargetAttributes(_target, _popover.IsOpen, (_popover.ContentPart.NativeHandle as HtmlDomPortal)?.ElementId, popupType);
     }
 

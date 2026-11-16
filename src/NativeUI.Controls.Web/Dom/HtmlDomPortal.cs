@@ -142,6 +142,12 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
     {
         _portal.TransitionStatusChanged -= OnTransitionStatusChanged;
         _portal.PlacementChanged -= OnPlacementChanged;
+        if (_isMounted && Element is JSObject element)
+        {
+            _isMounted = false;
+            DomInterop.RemoveElement(element);
+        }
+
         base.OnDisposing();
     }
 
