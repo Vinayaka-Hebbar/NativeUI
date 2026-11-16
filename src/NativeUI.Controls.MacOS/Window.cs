@@ -35,6 +35,7 @@ public sealed class Window : IDisposable, IRenderHost
     private readonly Dictionary<Input, NativeTextField> _textFields = [];
     private readonly Dictionary<Dialog, DialogWindow> _dialogWindows = [];
     private SkiaSurface? _surface;
+    private readonly int _ownerThreadId = Environment.CurrentManagedThreadId;
     private nint _displayLink;
     private bool _isFrameScheduled;
     private bool _isAnimationDriver;
@@ -1705,6 +1706,21 @@ public sealed class Window : IDisposable, IRenderHost
     {
         if (_content is null)
         {
+            return;
+        }
+
+        if (Environment.CurrentManagedThreadId != _ownerThreadId)
+        {
+            IDispatcher dispatcher = Application.Current.Dispatcher;
+            if (ReferenceEquals(dispatcher, ImmediateDispatcher.Instance))
+            {
+                _isFrameDirty = true;
+            }
+            else
+            {
+                dispatcher.Invoke(InvalidateFrame);
+            }
+
             return;
         }
 

@@ -106,8 +106,8 @@ public abstract class Application : BindableObject
     /// <summary>
     /// Gets the running application, which is never <see langword="null"/>. Before a platform host starts, this is an
     /// application whose system theme is <see cref="Theme.Light"/>. A new application takes over
-    /// <see cref="RequestedTheme"/>, <see cref="BindableObject.Dispatcher"/>, and the <see cref="CurrentThemeChanged"/>
-    /// subscribers. The replaced application keeps reporting the theme properties of its replacement, so bindings to it stay current.
+    /// <see cref="RequestedTheme"/>, the <see cref="CurrentThemeChanged"/> subscribers, and the
+    /// <see cref="BindableObject.Dispatcher"/> unless it already has one of its own. The replaced application keeps reporting the theme properties of its replacement, so bindings to it stay current.
     /// </summary>
     public static Application Current
     {
@@ -121,7 +121,10 @@ public abstract class Application : BindableObject
             }
 
             Application previous = s_current;
-            value.Dispatcher = previous.Dispatcher;
+            if (ReferenceEquals(value.Dispatcher, ImmediateDispatcher.Instance))
+            {
+                value.Dispatcher = previous.Dispatcher;
+            }
             value._platform = previous._platform;
             value.SetValue(CurrentThemeProperty, previous.CurrentTheme);
             value.CurrentThemeChanged += previous.CurrentThemeChanged;

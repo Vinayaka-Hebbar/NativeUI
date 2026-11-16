@@ -25,8 +25,8 @@ public class MacOSApplication : Application
         AppKitInterop.EnsureFrameworksLoaded();
         MacOSPlatformSettings.Instance.ThemeChanged += OnSystemThemeChanged;
         AnimationClock.IsMotionReduced = AppKitInterop.IsReduceMotionEnabled();
-        Current = this;
         Dispatcher = MacOSDispatcher.Shared;
+        Current = this;
     }
 
     /// <summary>
