@@ -33,7 +33,7 @@ public sealed partial class LayoutEngine
             }
 
             Size size = Measure(child, constraints with { AvailableSize = new Size(width, constraints.AvailableSize.Height) });
-            Thickness margin = child.ComputedStyle.Margin;
+            Thickness margin = GetState(child).Margin;
             Point borderOrigin = new(contentOrigin.X + margin.Left, currentY + margin.Top);
             GetState(child).VisualOffset = ApplyRelativeOffset(child.ComputedStyle, borderOrigin, new Size(width, constraints.AvailableSize.Height));
             currentY += size.Height + margin.Vertical;

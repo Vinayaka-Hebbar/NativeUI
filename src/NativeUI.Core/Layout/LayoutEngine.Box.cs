@@ -18,7 +18,7 @@ public sealed partial class LayoutEngine
 
         LayoutState state = GetState(node);
         Rect borderBox = new(parentOrigin.X + state.Bounds.X, parentOrigin.Y + state.Bounds.Y, state.Bounds.Width, state.Bounds.Height);
-        Thickness insets = style.ContentInsets;
+        Thickness insets = state.ContentInsets;
         ITextLayout? textLayout = state.TextLayout;
         Rect contentBox = new(
             borderBox.X + insets.Left,
@@ -28,7 +28,7 @@ public sealed partial class LayoutEngine
 
         if (!LaysOutChildren(node))
         {
-            return new LayoutBox(node, style, borderBox, contentBox, [], textLayout);
+            return new LayoutBox(node, style, borderBox, contentBox, [], textLayout, state.Margin);
         }
 
         List<LayoutBox> boxes = [];
@@ -50,7 +50,7 @@ public sealed partial class LayoutEngine
             }
         }
 
-        return new LayoutBox(node, style, borderBox, contentBox, OrderForPainting(boxes));
+        return new LayoutBox(node, style, borderBox, contentBox, OrderForPainting(boxes), margin: state.Margin);
     }
 
     /// <summary>

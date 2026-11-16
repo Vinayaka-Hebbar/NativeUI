@@ -54,14 +54,16 @@ public sealed record ComputedStyle
     public LineHeight LineHeight { get; init; } = LineHeight.Multiple(1.25);
 
     /// <summary>
-    /// Gets the resolved inner padding thickness in logical pixels.
+    /// Gets the resolved inner padding thickness, each edge in logical pixels or as a percentage of the width of the
+    /// containing block.
     /// </summary>
-    public Thickness Padding { get; init; } = Thickness.Zero;
+    public ThicknessValue Padding { get; init; }
 
     /// <summary>
-    /// Gets the resolved outer margin thickness in logical pixels.
+    /// Gets the resolved outer margin thickness, each edge in logical pixels or as a percentage of the width of the
+    /// containing block.
     /// </summary>
-    public Thickness Margin { get; init; } = Thickness.Zero;
+    public ThicknessValue Margin { get; init; }
 
     /// <summary>
     /// Gets the resolved spacing between adjacent children of a stack container in logical pixels.
@@ -89,13 +91,19 @@ public sealed record ComputedStyle
     public ImmutableArray<BoxShadow> BoxShadows { get; init; } = [];
 
     /// <summary>
-    /// Gets the distance from each edge of the border box to the content box, which is the padding plus the border width.
+    /// Returns the distance from each edge of the border box to the content box, which is the padding plus the border width.
+    /// A percentage padding resolves against <paramref name="containingWidth"/>.
     /// </summary>
-    public Thickness ContentInsets => new(
-        Padding.Top + BorderWidth,
-        Padding.Right + BorderWidth,
-        Padding.Bottom + BorderWidth,
-        Padding.Left + BorderWidth);
+    /// <param name="containingWidth">The width of the containing block.</param>
+    public Thickness GetContentInsets(double containingWidth)
+    {
+        Thickness padding = Padding.Resolve(containingWidth);
+        return new Thickness(
+            padding.Top + BorderWidth,
+            padding.Right + BorderWidth,
+            padding.Bottom + BorderWidth,
+            padding.Left + BorderWidth);
+    }
 
     /// <summary>
     /// Gets the resolved element opacity in the range [0.0, 1.0].

@@ -27,7 +27,7 @@ public sealed partial class LayoutEngine
             (ILayoutNode node, GridPlacement placement) = children[i];
             if (placement.ColumnSpan == 1)
             {
-                columnContents.Add((placement.Column, MeasureMaxContentWidth(node) + node.ComputedStyle.Margin.Horizontal));
+                columnContents.Add((placement.Column, MeasureMaxContentWidth(node) + node.ComputedStyle.Margin.Resolve(0).Horizontal));
             }
         }
 
@@ -52,7 +52,7 @@ public sealed partial class LayoutEngine
             (ILayoutNode node, GridPlacement placement) = children[i];
             ComputedStyle childStyle = node.ComputedStyle;
             double areaHeight = MeasureSpan(rowHeights, placement.Row, placement.RowSpan, rowSpacing);
-            double stretchHeight = Math.Max(0, areaHeight - childStyle.Margin.Vertical);
+            double stretchHeight = Math.Max(0, areaHeight - GetState(node).Margin.Vertical);
             bool stretches = childStyle.Height.IsAuto && node is not IIntrinsicSize && stretchHeight > sizes[i].Height;
             if (!childStyle.Height.IsPercent && !stretches)
             {
@@ -62,15 +62,15 @@ public sealed partial class LayoutEngine
             double cellWidth = MeasureSpan(columnWidths, placement.Column, placement.ColumnSpan, colSpacing);
             sizes[i] = Measure(node, constraints with
             {
-                AvailableSize = new Size(cellWidth, areaHeight),
-                StretchHeight = stretches ? stretchHeight : null
+                AvailableSize = new Size(cellWidth, stretches ? stretchHeight : areaHeight),
+                IsFixedHeight = stretches
             });
         }
 
         for (int i = 0; i < children.Count; i++)
         {
             (ILayoutNode node, GridPlacement placement) = children[i];
-            Thickness margin = node.ComputedStyle.Margin;
+            Thickness margin = GetState(node).Margin;
             Point borderOrigin = new(
                 contentOrigin.X + columnOffsets[placement.Column] + margin.Left,
                 contentOrigin.Y + rowOffsets[placement.Row] + margin.Top);
@@ -275,6 +275,6 @@ public sealed partial class LayoutEngine
 
     private static double GetOuterHeight(ILayoutNode node, Size size)
     {
-        return size.Height + node.ComputedStyle.Margin.Vertical;
+        return size.Height + GetState(node).Margin.Vertical;
     }
 }

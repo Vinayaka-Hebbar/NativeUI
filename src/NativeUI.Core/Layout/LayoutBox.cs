@@ -28,6 +28,11 @@ public sealed class LayoutBox
     public Rect ContentBox { get; }
 
     /// <summary>
+    /// Gets the margin in logical pixels, with any percentage resolved against the width of the containing block.
+    /// </summary>
+    public Thickness Margin { get; }
+
+    /// <summary>
     /// Gets the laid-out child boxes.
     /// </summary>
     public IReadOnlyList<LayoutBox> Children { get; }
@@ -46,7 +51,8 @@ public sealed class LayoutBox
         Rect borderBox,
         Rect contentBox,
         IReadOnlyList<LayoutBox> children,
-        ITextLayout? textLayout = null)
+        ITextLayout? textLayout = null,
+        Thickness margin = default)
     {
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(style);
@@ -58,6 +64,7 @@ public sealed class LayoutBox
         ContentBox = contentBox;
         Children = children;
         TextLayout = textLayout;
+        Margin = margin;
     }
 
     /// <summary>
@@ -71,6 +78,7 @@ public sealed class LayoutBox
             BorderBox with { X = BorderBox.X + deltaX, Y = BorderBox.Y + deltaY },
             ContentBox with { X = ContentBox.X + deltaX, Y = ContentBox.Y + deltaY },
             Children.Select(child => child.Translated(deltaX, deltaY)).ToList(),
-            TextLayout);
+            TextLayout,
+            Margin);
     }
 }

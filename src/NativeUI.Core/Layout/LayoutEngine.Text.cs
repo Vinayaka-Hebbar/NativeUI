@@ -11,12 +11,12 @@ public sealed partial class LayoutEngine
         LayoutState state,
         IIntrinsicSize intrinsic,
         ComputedStyle style,
+        Thickness insets,
         Size availableSize,
         double borderWidth,
         double contentWidth,
         double? specifiedHeight)
     {
-        Thickness insets = style.ContentInsets;
         Size natural = intrinsic.GetIntrinsicSize(new Size(availableSize.Width, specifiedHeight ?? double.PositiveInfinity));
         double height = specifiedHeight
             ?? ClampHeight(style, (natural.Width > 0 ? contentWidth * natural.Height / natural.Width : natural.Height) + insets.Vertical, availableSize.Height);
@@ -34,6 +34,7 @@ public sealed partial class LayoutEngine
         LayoutState state,
         ITextSource source,
         ComputedStyle style,
+        Thickness insets,
         double borderWidth,
         double contentWidth,
         double availableHeight,
@@ -51,7 +52,7 @@ public sealed partial class LayoutEngine
             layout = created;
         }
 
-        double height = specifiedHeight ?? ClampHeight(style, layout.Size.Height + style.ContentInsets.Vertical, availableHeight);
+        double height = specifiedHeight ?? ClampHeight(style, layout.Size.Height + insets.Vertical, availableHeight);
 
         state.Extent = Size.Zero;
         return Complete(state, new Size(borderWidth, height));

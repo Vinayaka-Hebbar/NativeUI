@@ -191,15 +191,24 @@ internal static class StyleCssDeclarations
         return value is double length ? length.ToString("R", CultureInfo.InvariantCulture) + "px" : null;
     }
 
-    private static string? FormatThickness(Thickness? value)
+    private static string? FormatThickness(ThicknessValue? value)
     {
-        if (value is not Thickness thickness)
+        if (value is not ThicknessValue thickness)
         {
             return null;
         }
 
-        return string.Create(CultureInfo.InvariantCulture,
-            $"{thickness.Top:R}px {thickness.Right:R}px {thickness.Bottom:R}px {thickness.Left:R}px");
+        return string.Join(
+            ' ',
+            FormatEdge(thickness.Top),
+            FormatEdge(thickness.Right),
+            FormatEdge(thickness.Bottom),
+            FormatEdge(thickness.Left));
+    }
+
+    private static string FormatEdge(EdgeValue edge)
+    {
+        return FormatLengthOrPercent(edge.Value, edge.IsPercent);
     }
 
     /// <summary>
@@ -227,9 +236,12 @@ internal static class StyleCssDeclarations
 
     private static string FormatRadius(RadiusValue radius)
     {
-        return radius.IsPercent
-            ? radius.Value.ToString("R", CultureInfo.InvariantCulture) + "%"
-            : radius.Value.ToString("R", CultureInfo.InvariantCulture) + "px";
+        return FormatLengthOrPercent(radius.Value, radius.IsPercent);
+    }
+
+    private static string FormatLengthOrPercent(double value, bool isPercent)
+    {
+        return value.ToString("R", CultureInfo.InvariantCulture) + (isPercent ? "%" : "px");
     }
 
     /// <summary>

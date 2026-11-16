@@ -261,7 +261,7 @@ public sealed class DevToolsOverlay : IRenderOverlay
 
         try
         {
-            if (box.Style.ContentInsets != Thickness.Zero)
+            if (box.ContentBox != box.BorderBox)
             {
                 DrawOutline(context, box.ContentBox, s_contentColor);
             }
@@ -282,7 +282,7 @@ public sealed class DevToolsOverlay : IRenderOverlay
 
     private static void DrawOuterOutlines(DrawingContext context, LayoutBox box)
     {
-        Thickness margin = box.Style.Margin;
+        Thickness margin = box.Margin;
         Rect border = box.BorderBox;
 
         if (margin != Thickness.Zero)

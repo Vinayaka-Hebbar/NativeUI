@@ -5,7 +5,8 @@ namespace NativeUI.Layout;
 public sealed partial class LayoutEngine
 {
     /// <summary>
-    /// Returns the border-box width of <paramref name="node"/> when none of its text wraps.
+    /// Returns the border-box width of <paramref name="node"/> when none of its text wraps. A percentage padding counts as
+    /// zero, because no containing width exists while measuring content.
     /// </summary>
     private double MeasureMaxContentWidth(ILayoutNode node)
     {
@@ -28,17 +29,17 @@ public sealed partial class LayoutEngine
         }
         else if (node is IIntrinsicSize intrinsic)
         {
-            width = intrinsic.GetIntrinsicSize().Width + style.ContentInsets.Horizontal;
+            width = intrinsic.GetIntrinsicSize().Width + style.GetContentInsets(0).Horizontal;
         }
         else if (node is ITextSource { Text: not null } source)
         {
             Size unconstrained = new(double.PositiveInfinity, double.PositiveInfinity);
             Size measured = _textMeasurer.MeasureText(source, unconstrained, style);
-            width = measured.Width + style.ContentInsets.Horizontal;
+            width = measured.Width + style.GetContentInsets(0).Horizontal;
         }
         else
         {
-            width = MeasureMaxContentOfChildren(node) + style.ContentInsets.Horizontal;
+            width = MeasureMaxContentOfChildren(node) + style.GetContentInsets(0).Horizontal;
         }
 
         // Only pixel limits apply. The containing width is unknown during measurement.
@@ -66,7 +67,7 @@ public sealed partial class LayoutEngine
                 continue;
             }
 
-            double childWidth = MeasureMaxContentWidth(child) + child.ComputedStyle.Margin.Horizontal;
+            double childWidth = MeasureMaxContentWidth(child) + child.ComputedStyle.Margin.Resolve(0).Horizontal;
             width = horizontal ? width + childWidth : Math.Max(width, childWidth);
             count++;
         }
@@ -98,7 +99,7 @@ public sealed partial class LayoutEngine
             (ILayoutNode node, GridPlacement placement) = children[i];
             if (placement.ColumnSpan == 1 && !columns[placement.Column].IsPixels)
             {
-                double size = MeasureMaxContentWidth(node) + node.ComputedStyle.Margin.Horizontal;
+                double size = MeasureMaxContentWidth(node) + node.ComputedStyle.Margin.Resolve(0).Horizontal;
                 sizes[placement.Column] = Math.Max(sizes[placement.Column], size);
             }
         }
@@ -109,7 +110,7 @@ public sealed partial class LayoutEngine
             (ILayoutNode node, GridPlacement placement) = children[i];
             if (placement.ColumnSpan > 1)
             {
-                double childWidth = MeasureMaxContentWidth(node) + node.ComputedStyle.Margin.Horizontal;
+                double childWidth = MeasureMaxContentWidth(node) + node.ComputedStyle.Margin.Resolve(0).Horizontal;
                 double currentSpan = MeasureSpan(sizes, placement.Column, placement.ColumnSpan, spacing);
                 double missing = childWidth - currentSpan;
                 if (missing > 0)

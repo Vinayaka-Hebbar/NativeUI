@@ -20,7 +20,7 @@ public sealed partial class LayoutEngine
 
             ComputedStyle childStyle = child.ComputedStyle;
             Size targetBlock = childStyle.Position == Position.Fixed ? constraints.Viewport : constraints.ContainingBlock;
-            Thickness childMargin = childStyle.Margin;
+            Thickness childMargin = childStyle.Margin.Resolve(0);
             bool isPercentWidth = childStyle.Width is { IsPercent: true };
             double? explicitWidth = childStyle.Width switch
             {
@@ -97,8 +97,8 @@ public sealed partial class LayoutEngine
     private static void ArrangeOutOfFlowChild(ILayoutNode child, Rect containingBlock, Point parentOrigin)
     {
         ComputedStyle style = child.ComputedStyle;
-        Thickness margin = style.Margin;
         LayoutState state = GetState(child);
+        Thickness margin = state.Margin;
 
         double blockHeight = containingBlock.Height > 0 ? containingBlock.Height : double.PositiveInfinity;
         double borderX;

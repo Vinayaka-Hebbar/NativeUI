@@ -28,10 +28,10 @@ public interface IStyle
     TextAlign? TextAlign { get; }
 
     /// <summary>Gets the specified inner box spacing.</summary>
-    Thickness? Padding { get; }
+    ThicknessValue? Padding { get; }
 
     /// <summary>Gets the specified outer box spacing.</summary>
-    Thickness? Margin { get; }
+    ThicknessValue? Margin { get; }
 
     /// <summary>Gets the specified spacing between adjacent children of a stack container.</summary>
     double? Gap { get; }

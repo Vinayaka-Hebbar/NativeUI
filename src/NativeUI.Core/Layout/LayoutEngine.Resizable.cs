@@ -100,7 +100,7 @@ public sealed partial class LayoutEngine
             else
             {
                 childState.RenderSize = childState.DesiredSize;
-                borderOrigin = new Point(origin.X + childStyle.Margin.Left, origin.Y + childStyle.Margin.Top);
+                borderOrigin = new Point(origin.X + childState.Margin.Left, origin.Y + childState.Margin.Top);
             }
 
             childState.VisualOffset = ApplyRelativeOffset(childStyle, borderOrigin, new Size(width, definiteHeight ?? double.PositiveInfinity));

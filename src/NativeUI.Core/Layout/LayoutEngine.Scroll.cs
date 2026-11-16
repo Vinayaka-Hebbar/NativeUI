@@ -19,7 +19,7 @@ public sealed partial class LayoutEngine
 
         IReadOnlyList<ILayoutNode> children = node.LayoutChildren;
         Size size = state.DesiredSize;
-        Thickness insets = style.ContentInsets;
+        Thickness insets = state.ContentInsets;
         double maxRight = size.Width;
         double maxBottom = size.Height;
         for (int i = 0; i < children.Count; i++)
@@ -29,8 +29,8 @@ public sealed partial class LayoutEngine
             if (IsArranged(child) && childStyle.Position != Position.Fixed)
             {
                 Rect bounds = GetState(child).Bounds;
-                maxRight = Math.Max(maxRight, bounds.Right + childStyle.Margin.Right);
-                maxBottom = Math.Max(maxBottom, bounds.Bottom + childStyle.Margin.Bottom);
+                maxRight = Math.Max(maxRight, bounds.Right + GetState(child).Margin.Right);
+                maxBottom = Math.Max(maxBottom, bounds.Bottom + GetState(child).Margin.Bottom);
             }
         }
 

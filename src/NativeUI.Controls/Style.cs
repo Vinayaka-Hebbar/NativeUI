@@ -52,14 +52,14 @@ public sealed class Style : BindableObject, IStyle
     /// <summary>
     /// Identifies the <see cref="Padding"/> bindable property.
     /// </summary>
-    public static readonly BindableProperty<Thickness?> PaddingProperty =
-        BindableProperty.Create<Style, Thickness?>(nameof(Padding));
+    public static readonly BindableProperty<ThicknessValue?> PaddingProperty =
+        BindableProperty.Create<Style, ThicknessValue?>(nameof(Padding));
 
     /// <summary>
     /// Identifies the <see cref="Margin"/> bindable property.
     /// </summary>
-    public static readonly BindableProperty<Thickness?> MarginProperty =
-        BindableProperty.Create<Style, Thickness?>(nameof(Margin));
+    public static readonly BindableProperty<ThicknessValue?> MarginProperty =
+        BindableProperty.Create<Style, ThicknessValue?>(nameof(Margin));
 
     /// <summary>
     /// Identifies the <see cref="Gap"/> bindable property.
@@ -272,18 +272,20 @@ public sealed class Style : BindableObject, IStyle
     }
 
     /// <summary>
-    /// Gets or sets the inner padding thickness in logical pixels.
+    /// Gets or sets the inner padding thickness, each edge in logical pixels or as a percentage of the width of the containing
+    /// block.
     /// </summary>
-    public Thickness? Padding
+    public ThicknessValue? Padding
     {
         get => GetValue(PaddingProperty);
         set => SetValue(PaddingProperty, value);
     }
 
     /// <summary>
-    /// Gets or sets the outer margin thickness in logical pixels.
+    /// Gets or sets the outer margin thickness, each edge in logical pixels or as a percentage of the width of the containing
+    /// block.
     /// </summary>
-    public Thickness? Margin
+    public ThicknessValue? Margin
     {
         get => GetValue(MarginProperty);
         set => SetValue(MarginProperty, value);

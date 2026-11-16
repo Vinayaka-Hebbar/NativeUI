@@ -1,3 +1,5 @@
+using NativeUI.Media;
+
 namespace NativeUI.Layout;
 
 /// <summary>
@@ -29,6 +31,17 @@ internal sealed class LayoutState
     /// allocates a different size to the node.
     /// </summary>
     public Size RenderSize { get; set; }
+
+    /// <summary>
+    /// Gets or sets the margin in logical pixels that the node resolved during its last measure pass.
+    /// </summary>
+    public Thickness Margin { get; set; }
+
+    /// <summary>
+    /// Gets or sets the distance in logical pixels from each edge of the border box to the content box that the node
+    /// resolved during its last measure pass.
+    /// </summary>
+    public Thickness ContentInsets { get; set; }
 
     /// <summary>
     /// Gets or sets the size that the in-flow children occupy within the content box, as of the last measure pass.

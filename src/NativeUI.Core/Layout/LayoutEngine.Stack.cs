@@ -42,13 +42,15 @@ public sealed partial class LayoutEngine
                 currentX += spacing;
             }
 
-            Thickness margin = child.ComputedStyle.Margin;
             double remaining = Math.Max(0, contentOrigin.X + width - currentX);
-            double desiredWidth = MeasureMaxContentWidth(child);
-            double availableWidth = Math.Min(desiredWidth + margin.Horizontal, remaining);
 
-            Size size = Measure(child, constraints with { AvailableSize = new Size(availableWidth, constraints.AvailableSize.Height) });
+            Size size = Measure(child, constraints with
+            {
+                AvailableSize = new Size(remaining, constraints.AvailableSize.Height),
+                IsFixedWidth = false
+            });
             LayoutState childState = GetState(child);
+            Thickness margin = childState.Margin;
             Point borderOrigin = new(currentX + margin.Left, contentOrigin.Y + margin.Top);
             childState.VisualOffset = ApplyRelativeOffset(child.ComputedStyle, borderOrigin, new Size(width, constraints.AvailableSize.Height));
             count++;

@@ -65,7 +65,7 @@ public sealed partial class LayoutEngine
         Measure(root, constraints);
 
         LayoutState state = GetState(root);
-        Thickness margin = root.ComputedStyle.Margin;
+        Thickness margin = state.Margin;
         state.VisualOffset = new Point(margin.Left, margin.Top);
         state.Bounds = new Rect(state.VisualOffset.X, state.VisualOffset.Y, state.RenderSize.Width, state.RenderSize.Height);
         if (!state.IsArrangeValid)
@@ -100,21 +100,24 @@ public sealed partial class LayoutEngine
         state.PreviousConstraints = constraints;
 
         ComputedStyle style = node.ComputedStyle;
-        Thickness insets = style.ContentInsets;
+        Thickness margin = style.Margin.Resolve(constraints.AvailableSize.Width);
+        Thickness insets = style.GetContentInsets(constraints.AvailableSize.Width);
+        state.Margin = margin;
+        state.ContentInsets = insets;
         Size availableSize = constraints.AvailableSize;
-        double borderWidth = ResolveBorderWidth(node, availableSize.Width, availableSize.Height);
+        double borderWidth = ResolveBorderWidth(node, availableSize.Width, availableSize.Height, margin, insets, constraints.IsFixedWidth);
         double contentWidth = Math.Max(0, borderWidth - insets.Horizontal);
         double? specifiedHeight = ResolveSpecifiedHeight(style, availableSize.Height)
-            ?? (style.Height.IsAuto && constraints.StretchHeight is double stretchHeight ? ClampHeight(style, stretchHeight, availableSize.Height) : null);
+            ?? (style.Height.IsAuto && constraints.IsFixedHeight ? ClampHeight(style, availableSize.Height, availableSize.Height) : null);
 
         if (node is IIntrinsicSize intrinsic)
         {
-            return MeasureIntrinsic(state, intrinsic, style, availableSize, borderWidth, contentWidth, specifiedHeight);
+            return MeasureIntrinsic(state, intrinsic, style, insets, availableSize, borderWidth, contentWidth, specifiedHeight);
         }
 
         if (node is ITextSource { Text: not null } source)
         {
-            return MeasureText(state, source, style, borderWidth, contentWidth, availableSize.Height, specifiedHeight);
+            return MeasureText(state, source, style, insets, borderWidth, contentWidth, availableSize.Height, specifiedHeight);
         }
 
         double? contentDefiniteHeight = specifiedHeight is double height ? Math.Max(0, height - insets.Vertical) : null;
@@ -125,7 +128,8 @@ public sealed partial class LayoutEngine
         {
             AvailableSize = new Size(contentWidth, contentDefiniteHeight ?? double.PositiveInfinity),
             ContainingBlock = style.IsPositioned ? new Size(paddingBoxWidth, 0) : constraints.ContainingBlock,
-            StretchHeight = null
+            IsFixedWidth = true,
+            IsFixedHeight = false
         };
 
         Size content = node switch
@@ -227,16 +231,16 @@ public sealed partial class LayoutEngine
     /// Returns the border-box width of <paramref name="node"/> within <paramref name="availableWidth"/>, clamped to its
     /// <see cref="ComputedStyle.MinWidth"/> and <see cref="ComputedStyle.MaxWidth"/>.
     /// </summary>
-    private double ResolveBorderWidth(ILayoutNode node, double availableWidth, double availableHeight)
+    private double ResolveBorderWidth(ILayoutNode node, double availableWidth, double availableHeight, Thickness margin, Thickness insets, bool isFixedWidth)
     {
         ComputedStyle style = node.ComputedStyle;
-        double fillWidth = Math.Max(0, availableWidth - style.Margin.Horizontal);
+        double fillWidth = Math.Max(0, availableWidth - margin.Horizontal);
         double width;
         if (style.Width.IsAuto && node is IIntrinsicSize intrinsic)
         {
             Size natural = intrinsic.GetIntrinsicSize(new Size(fillWidth, double.PositiveInfinity));
-            double naturalWidth = ResolveHeight(style.Height, availableHeight) is double h && natural.Height > 0 ? Math.Max(0, h - style.ContentInsets.Vertical) * natural.Width / natural.Height : natural.Width;
-            width = Math.Min(fillWidth, naturalWidth + style.ContentInsets.Horizontal);
+            double naturalWidth = ResolveHeight(style.Height, availableHeight) is double h && natural.Height > 0 ? Math.Max(0, h - insets.Vertical) * natural.Width / natural.Height : natural.Width;
+            width = Math.Min(fillWidth, naturalWidth + insets.Horizontal);
         }
         else
         {
@@ -245,9 +249,7 @@ public sealed partial class LayoutEngine
                 { IsPixels: true } pixels => pixels.Value,
                 { IsPercent: true } percent => Math.Max(0, availableWidth * percent.Value / 100.0),
                 { IsFitContent: true } => Math.Min(MeasureMaxContentWidth(node), fillWidth),
-                _ => (style.IsOutOfFlow && (style.Left.IsAuto || style.Right.IsAuto))
-                    ? Math.Min(MeasureMaxContentWidth(node), fillWidth)
-                    : fillWidth
+                _ => isFixedWidth ? fillWidth : Math.Min(MeasureMaxContentWidth(node), fillWidth)
             };
         }
 

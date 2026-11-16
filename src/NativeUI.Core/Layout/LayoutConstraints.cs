@@ -9,21 +9,26 @@ namespace NativeUI.Layout;
 /// <param name="AvailableSize">The size that the parent offers to the node.</param>
 /// <param name="ContainingBlock">The size that out-of-flow descendants resolve percentages and offsets against.</param>
 /// <param name="Viewport">The size of the viewport, which fixed descendants resolve against.</param>
-/// <param name="StretchHeight">
-/// The height that the parent allocates to a node whose own height is <see cref="HeightValue.Auto"/>, or
-/// <see langword="null"/> when the node sizes to its content.
+/// <param name="IsFixedWidth">
+/// Whether the parent dictates the width of a node whose own width is <see cref="WidthValue.Auto"/>, which then fills the
+/// width of <paramref name="AvailableSize"/> less its margin. Otherwise the node sizes to its content within that width.
+/// </param>
+/// <param name="IsFixedHeight">
+/// Whether the parent dictates the height of a node whose own height is <see cref="HeightValue.Auto"/>, which then equals
+/// the height of <paramref name="AvailableSize"/> and is definite for the percentage heights of its descendants.
 /// </param>
 internal readonly record struct LayoutConstraints(
     Size AvailableSize,
     Size ContainingBlock,
     Size Viewport,
-    double? StretchHeight = null)
+    bool IsFixedWidth,
+    bool IsFixedHeight)
 {
     /// <summary>
     /// Initializes the constraints of a root node that fills <paramref name="viewport"/>.
     /// </summary>
     public LayoutConstraints(Size viewport)
-        : this(viewport, viewport, viewport)
+        : this(viewport, viewport, viewport, true, false)
     {
     }
 }
