@@ -100,8 +100,8 @@ public sealed class Style : BindableObject, IStyle
     /// <summary>
     /// Identifies the <see cref="Height"/> bindable property.
     /// </summary>
-    public static readonly BindableProperty<double?> HeightProperty =
-        BindableProperty.Create<Style, double?>(nameof(Height));
+    public static readonly BindableProperty<HeightValue?> HeightProperty =
+        BindableProperty.Create<Style, HeightValue?>(nameof(Height));
 
     /// <summary>
     /// Identifies the <see cref="BoxShadows"/> bindable property.
@@ -130,14 +130,14 @@ public sealed class Style : BindableObject, IStyle
     /// <summary>
     /// Identifies the <see cref="MinHeight"/> bindable property.
     /// </summary>
-    public static readonly BindableProperty<double?> MinHeightProperty =
-        BindableProperty.Create<Style, double?>(nameof(MinHeight));
+    public static readonly BindableProperty<HeightValue?> MinHeightProperty =
+        BindableProperty.Create<Style, HeightValue?>(nameof(MinHeight));
 
     /// <summary>
     /// Identifies the <see cref="MaxHeight"/> bindable property.
     /// </summary>
-    public static readonly BindableProperty<double?> MaxHeightProperty =
-        BindableProperty.Create<Style, double?>(nameof(MaxHeight));
+    public static readonly BindableProperty<HeightValue?> MaxHeightProperty =
+        BindableProperty.Create<Style, HeightValue?>(nameof(MaxHeight));
 
     /// <summary>
     /// Identifies the <see cref="Cursor"/> bindable property.
@@ -345,9 +345,9 @@ public sealed class Style : BindableObject, IStyle
     }
 
     /// <summary>
-    /// Gets or sets the explicit height in logical pixels.
+    /// Gets or sets the height, as a length in logical pixels or <see cref="HeightValue.Percent"/>.
     /// </summary>
-    public double? Height
+    public HeightValue? Height
     {
         get => GetValue(HeightProperty);
         set => SetValue(HeightProperty, value);
@@ -392,18 +392,19 @@ public sealed class Style : BindableObject, IStyle
     }
 
     /// <summary>
-    /// Gets or sets the smallest height in logical pixels. It wins over <see cref="MaxHeight"/>.
+    /// Gets or sets the smallest height, as a length in logical pixels or <see cref="HeightValue.Percent"/>. It wins over
+    /// <see cref="MaxHeight"/>.
     /// </summary>
-    public double? MinHeight
+    public HeightValue? MinHeight
     {
         get => GetValue(MinHeightProperty);
         set => SetValue(MinHeightProperty, value);
     }
 
     /// <summary>
-    /// Gets or sets the largest height in logical pixels.
+    /// Gets or sets the largest height, as a length in logical pixels or <see cref="HeightValue.Percent"/>.
     /// </summary>
-    public double? MaxHeight
+    public HeightValue? MaxHeight
     {
         get => GetValue(MaxHeightProperty);
         set => SetValue(MaxHeightProperty, value);

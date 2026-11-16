@@ -72,9 +72,9 @@ public abstract class Shape : UIElement, IIntrinsicSize
                 width = ComputedStyle.Width.Value;
             }
 
-            if (ComputedStyle.Height is double specifiedHeight)
+            if (ComputedStyle.Height.IsPixels)
             {
-                height = specifiedHeight;
+                height = ComputedStyle.Height.Value;
             }
 
             return new Size(width, height);
@@ -84,7 +84,7 @@ public abstract class Shape : UIElement, IIntrinsicSize
     /// <summary>Gets immutable geometry, retained until a defining property or size changes.</summary>
     public PathGeometry GetGeometry(Size? size = null)
     {
-        Size actual = size ?? new Size(ComputedStyle.Width.IsPixels ? ComputedStyle.Width.Value : 0, ComputedStyle.Height ?? 0);
+        Size actual = size ?? new Size(ComputedStyle.Width.IsPixels ? ComputedStyle.Width.Value : 0, ComputedStyle.Height.IsPixels ? ComputedStyle.Height.Value : 0);
         if (_geometry is null || _geometrySize != actual)
         {
             _geometry = CreateGeometry(actual);

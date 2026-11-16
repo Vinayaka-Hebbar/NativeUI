@@ -51,8 +51,8 @@ public interface IStyle
     /// <summary>Gets the specified width.</summary>
     WidthValue? Width { get; }
 
-    /// <summary>Gets the specified height in logical pixels.</summary>
-    double? Height { get; }
+    /// <summary>Gets the specified height.</summary>
+    HeightValue? Height { get; }
 
     /// <summary>Gets the specified shadows of the box from top to bottom.</summary>
     ImmutableArray<BoxShadow>? BoxShadows => null;
@@ -66,11 +66,11 @@ public interface IStyle
     /// <summary>Gets the specified largest width, in logical pixels or as a percentage of the containing width.</summary>
     WidthValue? MaxWidth => null;
 
-    /// <summary>Gets the specified smallest height in logical pixels.</summary>
-    double? MinHeight => null;
+    /// <summary>Gets the specified smallest height, in logical pixels or as a percentage of the containing height.</summary>
+    HeightValue? MinHeight => null;
 
-    /// <summary>Gets the specified largest height in logical pixels.</summary>
-    double? MaxHeight => null;
+    /// <summary>Gets the specified largest height, in logical pixels or as a percentage of the containing height.</summary>
+    HeightValue? MaxHeight => null;
 
     /// <summary>Gets the specified pointer cursor appearance.</summary>
     Cursor? Cursor { get; }

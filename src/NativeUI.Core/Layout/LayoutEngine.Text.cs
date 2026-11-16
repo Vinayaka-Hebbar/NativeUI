@@ -19,7 +19,7 @@ public sealed partial class LayoutEngine
         Thickness insets = style.ContentInsets;
         Size natural = intrinsic.GetIntrinsicSize(new Size(availableSize.Width, specifiedHeight ?? double.PositiveInfinity));
         double height = specifiedHeight
-            ?? ClampHeight(style, (natural.Width > 0 ? contentWidth * natural.Height / natural.Width : natural.Height) + insets.Vertical);
+            ?? ClampHeight(style, (natural.Width > 0 ? contentWidth * natural.Height / natural.Width : natural.Height) + insets.Vertical, availableSize.Height);
 
         state.Extent = Size.Zero;
         state.ReleaseTextLayout();
@@ -36,6 +36,7 @@ public sealed partial class LayoutEngine
         ComputedStyle style,
         double borderWidth,
         double contentWidth,
+        double availableHeight,
         double? specifiedHeight)
     {
         Size availableTextSize = new(contentWidth, specifiedHeight ?? double.PositiveInfinity);
@@ -50,7 +51,7 @@ public sealed partial class LayoutEngine
             layout = created;
         }
 
-        double height = specifiedHeight ?? ClampHeight(style, layout.Size.Height + style.ContentInsets.Vertical);
+        double height = specifiedHeight ?? ClampHeight(style, layout.Size.Height + style.ContentInsets.Vertical, availableHeight);
 
         state.Extent = Size.Zero;
         return Complete(state, new Size(borderWidth, height));

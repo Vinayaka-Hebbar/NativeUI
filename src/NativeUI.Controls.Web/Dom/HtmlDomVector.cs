@@ -87,7 +87,7 @@ public sealed class HtmlDomVector : HtmlDomElement
             }
 
             SvgLength? width = Source.ComputedStyle.Width.IsAuto ? new SvgLength(natural.Width) : definition.Width;
-            SvgLength? height = Source.ComputedStyle.Height is null ? new SvgLength(natural.Height) : definition.Height;
+            SvgLength? height = Source.ComputedStyle.Height.IsAuto ? new SvgLength(natural.Height) : definition.Height;
             SvgAspectRatio? aspect = stretch switch
             {
                 Stretch.Fill => new SvgAspectRatio(SvgAlignment.None, Stretch.Fill),

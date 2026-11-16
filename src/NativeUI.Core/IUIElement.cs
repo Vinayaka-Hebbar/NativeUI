@@ -66,7 +66,7 @@ public interface IUIElement
     /// <summary>
     /// Gets the element's height: its inline value, or the default for its control type. Stylesheets override a default.
     /// </summary>
-    double? Height { get; }
+    HeightValue? Height { get; }
 
     /// <summary>
     /// Gets the element's horizontal overflow: its inline value, or the default for its control type. Stylesheets override a default.

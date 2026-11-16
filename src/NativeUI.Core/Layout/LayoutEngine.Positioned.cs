@@ -46,9 +46,22 @@ public sealed partial class LayoutEngine
 
             childWidth = ClampWidth(childStyle, childWidth, targetBlock.Width);
 
-            double availableHeight = childStyle.Height ?? (childStyle.Top.HasValue && childStyle.Bottom.HasValue
-                ? Math.Max(0, targetBlock.Height - childStyle.Top.Value - childStyle.Bottom.Value - childMargin.Vertical)
-                : double.PositiveInfinity);
+            double availableHeight;
+            if (childStyle.Height.IsPercent)
+            {
+                // A containing block of zero height has no definite height to resolve against.
+                availableHeight = targetBlock.Height > 0 ? targetBlock.Height : double.PositiveInfinity;
+            }
+            else if (childStyle.Height.IsPixels)
+            {
+                availableHeight = childStyle.Height.Value;
+            }
+            else
+            {
+                availableHeight = childStyle.Top.HasValue && childStyle.Bottom.HasValue
+                    ? Math.Max(0, targetBlock.Height - childStyle.Top.Value - childStyle.Bottom.Value - childMargin.Vertical)
+                    : double.PositiveInfinity;
+            }
 
             // A percentage resolves against the available width, so it needs the containing block and not its own result.
             Size childAvailable = new(isPercentWidth ? targetBlock.Width : childWidth + childMargin.Horizontal, availableHeight);

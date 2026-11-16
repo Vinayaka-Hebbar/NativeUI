@@ -61,7 +61,7 @@ internal static class StyleResolutionTests
         Assert.Equal(Thickness.Zero, inherited.ComputedStyle.Margin);
         Assert.Equal(1.0, inherited.ComputedStyle.Opacity);
         Assert.True(inherited.ComputedStyle.Width.IsAuto);
-        Assert.Equal<double?>(null, inherited.ComputedStyle.Height);
+        Assert.True(inherited.ComputedStyle.Height.IsAuto);
 
         Assert.Equal(16.0, overridden.ComputedStyle.FontSize);
         Assert.Equal(FontWeight.Normal, overridden.ComputedStyle.FontWeight);
@@ -449,7 +449,7 @@ internal static class StyleResolutionTests
 
             Application.Current.Platform = "windows";
             view.InvalidateStyle();
-            Assert.Equal<double?>(null, toolbar.ComputedStyle.Height);
+            Assert.True(toolbar.ComputedStyle.Height.IsAuto);
         }
         finally
         {

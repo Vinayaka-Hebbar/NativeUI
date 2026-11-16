@@ -158,7 +158,7 @@ public static class StyleInterpolation
         return property switch
         {
             AnimatableProperty.Width => CanBlendWidth(from.Width, to.Width),
-            AnimatableProperty.Height => from.Height.HasValue && to.Height.HasValue,
+            AnimatableProperty.Height => CanBlendHeight(from.Height, to.Height),
             AnimatableProperty.Top => from.Top.HasValue && to.Top.HasValue,
             AnimatableProperty.Right => from.Right.HasValue && to.Right.HasValue,
             AnimatableProperty.Bottom => from.Bottom.HasValue && to.Bottom.HasValue,
@@ -182,7 +182,7 @@ public static class StyleInterpolation
             AnimatableProperty.BackgroundColor => style with { BackgroundColor = BlendColor(from.BackgroundColor, to.BackgroundColor, progress) },
             AnimatableProperty.BorderColor => style with { BorderColor = BlendColor(from.BorderColor, to.BorderColor, progress) },
             AnimatableProperty.Width => style with { Width = BlendWidth(from.Width, to.Width, progress) },
-            AnimatableProperty.Height => style with { Height = BlendLength(from.Height, to.Height, progress) },
+            AnimatableProperty.Height => style with { Height = BlendHeight(from.Height, to.Height, progress) },
             AnimatableProperty.Top => style with { Top = BlendLength(from.Top, to.Top, progress) },
             AnimatableProperty.Right => style with { Right = BlendLength(from.Right, to.Right, progress) },
             AnimatableProperty.Bottom => style with { Bottom = BlendLength(from.Bottom, to.Bottom, progress) },
@@ -220,6 +220,22 @@ public static class StyleInterpolation
 
         double value = Lerp(from.Value, to.Value, progress);
         return from.IsPercent ? WidthValue.Percent(value) : WidthValue.Pixels(value);
+    }
+
+    private static bool CanBlendHeight(HeightValue from, HeightValue to)
+    {
+        return (from.IsPixels && to.IsPixels) || (from.IsPercent && to.IsPercent);
+    }
+
+    private static HeightValue BlendHeight(HeightValue from, HeightValue to, double progress)
+    {
+        if (!CanBlendHeight(from, to))
+        {
+            return progress < 0.5 ? from : to;
+        }
+
+        double value = Lerp(from.Value, to.Value, progress);
+        return from.IsPercent ? HeightValue.Percent(value) : HeightValue.Pixels(value);
     }
 
     private static StyleTransform? BlendTransform(StyleTransform? from, StyleTransform? to, double progress)

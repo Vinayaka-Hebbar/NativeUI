@@ -426,9 +426,9 @@ public class CssStyleSheet : StyleSheet
             case ("width", CssAutoValue):
                 return style with { Width = WidthValue.Auto };
             case ("height", CssLengthValue height):
-                return style with { Height = height.ToLogicalPixels(fontSize) };
+                return style with { Height = ToHeight(height, fontSize) };
             case ("height", CssAutoValue):
-                return style with { Height = null };
+                return style with { Height = HeightValue.Auto };
             case ("min-width", CssLengthValue minWidth):
                 return style with { MinWidth = ToWidth(minWidth, fontSize) };
             case ("min-width", CssAutoValue):
@@ -438,11 +438,11 @@ public class CssStyleSheet : StyleSheet
             case ("max-width", CssNoneValue):
                 return style with { MaxWidth = null };
             case ("min-height", CssLengthValue minHeight):
-                return style with { MinHeight = minHeight.ToLogicalPixels(fontSize) };
+                return style with { MinHeight = ToHeight(minHeight, fontSize) };
             case ("min-height", CssAutoValue):
                 return style with { MinHeight = null };
             case ("max-height", CssLengthValue maxHeight):
-                return style with { MaxHeight = maxHeight.ToLogicalPixels(fontSize) };
+                return style with { MaxHeight = ToHeight(maxHeight, fontSize) };
             case ("max-height", CssNoneValue):
                 return style with { MaxHeight = null };
             case ("cursor", CssCursorValue cursor):
@@ -523,6 +523,13 @@ public class CssStyleSheet : StyleSheet
         return length.Unit == CssLengthUnit.Percent
             ? WidthValue.Percent(length.Value)
             : WidthValue.Pixels(length.ToLogicalPixels(fontSize));
+    }
+
+    private static HeightValue ToHeight(CssLengthValue length, double fontSize)
+    {
+        return length.Unit == CssLengthUnit.Percent
+            ? HeightValue.Percent(length.Value)
+            : HeightValue.Pixels(length.ToLogicalPixels(fontSize));
     }
 
     /// <summary>

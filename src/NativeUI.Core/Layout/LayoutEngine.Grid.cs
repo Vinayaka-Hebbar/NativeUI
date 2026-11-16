@@ -6,7 +6,9 @@ public sealed partial class LayoutEngine
 {
     /// <summary>
     /// Resolves columns, measures each child in its column width to learn its height, resolves rows, then offsets each
-    /// child to its cell. Children keep their own height, so a child does not stretch to fill its row.
+    /// child to its cell. A child whose height is a percentage, or auto and shorter than its cell, is measured again against
+    /// the height of its cell, as the height of a grid area is not definite until the rows are resolved. Auto-height
+    /// children stretch to fill the cell, except those with an intrinsic size.
     /// </summary>
     private Size MeasureGrid(
         IGridLayoutNode grid,
@@ -43,6 +45,26 @@ public sealed partial class LayoutEngine
         double[] rowHeights = ResolveRowHeights(grid, rows, children, sizes, definiteHeight);
         double[] columnOffsets = GetOffsets(columnWidths, colSpacing);
         double[] rowOffsets = GetOffsets(rowHeights, rowSpacing);
+
+        for (int i = 0; i < children.Count; i++)
+        {
+            (ILayoutNode node, GridPlacement placement) = children[i];
+            ComputedStyle childStyle = node.ComputedStyle;
+            double areaHeight = MeasureSpan(rowHeights, placement.Row, placement.RowSpan, rowSpacing);
+            double stretchHeight = Math.Max(0, areaHeight - childStyle.Margin.Vertical);
+            bool stretches = childStyle.Height.IsAuto && node is not IIntrinsicSize && stretchHeight > sizes[i].Height;
+            if (!childStyle.Height.IsPercent && !stretches)
+            {
+                continue;
+            }
+
+            double cellWidth = MeasureSpan(columnWidths, placement.Column, placement.ColumnSpan, colSpacing);
+            sizes[i] = Measure(node, constraints with
+            {
+                AvailableSize = new Size(cellWidth, areaHeight),
+                StretchHeight = stretches ? stretchHeight : null
+            });
+        }
 
         for (int i = 0; i < children.Count; i++)
         {

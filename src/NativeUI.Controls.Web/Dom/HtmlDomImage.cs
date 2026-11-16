@@ -117,7 +117,7 @@ public sealed class HtmlDomImage : HtmlDomElement
                     SetStyleProperty("width", SvgDomBuilder.Number(natural.Width) + "px");
                 }
 
-                if (_image.ComputedStyle.Height is null)
+                if (_image.ComputedStyle.Height.IsAuto)
                 {
                     SetStyleProperty("height", "auto");
                 }
@@ -136,7 +136,7 @@ public sealed class HtmlDomImage : HtmlDomElement
                     SetStyleProperty("width", null);
                 }
 
-                if (_image.ComputedStyle.Height is null)
+                if (_image.ComputedStyle.Height.IsAuto)
                 {
                     SetStyleProperty("height", null);
                 }

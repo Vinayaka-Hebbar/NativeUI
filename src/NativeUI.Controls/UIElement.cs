@@ -167,7 +167,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// <summary>
     /// Identifies the <see cref="Height"/> property, which is <see cref="Style.HeightProperty"/>.
     /// </summary>
-    public static readonly BindableProperty<double?> HeightProperty = Style.HeightProperty.AddOwner<UIElement>();
+    public static readonly BindableProperty<HeightValue?> HeightProperty = Style.HeightProperty.AddOwner<UIElement>();
 
     /// <summary>
     /// Identifies the <see cref="OverflowX"/> property, which is <see cref="Style.OverflowXProperty"/>.
@@ -723,7 +723,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
     /// Gets or sets the inline height, the same value as <see cref="Controls.Style.Height"/> on <see cref="Style"/>.
     /// Setting it creates <see cref="Style"/> when none exists.
     /// </summary>
-    public double? Height
+    public HeightValue? Height
     {
         get => GetValue(HeightProperty);
         set => SetValue(HeightProperty, value);
@@ -980,7 +980,7 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
 
     WidthValue? IUIElement.Width => Width;
 
-    double? IUIElement.Height => Height;
+    HeightValue? IUIElement.Height => Height;
 
     Overflow? IUIElement.OverflowX => OverflowX;
 
@@ -1548,10 +1548,18 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
             return;
         }
 
+        ComputedStyle previousStyle = _computedStyle;
         _computedStyle = computedStyle;
         _selectionStyle = selectionStyle;
         _computedTheme = theme;
-        InvalidateMeasure();
+        if (LayoutEqualityComparer.Instance.Equals(computedStyle, previousStyle))
+        {
+            InvalidateVisual();
+        }
+        else
+        {
+            InvalidateMeasure();
+        }
     }
 
     private string FindScopeTypeName()

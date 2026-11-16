@@ -68,8 +68,11 @@ public sealed partial class LayoutEngine
         Thickness margin = root.ComputedStyle.Margin;
         state.VisualOffset = new Point(margin.Left, margin.Top);
         state.Bounds = new Rect(state.VisualOffset.X, state.VisualOffset.Y, state.RenderSize.Width, state.RenderSize.Height);
-        Rect viewportBounds = new(0, 0, constraints.Viewport.Width, constraints.Viewport.Height);
-        Arrange(root, state.VisualOffset, viewportBounds, constraints.Viewport);
+        if (!state.IsArrangeValid)
+        {
+            Rect viewportBounds = new(0, 0, constraints.Viewport.Width, constraints.Viewport.Height);
+            Arrange(root, state.VisualOffset, viewportBounds, constraints.Viewport);
+        }
 
         return CreateBox(root, Point.Zero);
     }
@@ -93,14 +96,16 @@ public sealed partial class LayoutEngine
         }
 
         state.IsMeasureValid = false;
+        state.InvalidateArrange();
         state.PreviousConstraints = constraints;
 
         ComputedStyle style = node.ComputedStyle;
         Thickness insets = style.ContentInsets;
         Size availableSize = constraints.AvailableSize;
-        double borderWidth = ResolveBorderWidth(node, availableSize.Width);
+        double borderWidth = ResolveBorderWidth(node, availableSize.Width, availableSize.Height);
         double contentWidth = Math.Max(0, borderWidth - insets.Horizontal);
-        double? specifiedHeight = ResolveSpecifiedHeight(style, availableSize.Height);
+        double? specifiedHeight = ResolveSpecifiedHeight(style, availableSize.Height)
+            ?? (style.Height.IsAuto && constraints.StretchHeight is double stretchHeight ? ClampHeight(style, stretchHeight, availableSize.Height) : null);
 
         if (node is IIntrinsicSize intrinsic)
         {
@@ -109,7 +114,7 @@ public sealed partial class LayoutEngine
 
         if (node is ITextSource { Text: not null } source)
         {
-            return MeasureText(state, source, style, borderWidth, contentWidth, specifiedHeight);
+            return MeasureText(state, source, style, borderWidth, contentWidth, availableSize.Height, specifiedHeight);
         }
 
         double? contentDefiniteHeight = specifiedHeight is double height ? Math.Max(0, height - insets.Vertical) : null;
@@ -118,7 +123,9 @@ public sealed partial class LayoutEngine
         Point contentOrigin = new(insets.Left, insets.Top);
         LayoutConstraints childConstraints = constraints with
         {
-            ContainingBlock = style.IsPositioned ? new Size(paddingBoxWidth, 0) : constraints.ContainingBlock
+            AvailableSize = new Size(contentWidth, contentDefiniteHeight ?? double.PositiveInfinity),
+            ContainingBlock = style.IsPositioned ? new Size(paddingBoxWidth, 0) : constraints.ContainingBlock,
+            StretchHeight = null
         };
 
         Size content = node switch
@@ -130,7 +137,7 @@ public sealed partial class LayoutEngine
             _ => MeasureBlock(node, 0, contentOrigin, contentWidth, childConstraints)
         };
 
-        double borderHeight = specifiedHeight ?? ClampHeight(style, content.Height + insets.Vertical);
+        double borderHeight = specifiedHeight ?? ClampHeight(style, content.Height + insets.Vertical, availableSize.Height);
         Size outOfFlowContainingBlock = style.IsPositioned
             ? new Size(paddingBoxWidth, Math.Max(0, borderHeight - borderInset))
             : constraints.ContainingBlock;
@@ -222,7 +229,7 @@ public sealed partial class LayoutEngine
     /// Returns the border-box width of <paramref name="node"/> within <paramref name="availableWidth"/>, clamped to its
     /// <see cref="ComputedStyle.MinWidth"/> and <see cref="ComputedStyle.MaxWidth"/>.
     /// </summary>
-    private double ResolveBorderWidth(ILayoutNode node, double availableWidth)
+    private double ResolveBorderWidth(ILayoutNode node, double availableWidth, double availableHeight)
     {
         ComputedStyle style = node.ComputedStyle;
         double fillWidth = Math.Max(0, availableWidth - style.Margin.Horizontal);
@@ -230,7 +237,7 @@ public sealed partial class LayoutEngine
         if (style.Width.IsAuto && node is IIntrinsicSize intrinsic)
         {
             Size natural = intrinsic.GetIntrinsicSize(new Size(fillWidth, double.PositiveInfinity));
-            double naturalWidth = style.Height is double h && natural.Height > 0 ? Math.Max(0, h - style.ContentInsets.Vertical) * natural.Width / natural.Height : natural.Width;
+            double naturalWidth = ResolveHeight(style.Height, availableHeight) is double h && natural.Height > 0 ? Math.Max(0, h - style.ContentInsets.Vertical) * natural.Width / natural.Height : natural.Width;
             width = Math.Min(fillWidth, naturalWidth + style.ContentInsets.Horizontal);
         }
         else
@@ -280,17 +287,18 @@ public sealed partial class LayoutEngine
     }
 
     /// <summary>
-    /// Clamps a border-box <paramref name="height"/> to the minimum and maximum height of <paramref name="style"/>. The
+    /// Clamps a border-box <paramref name="height"/> to the minimum and maximum height of <paramref name="style"/>. A
+    /// percentage resolves against <paramref name="containingHeight"/> and is ignored when that height is not finite. The
     /// minimum wins over the maximum.
     /// </summary>
-    private static double ClampHeight(ComputedStyle style, double height)
+    private static double ClampHeight(ComputedStyle style, double height, double containingHeight)
     {
-        if (style.MaxHeight is double max)
+        if (style.MaxHeight is HeightValue maxHeight && ResolveHeight(maxHeight, containingHeight) is double max)
         {
             height = Math.Min(height, max);
         }
 
-        if (style.MinHeight is double min)
+        if (style.MinHeight is HeightValue minHeight && ResolveHeight(minHeight, containingHeight) is double min)
         {
             height = Math.Max(height, min);
         }
@@ -304,12 +312,27 @@ public sealed partial class LayoutEngine
     /// </summary>
     private static double? ResolveSpecifiedHeight(ComputedStyle style, double availableHeight)
     {
-        if (style.Height is double height)
+        if (ResolveHeight(style.Height, availableHeight) is double height)
         {
-            return ClampHeight(style, height);
+            return ClampHeight(style, height, availableHeight);
         }
 
-        return style.IsOutOfFlow && style.Top.HasValue && style.Bottom.HasValue ? ClampHeight(style, availableHeight) : null;
+        return style.IsOutOfFlow && style.Top.HasValue && style.Bottom.HasValue ? ClampHeight(style, availableHeight, availableHeight) : null;
+    }
+
+    /// <summary>
+    /// Returns the border-box height that <paramref name="value"/> specifies: its length in pixels, or its percentage of
+    /// <paramref name="availableHeight"/> when that height is definite. Returns null when content determines the height,
+    /// which includes a percentage of an indefinite height.
+    /// </summary>
+    private static double? ResolveHeight(HeightValue value, double availableHeight)
+    {
+        return value switch
+        {
+            { IsPixels: true } pixels => pixels.Value,
+            { IsPercent: true } percent when double.IsFinite(availableHeight) => Math.Max(0, availableHeight * percent.Value / 100.0),
+            _ => null
+        };
     }
 
     /// <summary>

@@ -108,9 +108,9 @@ public sealed record ComputedStyle
     public WidthValue Width { get; init; } = WidthValue.Auto;
 
     /// <summary>
-    /// Gets the explicit height in logical pixels, or <see langword="null"/> for auto sizing.
+    /// Gets the resolved height, which is <see cref="HeightValue.Auto"/> when nothing specifies one.
     /// </summary>
-    public double? Height { get; init; }
+    public HeightValue Height { get; init; } = HeightValue.Auto;
 
     /// <summary>
     /// Gets the smallest border-box width in logical pixels or as a percentage of the containing width, or
@@ -125,14 +125,16 @@ public sealed record ComputedStyle
     public WidthValue? MaxWidth { get; init; }
 
     /// <summary>
-    /// Gets the smallest border-box height in logical pixels, or <see langword="null"/> when the height has no minimum.
+    /// Gets the smallest border-box height in logical pixels or as a percentage of the containing height, or
+    /// <see langword="null"/> when the height has no minimum.
     /// </summary>
-    public double? MinHeight { get; init; }
+    public HeightValue? MinHeight { get; init; }
 
     /// <summary>
-    /// Gets the largest border-box height in logical pixels, or <see langword="null"/> when the height has no maximum.
+    /// Gets the largest border-box height in logical pixels or as a percentage of the containing height, or
+    /// <see langword="null"/> when the height has no maximum.
     /// </summary>
-    public double? MaxHeight { get; init; }
+    public HeightValue? MaxHeight { get; init; }
 
     /// <summary>
     /// Gets the resolved pointer cursor appearance (defaults to <see cref="Cursor.Auto"/>).
@@ -267,7 +269,7 @@ public sealed record ComputedStyle
             ScrollbarTrackColor = parent is null ? Default.ScrollbarTrackColor : parent.ScrollbarTrackColor,
             CustomProperties = parent?.CustomProperties,
             Width = element.Width ?? WidthValue.Auto,
-            Height = element.Height,
+            Height = element.Height ?? HeightValue.Auto,
             OverflowX = element.OverflowX,
             OverflowY = element.OverflowY,
             Position = element.Position ?? Default.Position,

@@ -34,11 +34,11 @@ internal static class StyleCssDeclarations
             ("box-shadow", FormatBoxShadows(style?.BoxShadows)),
             ("opacity", style?.Opacity is double opacity ? Math.Clamp(opacity, 0, 1).ToString("R", CultureInfo.InvariantCulture) : null),
             ("width", FormatWidth(style?.Width)),
-            ("height", FormatLength(style?.Height)),
+            ("height", FormatHeight(style?.Height)),
             ("min-width", FormatWidth(style?.MinWidth)),
             ("max-width", FormatWidth(style?.MaxWidth)),
-            ("min-height", FormatLength(style?.MinHeight)),
-            ("max-height", FormatLength(style?.MaxHeight)),
+            ("min-height", FormatHeight(style?.MinHeight)),
+            ("max-height", FormatHeight(style?.MaxHeight)),
             ("cursor", FormatCursor(style?.Cursor)),
             ("overflow-x", FormatOverflow(style?.OverflowX)),
             ("overflow-y", FormatOverflow(style?.OverflowY)),
@@ -140,6 +140,17 @@ internal static class StyleCssDeclarations
             null => null,
             { IsAuto: true } => "auto",
             { IsFitContent: true } => "fit-content",
+            { IsPercent: true } percent => percent.Value.ToString("R", CultureInfo.InvariantCulture) + "%",
+            { } pixels => FormatLength(pixels.Value)
+        };
+    }
+
+    private static string? FormatHeight(HeightValue? value)
+    {
+        return value switch
+        {
+            null => null,
+            { IsAuto: true } => "auto",
             { IsPercent: true } percent => percent.Value.ToString("R", CultureInfo.InvariantCulture) + "%",
             { } pixels => FormatLength(pixels.Value)
         };

@@ -58,7 +58,7 @@ public abstract class Inline : BindableObject, IUIElement
     IStyle? IUIElement.Style => Style;
     Cursor? IUIElement.Cursor => Style?.Cursor;
     WidthValue? IUIElement.Width => null;
-    double? IUIElement.Height => null;
+    HeightValue? IUIElement.Height => null;
     Overflow? IUIElement.OverflowX => null;
     Overflow? IUIElement.OverflowY => null;
     Position? IUIElement.Position => null;

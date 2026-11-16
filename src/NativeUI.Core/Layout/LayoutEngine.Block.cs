@@ -32,7 +32,7 @@ public sealed partial class LayoutEngine
                 currentY += effectiveSpacing;
             }
 
-            Size size = Measure(child, constraints with { AvailableSize = new Size(width, double.PositiveInfinity) });
+            Size size = Measure(child, constraints with { AvailableSize = new Size(width, constraints.AvailableSize.Height) });
             Thickness margin = child.ComputedStyle.Margin;
             Point borderOrigin = new(contentOrigin.X + margin.Left, currentY + margin.Top);
             GetState(child).VisualOffset = ApplyRelativeOffset(child.ComputedStyle, borderOrigin);

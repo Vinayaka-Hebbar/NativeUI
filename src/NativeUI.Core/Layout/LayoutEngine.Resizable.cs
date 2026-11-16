@@ -81,7 +81,7 @@ public sealed partial class LayoutEngine
             }
 
             double childWidth = isHorizontal ? childMainLength : width;
-            double childHeight = isHorizontal ? (childStyle.Height ?? crossLength) : childMainLength;
+            double childHeight = isHorizontal ? (ResolveHeight(childStyle.Height, crossLength) ?? crossLength) : childMainLength;
             if (!isHorizontal && childStyle.Width is { IsPixels: true } explicitWidth)
             {
                 childWidth = explicitWidth.Value;
@@ -116,6 +116,6 @@ public sealed partial class LayoutEngine
     {
         return isHorizontal
             ? (style.Width is { IsPixels: true } width ? width.Value : DefaultResizableHandleSize)
-            : (style.Height ?? DefaultResizableHandleSize);
+            : (style.Height is { IsPixels: true } height ? height.Value : DefaultResizableHandleSize);
     }
 }
