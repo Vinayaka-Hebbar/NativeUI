@@ -9,7 +9,7 @@ namespace NativeUI.Controls;
 /// content when the template has one. Otherwise the control itself hosts the content after its template parts.
 /// </summary>
 [ContentProperty(nameof(Content))]
-public abstract class ContentControl : Control
+public class ContentControl : Control
 {
     /// <summary>
     /// The name of the template part that hosts <see cref="Content"/>.

@@ -5,24 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NativeUI Web Sample</title>
     <style>
-        body {
+        html, body {
             margin: 0;
-            min-height: 100vh;
-            display: grid;
-            place-items: center;
-            background: #e2e8f0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #ffffff;
+            color: #0f172a;
             font-family: system-ui, -apple-system, sans-serif;
         }
+        html:has(native-ui[data-theme="dark"]),
         body:has(native-ui[data-theme="dark"]) {
-            background: #1e293b;
+            background: #0a0a0a;
+            color: #fafafa;
         }
         @media (prefers-color-scheme: dark) {
+            html:not(:has(native-ui)),
             body:not(:has(native-ui)) {
-                background: #1e293b;
+                background: #0a0a0a;
+                color: #fafafa;
             }
         }
         #app {
-            width: min(860px, 92vw);
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        native-ui {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
         }
     </style>
 </head>

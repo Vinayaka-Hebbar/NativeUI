@@ -474,11 +474,35 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-separator")),
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-resizablepanel")),
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-splitview")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nav")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-navitem")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-navitem-header")),
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-menuseparator")),
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-menugroup"))),
             new()
             {
                 ["display"] = "block"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-splitview")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nav"))),
+            new()
+            {
+                ["width"] = "100%",
+                ["height"] = "100%"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Type("nui-navitem"))),
+            new()
+            {
+                ["display"] = "block",
+                ["width"] = "100%",
+                ["box-sizing"] = "border-box",
+                ["cursor"] = "pointer",
+                ["user-select"] = "none"
             }));
 
         rules.Add(Rule(
@@ -551,13 +575,32 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
             }));
 
         rules.Add(Rule(
-            CssSelector.Where(CssSelector.Descendant(
-                [CssSelector.Type("native-ui"), CssSelector.Type("nui-splitview")],
-                CssSelector.Attribute(StyleSheetCss.PartAttribute, "layout"))),
+            CssSelector.Where(
+                CssSelector.Descendant(
+                    [CssSelector.Type("native-ui"), CssSelector.Type("nui-splitview")],
+                    CssSelector.Attribute(StyleSheetCss.PartAttribute, "layout")),
+                CssSelector.Descendant(
+                    [CssSelector.Type("native-ui"), CssSelector.Type("nui-splitview")],
+                    CssSelector.Attribute(StyleSheetCss.PartAttribute, "pane")),
+                CssSelector.Descendant(
+                    [CssSelector.Type("native-ui"), CssSelector.Type("nui-splitview")],
+                    CssSelector.Attribute(StyleSheetCss.PartAttribute, "content"))),
             new()
             {
                 ["height"] = "100%",
                 ["min-height"] = "inherit"
+            }));
+
+        rules.Add(Rule(
+            CssSelector.Where(
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Class("navigation-pane-root")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Class("navigation-pane-grid")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Class("navigation-content-area")),
+                CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Class("navigation-content-host"))),
+            new()
+            {
+                ["height"] = "100%",
+                ["box-sizing"] = "border-box"
             }));
 
         rules.Add(Rule(

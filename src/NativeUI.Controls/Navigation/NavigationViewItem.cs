@@ -70,7 +70,7 @@ public class NavigationViewItem : NavigationViewItemBase
 
     private readonly ObservableCollection<NavigationViewItemBase> _menuItems = [];
     private readonly IDisposable _gestureSubscription;
-    private View? _itemRow;
+    private StackPanel? _itemRow;
     private View? _iconHost;
     private View? _contentHost;
     private Path? _chevron;
@@ -198,8 +198,10 @@ public class NavigationViewItem : NavigationViewItemBase
     /// <inheritdoc />
     protected override void BuildTemplate()
     {
-        _itemRow = DefinePart("item-row", new View
+        _itemRow = DefinePart("item-row", new StackPanel
         {
+            Orientation = Orientation.Horizontal,
+            Spacing = 10,
             Class = ["navigation-item-row"]
         });
 
@@ -257,6 +259,7 @@ public class NavigationViewItem : NavigationViewItemBase
 
     private void OnIsSelectedChanged()
     {
+        SetState(ElementStates.Selected, IsSelected);
         InvalidateStyle();
     }
 

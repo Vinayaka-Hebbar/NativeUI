@@ -1,0 +1,201 @@
+/* Compiled stylesheet for GalleryView */
+:root {
+  --color-primary: #2563eb;
+  --color-surface: #ffffff;
+  --color-sidebar: #f8fafc;
+  --color-muted-surface: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-text: #0f172a;
+  --color-muted: #64748b;
+  --color-accent: #10b981;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #3b82f6;
+    --color-surface: #0a0a0a;
+    --color-sidebar: #121215;
+    --color-muted-surface: #1e1e24;
+    --color-border: #27272a;
+    --color-text: #fafafa;
+    --color-muted: #a1a1aa;
+    --color-accent: #34d399;
+  }
+
+  .gallery-root {
+    background-color: var(--color-surface);
+  }
+
+  .navigation-pane-root {
+    background-color: var(--color-sidebar);
+  }
+
+  .navigation-content-area {
+    background-color: var(--color-surface);
+  }
+
+  .gallery-content {
+    background-color: var(--color-surface);
+  }
+
+  .gallery-brand-title {
+    color: var(--color-text);
+  }
+
+  .gallery-section-header,
+  .gallery-section-header Text {
+    color: var(--color-muted);
+  }
+
+  NavigationViewItem {
+    color: var(--color-muted);
+  }
+
+  NavigationViewItem Text {
+    color: var(--color-muted);
+  }
+
+  NavigationViewItem:hover {
+    background-color: var(--color-muted-surface);
+    color: var(--color-text);
+  }
+
+  NavigationViewItem:hover Text {
+    color: var(--color-text);
+  }
+
+  NavigationViewItem:selected {
+    background-color: var(--color-primary);
+    color: #ffffff;
+  }
+
+  NavigationViewItem:selected Text {
+    color: #ffffff;
+  }
+}
+
+.gallery-root {
+  background-color: var(--color-surface);
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.gallery-nav {
+  height: 100%;
+}
+
+.gallery-nav::part(splitview) {
+  height: 100%;
+}
+
+.navigation-pane-root {
+  background-color: var(--color-sidebar);
+  height: 100%;
+  padding: 20px 10px 16px 10px;
+}
+
+.gallery-brand {
+  margin: 0 0 20px 8px;
+}
+
+.gallery-brand-title {
+  color: var(--color-text);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.gallery-section-header {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+  margin: 0 0 8px 10px;
+}
+
+.gallery-section-header Text {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+NavigationViewItem {
+  color: var(--color-text);
+  margin: 1px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+}
+
+NavigationViewItem:hover {
+  background-color: var(--color-muted-surface);
+}
+
+NavigationViewItem:selected {
+  background-color: var(--color-primary);
+  color: #ffffff;
+}
+
+NavigationViewItem:selected:hover {
+  background-color: #1d4ed8;
+}
+
+.navigation-item-row {
+  padding: 8px 12px;
+}
+
+NavigationViewItem Text {
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+NavigationViewItem:hover Text {
+  color: var(--color-text);
+}
+
+NavigationViewItem:selected Text {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.navigation-content-area {
+  background-color: var(--color-surface);
+  height: 100%;
+}
+
+.gallery-nav::part(layout) {
+  height: 100%;
+}
+
+.gallery-nav::part(content) {
+  min-height: 0;
+}
+
+.gallery-content {
+  height: 100%;
+  padding: 24px 32px;
+  background-color: var(--color-surface);
+  overflow: auto;
+}
+
+.navigation-pane-footer-host {
+  padding: 8px 4px 4px 4px;
+}
+
+.gallery-theme-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border-width: 1px;
+  border-color: var(--color-border);
+  background-color: var(--color-muted-surface);
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gallery-theme-btn:hover {
+  background-color: var(--color-border);
+}

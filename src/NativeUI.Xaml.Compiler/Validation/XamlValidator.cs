@@ -414,7 +414,10 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["IsPaneToggleButtonVisible"] = XamlPropertyKind.Boolean,
                 ["IsSettingsVisible"] = XamlPropertyKind.Boolean,
                 ["OpenPaneLength"] = XamlPropertyKind.Double,
-                ["CompactPaneLength"] = XamlPropertyKind.Double
+                ["CompactPaneLength"] = XamlPropertyKind.Double,
+                ["MenuItemsSource"] = XamlPropertyKind.BindingOnly,
+                ["ItemsSource"] = XamlPropertyKind.BindingOnly,
+                ["SelectedItem"] = XamlPropertyKind.BindingOnly
             },
             ["NavigationViewItem"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
@@ -454,7 +457,8 @@ public sealed class XamlValidator : XamlSyntaxVisitor
     // Controls whose direct child is assigned to a property that holds one value, instead of added to a collection.
     private static readonly Dictionary<string, string> s_singleContentProperties = new(StringComparer.Ordinal)
     {
-        ["Viewport3D"] = "Scene"
+        ["Viewport3D"] = "Scene",
+        ["NavigationView"] = "Content"
     };
 
     private static readonly Dictionary<string, Dictionary<string, PropertyElementTarget>> s_propertyElements =
@@ -480,7 +484,8 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             },
             ["NavigationViewItem"] = new Dictionary<string, PropertyElementTarget>(StringComparer.Ordinal)
             {
-                ["MenuItems"] = new PropertyElementTarget("MenuItems", IsCollection: true)
+                ["MenuItems"] = new PropertyElementTarget("MenuItems", IsCollection: true),
+                ["Icon"] = new PropertyElementTarget("Icon", IsCollection: false)
             },
             ["Viewport3D"] = new Dictionary<string, PropertyElementTarget>(StringComparer.Ordinal)
             {

@@ -1,5 +1,7 @@
 using NativeUI.Controls;
 using NativeUI.Core;
+using NativeUI.Media;
+using Path = NativeUI.Controls.Shapes.Path;
 
 namespace NativeUI.Sample;
 
@@ -50,16 +52,29 @@ public partial class SplitViewSampleView
     private void SetMode(SplitViewDisplayMode mode, Button activeBtn)
     {
         DemoSplitView.DisplayMode = mode;
-        ModeInlineButton.Class = ReferenceEquals(activeBtn, ModeInlineButton) ? [ModeBtnClass, ModeBtnActiveClass] : [ModeBtnClass];
-        ModeCompactInlineButton.Class = ReferenceEquals(activeBtn, ModeCompactInlineButton) ? [ModeBtnClass, ModeBtnActiveClass] : [ModeBtnClass];
-        ModeOverlayButton.Class = ReferenceEquals(activeBtn, ModeOverlayButton) ? [ModeBtnClass, ModeBtnActiveClass] : [ModeBtnClass];
-        ModeCompactOverlayButton.Class = ReferenceEquals(activeBtn, ModeCompactOverlayButton) ? [ModeBtnClass, ModeBtnActiveClass] : [ModeBtnClass];
+
+        UpdateModeButton(ModeInlineButton, ModeInlineIcon, ReferenceEquals(activeBtn, ModeInlineButton));
+        UpdateModeButton(ModeCompactInlineButton, ModeCompactInlineIcon, ReferenceEquals(activeBtn, ModeCompactInlineButton));
+        UpdateModeButton(ModeOverlayButton, ModeOverlayIcon, ReferenceEquals(activeBtn, ModeOverlayButton));
+        UpdateModeButton(ModeCompactOverlayButton, ModeCompactOverlayIcon, ReferenceEquals(activeBtn, ModeCompactOverlayButton));
+    }
+
+    private static void UpdateModeButton(Button btn, Path icon, bool isActive)
+    {
+        btn.Class = isActive ? [ModeBtnClass, ModeBtnActiveClass] : [ModeBtnClass];
+        icon.Stroke = isActive ? Brushes.White : new SolidColorBrush(Color.FromHex("#0f172a"));
     }
 
     private void SelectNav(Button selected)
     {
-        DemoNavHome.Class = ReferenceEquals(selected, DemoNavHome) ? ["demo-nav-item", "demo-nav-item-active"] : ["demo-nav-item"];
-        DemoNavProjects.Class = ReferenceEquals(selected, DemoNavProjects) ? ["demo-nav-item", "demo-nav-item-active"] : ["demo-nav-item"];
-        DemoNavSettings.Class = ReferenceEquals(selected, DemoNavSettings) ? ["demo-nav-item", "demo-nav-item-active"] : ["demo-nav-item"];
+        UpdateNavButton(DemoNavHome, DemoNavHomeIcon, ReferenceEquals(selected, DemoNavHome));
+        UpdateNavButton(DemoNavProjects, DemoNavProjectsIcon, ReferenceEquals(selected, DemoNavProjects));
+        UpdateNavButton(DemoNavSettings, DemoNavSettingsIcon, ReferenceEquals(selected, DemoNavSettings));
+    }
+
+    private static void UpdateNavButton(Button btn, Path icon, bool isSelected)
+    {
+        btn.Class = isSelected ? ["demo-nav-item", "demo-nav-item-active"] : ["demo-nav-item"];
+        icon.Stroke = isSelected ? Brushes.White : new SolidColorBrush(Color.FromHex("#94a3b8"));
     }
 }

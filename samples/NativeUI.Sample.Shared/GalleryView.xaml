@@ -1,0 +1,37 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:shapes="clr-namespace:NativeUI.Controls.Shapes;assembly=NativeUI.Controls"
+      x:Class="NativeUI.Sample.GalleryView"
+      x:DataType="NativeUI.Sample.GalleryViewModel"
+      Class="gallery-root">
+
+    <NavigationView x:Name="AppNav"
+                    MenuItemsSource="{Binding NavigationItems}"
+                    SelectedItem="{Binding SelectedPage, Mode=TwoWay}"
+                    PaneDisplayMode="Inline"
+                    IsPaneOpen="True"
+                    IsPaneToggleButtonVisible="False"
+                    IsSettingsVisible="False"
+                    OpenPaneLength="220"
+                    CompactPaneLength="56"
+                    Class="gallery-nav">
+
+        <NavigationView.PaneHeader>
+            <StackPanel Orientation="Horizontal" Spacing="10" Class="gallery-brand">
+                <Image Source="resource://NativeUI.Sample.Shared/Assets/logo.svg" Width="24" Height="24" Stretch="Uniform" AltText="NativeUI Logo" />
+                <Text Class="gallery-brand-title" Value="NativeUI" />
+            </StackPanel>
+        </NavigationView.PaneHeader>
+
+        <NavigationView.PaneFooter>
+            <Button x:Name="ThemeButton"
+                    Class="gallery-theme-btn"
+                    Text="{Binding ThemeButtonText}"
+                    Command="{Binding ToggleThemeCommand}" />
+        </NavigationView.PaneFooter>
+
+        <ContentControl Content="{Binding CurrentPage}" Class="gallery-content" />
+
+    </NavigationView>
+
+</View>

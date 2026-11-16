@@ -33,7 +33,7 @@
     <View Class="display-section">
         <Text Class="display-heading" Value="Avatar" />
         <StackPanel Class="display-row" Orientation="Horizontal">
-            <Avatar Source="resource://NativeUI.Sample.Shared/Assets/logo.png" Fallback="NU" AltText="NativeUI logo" />
+            <Avatar Source="resource://NativeUI.Sample.Shared/Assets/logo.svg" Fallback="NU" AltText="NativeUI logo" />
             <Avatar Fallback="VH" />
             <Avatar Class="large" Fallback="AB" />
         </StackPanel>

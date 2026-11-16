@@ -4,17 +4,17 @@ using NativeUI.DevTools;
 #endif
 using NativeUI.Sample;
 
-HelloViewModel viewModel = new();
-HelloView view = new()
+GalleryViewModel viewModel = new();
+GalleryView view = new()
 {
     DataContext = viewModel
 };
 
 using Window window = new()
 {
-    Title = "NativeUI — macOS SkiaSharp + Compiled XAML/CSS Sample",
-    Width = 860,
-    Height = 760,
+    Title = "NativeUI — Component Gallery",
+    Width = 1140,
+    Height = 840,
     Content = view
 };
 

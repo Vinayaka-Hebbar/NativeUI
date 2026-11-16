@@ -1,8 +1,8 @@
 using NativeUI.Controls.Web;
 using NativeUI.Sample;
 
-HelloViewModel viewModel = new();
-HelloView view = new()
+GalleryViewModel viewModel = new();
+GalleryView view = new()
 {
     DataContext = viewModel
 };

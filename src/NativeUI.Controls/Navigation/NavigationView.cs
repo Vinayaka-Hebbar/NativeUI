@@ -42,6 +42,11 @@ public class NavigationView : ContentControl
             propertyChanged: static (owner, oldVal, newVal) => owner.OnItemsSourceChanged(oldVal, newVal));
 
     /// <summary>
+    /// Identifies the <see cref="MenuItemsSource"/> bindable property (WinUI/UWP naming alias for <see cref="ItemsSource"/>).
+    /// </summary>
+    public static readonly BindableProperty<IEnumerable?> MenuItemsSourceProperty = ItemsSourceProperty;
+
+    /// <summary>
     /// Identifies the <see cref="ItemTemplate"/> bindable property.
     /// </summary>
     public static readonly BindableProperty<DataTemplate?> ItemTemplateProperty =
@@ -222,6 +227,15 @@ public class NavigationView : ContentControl
     {
         get => GetValue(ItemsSourceProperty);
         set => SetValue(ItemsSourceProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the collection used to generate navigation items (WinUI/UWP naming alias for <see cref="ItemsSource"/>).
+    /// </summary>
+    public IEnumerable? MenuItemsSource
+    {
+        get => ItemsSource;
+        set => ItemsSource = value;
     }
 
     /// <summary>
@@ -444,7 +458,10 @@ public class NavigationView : ContentControl
             IsVisible = IsSettingsVisible
         };
         RegisterItem(_settingsItem);
-        _footerItemsHost.Children.Add(_settingsItem);
+        if (IsSettingsVisible)
+        {
+            _footerItemsHost.Children.Add(_settingsItem);
+        }
 
         _paneFooterHost = DefinePart("pane-footer", new View
         {
@@ -460,10 +477,10 @@ public class NavigationView : ContentControl
         _splitView.Pane = paneRoot;
 
         View contentArea = new View { Class = ["navigation-content-area"] };
-        Grid contentLayout = new Grid
+        Grid contentLayout = DefinePart("layout", new Grid
         {
             Rows = [GridLength.Auto, GridLength.Auto, GridLength.Star()]
-        };
+        });
 
         _topItemsHost = DefinePart("top-items", new StackPanel
         {
@@ -581,7 +598,7 @@ public class NavigationView : ContentControl
         if (sender is NavigationViewItem item)
         {
             bool isSettings = ReferenceEquals(item, _settingsItem);
-            object? payload = item.Tag ?? item.Content ?? item;
+            object? payload = item.DataContext ?? item.Tag ?? item.Content ?? item;
             ItemInvoked?.Invoke(this, new NavigationViewItemInvokedEventArgs(payload, item, isSettings));
             NotifyItemSelected(item);
         }
@@ -631,7 +648,7 @@ public class NavigationView : ContentControl
             item.IsSelected = true;
 
             bool isSettings = ReferenceEquals(item, _settingsItem);
-            object? newSelection = item.Tag ?? item.Content ?? item;
+            object? newSelection = item.DataContext ?? item.Tag ?? item.Content ?? item;
 
             if (!Equals(SelectedItem, newSelection))
             {
@@ -786,13 +803,46 @@ public class NavigationView : ContentControl
                     _realizedSourceItems.Add(existingItem);
                     RegisterItem(existingItem);
                 }
-                else
+                else if (dataItem is not null)
                 {
                     NavigationViewItem created = new NavigationViewItem
                     {
                         DataContext = dataItem,
-                        Content = ItemTemplate is not null ? ItemTemplate.Build(dataItem) : dataItem
+                        Tag = dataItem
                     };
+
+                    if (ItemTemplate is not null)
+                    {
+                        created.Content = ItemTemplate.Build(dataItem);
+                    }
+                    else
+                    {
+                        System.Reflection.PropertyInfo? nameProp = dataItem.GetType().GetProperty("Name");
+                        created.Content = nameProp?.GetValue(dataItem) ?? dataItem;
+
+                        System.Reflection.PropertyInfo? iconProp = dataItem.GetType().GetProperty("Icon") ?? dataItem.GetType().GetProperty("IconData");
+                        if (iconProp?.GetValue(dataItem) is object iconVal)
+                        {
+                            if (iconVal is string iconPath && !string.IsNullOrEmpty(iconPath))
+                            {
+                                created.Icon = new NativeUI.Controls.Shapes.Path
+                                {
+                                    Data = Geometry.Parse(iconPath),
+                                    Fill = Brushes.Transparent,
+                                    Stroke = SvgCurrentColorBrush.Instance,
+                                    StrokeThickness = 1.5,
+                                    Width = 16,
+                                    Height = 16,
+                                    Stretch = Stretch.Uniform
+                                };
+                            }
+                            else
+                            {
+                                created.Icon = iconVal;
+                            }
+                        }
+                    }
+
                     _realizedSourceItems.Add(created);
                     RegisterItem(created);
                 }
@@ -880,7 +930,7 @@ public class NavigationView : ContentControl
             _footerItemsHost.Children.Add(item);
         }
 
-        if (_settingsItem is not null)
+        if (_settingsItem is not null && IsSettingsVisible)
         {
             _footerItemsHost.Children.Add(_settingsItem);
         }
@@ -912,6 +962,8 @@ public class NavigationView : ContentControl
         {
             _settingsItem.IsVisible = IsSettingsVisible;
         }
+
+        SyncHostChildren();
     }
 
     private void UpdateDisplayMode()
@@ -920,6 +972,11 @@ public class NavigationView : ContentControl
         if (_topItemsHost is not null)
         {
             _topItemsHost.IsVisible = isTop;
+        }
+
+        if (_headerHost is not null)
+        {
+            _headerHost.IsVisible = Header is not null;
         }
 
         if (_splitView is not null)
@@ -965,16 +1022,28 @@ public class NavigationView : ContentControl
     private void UpdatePaneHeader()
     {
         UpdateSlotContent(ref _presentedPaneHeader, _paneHeaderHost, PaneHeader);
+        if (_paneHeaderHost is not null)
+        {
+            _paneHeaderHost.IsVisible = PaneHeader is not null;
+        }
     }
 
     private void UpdatePaneFooter()
     {
         UpdateSlotContent(ref _presentedPaneFooter, _paneFooterHost, PaneFooter);
+        if (_paneFooterHost is not null)
+        {
+            _paneFooterHost.IsVisible = PaneFooter is not null;
+        }
     }
 
     private void UpdateHeader()
     {
         UpdateSlotContent(ref _presentedHeader, _headerHost, Header);
+        if (_headerHost is not null)
+        {
+            _headerHost.IsVisible = Header is not null;
+        }
     }
 
     private static void UpdateSlotContent(ref UIElement? slotStorage, View? host, object? content)
