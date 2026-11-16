@@ -1,0 +1,53 @@
+<Project>
+  <!--
+    Wraps the build output of a macOS application in an .app bundle, because the Dock takes the name and icon of a
+    process from its bundle. Without one, the Dock shows "dotnet" and a generic icon.
+
+    The bundle uses standard properties: Product (the name, defaults to AssemblyName), ApplicationId (the identifier,
+    defaults to AssemblyName) and Version. NativeUIApplicationIcon names a .png or .icns file. NativeUIBundleApp=false
+    turns the bundle off. "dotnet run" starts the executable inside the bundle.
+  -->
+  <PropertyGroup>
+    <_NativeUIBuildTasks>$(MSBuildThisFileDirectory)NativeUI.Build.dll</_NativeUIBuildTasks>
+    <_NativeUIBuildTasks Condition="!Exists('$(_NativeUIBuildTasks)')">$(MSBuildThisFileDirectory)../bin/$(Configuration)/net10.0/NativeUI.Build.dll</_NativeUIBuildTasks>
+  </PropertyGroup>
+  <UsingTask TaskName="NativeUI.Build.CreateIcns" AssemblyFile="$(_NativeUIBuildTasks)" />
+  <UsingTask TaskName="NativeUI.Build.CreateInfoPlist" AssemblyFile="$(_NativeUIBuildTasks)" />
+
+  <PropertyGroup>
+    <NativeUIBundleApp Condition="'$(NativeUIBundleApp)' == '' and '$(OutputType)' == 'Exe' and $([MSBuild]::IsOSPlatform('OSX'))">true</NativeUIBundleApp>
+  </PropertyGroup>
+
+  <Target Name="BundleNativeUIMacOSApp" AfterTargets="Build" Condition="'$(NativeUIBundleApp)' == 'true'">
+    <PropertyGroup>
+      <_BundleName>$(Product)</_BundleName>
+      <_BundleName Condition="'$(_BundleName)' == ''">$(AssemblyName)</_BundleName>
+      <_BundleId>$(ApplicationId)</_BundleId>
+      <_BundleId Condition="'$(_BundleId)' == ''">$(AssemblyName)</_BundleId>
+      <_BundleVersion>$(Version)</_BundleVersion>
+      <_BundleVersion Condition="'$(_BundleVersion)' == ''">1.0</_BundleVersion>
+      <_BundleDirectory>$(OutDir)$(_BundleName).app/</_BundleDirectory>
+      <_BundleIconFile Condition="'$(NativeUIApplicationIcon)' != ''">AppIcon</_BundleIconFile>
+    </PropertyGroup>
+    <ItemGroup>
+      <_BundleFile Include="$(OutDir)**/*" Exclude="$(_BundleDirectory)**" />
+    </ItemGroup>
+    <MakeDir Directories="$(_BundleDirectory)Contents/Resources" />
+    <Copy SourceFiles="@(_BundleFile)" DestinationFiles="@(_BundleFile->'$(_BundleDirectory)Contents/MacOS/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <CreateInfoPlist BundleName="$(_BundleName)" BundleIdentifier="$(_BundleId)" Executable="$(AssemblyName)"
+                     Version="$(_BundleVersion)" IconFile="$(_BundleIconFile)"
+                     Output="$(_BundleDirectory)Contents/Info.plist" />
+    <Copy Condition="'$(NativeUIApplicationIcon)' != '' and '$([System.IO.Path]::GetExtension($(NativeUIApplicationIcon)))' == '.icns'"
+          SourceFiles="$(NativeUIApplicationIcon)" DestinationFiles="$(_BundleDirectory)Contents/Resources/AppIcon.icns" />
+    <CreateIcns Condition="'$(NativeUIApplicationIcon)' != '' and '$([System.IO.Path]::GetExtension($(NativeUIApplicationIcon)))' != '.icns'"
+                Source="$(NativeUIApplicationIcon)" Output="$(_BundleDirectory)Contents/Resources/AppIcon.icns" />
+  </Target>
+
+  <Target Name="UseNativeUIBundleForRun" AfterTargets="ComputeRunArguments" Condition="'$(NativeUIBundleApp)' == 'true'">
+    <PropertyGroup>
+      <_RunBundleName>$(Product)</_RunBundleName>
+      <_RunBundleName Condition="'$(_RunBundleName)' == ''">$(AssemblyName)</_RunBundleName>
+      <RunCommand>$(OutDir)$(_RunBundleName).app/Contents/MacOS/$(AssemblyName)</RunCommand>
+    </PropertyGroup>
+  </Target>
+</Project>

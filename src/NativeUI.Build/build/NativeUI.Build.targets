@@ -1,4 +1,6 @@
 <Project>
+  <Import Project="$(MSBuildThisFileDirectory)NativeUI.MacOS.targets" Condition="Exists('$(MSBuildThisFileDirectory)NativeUI.MacOS.targets')" />
+
   <ItemGroup>
     <AdditionalFiles Include="**\*.xaml" Exclude="bin\**;obj\**" />
     <AdditionalFiles Include="**\*.xaml.css" Exclude="bin\**;obj\**;wwwroot\**" />

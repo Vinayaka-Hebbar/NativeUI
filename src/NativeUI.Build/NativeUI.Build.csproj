@@ -3,11 +3,30 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <IncludeBuildOutput>false</IncludeBuildOutput>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);IncludeBuildTasksInPackage</TargetsForTfmSpecificContentInPackage>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="build\NativeUI.Build.props" Pack="true" PackagePath="build\" />
     <None Include="build\NativeUI.Build.targets" Pack="true" PackagePath="build\" />
+    <None Include="build\NativeUI.MacOS.targets" Pack="true" PackagePath="build\" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.Build.Framework">
+      <HintPath>$(MSBuildToolsPath)/Microsoft.Build.Framework.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.Build.Utilities.Core">
+      <HintPath>$(MSBuildToolsPath)/Microsoft.Build.Utilities.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="IncludeBuildTasksInPackage">
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(TargetPath)" PackagePath="build/" />
+    </ItemGroup>
+  </Target>
 
 </Project>

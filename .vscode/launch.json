@@ -6,7 +6,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/samples/NativeUI.Sample.MacOS/bin/Debug/net10.0/NativeUI.Sample.MacOS.dll",
+      "program": "${workspaceFolder}/samples/NativeUI.Sample.MacOS/bin/Debug/net10.0/NativeUI Gallery.app/Contents/MacOS/NativeUI.Sample.MacOS",
       "args": [],
       "cwd": "${workspaceFolder}/samples/NativeUI.Sample.MacOS",
       "console": "internalConsole",

@@ -4,6 +4,8 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>NativeUI.Sample.MacOS</RootNamespace>
+    <Product>NativeUI Gallery</Product>
+    <NativeUIApplicationIcon>$(MSBuildProjectDirectory)/../NativeUI.Sample.Shared/Assets/logo.png</NativeUIApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,5 +22,11 @@
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
     <ProjectReference Include="..\..\src\NativeUI.DevTools\NativeUI.DevTools.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NativeUI.Build\NativeUI.Build.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <Import Project="..\..\src\NativeUI.Build\build\NativeUI.MacOS.targets" />
 
 </Project>
