@@ -37,7 +37,7 @@ public interface IStyle
     double? Gap { get; }
 
     /// <summary>Gets the specified radii of the four corners.</summary>
-    CornerRadius? BorderRadius { get; }
+    CornerRadiusValue? BorderRadius { get; }
 
     /// <summary>Gets the specified border width on all four edges.</summary>
     double? BorderWidth { get; }

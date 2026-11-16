@@ -69,9 +69,9 @@ public sealed record ComputedStyle
     public double Gap { get; init; }
 
     /// <summary>
-    /// Gets the resolved radii of the four corners in logical pixels.
+    /// Gets the resolved radii of the four corners, each in logical pixels or as a percentage of the border box.
     /// </summary>
-    public CornerRadius BorderRadius { get; init; }
+    public CornerRadiusValue BorderRadius { get; init; }
 
     /// <summary>
     /// Gets the resolved border width on all four edges in logical pixels.

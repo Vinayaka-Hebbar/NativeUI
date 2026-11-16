@@ -205,20 +205,31 @@ internal static class StyleCssDeclarations
     /// <summary>
     /// Formats uniform corners as one length and other corners as four lengths from top-left.
     /// </summary>
-    private static string? FormatCornerRadius(CornerRadius? value)
+    private static string? FormatCornerRadius(CornerRadiusValue? value)
     {
-        if (value is not CornerRadius radius)
+        if (value is not CornerRadiusValue radius)
         {
             return null;
         }
 
         if (radius.IsUniform)
         {
-            return FormatLength(radius.TopLeft);
+            return FormatRadius(radius.TopLeft);
         }
 
-        return string.Create(CultureInfo.InvariantCulture,
-            $"{radius.TopLeft:R}px {radius.TopRight:R}px {radius.BottomRight:R}px {radius.BottomLeft:R}px");
+        return string.Join(
+            ' ',
+            FormatRadius(radius.TopLeft),
+            FormatRadius(radius.TopRight),
+            FormatRadius(radius.BottomRight),
+            FormatRadius(radius.BottomLeft));
+    }
+
+    private static string FormatRadius(RadiusValue radius)
+    {
+        return radius.IsPercent
+            ? radius.Value.ToString("R", CultureInfo.InvariantCulture) + "%"
+            : radius.Value.ToString("R", CultureInfo.InvariantCulture) + "px";
     }
 
     /// <summary>

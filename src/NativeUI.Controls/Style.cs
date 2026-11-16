@@ -70,8 +70,8 @@ public sealed class Style : BindableObject, IStyle
     /// <summary>
     /// Identifies the <see cref="BorderRadius"/> bindable property.
     /// </summary>
-    public static readonly BindableProperty<CornerRadius?> BorderRadiusProperty =
-        BindableProperty.Create<Style, CornerRadius?>(nameof(BorderRadius));
+    public static readonly BindableProperty<CornerRadiusValue?> BorderRadiusProperty =
+        BindableProperty.Create<Style, CornerRadiusValue?>(nameof(BorderRadius));
 
     /// <summary>
     /// Identifies the <see cref="BorderWidth"/> bindable property.
@@ -299,10 +299,10 @@ public sealed class Style : BindableObject, IStyle
     }
 
     /// <summary>
-    /// Gets or sets the radii of the four corners in logical pixels. A <see cref="double"/> converts to the same radius at
-    /// every corner.
+    /// Gets or sets the radii of the four corners, each in logical pixels or as a percentage of the border box. A
+    /// <see cref="double"/> converts to the same radius at every corner.
     /// </summary>
-    public CornerRadius? BorderRadius
+    public CornerRadiusValue? BorderRadius
     {
         get => GetValue(BorderRadiusProperty);
         set => SetValue(BorderRadiusProperty, value);

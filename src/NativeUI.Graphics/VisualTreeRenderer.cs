@@ -361,9 +361,10 @@ public sealed class VisualTreeRenderer : IDisposable
             {
                 Paint bgPaint = new(bgColor, drawOpacity);
                 Rect background = SnapToPixels(box.BorderBox);
-                if (!style.BorderRadius.IsZero)
+                CornerRadius backgroundRadius = style.BorderRadius.Resolve(box.BorderBox.Size);
+                if (!backgroundRadius.IsZero)
                 {
-                    context.DrawRoundedRectangle(background, style.BorderRadius, bgPaint);
+                    context.DrawRoundedRectangle(background, backgroundRadius, bgPaint);
                 }
                 else
                 {
@@ -496,7 +497,7 @@ public sealed class VisualTreeRenderer : IDisposable
     {
         ComputedStyle style = box.Style;
         Rect paddingBox = GetPaddingBox(box);
-        CornerRadius radius = style.BorderRadius.Deflate(Math.Max(0, style.BorderWidth));
+        CornerRadius radius = style.BorderRadius.Resolve(box.BorderBox.Size).Deflate(Math.Max(0, style.BorderWidth));
         if (!radius.IsZero)
         {
             context.ClipRoundedRectangle(paddingBox, radius);
@@ -529,7 +530,7 @@ public sealed class VisualTreeRenderer : IDisposable
             Math.Max(0, outer.Width - width),
             Math.Max(0, outer.Height - width));
         Paint paint = new(style.BorderColor ?? style.TextColor ?? Colors.Black, opacity);
-        context.StrokeRoundedRectangle(outline, style.BorderRadius.Deflate(inset), width, paint);
+        context.StrokeRoundedRectangle(outline, style.BorderRadius.Resolve(box.BorderBox.Size).Deflate(inset), width, paint);
     }
 
     /// <summary>
@@ -545,7 +546,8 @@ public sealed class VisualTreeRenderer : IDisposable
         }
 
         Rect rect = isInset ? GetPaddingBox(box) : SnapToPixels(box.BorderBox);
-        CornerRadius radius = isInset ? style.BorderRadius.Deflate(Math.Max(0, style.BorderWidth)) : style.BorderRadius;
+        CornerRadius borderRadius = style.BorderRadius.Resolve(box.BorderBox.Size);
+        CornerRadius radius = isInset ? borderRadius.Deflate(Math.Max(0, style.BorderWidth)) : borderRadius;
         for (int i = style.BoxShadows.Length - 1; i >= 0; i--)
         {
             BoxShadow shadow = style.BoxShadows[i];

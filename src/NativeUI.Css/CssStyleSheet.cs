@@ -382,19 +382,19 @@ public class CssStyleSheet : StyleSheet
             case ("gap", CssLengthValue gap):
                 return style with { Gap = gap.ToLogicalPixels(fontSize) };
             case ("border-radius", CssLengthValue borderRadius):
-                return style with { BorderRadius = borderRadius.ToLogicalPixels(fontSize) };
+                return style with { BorderRadius = new CornerRadiusValue(ToRadius(borderRadius, fontSize)) };
             case ("border-radius", CssThicknessValue borderRadius):
                 return style with { BorderRadius = ToCornerRadius(borderRadius.Thickness) };
-            case ("border-radius", CssEdgesValue borderRadius) when TryResolveThickness(borderRadius, fontSize, variables, out Thickness corners):
-                return style with { BorderRadius = ToCornerRadius(corners) };
+            case ("border-radius", CssEdgesValue borderRadius) when TryResolveCornerRadius(borderRadius, fontSize, variables, out CornerRadiusValue corners):
+                return style with { BorderRadius = corners };
             case ("border-top-left-radius", CssLengthValue radius):
-                return style with { BorderRadius = style.BorderRadius with { TopLeft = radius.ToLogicalPixels(fontSize) } };
+                return style with { BorderRadius = style.BorderRadius with { TopLeft = ToRadius(radius, fontSize) } };
             case ("border-top-right-radius", CssLengthValue radius):
-                return style with { BorderRadius = style.BorderRadius with { TopRight = radius.ToLogicalPixels(fontSize) } };
+                return style with { BorderRadius = style.BorderRadius with { TopRight = ToRadius(radius, fontSize) } };
             case ("border-bottom-right-radius", CssLengthValue radius):
-                return style with { BorderRadius = style.BorderRadius with { BottomRight = radius.ToLogicalPixels(fontSize) } };
+                return style with { BorderRadius = style.BorderRadius with { BottomRight = ToRadius(radius, fontSize) } };
             case ("border-bottom-left-radius", CssLengthValue radius):
-                return style with { BorderRadius = style.BorderRadius with { BottomLeft = radius.ToLogicalPixels(fontSize) } };
+                return style with { BorderRadius = style.BorderRadius with { BottomLeft = ToRadius(radius, fontSize) } };
             case ("border-width", CssLengthValue borderWidth):
                 return style with { BorderWidth = borderWidth.ToLogicalPixels(fontSize) };
             case ("border-color", CssColorValue borderColor):
@@ -494,9 +494,43 @@ public class CssStyleSheet : StyleSheet
     /// Converts the four values of a <c>border-radius</c>, which expand in the order of <c>padding</c> edges, to corners:
     /// top to top-left, right to top-right, bottom to bottom-right, and left to bottom-left.
     /// </summary>
-    private static CornerRadius ToCornerRadius(Thickness values)
+    private static CornerRadiusValue ToCornerRadius(Thickness values)
     {
-        return new CornerRadius(values.Top, values.Right, values.Bottom, values.Left);
+        return new CornerRadiusValue(values.Top, values.Right, values.Bottom, values.Left);
+    }
+
+    /// <summary>
+    /// Resolves each corner to a length or a percentage. Fails when any corner is invalid or is not a length, which makes
+    /// the declaration invalid at computed-value time.
+    /// </summary>
+    private static bool TryResolveCornerRadius(
+        CssEdgesValue corners,
+        double fontSize,
+        CssVariables variables,
+        out CornerRadiusValue radius)
+    {
+        if (variables.Resolve(corners.Top) is CssLengthValue topLeft &&
+            variables.Resolve(corners.Right) is CssLengthValue topRight &&
+            variables.Resolve(corners.Bottom) is CssLengthValue bottomRight &&
+            variables.Resolve(corners.Left) is CssLengthValue bottomLeft)
+        {
+            radius = new CornerRadiusValue(
+                ToRadius(topLeft, fontSize),
+                ToRadius(topRight, fontSize),
+                ToRadius(bottomRight, fontSize),
+                ToRadius(bottomLeft, fontSize));
+            return true;
+        }
+
+        radius = default;
+        return false;
+    }
+
+    private static RadiusValue ToRadius(CssLengthValue length, double fontSize)
+    {
+        return length.Unit == CssLengthUnit.Percent
+            ? RadiusValue.Percent(length.Value)
+            : RadiusValue.Pixels(length.ToLogicalPixels(fontSize));
     }
 
     private static bool TryResolveThickness(CssEdgesValue edges, double fontSize, CssVariables variables, out Thickness thickness)
