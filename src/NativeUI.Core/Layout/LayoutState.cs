@@ -6,7 +6,7 @@ namespace NativeUI.Layout;
 /// <remarks>
 /// The state is owned by its node and allocated by <see cref="LayoutEngine"/> on first use. Web nodes never allocate it.
 /// </remarks>
-internal class LayoutState
+internal sealed class LayoutState
 {
     /// <summary>
     /// Gets or sets the inputs of the last measure pass.
@@ -86,7 +86,7 @@ internal class LayoutState
     /// <summary>
     /// Marks the measurement invalid. An invalid measurement also invalidates the arrangement.
     /// </summary>
-    public virtual void InvalidateMeasure()
+    public void InvalidateMeasure()
     {
         IsMeasureValid = false;
         IsTextLayoutValid = false;
@@ -97,7 +97,7 @@ internal class LayoutState
     /// <summary>
     /// Marks the arrangement invalid without discarding the measurement.
     /// </summary>
-    public virtual void InvalidateArrange()
+    public void InvalidateArrange()
     {
         IsArrangeValid = false;
     }

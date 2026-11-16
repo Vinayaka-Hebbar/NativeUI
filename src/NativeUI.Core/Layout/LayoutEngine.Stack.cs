@@ -24,7 +24,7 @@ public sealed partial class LayoutEngine
         double width,
         LayoutConstraints constraints)
     {
-        List<LayoutState> flowStates = [];
+        int count = 0;
         double currentX = contentOrigin.X;
         double maxHeight = 0;
         double spacing = GetStackSpacing(stack);
@@ -37,7 +37,7 @@ public sealed partial class LayoutEngine
                 continue;
             }
 
-            if (flowStates.Count > 0)
+            if (count > 0)
             {
                 currentX += spacing;
             }
@@ -51,7 +51,7 @@ public sealed partial class LayoutEngine
             LayoutState childState = GetState(child);
             Point borderOrigin = new(currentX + margin.Left, contentOrigin.Y + margin.Top);
             childState.VisualOffset = ApplyRelativeOffset(child.ComputedStyle, borderOrigin);
-            flowStates.Add(childState);
+            count++;
             currentX += size.Width + margin.Horizontal;
             maxHeight = Math.Max(maxHeight, size.Height + margin.Vertical);
         }
@@ -66,10 +66,13 @@ public sealed partial class LayoutEngine
 
         if (shift > 0)
         {
-            for (int i = 0; i < flowStates.Count; i++)
+            for (int i = 0; i < children.Count; i++)
             {
-                Point offset = flowStates[i].VisualOffset;
-                flowStates[i].VisualOffset = new Point(offset.X + shift, offset.Y);
+                if (IsInFlow(children[i]))
+                {
+                    LayoutState childState = GetState(children[i]);
+                    childState.VisualOffset = new Point(childState.VisualOffset.X + shift, childState.VisualOffset.Y);
+                }
             }
         }
 

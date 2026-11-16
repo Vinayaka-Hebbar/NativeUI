@@ -183,8 +183,6 @@ public sealed partial class LayoutEngine
             Math.Max(0, size.Height - (borderWidth * 2)));
         Rect outOfFlowContainingBlock = style.IsPositioned ? paddingBox : containingBlock;
 
-        List<ILayoutNode> flowChildren = [];
-        List<ILayoutNode> outOfFlowChildren = [];
         IReadOnlyList<ILayoutNode> children = node.LayoutChildren;
         for (int i = 0; i < children.Count; i++)
         {
@@ -193,29 +191,29 @@ public sealed partial class LayoutEngine
             {
                 LayoutState childState = GetState(child);
                 childState.Bounds = new Rect(childState.VisualOffset.X, childState.VisualOffset.Y, childState.RenderSize.Width, childState.RenderSize.Height);
-                flowChildren.Add(child);
             }
             else if (IsPositionedOutOfFlow(child))
             {
                 ArrangeOutOfFlowChild(child, GetContainingBlock(child, outOfFlowContainingBlock, viewport), origin);
-                outOfFlowChildren.Add(child);
             }
         }
 
-        Point scrollOffset = ArrangeScrollContainer(node, state, flowChildren, outOfFlowChildren);
+        Point scrollOffset = ArrangeScrollContainer(node, state);
         Rect inFlowContainingBlock = style.IsPositioned
             ? new Rect(paddingBox.X - scrollOffset.X, paddingBox.Y - scrollOffset.Y, paddingBox.Width, 0)
             : containingBlock;
 
-        for (int i = 0; i < flowChildren.Count; i++)
+        for (int i = 0; i < children.Count; i++)
         {
-            ArrangeChild(flowChildren[i], origin, inFlowContainingBlock, viewport);
-        }
-
-        for (int i = 0; i < outOfFlowChildren.Count; i++)
-        {
-            ILayoutNode child = outOfFlowChildren[i];
-            ArrangeChild(child, origin, GetContainingBlock(child, outOfFlowContainingBlock, viewport), viewport);
+            ILayoutNode child = children[i];
+            if (IsInFlow(child))
+            {
+                ArrangeChild(child, origin, inFlowContainingBlock, viewport);
+            }
+            else if (IsPositionedOutOfFlow(child))
+            {
+                ArrangeChild(child, origin, GetContainingBlock(child, outOfFlowContainingBlock, viewport), viewport);
+            }
         }
     }
 
@@ -350,6 +348,14 @@ public sealed partial class LayoutEngine
     private static bool IsPositionedOutOfFlow(ILayoutNode node)
     {
         return node.IsVisible && node is not IPortalLayoutNode && node.ComputedStyle.IsOutOfFlow;
+    }
+
+    /// <summary>
+    /// Returns whether the parent of <paramref name="node"/> places it, either in normal flow or against a containing block.
+    /// </summary>
+    private static bool IsArranged(ILayoutNode node)
+    {
+        return IsInFlow(node) || IsPositionedOutOfFlow(node);
     }
 
     /// <summary>

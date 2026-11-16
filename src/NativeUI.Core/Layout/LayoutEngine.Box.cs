@@ -59,6 +59,11 @@ public sealed partial class LayoutEngine
     /// </summary>
     private static List<LayoutBox> OrderForPainting(List<LayoutBox> boxes)
     {
+        if (!boxes.Exists(static box => box.Style.IsPositioned))
+        {
+            return boxes;
+        }
+
         List<LayoutBox> below = [];
         List<LayoutBox> inFlow = [];
         List<LayoutBox> above = [];
