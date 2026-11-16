@@ -27,6 +27,9 @@ public interface IStyle
     /// <summary>Gets the specified horizontal text alignment.</summary>
     TextAlign? TextAlign { get; }
 
+    /// <summary>Gets the specified alignment of the children of a horizontal stack on the vertical axis.</summary>
+    Alignment? AlignItems { get; }
+
     /// <summary>Gets the specified inner box spacing.</summary>
     ThicknessValue? Padding { get; }
 

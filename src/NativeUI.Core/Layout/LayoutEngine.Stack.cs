@@ -16,7 +16,8 @@ public sealed partial class LayoutEngine
 
     /// <summary>
     /// Measures the in-flow children of <paramref name="stack"/> from left to right, each at its maximum content width
-    /// limited to the remaining width, then shifts them to match <see cref="IStackLayoutNode.HorizontalAlignment"/>.
+    /// without a limit, so that its text never wraps, then shifts them to match <see cref="IStackLayoutNode.HorizontalAlignment"/>
+    /// and <see cref="ComputedStyle.AlignItems"/>.
     /// </summary>
     private Size MeasureHorizontalStack(
         IStackLayoutNode stack,
@@ -42,11 +43,9 @@ public sealed partial class LayoutEngine
                 currentX += spacing;
             }
 
-            double remaining = Math.Max(0, contentOrigin.X + width - currentX);
-
             Size size = Measure(child, constraints with
             {
-                AvailableSize = new Size(remaining, constraints.AvailableSize.Height),
+                AvailableSize = new Size(double.PositiveInfinity, constraints.AvailableSize.Height),
                 IsFixedWidth = false
             });
             LayoutState childState = GetState(child);
@@ -66,15 +65,26 @@ public sealed partial class LayoutEngine
             _ => 0
         };
 
-        if (shift > 0)
+        Alignment alignItems = stack.ComputedStyle.AlignItems;
+        if (shift > 0 || (alignItems != Alignment.Start && maxHeight > 0))
         {
             for (int i = 0; i < children.Count; i++)
             {
-                if (IsInFlow(children[i]))
+                if (!IsInFlow(children[i]))
                 {
-                    LayoutState childState = GetState(children[i]);
-                    childState.VisualOffset = new Point(childState.VisualOffset.X + shift, childState.VisualOffset.Y);
+                    continue;
                 }
+
+                LayoutState childState = GetState(children[i]);
+                double freeHeight = Math.Max(0, maxHeight - childState.RenderSize.Height - childState.Margin.Vertical);
+                double shiftY = alignItems switch
+                {
+                    Alignment.Center => freeHeight / 2.0,
+                    Alignment.End => freeHeight,
+                    _ => 0
+                };
+
+                childState.VisualOffset = new Point(childState.VisualOffset.X + shift, childState.VisualOffset.Y + shiftY);
             }
         }
 

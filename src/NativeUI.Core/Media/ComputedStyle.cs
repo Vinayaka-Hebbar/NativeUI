@@ -54,6 +54,11 @@ public sealed record ComputedStyle
     public LineHeight LineHeight { get; init; } = LineHeight.Multiple(1.25);
 
     /// <summary>
+    /// Gets where the children of a horizontal stack sit on the vertical axis, within the height of the tallest child.
+    /// </summary>
+    public Alignment AlignItems { get; init; } = Alignment.Start;
+
+    /// <summary>
     /// Gets the resolved inner padding thickness, each edge in logical pixels or as a percentage of the width of the
     /// containing block.
     /// </summary>
@@ -310,6 +315,7 @@ public sealed record ComputedStyle
             FontFamily = inlineStyle.FontFamily ?? FontFamily,
             TextAlign = inlineStyle.TextAlign ?? TextAlign,
             LineHeight = inlineStyle.LineHeight ?? LineHeight,
+            AlignItems = inlineStyle.AlignItems ?? AlignItems,
             Padding = inlineStyle.Padding ?? Padding,
             Margin = inlineStyle.Margin ?? Margin,
             Gap = inlineStyle.Gap ?? Gap,

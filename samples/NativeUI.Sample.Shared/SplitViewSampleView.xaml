@@ -10,28 +10,28 @@
         <Text Class="toolbar-label" Value="Try it:" />
         <Button x:Name="ModeInlineButton" Class="mode-btn">
             <StackPanel Orientation="Horizontal" Spacing="6">
-                <shapes:Path x:Name="ModeInlineIcon" Stroke="#0f172a" Fill="Transparent" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform"
+                <shapes:Path Stroke="currentColor" Fill="Transparent" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform"
                              Data="M2 4a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4zm4 15h8m-4-3v3" />
                 <Text Value="Inline" />
             </StackPanel>
         </Button>
         <Button x:Name="ModeCompactInlineButton" Class="mode-btn mode-btn-active">
             <StackPanel Orientation="Horizontal" Spacing="6">
-                <shapes:Path x:Name="ModeCompactInlineIcon" Stroke="#ffffff" Fill="Transparent" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform"
+                <shapes:Path Stroke="currentColor" Fill="Transparent" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform"
                              Data="M2 3a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3zm6 0v14" />
                 <Text Value="CompactInline" />
             </StackPanel>
         </Button>
         <Button x:Name="ModeOverlayButton" Class="mode-btn">
             <StackPanel Orientation="Horizontal" Spacing="6">
-                <shapes:Path x:Name="ModeOverlayIcon" Stroke="#0f172a" Fill="Transparent" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform"
+                <shapes:Path Stroke="currentColor" Fill="Transparent" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform"
                              Data="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3zm4 5h10a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-1" />
                 <Text Value="Overlay" />
             </StackPanel>
         </Button>
         <Button x:Name="ModeCompactOverlayButton" Class="mode-btn">
             <StackPanel Orientation="Horizontal" Spacing="6">
-                <shapes:Path x:Name="ModeCompactOverlayIcon" Stroke="#0f172a" Fill="Transparent" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform"
+                <shapes:Path Stroke="currentColor" Fill="Transparent" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform"
                              Data="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3zm4 5h10a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-1M10 8v10" />
                 <Text Value="CompactOverlay" />
             </StackPanel>
@@ -43,49 +43,56 @@
                DisplayMode="CompactInline"
                IsPaneOpen="True"
                OpenPaneLength="190"
-               CompactPaneLength="56"
+               CompactPaneLength="48"
                Class="demo-splitview">
         <SplitView.Pane>
             <View Class="demo-pane">
                 <Grid Rows="Auto,*,Auto" Class="demo-pane-grid">
-                    <Grid Columns="*,Auto" Class="demo-pane-header">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <shapes:Path Fill="#3b82f6" Width="20" Height="20" Stretch="Uniform"
+                    <StackPanel Orientation="Horizontal" Class="demo-pane-header">
+                        <View Class="demo-nav-icon">
+                            <shapes:Path Fill="#3b82f6" Width="16" Height="16" Stretch="Uniform"
                                          Data="M12 2L2 7l10 5 10-5-10-5z M2 12l10 5 10-5 M2 17l10 5 10-5" />
-                            <Text Class="demo-brand" Value="NativeUI" />
-                        </StackPanel>
-                        <Button x:Name="PaneCollapseButton" Grid.Column="1" Class="demo-collapse-btn" Text="«" />
-                    </Grid>
+                        </View>
+                        <Text Class="demo-brand" Value="NativeUI" />
+                    </StackPanel>
 
                     <StackPanel Grid.Row="1" Spacing="4" Class="demo-nav-list">
                         <Button x:Name="DemoNavHome" Class="demo-nav-item demo-nav-item-active">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <shapes:Path x:Name="DemoNavHomeIcon" Stroke="#ffffff" Fill="Transparent" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform"
+                            <StackPanel Orientation="Horizontal">
+                                <View Class="demo-nav-icon">
+                                    <shapes:Path Stroke="currentColor" Fill="Transparent" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform"
                                              Data="M3 10l9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9z M9 21v-6h6v6" />
-                                <Text Value="Home" />
+                                </View>
+                                <Text Class="demo-nav-label" Value="Home" />
                             </StackPanel>
                         </Button>
                         <Button x:Name="DemoNavProjects" Class="demo-nav-item">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <shapes:Path x:Name="DemoNavProjectsIcon" Stroke="#94a3b8" Fill="Transparent" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform"
+                            <StackPanel Orientation="Horizontal">
+                                <View Class="demo-nav-icon">
+                                    <shapes:Path Stroke="currentColor" Fill="Transparent" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform"
                                              Data="M2 6a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z" />
-                                <Text Value="Projects" />
+                                </View>
+                                <Text Class="demo-nav-label" Value="Projects" />
                             </StackPanel>
                         </Button>
                         <Button x:Name="DemoNavSettings" Class="demo-nav-item">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <shapes:Path x:Name="DemoNavSettingsIcon" Stroke="#94a3b8" Fill="Transparent" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform"
+                            <StackPanel Orientation="Horizontal">
+                                <View Class="demo-nav-icon">
+                                    <shapes:Path Stroke="currentColor" Fill="Transparent" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform"
                                              Data="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7.4-2.2a9.7 9.7 0 0 0 0-1.6l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a8.4 8.4 0 0 0-1.4-.8l-.4-2.7a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4l-.4 2.7a8.4 8.4 0 0 0-1.4.8l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6l2.1 1.6a9.7 9.7 0 0 0 0 1.6l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5a.5.5 0 0 0 .6.2l2.5-1a8.4 8.4 0 0 0 1.4.8l.4 2.7a.5.5 0 0 0 .5.4h4a.5.5 0 0 0 .5-.4l.4-2.7a8.4 8.4 0 0 0 1.4-.8l2.5 1a.5.5 0 0 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6l-2.1-1.6z" />
-                                <Text Value="Settings" />
+                                </View>
+                                <Text Class="demo-nav-label" Value="Settings" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
 
                     <View Grid.Row="2" Class="demo-user-box">
                         <View Class="demo-pane-separator" />
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <shapes:Path Stroke="#94a3b8" Fill="Transparent" StrokeThickness="1.5" Width="18" Height="18" Stretch="Uniform"
-                                         Data="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 3a3 3 0 1 1-3 3 3 3 0 0 1 3-3zm0 14.2a7.2 7.2 0 0 1-5.6-2.7 5.2 5.2 0 0 1 11.2 0 7.2 7.2 0 0 1-5.6 2.7z" />
+                        <StackPanel Orientation="Horizontal">
+                            <View Class="demo-nav-icon">
+                                <shapes:Path Stroke="#94a3b8" Fill="Transparent" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform"
+                                             Data="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 3a3 3 0 1 1-3 3 3 3 0 0 1 3-3zm0 14.2a7.2 7.2 0 0 1-5.6-2.7 5.2 5.2 0 0 1 11.2 0 7.2 7.2 0 0 1-5.6 2.7z" />
+                            </View>
                             <Text Class="demo-user-name" Value="My Account" />
                         </StackPanel>
                     </View>

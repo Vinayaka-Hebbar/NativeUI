@@ -190,24 +190,38 @@ public class SplitView : ContentControl
     {
         _layout = DefinePart("layout", new Grid
         {
-            Position = NativeUI.Layout.Position.Relative,
             Rows = [GridLength.Star()],
-            Height = HeightValue.Percent(100)
+            Style = new Style
+            {
+                Position = NativeUI.Layout.Position.Relative,
+                Height = HeightValue.Percent(100),
+                OverflowX = Overflow.Hidden,
+                OverflowY = Overflow.Hidden
+            }
         });
         _content = DefinePart(ContentPartName, new View { Height = HeightValue.Percent(100) });
         _backdrop = DefinePart("backdrop", new View
         {
-            Position = NativeUI.Layout.Position.Absolute,
-            Left = 0,
-            Right = 0,
-            Top = 0,
-            Bottom = 0,
             IsVisible = false,
-            Style = new Style { ZIndex = 1 }
+            Style = new Style
+            {
+                Position = NativeUI.Layout.Position.Absolute,
+                Left = 0,
+                Right = 0,
+                Top = 0,
+                Bottom = 0,
+                ZIndex = 1
+            }
         });
         _pane = DefinePart("pane", new View
         {
-            Style = new Style { ZIndex = 2, Height = HeightValue.Percent(100) }
+            Style = new Style
+            {
+                ZIndex = 2,
+                Height = HeightValue.Percent(100),
+                OverflowX = Overflow.Hidden,
+                OverflowY = Overflow.Hidden
+            }
         });
 
         _layout.Children.Add(_content);
@@ -291,6 +305,7 @@ public class SplitView : ContentControl
 
     private void UpdateLayoutState()
     {
+        bool isPaneOpen = IsPaneOpen;
         bool isRight = PanePlacement == Dock.Right;
         double openLength = double.IsFinite(OpenPaneLength) ? Math.Max(0, OpenPaneLength) : 240;
         double compactLength = double.IsFinite(CompactPaneLength) ? Math.Max(0, CompactPaneLength) : 48;
@@ -304,13 +319,13 @@ public class SplitView : ContentControl
                 _pane.Bottom = null;
                 _pane.Left = null;
                 _pane.Right = null;
-                if (IsPaneOpen)
+                if (isPaneOpen)
                 {
                     _pane.IsVisible = true;
                     _pane.Width = WidthValue.Pixels(openLength);
                     _layout.Columns = isRight
-                        ? [GridLength.Star(), GridLength.Pixels(openLength)]
-                        : [GridLength.Pixels(openLength), GridLength.Star()];
+                        ? [GridLength.Star(), GridLength.Auto]
+                        : [GridLength.Auto, GridLength.Star()];
                     Grid.SetColumn(_pane, isRight ? 1 : 0);
                     Grid.SetColumn(_content, isRight ? 0 : 1);
                 }
@@ -324,7 +339,7 @@ public class SplitView : ContentControl
 
             case SplitViewDisplayMode.CompactInline:
             {
-                double paneLength = IsPaneOpen ? openLength : compactLength;
+                double paneLength = isPaneOpen ? openLength : compactLength;
                 _backdrop.IsVisible = false;
                 _pane.IsVisible = true;
                 _pane.Position = NativeUI.Layout.Position.Static;
@@ -334,8 +349,8 @@ public class SplitView : ContentControl
                 _pane.Right = null;
                 _pane.Width = WidthValue.Pixels(paneLength);
                 _layout.Columns = isRight
-                    ? [GridLength.Star(), GridLength.Pixels(paneLength)]
-                    : [GridLength.Pixels(paneLength), GridLength.Star()];
+                    ? [GridLength.Star(), GridLength.Auto]
+                    : [GridLength.Auto, GridLength.Star()];
                 Grid.SetColumn(_pane, isRight ? 1 : 0);
                 Grid.SetColumn(_content, isRight ? 0 : 1);
                 break;
@@ -344,13 +359,13 @@ public class SplitView : ContentControl
             case SplitViewDisplayMode.Overlay:
                 _layout.Columns = [GridLength.Star()];
                 Grid.SetColumn(_content, 0);
-                _backdrop.IsVisible = IsPaneOpen;
-                _pane.IsVisible = IsPaneOpen;
+                _backdrop.IsVisible = isPaneOpen;
+                _pane.IsVisible = true;
                 _pane.Position = NativeUI.Layout.Position.Absolute;
                 _pane.Top = 0;
                 _pane.Bottom = 0;
-                _pane.Left = isRight ? null : 0;
-                _pane.Right = isRight ? 0 : null;
+                _pane.Left = isRight ? null : (isPaneOpen ? 0 : -openLength);
+                _pane.Right = isRight ? (isPaneOpen ? 0 : -openLength) : null;
                 _pane.Width = WidthValue.Pixels(openLength);
                 break;
 
@@ -359,27 +374,14 @@ public class SplitView : ContentControl
                     ? [GridLength.Star(), GridLength.Pixels(compactLength)]
                     : [GridLength.Pixels(compactLength), GridLength.Star()];
                 Grid.SetColumn(_content, isRight ? 0 : 1);
-                _backdrop.IsVisible = IsPaneOpen;
+                _backdrop.IsVisible = isPaneOpen;
                 _pane.IsVisible = true;
-                if (IsPaneOpen)
-                {
-                    _pane.Position = NativeUI.Layout.Position.Absolute;
-                    _pane.Top = 0;
-                    _pane.Bottom = 0;
-                    _pane.Left = isRight ? null : 0;
-                    _pane.Right = isRight ? 0 : null;
-                    _pane.Width = WidthValue.Pixels(openLength);
-                }
-                else
-                {
-                    _pane.Position = NativeUI.Layout.Position.Static;
-                    _pane.Top = null;
-                    _pane.Bottom = null;
-                    _pane.Left = null;
-                    _pane.Right = null;
-                    _pane.Width = WidthValue.Pixels(compactLength);
-                    Grid.SetColumn(_pane, isRight ? 1 : 0);
-                }
+                _pane.Position = NativeUI.Layout.Position.Absolute;
+                _pane.Top = 0;
+                _pane.Bottom = 0;
+                _pane.Left = isRight ? null : 0;
+                _pane.Right = isRight ? 0 : null;
+                _pane.Width = WidthValue.Pixels(isPaneOpen ? openLength : compactLength);
                 break;
         }
 

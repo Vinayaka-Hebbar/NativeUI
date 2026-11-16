@@ -25,6 +25,7 @@ internal static class StyleCssDeclarations
             ("font-family", style?.FontFamily),
             ("text-align", FormatTextAlign(style?.TextAlign)),
             ("line-height", FormatLineHeight(style?.LineHeight)),
+            ("align-items", FormatAlignItems(style?.AlignItems)),
             ("padding", FormatThickness(style?.Padding)),
             ("margin", FormatThickness(style?.Margin)),
             ("gap", FormatLength(style?.Gap)),
@@ -280,6 +281,17 @@ internal static class StyleCssDeclarations
             { IsNormal: true } => "normal",
             { IsMultiple: true } multiple => multiple.Value.ToString("R", CultureInfo.InvariantCulture),
             { } pixels => FormatLength(pixels.Value)
+        };
+    }
+
+    private static string? FormatAlignItems(Alignment? value)
+    {
+        return value switch
+        {
+            Alignment.Start => "flex-start",
+            Alignment.Center => "center",
+            Alignment.End => "flex-end",
+            _ => null
         };
     }
 

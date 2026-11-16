@@ -247,7 +247,7 @@ public sealed partial class LayoutEngine
             width = style.Width switch
             {
                 { IsPixels: true } pixels => pixels.Value,
-                { IsPercent: true } percent => Math.Max(0, availableWidth * percent.Value / 100.0),
+                { IsPercent: true } percent when double.IsFinite(availableWidth) => Math.Max(0, availableWidth * percent.Value / 100.0),
                 { IsFitContent: true } => Math.Min(MeasureMaxContentWidth(node), fillWidth),
                 _ => isFixedWidth ? fillWidth : Math.Min(MeasureMaxContentWidth(node), fillWidth)
             };

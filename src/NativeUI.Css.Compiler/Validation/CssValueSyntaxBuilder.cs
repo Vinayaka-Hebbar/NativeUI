@@ -86,6 +86,7 @@ internal static class CssValueSyntaxBuilder
             "padding" or "margin" => TryBuildThicknessSyntax(valueNode, out expression),
             "font-weight" => TryBuildFontWeightSyntax(valueNode, out expression),
             "text-align" => TryBuildTextAlignSyntax(valueNode, out expression),
+            "align-items" => TryBuildAlignItemsSyntax(valueNode, out expression),
             "line-height" => TryBuildLineHeightSyntax(valueNode, out expression),
             "box-shadow" => TryBuildBoxShadowSyntax(valueNode, out expression),
             "opacity" => TryBuildOpacitySyntax(valueNode, out expression),
@@ -1023,6 +1024,30 @@ internal static class CssValueSyntaxBuilder
                 expression = BuildNewCssValue(
                     "CssTextAlignValue",
                     BuildEnumMember("TextAlign", align));
+                return true;
+            }
+        }
+
+        expression = null;
+        return false;
+    }
+
+    private static bool TryBuildAlignItemsSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        if (node is CssKeywordValueNode kw)
+        {
+            string? alignment = kw.Keyword.ToLowerInvariant() switch
+            {
+                "start" or "flex-start" => "Start",
+                "center" => "Center",
+                "end" or "flex-end" => "End",
+                _ => null
+            };
+            if (alignment is not null)
+            {
+                expression = BuildNewCssValue(
+                    "CssAlignItemsValue",
+                    BuildEnumMember("Alignment", alignment));
                 return true;
             }
         }

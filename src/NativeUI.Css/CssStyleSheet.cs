@@ -361,6 +361,8 @@ public class CssStyleSheet : StyleSheet
                 return style with { FontFamily = fontFamily.Value };
             case ("text-align", CssTextAlignValue textAlign):
                 return style with { TextAlign = textAlign.Align };
+            case ("align-items", CssAlignItemsValue alignItems):
+                return style with { AlignItems = alignItems.Align };
             case ("line-height", CssNumberValue multiple):
                 return style with { LineHeight = LineHeight.Multiple(multiple.Value) };
             case ("line-height", CssLengthValue length):

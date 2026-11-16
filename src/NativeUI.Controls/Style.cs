@@ -50,6 +50,12 @@ public sealed class Style : BindableObject, IStyle
         BindableProperty.Create<Style, TextAlign?>(nameof(TextAlign));
 
     /// <summary>
+    /// Identifies the <see cref="AlignItems"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<Alignment?> AlignItemsProperty =
+        BindableProperty.Create<Style, Alignment?>(nameof(AlignItems));
+
+    /// <summary>
     /// Identifies the <see cref="Padding"/> bindable property.
     /// </summary>
     public static readonly BindableProperty<ThicknessValue?> PaddingProperty =
@@ -269,6 +275,15 @@ public sealed class Style : BindableObject, IStyle
     {
         get => GetValue(TextAlignProperty);
         set => SetValue(TextAlignProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets where the children of a horizontal stack sit on the vertical axis, within the height of the tallest child.
+    /// </summary>
+    public Alignment? AlignItems
+    {
+        get => GetValue(AlignItemsProperty);
+        set => SetValue(AlignItemsProperty, value);
     }
 
     /// <summary>

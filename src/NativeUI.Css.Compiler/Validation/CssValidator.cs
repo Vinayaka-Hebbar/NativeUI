@@ -69,6 +69,7 @@ public sealed class CssValidator : CssSyntaxVisitor
         "font-family",
         "text-align",
         "line-height",
+        "align-items",
         "padding",
         "margin",
         "gap",
