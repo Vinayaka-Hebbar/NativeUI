@@ -1,5 +1,9 @@
 using NativeUI.Controls.MacOS;
 using NativeUI.Core;
+using NativeUI.Graphics.Skia;
+using NativeUI.Layout;
+using NativeUI.Media;
+using NativeUI.Sample;
 using NativeUI.Tests;
 
 namespace NativeUI.Controls.Tests;
@@ -76,6 +80,41 @@ internal static class SelectTests
 
         select.Reset();
         Assert.Equal(-1, select.SelectedIndex);
+    }
+
+    /// <summary>Verifies that the compiled sample vertically centers the value and chevron inside the trigger.</summary>
+    public static void VerifyTriggerAlignment()
+    {
+        using SelectSampleView page = new();
+        Select select = page.Children.OfType<View>().SelectMany(static view => view.Children).OfType<Select>().First();
+        StackPanel trigger = (StackPanel)select.Children[0];
+        LayoutBox layout = new LayoutEngine(SkiaTextShaper.Shared).ComputeLayout(page, new Size(700, 1200));
+        LayoutBox box = FindBox(layout, trigger) ?? throw new InvalidOperationException("Select trigger was not laid out.");
+        double center = box.ContentBox.Y + box.ContentBox.Height / 2;
+        Assert.Equal(Alignment.Center, trigger.ComputedStyle.AlignItems);
+        foreach (LayoutBox child in box.Children)
+        {
+            Assert.Equal(center, child.BorderBox.Y + child.BorderBox.Height / 2,
+                $"Select part {((UIElement)child.Element).PartName} is not centered: trigger {box.BorderBox}, child {child.BorderBox}.");
+        }
+    }
+
+    private static LayoutBox? FindBox(LayoutBox box, UIElement element)
+    {
+        if (ReferenceEquals(box.Element, element))
+        {
+            return box;
+        }
+
+        foreach (LayoutBox child in box.Children)
+        {
+            if (FindBox(child, element) is LayoutBox found)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     private static string GetValueText(Select select)

@@ -127,3 +127,12 @@ Select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.select-scroll-case {
+  height: 160px;
+  overflow: auto;
+}
+
+.select-scroll-spacer {
+  height: 120px;
+}

@@ -137,6 +137,25 @@ if (args.Contains("--enabled-state"))
     ]);
 }
 
+if (args.Contains("--select-layout"))
+{
+    return TestRunner.RunSuite("Select layout", [("Trigger parts are vertically centered", SelectTests.VerifyTriggerAlignment)]);
+}
+
+if (args.Contains("--anchors"))
+{
+    return TestRunner.RunSuite("Anchor positioning",
+    [
+        ("Anchor areas follow trigger geometry", NativeUI.Controls.Tests.PositioningTests.VerifyAnchorPositioning),
+        ("Anchor insets and fallbacks resolve geometry", NativeUI.Controls.Tests.PositioningTests.VerifyAnchorInsetsAndFallbacks),
+        ("Later in-flow anchors are eligible", NativeUI.Controls.Tests.PositioningTests.VerifyLaterInFlowAnchor),
+        ("Anchor area sizing preserves style identity and descendant percentages", PositioningTests.VerifyAnchorAreaSizing),
+        ("Diagonal fallback swaps size limits without replacing style", PositioningTests.VerifyDiagonalAnchorFallback),
+        ("Fallback choices persist across anchor movement and reset on target changes", PositioningTests.VerifyAnchorFallbackRetention),
+        ("Anchor movement preserves unrelated measurement caches", PositioningTests.VerifyAnchorMeasurementReuse)
+    ]);
+}
+
 int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
 [
         ("Radio groups enforce exclusivity and expose routed activation", RadioButtonTests.VerifyGrouping),
@@ -286,6 +305,13 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("CanvasView fills the width and does not draw without a height", NativeUI.Controls.Tests.CanvasViewTests.VerifyFillsWidthAndSkipsDrawingWithoutHeight),
     ("CanvasView InvalidateCanvas raises VisualInvalidated", NativeUI.Controls.Tests.CanvasViewTests.VerifyInvalidateVisual),
     ("VisualTreeRenderer translates, clips, and renders CanvasView", NativeUI.Controls.Tests.CanvasViewTests.VerifyVisualTreeRendererDrawsCanvas),
+    ("Anchor areas follow trigger geometry", NativeUI.Controls.Tests.PositioningTests.VerifyAnchorPositioning),
+    ("Anchor insets and ordered fallbacks resolve geometry", NativeUI.Controls.Tests.PositioningTests.VerifyAnchorInsetsAndFallbacks),
+    ("In-flow anchors can follow their positioned target in tree order", NativeUI.Controls.Tests.PositioningTests.VerifyLaterInFlowAnchor),
+    ("Anchor area sizing preserves style identity and descendant percentages", PositioningTests.VerifyAnchorAreaSizing),
+    ("Diagonal fallback swaps size limits without replacing style", PositioningTests.VerifyDiagonalAnchorFallback),
+    ("Fallback choices persist across anchor movement and reset on target changes", PositioningTests.VerifyAnchorFallbackRetention),
+    ("Anchor movement preserves unrelated measurement caches", PositioningTests.VerifyAnchorMeasurementReuse),
     ("Relative positioning offsets element without shifting sibling flow", NativeUI.Controls.Tests.PositioningTests.VerifyRelativePositioningDoesNotShiftSiblings),
     ("Absolute positioning resolves top and right offsets relative to card", NativeUI.Controls.Tests.PositioningTests.VerifyAbsolutePositioningOffsets),
     ("Absolute positioning pins width when both left and right are set", NativeUI.Controls.Tests.PositioningTests.VerifyAbsolutePositioningPinsWidthWithLeftAndRight),
@@ -299,6 +325,7 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("Text measurement obeys fit-content rather than stretching", NativeUI.Controls.Tests.PositioningTests.VerifyTextMeasurementObeysFitContent),
     ("white-space nowrap keeps text on one line", NativeUI.Controls.Tests.TextOverflowTests.VerifyNoWrapKeepsOneLine),
     ("text-overflow ellipsis shortens text to the available width", NativeUI.Controls.Tests.TextOverflowTests.VerifyEllipsisShortensToWidth),
+    ("Select vertically centers its trigger parts", SelectTests.VerifyTriggerAlignment),
     ("Select shows the placeholder and the selected item", NativeUI.Controls.Tests.SelectTests.VerifyValueShowsPlaceholderAndSelectedItem),
     ("Select opens and closes its drop-down from the keyboard", NativeUI.Controls.Tests.SelectTests.VerifyDropDownOpensAndClosesFromKeyboard),
     ("Select arrow keys change the selection while closed", NativeUI.Controls.Tests.SelectTests.VerifyArrowKeysSelectWhileClosed),

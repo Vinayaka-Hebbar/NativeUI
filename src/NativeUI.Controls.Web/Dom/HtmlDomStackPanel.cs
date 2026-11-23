@@ -8,7 +8,8 @@ namespace NativeUI.Controls.Web;
 
 /// <summary>
 /// Synchronizes a <see cref="StackPanel"/> with a flexbox element. A horizontal stack does not stretch its children
-/// vertically, matching desktop layout. A positive <see cref="StackPanel.Spacing"/> is written as an inline <c>gap</c>. A
+/// vertically by default, matching desktop layout. Alignment defaults come from the base stylesheet so authored CSS
+/// can override them. A positive <see cref="StackPanel.Spacing"/> is written as an inline <c>gap</c>. A
 /// <see cref="StackPanel.Spacing"/> of zero leaves <c>gap</c> to stylesheets, matching desktop layout.
 /// </summary>
 [SupportedOSPlatform("browser")]
@@ -60,7 +61,6 @@ public sealed class HtmlDomStackPanel : HtmlDomView
         }
 
         SetStyleProperty("flex-direction", isHorizontal ? "row" : "column");
-        SetStyleProperty("align-items", isHorizontal ? "flex-start" : "stretch");
         SetStyleProperty("justify-content", isHorizontal ? GetJustifyContent(_panel.HorizontalAlignment) : null);
         SetStyleProperty("gap", _panel.Spacing > 0 ? _panel.Spacing.ToString("R", CultureInfo.InvariantCulture) + "px" : null);
     }

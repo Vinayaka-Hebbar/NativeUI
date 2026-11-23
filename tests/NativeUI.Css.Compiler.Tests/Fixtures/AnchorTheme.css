@@ -1,0 +1,17 @@
+.trigger { anchor-name: --trigger; }
+.popup {
+    position: fixed;
+    position-anchor: --trigger;
+    position-area: bottom span-right;
+    position-try-fallbacks: flip-block, flip-inline flip-block;
+    top: anchor(bottom --trigger);
+    right: anchor(--trigger right);
+    bottom: auto;
+    left: anchor(center);
+}
+.reset {
+    anchor-name: none;
+    position-anchor: auto;
+    position-area: none;
+    position-try-fallbacks: none;
+}

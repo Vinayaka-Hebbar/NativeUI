@@ -214,6 +214,18 @@ public sealed record ComputedStyle
     /// </summary>
     public InsetValue Left { get; init; } = InsetValue.Auto;
 
+    /// <summary>Gets the CSS anchor name; "none" explicitly removes the name.</summary>
+    public string? AnchorName { get; init; }
+
+    /// <summary>Gets the default anchor name; "auto" uses an implicit anchor.</summary>
+    public string? PositionAnchor { get; init; }
+
+    /// <summary>Gets the region around the default anchor.</summary>
+    public PositionArea? PositionArea { get; init; }
+
+    /// <summary>Gets the ordered fallback transformation groups.</summary>
+    public ImmutableArray<PositionTryTactic>? PositionTryFallbacks { get; init; }
+
     /// <summary>
     /// Gets the resolved transform, or <see langword="null"/> for none. A transform does not affect layout.
     /// </summary>
@@ -350,6 +362,10 @@ public sealed record ComputedStyle
             ScrollbarTrackColor = ResolveColor(inlineStyle.ScrollbarTrackColor, ScrollbarTrackColor, resolver, element),
             ScrollbarWidth = inlineStyle.ScrollbarWidth ?? ScrollbarWidth,
             Position = inlineStyle.Position ?? Position,
+            AnchorName = inlineStyle.AnchorName ?? AnchorName,
+            PositionAnchor = inlineStyle.PositionAnchor ?? PositionAnchor,
+            PositionArea = inlineStyle.PositionArea ?? PositionArea,
+            PositionTryFallbacks = inlineStyle.PositionTryFallbacks ?? PositionTryFallbacks,
             Top = inlineStyle.Top ?? Top,
             Right = inlineStyle.Right ?? Right,
             Bottom = inlineStyle.Bottom ?? Bottom,

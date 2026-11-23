@@ -18,65 +18,60 @@ public sealed partial class LayoutEngine
                 continue;
             }
 
-            ComputedStyle childStyle = child.ComputedStyle;
-            Size targetBlock = childStyle.Position == Position.Fixed ? constraints.Viewport : constraints.ContainingBlock;
-            Thickness childMargin = childStyle.Margin.Resolve(0);
-            bool isPercentWidth = childStyle.Width is { IsPercent: true };
-            double? explicitWidth = childStyle.Width switch
+            if (_anchorLayout is null || !HasAnchorPositioning(child.ComputedStyle))
             {
-                { IsPixels: true } pixels => pixels.Value,
-                { IsPercent: true } percent => Math.Max(0, targetBlock.Width * percent.Value / 100.0),
-                _ => null
-            };
-
-            // A containing block of zero height has no definite height to resolve against.
-            double blockHeight = targetBlock.Height > 0 ? targetBlock.Height : double.PositiveInfinity;
-            double? left = ResolveInset(childStyle.Left, targetBlock.Width);
-            double? right = ResolveInset(childStyle.Right, targetBlock.Width);
-            double? top = ResolveInset(childStyle.Top, blockHeight);
-            double? bottom = ResolveInset(childStyle.Bottom, blockHeight);
-
-            double childWidth;
-            if (explicitWidth.HasValue)
-            {
-                childWidth = explicitWidth.Value;
+                MeasureOutOfFlowChild(child, constraints);
             }
-            else if (left is double leftInset && right is double rightInset)
-            {
-                childWidth = Math.Max(0, targetBlock.Width - leftInset - rightInset - childMargin.Horizontal);
-            }
-            else
-            {
-                double available = targetBlock.Width - (left ?? 0) - (right ?? 0) - childMargin.Horizontal;
-                childWidth = Math.Min(MeasureMaxContentWidth(child), Math.Max(0, available));
-            }
-
-            childWidth = ClampWidth(childStyle, childWidth, targetBlock.Width);
-
-            double availableHeight;
-            if (childStyle.Height.IsPercent)
-            {
-                availableHeight = blockHeight;
-            }
-            else if (childStyle.Height.IsPixels)
-            {
-                availableHeight = childStyle.Height.Value;
-            }
-            else
-            {
-                availableHeight = top is double topInset && bottom is double bottomInset
-                    ? Math.Max(0, targetBlock.Height - topInset - bottomInset - childMargin.Vertical)
-                    : double.PositiveInfinity;
-            }
-
-            // A percentage resolves against the available width, so it needs the containing block and not its own result.
-            Size childAvailable = new(isPercentWidth ? targetBlock.Width : childWidth + childMargin.Horizontal, availableHeight);
-            Measure(child, constraints with
-            {
-                AvailableSize = childAvailable,
-                ContainingBlock = targetBlock
-            });
         }
+    }
+
+    private void MeasureOutOfFlowChild(ILayoutNode child, LayoutConstraints constraints)
+    {
+        ComputedStyle style = child.ComputedStyle;
+        Size block = style.Position == Position.Fixed ? constraints.Viewport : constraints.ContainingBlock;
+        double blockHeight = block.Height > 0 ? block.Height : double.PositiveInfinity;
+        Thickness margin = style.Margin.Resolve(block.Width);
+        double? left = ResolveInset(style.Left, block.Width);
+        double? right = ResolveInset(style.Right, block.Width);
+        double? top = ResolveInset(style.Top, blockHeight);
+        double? bottom = ResolveInset(style.Bottom, blockHeight);
+        double width = ResolvePositionedWidth(ResolveWidthLimit(style.Width, block.Width),
+            (left, right), block.Width, margin.Horizontal, MeasureMaxContentWidth(child));
+        double? height = ResolvePositionedHeight(ResolveHeight(style.Height, blockHeight), (top, bottom), block.Height, margin.Vertical);
+
+        (Size minimum, Size maximum) = ResolveSizeLimits(style, new Size(block.Width, blockHeight));
+        BoxConstraints box = new(width, height, minimum, maximum, margin);
+        Measure(child, constraints with
+        {
+            AvailableSize = new Size(block.Width, blockHeight),
+            ContainingBlock = block
+        }, box);
+    }
+
+    private static double ResolvePositionedWidth(
+        double? specifiedWidth,
+        (double? Start, double? End) insets,
+        double availableWidth,
+        double margin,
+        double contentWidth)
+    {
+        if (specifiedWidth is double width)
+        {
+            return width;
+        }
+
+        double available = Math.Max(0, availableWidth - (insets.Start ?? 0) - (insets.End ?? 0) - margin);
+        return insets is (not null, not null) ? available : Math.Min(contentWidth, available);
+    }
+
+    private static double? ResolvePositionedHeight(
+        double? specifiedHeight,
+        (double? Start, double? End) insets,
+        double availableHeight,
+        double margin)
+    {
+        return specifiedHeight ?? (insets is (double start, double end)
+            ? Math.Max(0, availableHeight - start - end - margin) : null);
     }
 
     /// <summary>
@@ -97,40 +92,40 @@ public sealed partial class LayoutEngine
     private static void ArrangeOutOfFlowChild(ILayoutNode child, Rect containingBlock, Point parentOrigin)
     {
         ComputedStyle style = child.ComputedStyle;
+        double blockHeight = containingBlock.Height > 0 ? containingBlock.Height : double.PositiveInfinity;
+        ArrangeOutOfFlowChild(child, containingBlock, parentOrigin,
+            (ResolveInset(style.Top, blockHeight), ResolveInset(style.Right, containingBlock.Width),
+                ResolveInset(style.Bottom, blockHeight), ResolveInset(style.Left, containingBlock.Width)));
+    }
+
+    private static void ArrangeOutOfFlowChild(
+        ILayoutNode child,
+        Rect containingBlock,
+        Point parentOrigin,
+        (double? Top, double? Right, double? Bottom, double? Left) insets)
+    {
         LayoutState state = GetState(child);
         Thickness margin = state.Margin;
-
-        double blockHeight = containingBlock.Height > 0 ? containingBlock.Height : double.PositiveInfinity;
-        double borderX;
-        if (ResolveInset(style.Left, containingBlock.Width) is double left)
-        {
-            borderX = containingBlock.X + left + margin.Left;
-        }
-        else if (ResolveInset(style.Right, containingBlock.Width) is double right)
-        {
-            borderX = containingBlock.Right - right - margin.Right - state.RenderSize.Width;
-        }
-        else
-        {
-            borderX = containingBlock.X + margin.Left;
-        }
-
-        double borderY;
-        if (ResolveInset(style.Top, blockHeight) is double top)
-        {
-            borderY = containingBlock.Y + top + margin.Top;
-        }
-        else if (ResolveInset(style.Bottom, blockHeight) is double bottom)
-        {
-            borderY = containingBlock.Bottom - bottom - margin.Bottom - state.RenderSize.Height;
-        }
-        else
-        {
-            borderY = containingBlock.Y + margin.Top;
-        }
-
-        state.VisualOffset = new Point(borderX - parentOrigin.X, borderY - parentOrigin.Y);
+        double x = ResolvePositionedOffset((insets.Left, insets.Right), containingBlock.Width,
+            state.RenderSize.Width, (margin.Left, margin.Right));
+        double y = ResolvePositionedOffset((insets.Top, insets.Bottom), containingBlock.Height,
+            state.RenderSize.Height, (margin.Top, margin.Bottom));
+        state.VisualOffset = new Point(containingBlock.X + x - parentOrigin.X, containingBlock.Y + y - parentOrigin.Y);
         state.Bounds = new Rect(state.VisualOffset.X, state.VisualOffset.Y, state.RenderSize.Width, state.RenderSize.Height);
+    }
+
+    private static double ResolvePositionedOffset(
+        (double? Start, double? End) insets,
+        double available,
+        double size,
+        (double Start, double End) margin)
+    {
+        if (insets.Start is double start)
+        {
+            return start + margin.Start;
+        }
+
+        return insets.End is double end ? available - end - margin.End - size : margin.Start;
     }
 
     /// <summary>

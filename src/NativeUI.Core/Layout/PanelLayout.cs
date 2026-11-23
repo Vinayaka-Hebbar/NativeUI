@@ -1,3 +1,6 @@
+using System.Collections.Immutable;
+using NativeUI.Media;
+
 using System.Globalization;
 using NativeUI.Xaml;
 
@@ -167,6 +170,17 @@ public interface IStackLayoutNode : ILayoutNode
 /// </summary>
 public interface IPortalLayoutNode : ILayoutNode
 {
+    /// <summary>Gets the implicit anchor, or null for a portal positioned by its host.</summary>
+    ILayoutNode? Anchor => null;
+
+    /// <summary>Gets the anchor region derived from portal placement properties.</summary>
+    internal PositionArea? PositionArea => ComputedStyle.PositionArea;
+
+    /// <summary>Gets the margin derived from portal placement offsets.</summary>
+    internal ThicknessValue Margin => ComputedStyle.Margin;
+
+    /// <summary>Gets the ordered placement fallbacks for this portal.</summary>
+    internal ImmutableArray<PositionTryTactic>? PositionTryFallbacks => ComputedStyle.PositionTryFallbacks;
 }
 
 /// <summary>

@@ -50,6 +50,10 @@ internal static class StyleCssDeclarations
             ("transform", FormatTransform(style?.Transform)),
             ("z-index", style?.ZIndex?.ToString(CultureInfo.InvariantCulture)),
             ("position", FormatPosition(style?.Position)),
+            ("anchor-name", style?.AnchorName),
+            ("position-anchor", style?.PositionAnchor),
+            ("position-area", FormatPositionArea(style?.PositionArea)),
+            ("position-try-fallbacks", FormatPositionTryFallbacks(style?.PositionTryFallbacks)),
             ("top", FormatInset(style?.Top)),
             ("right", FormatInset(style?.Right)),
             ("bottom", FormatInset(style?.Bottom)),
@@ -154,9 +158,63 @@ internal static class StyleCssDeclarations
         {
             null => null,
             { IsAuto: true } => "auto",
+            { IsAnchor: true } anchor => "anchor(" + (anchor.AnchorName is string name ? name + " " : "") + FormatAnchorSide(anchor.AnchorSide) + ")",
             { IsPercent: true } percent => percent.Value.ToString("R", CultureInfo.InvariantCulture) + "%",
             { } pixels => FormatLength(pixels.Value)
         };
+    }
+
+    private static string FormatAnchorSide(AnchorSide side)
+    {
+        return side switch
+        {
+            AnchorSide.SelfStart => "self-start",
+            AnchorSide.SelfEnd => "self-end",
+            _ => side.ToString().ToLowerInvariant()
+        };
+    }
+
+    internal static string? FormatPositionArea(PositionArea? area)
+    {
+        return area is PositionArea value
+            ? value.IsNone ? "none" : FormatPositionTrack(value.Block, true) + " " + FormatPositionTrack(value.Inline, false)
+            : null;
+    }
+
+    private static string FormatPositionTrack(PositionAreaTrack track, bool block)
+    {
+        return track switch
+        {
+            PositionAreaTrack.Start => block ? "top" : "left",
+            PositionAreaTrack.End => block ? "bottom" : "right",
+            PositionAreaTrack.SpanStart => block ? "span-top" : "span-left",
+            PositionAreaTrack.SpanEnd => block ? "span-bottom" : "span-right",
+            PositionAreaTrack.Center => "center",
+            PositionAreaTrack.SpanAll => "span-all",
+            _ => throw new ArgumentOutOfRangeException(nameof(track))
+        };
+    }
+
+    internal static string? FormatPositionTryFallbacks(ImmutableArray<PositionTryTactic>? fallbacks)
+    {
+        if (fallbacks is not ImmutableArray<PositionTryTactic> values)
+        {
+            return null;
+        }
+
+        if (values.IsDefaultOrEmpty)
+        {
+            return "none";
+        }
+
+        return string.Join(", ", values.Select(value => string.Join(" ", new[]
+        {
+            value.HasFlag(PositionTryTactic.FlipBlock) ? "flip-block" : null,
+            value.HasFlag(PositionTryTactic.FlipInline) ? "flip-inline" : null,
+            value.HasFlag(PositionTryTactic.FlipStart) ? "flip-start" : null,
+            value.HasFlag(PositionTryTactic.FlipX) ? "flip-x" : null,
+            value.HasFlag(PositionTryTactic.FlipY) ? "flip-y" : null
+        }.Where(static keyword => keyword is not null))));
     }
 
     private static string? FormatHeight(HeightValue? value)
@@ -194,7 +252,7 @@ internal static class StyleCssDeclarations
         return value is double length ? length.ToString("R", CultureInfo.InvariantCulture) + "px" : null;
     }
 
-    private static string? FormatThickness(ThicknessValue? value)
+    internal static string? FormatThickness(ThicknessValue? value)
     {
         if (value is not ThicknessValue thickness)
         {

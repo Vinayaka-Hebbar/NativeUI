@@ -453,6 +453,38 @@ public class CssStyleSheet : StyleSheet
                 return style with { MaxHeight = null };
             case ("cursor", CssCursorValue cursor):
                 return style with { Cursor = cursor.Cursor };
+            case ("anchor-name", CssStringValue name):
+                return style with { AnchorName = name.Value };
+            case ("position-anchor", CssStringValue name):
+                return style with { PositionAnchor = name.Value };
+            case ("anchor-name", CssNoneValue):
+                return style with { AnchorName = null };
+            case ("position-anchor", CssAutoValue):
+                return style with { PositionAnchor = null };
+            case ("position-area", CssPositionAreaValue area):
+                return style with { PositionArea = area.Area };
+            case ("position-area", CssNoneValue):
+                return style with { PositionArea = null };
+            case ("position-try-fallbacks", CssPositionTryFallbacksValue fallbacks):
+                return style with { PositionTryFallbacks = fallbacks.Fallbacks };
+            case ("position-try-fallbacks", CssNoneValue):
+                return style with { PositionTryFallbacks = [] };
+            case ("top", CssAnchorValue anchor):
+                return style with { Top = anchor.Inset };
+            case ("top", CssAutoValue):
+                return style with { Top = InsetValue.Auto };
+            case ("right", CssAnchorValue anchor):
+                return style with { Right = anchor.Inset };
+            case ("right", CssAutoValue):
+                return style with { Right = InsetValue.Auto };
+            case ("bottom", CssAnchorValue anchor):
+                return style with { Bottom = anchor.Inset };
+            case ("bottom", CssAutoValue):
+                return style with { Bottom = InsetValue.Auto };
+            case ("left", CssAnchorValue anchor):
+                return style with { Left = anchor.Inset };
+            case ("left", CssAutoValue):
+                return style with { Left = InsetValue.Auto };
             case ("position", CssPositionValue position):
                 return style with { Position = position.Position };
             case ("top", CssLengthValue top):

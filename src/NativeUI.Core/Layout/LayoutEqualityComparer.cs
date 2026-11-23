@@ -51,6 +51,10 @@ internal sealed class LayoutEqualityComparer : IEqualityComparer<ComputedStyle>
             && x.OverflowX == y.OverflowX
             && x.OverflowY == y.OverflowY
             && x.ScrollbarWidth == y.ScrollbarWidth
+            && x.AnchorName == y.AnchorName
+            && x.PositionAnchor == y.PositionAnchor
+            && x.PositionArea == y.PositionArea
+            && x.PositionTryFallbacks == y.PositionTryFallbacks
             && x.Position == y.Position
             && x.Top == y.Top
             && x.Right == y.Right
@@ -86,6 +90,10 @@ internal sealed class LayoutEqualityComparer : IEqualityComparer<ComputedStyle>
         hash.Add(obj.OverflowX);
         hash.Add(obj.OverflowY);
         hash.Add(obj.ScrollbarWidth);
+        hash.Add(obj.AnchorName);
+        hash.Add(obj.PositionAnchor);
+        hash.Add(obj.PositionArea);
+        hash.Add(obj.PositionTryFallbacks);
         hash.Add(obj.Position);
         hash.Add(obj.Top);
         hash.Add(obj.Right);

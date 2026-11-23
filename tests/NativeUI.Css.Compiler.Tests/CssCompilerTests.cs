@@ -1,4 +1,9 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using NativeUI.Controls;
+using NativeUI.Css;
+using NativeUI.Media;
+using System.Reflection;
 using NativeUI.Css.Compiler;
 using NativeUI.Tests;
 
@@ -14,7 +19,9 @@ int exitCode = TestRunner.RunSuite("NativeUI.Css.Compiler.Tests",
     ("Browser CSS gates color-scheme rules on the root's theme instead of the OS preference", TestBrowserCssThemeRules),
     ("CssEmitter compiles width: fit-content and rejects it on other properties", TestFitContentWidthEmission),
     ("CssEmitter compiles position relative, absolute, fixed, and offset lengths", TestPositionAndOffsetsCssEmission),
-    ("CssCompiler compiles platform-specific styling rules", TestPlatformSpecificStyling)
+    ("CssCompiler compiles platform-specific styling rules", TestPlatformSpecificStyling),
+    ("Anchor declarations compile against framework types and apply to styles", TestAnchorCompilation),
+    ("Invalid anchor syntax reports NCSS003", TestInvalidAnchors)
 ]);
 
 return exitCode;
@@ -250,3 +257,43 @@ static void TestPlatformSpecificStyling()
     Assert.Contains("CssSelector.Attribute(\"data-platform\", \"web\")", emitted);
 }
 
+
+static void TestAnchorCompilation()
+{
+    ValidatedCssStylesheet validated = CssValidator.Validate(CssParser.Parse("AnchorTheme.css", TestRunner.ReadFixture("AnchorTheme.css")));
+    Assert.Equal(0, validated.Diagnostics.Count);
+    string generated = CssEmitter.Emit(validated, "AnchorTests");
+    string[] platformAssemblies = ((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? string.Empty).Split(Path.PathSeparator);
+    IEnumerable<string> assemblies = platformAssemblies.Concat(new[]
+    {
+        typeof(View).Assembly.Location,
+        typeof(CssStyleSheet).Assembly.Location,
+        typeof(InsetValue).Assembly.Location
+    }).Distinct(StringComparer.Ordinal);
+    CSharpCompilation compilation = CSharpCompilation.Create("AnchorCompilation",
+        new[]
+        {
+            CSharpSyntaxTree.ParseText(generated),
+            CSharpSyntaxTree.ParseText("namespace AnchorTests; public partial class AnchorTheme : NativeUI.Controls.View { partial void AttachStyles(); }")
+        },
+        assemblies.Select(static path => MetadataReference.CreateFromFile(path)),
+        new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+    using MemoryStream output = new();
+    Microsoft.CodeAnalysis.Emit.EmitResult result = compilation.Emit(output);
+    Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+    Assembly assembly = Assembly.Load(output.ToArray());
+    Type sheetType = assembly.GetType("AnchorTests.AnchorThemeStyleSheet", throwOnError: true) ?? throw new InvalidOperationException();
+    CssStyleSheet sheet = (CssStyleSheet)(sheetType.GetProperty("Instance")?.GetValue(null) ?? throw new InvalidOperationException());
+    View popup = new() { Class = "popup", StyleResolver = sheet };
+    Assert.Equal("--trigger", popup.ComputedStyle.PositionAnchor);
+    Assert.Equal(new PositionArea(PositionAreaTrack.End, PositionAreaTrack.SpanEnd), popup.ComputedStyle.PositionArea);
+    Assert.Equal(InsetValue.Anchor(AnchorSide.Bottom, "--trigger"), popup.ComputedStyle.Top);
+    Assert.Equal(2, popup.ComputedStyle.PositionTryFallbacks?.Length ?? 0);
+    Assert.Equal(PositionTryTactic.FlipBlock | PositionTryTactic.FlipInline, popup.ComputedStyle.PositionTryFallbacks.GetValueOrDefault()[1]);
+}
+
+static void TestInvalidAnchors()
+{
+    ValidatedCssStylesheet validated = CssValidator.Validate(CssParser.Parse("InvalidAnchors.css", TestRunner.ReadFixture("InvalidAnchors.css")));
+    Assert.Equal(9, validated.Diagnostics.Count(static diagnostic => diagnostic.Id == "NCSS003"));
+}

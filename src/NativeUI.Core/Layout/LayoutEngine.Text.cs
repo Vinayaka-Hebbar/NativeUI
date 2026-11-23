@@ -15,11 +15,12 @@ public sealed partial class LayoutEngine
         Size availableSize,
         double borderWidth,
         double contentWidth,
-        double? specifiedHeight)
+        double? specifiedHeight,
+        BoxConstraints box)
     {
         Size natural = intrinsic.GetIntrinsicSize(new Size(availableSize.Width, specifiedHeight ?? double.PositiveInfinity));
         double height = specifiedHeight
-            ?? ClampHeight(style, (natural.Width > 0 ? contentWidth * natural.Height / natural.Width : natural.Height) + insets.Vertical, availableSize.Height);
+            ?? box.ConstrainHeight((natural.Width > 0 ? contentWidth * natural.Height / natural.Width : natural.Height) + insets.Vertical);
 
         state.Extent = Size.Zero;
         state.ReleaseTextLayout();
@@ -38,7 +39,8 @@ public sealed partial class LayoutEngine
         double borderWidth,
         double contentWidth,
         double availableHeight,
-        double? specifiedHeight)
+        double? specifiedHeight,
+        BoxConstraints box)
     {
         Size availableTextSize = new(contentWidth, specifiedHeight ?? double.PositiveInfinity);
         ITextLayout? layout = state.TextLayout;
@@ -52,7 +54,7 @@ public sealed partial class LayoutEngine
             layout = created;
         }
 
-        double height = specifiedHeight ?? ClampHeight(style, layout.Size.Height + insets.Vertical, availableHeight);
+        double height = specifiedHeight ?? box.ConstrainHeight(layout.Size.Height + insets.Vertical);
 
         state.Extent = Size.Zero;
         return Complete(state, new Size(borderWidth, height));

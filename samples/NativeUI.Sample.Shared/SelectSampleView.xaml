@@ -25,4 +25,20 @@
         <Text Class="select-heading" Value="Disabled" />
         <Select x:Name="DisabledSelect" IsEnabled="False" />
     </View>
+    <View Class="select-section">
+        <Text Class="select-heading" Value="Scrolling anchor" />
+        <Text Class="select-description" Value="Open the select, then scroll this container. The list follows its trigger." />
+        <ScrollView Class="select-scroll-case">
+            <View>
+                <View Class="select-scroll-spacer" />
+                <Select x:Name="ScrolledSelect" Placeholder="Select while scrolling" />
+                <View Class="select-scroll-spacer" />
+            </View>
+        </ScrollView>
+    </View>
+    <View Class="select-section">
+        <Text Class="select-heading" Value="Viewport edge" />
+        <Text Class="select-description" Value="Scroll this trigger near the bottom of the window and open it. The list tries the space above." />
+        <Select x:Name="EdgeSelect" Placeholder="Open near the bottom" />
+    </View>
 </View>

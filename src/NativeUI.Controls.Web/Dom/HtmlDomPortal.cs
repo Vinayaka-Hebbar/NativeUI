@@ -3,6 +3,7 @@ using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 using NativeUI.Core;
 using NativeUI.Layout;
+using NativeUI.Media;
 
 namespace NativeUI.Controls.Web;
 
@@ -11,8 +12,8 @@ namespace NativeUI.Controls.Web;
 /// its parent's element and shown as a manual HTML popover in the browser's top layer, so selectors through its ancestors
 /// match it, as they do on desktop. A <see cref="Dialog"/> keeps its DOM ancestry and is shown as a
 /// native <c>&lt;dialog&gt;</c> element, so the browser provides the top layer, focus containment, the inert page behind
-/// a modal dialog, and closing on Escape. The position is calculated when the portal opens or its placement changes. It
-/// does not follow a later scroll or resize.
+/// a modal dialog, and closing on Escape. Element-anchored popovers use native CSS anchor positioning, which follows
+/// scrolling, resizing, and subsequent browser layout.
 /// </summary>
 [SupportedOSPlatform("browser")]
 public class HtmlDomPortal : HtmlDomView, IPortalPeer
@@ -23,6 +24,8 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
     private Action? _pendingAnimationFrame;
     private readonly string _generatedId = "nui-portal-" + Interlocked.Increment(ref s_lastGeneratedId).ToString(CultureInfo.InvariantCulture);
     private bool _isMounted;
+    private JSObject? _placementObserver;
+    private UIElement? _positionedAnchor;
 
     internal HtmlDomPortal(Portal portal, JSObject? element, string tagName)
         : base(portal, element, tagName)
@@ -102,6 +105,7 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
             if (_isMounted)
             {
                 _isMounted = false;
+                DisconnectPlacementObserver();
                 DomInterop.RemoveElement(element);
             }
 
@@ -116,7 +120,7 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
         // The parent element is not in the document until the root finishes mounting.
         bool isShown = ParentElement is JSObject parent && (_portal is Dialog
             ? DomInterop.MountPortal(parent, element)
-            : DomInterop.ShowPortal(parent, element));
+            : DomInterop.ShowPortal(parent, element, GetAnchorElement()));
         if (!isShown)
         {
             DomInterop.RequestAnimationFrame(UpdateMounted);
@@ -140,6 +144,7 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
     /// <inheritdoc />
     protected override void OnDisposing()
     {
+        DisconnectPlacementObserver();
         _portal.TransitionStatusChanged -= OnTransitionStatusChanged;
         _portal.PlacementChanged -= OnPlacementChanged;
         if (_isMounted && Element is JSObject element)
@@ -230,15 +235,39 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
         using JSObject viewportSize = DomInterop.GetViewportSize();
         Rect viewport = new(0, 0, viewportSize.GetPropertyAsDouble("width"), viewportSize.GetPropertyAsDouble("height"));
 
-        Point position = PortalPlacement.Compute(_portal, anchor, bounds.Size, viewport, viewport, out PortalSide side);
+        bool isElementAnchored = _portal is not Dialog && _portal.AnchorPoint is null && GetAnchorElement() is not null;
+        PortalSide side = _portal.Side;
+        Point position;
+        if (isElementAnchored)
+        {
+            ApplyAnchorPosition();
+            bounds = ReadBounds(element);
+            position = new Point(bounds.X, bounds.Y);
+            if (anchor is Rect actualAnchor)
+            {
+                side = GetPlacedSide(bounds, actualAnchor);
+            }
+        }
+        else
+        {
+            DisconnectPlacementObserver();
+            SetStyleProperty("position-area", null);
+            SetStyleProperty("position-anchor", null);
+            SetStyleProperty("position-try-fallbacks", null);
+            SetStyleProperty("margin", "0px");
+            position = PortalPlacement.Compute(_portal, anchor, bounds.Size, viewport, viewport, out side);
+        }
         if (_portal.AnchorPoint is Point point && RootElement is JSObject root)
         {
             Rect rootBounds = ReadBounds(root);
             Rect pointerAnchor = new(rootBounds.X + point.X, rootBounds.Y + point.Y, 0, 0);
             position = PortalPlacement.ComputeAtPoint(_portal, new Point(pointerAnchor.X, pointerAnchor.Y), bounds.Size, viewport);
         }
-        SetStyleProperty("left", position.X.ToString("R", CultureInfo.InvariantCulture) + "px");
-        SetStyleProperty("top", position.Y.ToString("R", CultureInfo.InvariantCulture) + "px");
+        if (!isElementAnchored)
+        {
+            SetStyleProperty("left", position.X.ToString("R", CultureInfo.InvariantCulture) + "px");
+            SetStyleProperty("top", position.Y.ToString("R", CultureInfo.InvariantCulture) + "px");
+        }
         string? dataSide = _portal.GetAttribute("data-side");
         string? dataAlign = _portal.GetAttribute("data-align");
         SetAttribute("data-side", dataSide);
@@ -274,6 +303,60 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
                 ApplyArrowBorderSides(arrowDom, side);
             }
         }
+    }
+
+    private JSObject? GetAnchorElement()
+    {
+        return _portal.AnchorPoint is null ? (_portal.Anchor?.NativeHandle as HtmlDomElement)?.Element : null;
+    }
+
+    private void ApplyAnchorPosition()
+    {
+        if (Element is not JSObject element || GetAnchorElement() is not JSObject anchor)
+        {
+            return;
+        }
+
+        if (!ReferenceEquals(_positionedAnchor, _portal.Anchor))
+        {
+            DisconnectPlacementObserver();
+            DomInterop.SetPortalSource(element, anchor);
+            _positionedAnchor = _portal.Anchor;
+            _placementObserver = DomInterop.ObservePortal(element, anchor, OnPlacementObserved);
+        }
+
+        SetStyleProperty("inset", "auto");
+        SetStyleProperty("position-anchor", _portal.ComputedStyle.PositionAnchor ?? "auto");
+        SetStyleProperty("position-area", StyleCssDeclarations.FormatPositionArea(_portal.GetPositionArea()));
+        SetStyleProperty("position-try-fallbacks", StyleCssDeclarations.FormatPositionTryFallbacks(_portal.GetPositionTryFallbacks()));
+        SetStyleProperty("margin", StyleCssDeclarations.FormatThickness(_portal.GetPositionMargin()));
+    }
+
+    private void OnPlacementObserved()
+    {
+        if (!IsDisposed && _isMounted && _portal.IsVisible)
+        {
+            UpdatePosition();
+        }
+    }
+
+    private void DisconnectPlacementObserver()
+    {
+        if (_placementObserver is JSObject observer)
+        {
+            _placementObserver = null;
+            DomInterop.DisconnectPortalObserver(observer);
+            observer.Dispose();
+        }
+
+        _positionedAnchor = null;
+    }
+
+    private PortalSide GetPlacedSide(Rect portal, Rect anchor)
+    {
+        return _portal.Side is PortalSide.Top or PortalSide.Bottom
+            ? portal.Y + portal.Height / 2 < anchor.Y + anchor.Height / 2 ? PortalSide.Top : PortalSide.Bottom
+            : portal.X + portal.Width / 2 < anchor.X + anchor.Width / 2 ? PortalSide.Left : PortalSide.Right;
     }
 
     private static void ApplyArrowBorderSides(HtmlDomElement arrowDom, PortalSide side)

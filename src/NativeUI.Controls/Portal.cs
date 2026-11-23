@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using NativeUI.Core;
 using NativeUI.Layout;
 using NativeUI.Media;
@@ -131,6 +132,46 @@ public class Portal : View, IPortalLayoutNode, IFrameTarget
     /// Occurs after an open or a close finishes.
     /// </summary>
     internal event EventHandler? OpenChangeCompleted;
+
+    ILayoutNode? IPortalLayoutNode.Anchor => _anchorPoint is null ? Anchor : null;
+
+    PositionArea? IPortalLayoutNode.PositionArea => GetPositionArea();
+
+    ThicknessValue IPortalLayoutNode.Margin => GetPositionMargin();
+
+    ImmutableArray<PositionTryTactic>? IPortalLayoutNode.PositionTryFallbacks => GetPositionTryFallbacks();
+
+    /// <summary>Gets the anchor region selected by the side and alignment properties.</summary>
+    internal PositionArea GetPositionArea()
+    {
+        bool vertical = Side is PortalSide.Top or PortalSide.Bottom;
+        PositionAreaTrack sideTrack = Side is PortalSide.Top or PortalSide.Left ? PositionAreaTrack.Start : PositionAreaTrack.End;
+        PositionAreaTrack alignmentTrack = Align switch
+        {
+            Alignment.Start => PositionAreaTrack.SpanEnd,
+            Alignment.End => PositionAreaTrack.SpanStart,
+            _ => PositionAreaTrack.SpanAll
+        };
+        return ComputedStyle.PositionArea ?? (vertical
+            ? new PositionArea(sideTrack, alignmentTrack) : new PositionArea(alignmentTrack, sideTrack));
+    }
+
+    /// <summary>Gets the margin representing the portal placement offsets.</summary>
+    internal ThicknessValue GetPositionMargin()
+    {
+        double startOffset = Align == Alignment.End ? 0 : AlignOffset;
+        double endOffset = Align == Alignment.End ? AlignOffset : Align == Alignment.Center ? -AlignOffset : 0;
+        return Side is PortalSide.Top or PortalSide.Bottom
+            ? new ThicknessValue(Side == PortalSide.Bottom ? SideOffset : 0, endOffset, Side == PortalSide.Top ? SideOffset : 0, startOffset)
+            : new ThicknessValue(startOffset, Side == PortalSide.Left ? SideOffset : 0, endOffset, Side == PortalSide.Right ? SideOffset : 0);
+    }
+
+    /// <summary>Gets the explicitly styled fallbacks or the opposite-side fallback for this portal.</summary>
+    internal ImmutableArray<PositionTryTactic> GetPositionTryFallbacks()
+    {
+        return ComputedStyle.PositionTryFallbacks ??
+            [Side is PortalSide.Top or PortalSide.Bottom ? PositionTryTactic.FlipBlock : PositionTryTactic.FlipInline];
+    }
 
     /// <inheritdoc />
     public override string TagName => "portal";

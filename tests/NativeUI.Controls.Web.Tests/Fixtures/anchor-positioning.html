@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>NativeUI anchor positioning checks</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font: 15px system-ui; margin: 24px; }
+  #scroller { height: 160px; width: 320px; overflow: auto; border: 1px solid; }
+  .spacer { height: 60px; }
+  button { width: 100px; height: 28px; }
+  #content { height: 700px; padding: 12px; }
+  .popup {
+    position: fixed; inset: auto; width: 140px; height: 40px; padding: 4px; border: 1px solid;
+    margin: 4px 0 0; position-anchor: auto; position-area: bottom span-right;
+    position-try-fallbacks: flip-block; background: white;
+  }
+  #other { margin: 12px; }
+</style>
+<h1>NativeUI anchor positioning checks</h1>
+<pre id="results">Running…</pre>
+<div id="root">
+  <div id="scroller"><div id="content"><div class="spacer"></div><button id="trigger" style="anchor-name: --author">Trigger</button></div></div>
+  <button id="other">Other trigger</button>
+  <div id="popup" class="popup" popover="manual">First portal</div>
+  <div id="second" class="popup" popover="manual">Shared trigger</div>
+</div>
+<script type="module">
+  import { dom } from '../../../src/NativeUI.Controls.Web/wwwroot/nativeui-dom.js';
+  const output = document.querySelector('#results');
+  const root = document.querySelector('#root');
+  const trigger = document.querySelector('#trigger');
+  const popup = document.querySelector('#popup');
+  const second = document.querySelector('#second');
+  const other = document.querySelector('#other');
+  const scroller = document.querySelector('#scroller');
+  const messages = [];
+  const frame = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const near = (actual, expected) => {
+    if (Math.abs(actual - expected) > 1) throw new Error(`Expected ${expected}, received ${actual}`);
+  };
+  const check = async (name, action) => {
+    try { await action(); messages.push(`PASS ${name}`); }
+    catch (error) { messages.push(`FAIL ${name}: ${error.message}`); }
+    output.textContent = messages.join('\n');
+  };
+  await check('native invoker establishes CSS positioning without changing author names', async () => {
+    if (!dom.showPortal(root, popup, trigger)) throw new Error('Portal did not mount');
+    await frame();
+    near(popup.getBoundingClientRect().y, trigger.getBoundingClientRect().bottom + 4);
+    near(popup.getBoundingClientRect().x, trigger.getBoundingClientRect().x);
+    if (trigger.style.anchorName !== '--author') throw new Error('Author name was changed');
+  });
+  await check('portal follows container scrolling', async () => {
+    scroller.scrollTop = 25;
+    await frame();
+    near(popup.getBoundingClientRect().y, trigger.getBoundingClientRect().bottom + 4);
+  });
+  await check('portal follows subsequent layout', async () => {
+    document.querySelector('.spacer').style.height = '80px';
+    await frame();
+    near(popup.getBoundingClientRect().y, trigger.getBoundingClientRect().bottom + 4);
+  });
+  await check('multiple portals can share one trigger', async () => {
+    dom.showPortal(root, second, trigger);
+    await frame();
+    near(second.getBoundingClientRect().y, popup.getBoundingClientRect().y);
+    if (!popup.matches(':popover-open')) throw new Error('Opening the second portal closed the first');
+    second.hidePopover();
+  });
+  await check('retargeting updates the native invoker', async () => {
+    dom.setPortalSource(popup, other);
+    await frame();
+    near(popup.getBoundingClientRect().y, other.getBoundingClientRect().bottom + 4);
+    near(popup.getBoundingClientRect().x, other.getBoundingClientRect().x);
+  });
+  await check('overflow tries the opposite side', async () => {
+    other.style.position = 'fixed';
+    other.style.top = `${innerHeight - 40}px`;
+    other.style.left = '100px';
+    other.style.margin = '0';
+    await frame();
+    near(popup.getBoundingClientRect().bottom, other.getBoundingClientRect().top - 4);
+  });
+  await check('observer disposal cancels pending notifications', async () => {
+    let notifications = 0;
+    const observer = dom.observePortal(popup, other, () => notifications++);
+    await frame();
+    if (!notifications) throw new Error('Observer did not notify');
+    window.dispatchEvent(new Event('resize'));
+    dom.disconnectPortalObserver(observer);
+    const count = notifications;
+    await frame();
+    if (notifications !== count) throw new Error('A disposed observer notified');
+  });
+  popup.hidePopover();
+  output.textContent += `\n${messages.filter(message => message.startsWith('PASS')).length}/${messages.length} passed`;
+</script>
+</html>

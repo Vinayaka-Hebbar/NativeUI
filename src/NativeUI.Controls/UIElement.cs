@@ -1552,13 +1552,20 @@ public abstract class UIElement : BindableObject, ILayoutNode, IUIElement
         _computedStyle = computedStyle;
         _selectionStyle = selectionStyle;
         _computedTheme = theme;
-        if (LayoutEqualityComparer.Instance.Equals(computedStyle, previousStyle))
+
+        if (!LayoutEqualityComparer.Instance.Equals(computedStyle, previousStyle))
         {
-            InvalidateVisual();
+            InvalidateMeasure();
+            return;
+        }
+
+        if (computedStyle.Transform != previousStyle.Transform)
+        {
+            InvalidateArrange();
         }
         else
         {
-            InvalidateMeasure();
+            InvalidateVisual();
         }
     }
 

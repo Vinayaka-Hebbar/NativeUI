@@ -319,7 +319,8 @@ public sealed record CssFunctionValueNode(
     string Name,
     IReadOnlyList<CssValueSyntaxNode> Arguments,
     CssValueSyntaxNode? SlashArgument,
-    CssSourceSpan Span) : CssValueSyntaxNode(Span)
+    CssSourceSpan Span,
+    bool HasComma = false) : CssValueSyntaxNode(Span)
 {
     /// <inheritdoc />
     public override void Accept(ICssSyntaxVisitor visitor) => visitor.VisitFunctionValue(this);

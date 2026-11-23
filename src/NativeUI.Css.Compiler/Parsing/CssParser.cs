@@ -710,9 +710,10 @@ public sealed class CssParser
     {
         Advance(); // Consume '('
         CssValueSyntaxNode? slashArg = null;
+        bool hasComma = false;
         List<CssValueSyntaxNode> args = string.Equals(nameToken.Text, "var", StringComparison.OrdinalIgnoreCase)
             ? ParseVarArguments()
-            : ParseFunctionArguments(out slashArg);
+            : ParseFunctionArguments(out slashArg, out hasComma);
 
         CssSourceSpan endSpan = Current.Span;
         if (Current.Kind == CssTokenKind.CloseParen)
@@ -724,23 +725,25 @@ public sealed class CssParser
             _errors.Add(($"Missing closing ')' for function '{nameToken.Text}'.", nameToken.Span));
         }
 
-        return new CssFunctionValueNode(nameToken.Text, args, slashArg, CombineSpans(nameToken.Span, endSpan));
+        return new CssFunctionValueNode(nameToken.Text, args, slashArg, CombineSpans(nameToken.Span, endSpan), hasComma);
     }
 
     /// <summary>
     /// Parses comma-, space-, and slash-separated function arguments into one flat list, with the component after a
     /// slash returned separately.
     /// </summary>
-    private List<CssValueSyntaxNode> ParseFunctionArguments(out CssValueSyntaxNode? slashArg)
+    private List<CssValueSyntaxNode> ParseFunctionArguments(out CssValueSyntaxNode? slashArg, out bool hasComma)
     {
         List<CssValueSyntaxNode> args = [];
         slashArg = null;
         bool afterSlash = false;
+        hasComma = false;
 
         while (Current.Kind is not (CssTokenKind.CloseParen or CssTokenKind.EndOfFile))
         {
             if (Current.Kind == CssTokenKind.Comma)
             {
+                hasComma = true;
                 Advance();
                 continue;
             }

@@ -150,10 +150,25 @@ public sealed class VisualTreeRenderer : IDisposable
         Rect area = new(0, 0, viewport.Width, viewport.Height);
         foreach (Portal portal in portals)
         {
-            LayoutBox box = _layoutEngine.ComputeLayout(portal, viewport);
+            List<LayoutBox> precedingTrees = [rootBox, .. boxes];
+            bool isElementAnchored = portal.Anchor is not null && portal.AnchorPoint is null;
+            LayoutBox box = isElementAnchored
+                ? _layoutEngine.ComputeLayout(portal, viewport, precedingTrees)
+                : _layoutEngine.ComputeLayout(portal, viewport);
             Rect? anchor = portal.Anchor is UIElement element ? FindAnchorBounds(element, rootBox, boxes) : null;
-            Point position = PortalPlacement.Compute(portal, anchor, box.BorderBox.Size, area, area, out PortalSide side);
-            LayoutBox translated = box.Translated(position.X - box.BorderBox.X, position.Y - box.BorderBox.Y);
+            PortalSide side = portal.Side;
+            LayoutBox translated = box;
+            if (!isElementAnchored)
+            {
+                Point position = PortalPlacement.Compute(portal, anchor, box.BorderBox.Size, area, area, out side);
+                translated = box.Translated(position.X - box.BorderBox.X, position.Y - box.BorderBox.Y);
+            }
+            else if (anchor is Rect placedAnchor)
+            {
+                side = box.BorderBox.Bottom <= placedAnchor.Y ? PortalSide.Top
+                    : box.BorderBox.Y >= placedAnchor.Bottom ? PortalSide.Bottom
+                    : box.BorderBox.Right <= placedAnchor.X ? PortalSide.Left : PortalSide.Right;
+            }
             if (anchor is Rect anchorBounds)
             {
                 translated = PositionPortalArrow(portal, side, translated, anchorBounds);

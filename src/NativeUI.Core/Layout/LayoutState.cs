@@ -10,10 +10,19 @@ namespace NativeUI.Layout;
 /// </remarks>
 internal sealed class LayoutState
 {
+    /// <summary>Gets or sets whether this subtree contains anchor-dependent positioning.</summary>
+    public bool? HasAnchors { get; set; }
+
+    /// <summary>Gets or sets the last successful anchor fallback transformation.</summary>
+    public PositionTryTactic? PositionFallback { get; set; }
+
     /// <summary>
     /// Gets or sets the inputs of the last measure pass.
     /// </summary>
     public LayoutConstraints PreviousConstraints { get; set; }
+
+    /// <summary>Gets or sets the numeric box constraints of the last measure pass.</summary>
+    public BoxConstraints PreviousBoxConstraints { get; set; }
 
     /// <summary>
     /// Gets or sets the border-box width of the node when none of its text wraps, or <see langword="null"/> when it has to be
@@ -102,6 +111,8 @@ internal sealed class LayoutState
     public void InvalidateMeasure()
     {
         IsMeasureValid = false;
+        HasAnchors = null;
+        PositionFallback = null;
         IsTextLayoutValid = false;
         MaxContentWidth = null;
         InvalidateArrange();

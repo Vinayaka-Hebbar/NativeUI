@@ -705,15 +705,57 @@ export const dom = {
    * @param {HTMLElement} element The portal element.
    * @returns {boolean} Whether the parent is in the document.
    */
-  showPortal(parent, element) {
+  showPortal(parent, element, source) {
     if (!parent.isConnected) {
       return false;
     }
 
     parent.appendChild(element);
     element.setAttribute("popover", "manual");
-    element.showPopover();
+    element.showPopover(source ? { source } : undefined);
     return true;
+  },
+
+  /** Updates the native invoker when an open portal is retargeted. */
+  setPortalSource(element, source) {
+    if (element.matches(":popover-open")) {
+      element.hidePopover();
+      element.showPopover(source ? { source } : undefined);
+    }
+  },
+
+  /** Observes browser layout events; CSS remains responsible for portal placement. */
+  observePortal(element, anchor, callback) {
+    let frame = 0;
+    let disposed = false;
+    const notify = () => {
+      if (!disposed && !frame) {
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          if (!disposed) callback();
+        });
+      }
+    };
+    const observer = new ResizeObserver(notify);
+    observer.observe(element);
+    observer.observe(anchor);
+    document.addEventListener("scroll", notify, true);
+    window.addEventListener("resize", notify);
+    notify();
+    return {
+      disconnect() {
+        disposed = true;
+        observer.disconnect();
+        document.removeEventListener("scroll", notify, true);
+        window.removeEventListener("resize", notify);
+        if (frame) cancelAnimationFrame(frame);
+      }
+    };
+  },
+
+  /** Releases a portal's event subscriptions. */
+  disconnectPortalObserver(observer) {
+    observer.disconnect();
   },
 
   /**

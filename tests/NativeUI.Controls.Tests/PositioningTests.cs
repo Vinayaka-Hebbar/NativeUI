@@ -13,6 +13,200 @@ namespace NativeUI.Controls.Tests;
 /// </summary>
 internal static class PositioningTests
 {
+    public static void VerifyAnchorPositioning()
+    {
+        using View root = new() { Width = 400, Height = 300 };
+        View trigger = new() { Style = new Style { Width = 100, Height = 40, AnchorName = "--trigger", Margin = new ThicknessValue(20, 0, 0, 30) } };
+        View popup = new()
+        {
+            Style = new Style { Position = Position.Fixed, Width = 80, Height = 30, PositionAnchor = "--trigger", PositionArea = new PositionArea(PositionAreaTrack.End, PositionAreaTrack.SpanEnd) }
+        };
+        root.Children.Add(trigger);
+        root.Children.Add(popup);
+        LayoutEngine engine = new(SkiaTextShaper.Shared);
+        LayoutBox box = engine.ComputeLayout(root, new Size(400, 300));
+        Assert.Equal(new Rect(30, 60, 80, 30), box.Children[1].BorderBox);
+        trigger.Height = 70;
+        box = engine.ComputeLayout(root, new Size(400, 300));
+        Assert.Equal(90.0, box.Children[1].BorderBox.Y);
+    }
+
+    public static void VerifyAnchorInsetsAndFallbacks()
+    {
+        using View root = new() { Width = 300, Height = 100 };
+        View trigger = new() { Style = new Style { Width = 100, Height = 60, AnchorName = "--trigger" } };
+        View popup = new()
+        {
+            Style = new Style
+            {
+                Position = Position.Fixed, Width = 80, Height = 50, PositionAnchor = "--trigger", PositionArea = new PositionArea(PositionAreaTrack.End, PositionAreaTrack.SpanEnd),
+                PositionTryFallbacks = [PositionTryTactic.FlipBlock]
+            }
+        };
+        root.Children.Add(trigger);
+        root.Children.Add(popup);
+        LayoutEngine engine = new(SkiaTextShaper.Shared);
+        LayoutBox box = engine.ComputeLayout(root, new Size(300, 100));
+        // Neither side fits, so the authored position remains in use.
+        Assert.Equal(60.0, box.Children[1].BorderBox.Y);
+        trigger.Style = new Style { Width = 100, Height = 20, AnchorName = "--trigger", Margin = new ThicknessValue(60, 0, 0, 20) };
+        trigger.Height = 20;
+        box = engine.ComputeLayout(root, new Size(300, 100));
+        Assert.Equal(10.0, box.Children[1].BorderBox.Y);
+        popup.Style = new Style { Position = Position.Fixed, Width = 80, Height = 50, Top = InsetValue.Anchor(AnchorSide.Bottom, "--trigger"), Right = InsetValue.Anchor(AnchorSide.Right, "--trigger") };
+        box = engine.ComputeLayout(root, new Size(300, 100));
+        Assert.Equal(new Rect(40, 80, 80, 50), box.Children[1].BorderBox);
+    }
+
+    public static void VerifyLaterInFlowAnchor()
+    {
+        using View root = new() { Width = 300, Height = 200 };
+        View popup = new() { Style = new Style { Position = Position.Absolute, Width = 50, Height = 20, Top = InsetValue.Anchor(AnchorSide.Bottom, "--later") } };
+        View trigger = new() { Style = new Style { Width = 100, Height = 40, AnchorName = "--later" } };
+        root.Children.Add(popup);
+        root.Children.Add(trigger);
+        LayoutBox box = new LayoutEngine(SkiaTextShaper.Shared).ComputeLayout(root, new Size(300, 200));
+        LayoutBox popupBox = box.Children.Single(child => ReferenceEquals(child.Element, popup));
+        Assert.Equal(40.0, popupBox.BorderBox.Y);
+    }
+
+    /// <summary>Verifies that area constraints do not leak into descendant measurement or replace computed styles.</summary>
+    public static void VerifyAnchorAreaSizing()
+    {
+        using View root = new() { Width = 300, Height = 300 };
+        View trigger = new()
+        {
+            Style = new Style
+            {
+                Width = 60, Height = 60, AnchorName = "--trigger",
+                Margin = new ThicknessValue(0, 0, 0, 20)
+            }
+        };
+        View popup = new()
+        {
+            Style = new Style
+            {
+                Position = Position.Fixed, Width = WidthValue.Percent(50), Height = HeightValue.Percent(50),
+                PositionAnchor = "--trigger", PositionArea = new PositionArea(PositionAreaTrack.End, PositionAreaTrack.SpanEnd)
+            }
+        };
+        View content = new() { Width = WidthValue.Percent(50), Height = HeightValue.Percent(50) };
+        popup.Children.Add(content);
+        root.Children.Add(trigger);
+        root.Children.Add(popup);
+        ComputedStyle style = popup.ComputedStyle;
+
+        LayoutBox result = new LayoutEngine(SkiaTextShaper.Shared).ComputeLayout(root, new Size(300, 300));
+        LayoutBox popupBox = result.Children.Single(child => ReferenceEquals(child.Element, popup));
+
+        Assert.Equal(new Rect(20, 60, 140, 120), popupBox.BorderBox);
+        Assert.Equal(new Size(70, 60), popupBox.Children[0].BorderBox.Size);
+        Assert.Same(style, popup.ComputedStyle);
+        Assert.Same(style, popupBox.Style);
+    }
+
+    /// <summary>Verifies that diagonal fallback swaps size limits without modifying the computed style.</summary>
+    public static void VerifyDiagonalAnchorFallback()
+    {
+        using View root = new() { Width = 300, Height = 200 };
+        View trigger = new()
+        {
+            Style = new Style { Width = 80, Height = 20, AnchorName = "--trigger", Margin = new ThicknessValue(100, 0, 0, 0) }
+        };
+        View popup = new()
+        {
+            Style = new Style
+            {
+                Position = Position.Fixed, Width = 40, Height = 100, MinWidth = 60, MaxHeight = 120,
+                PositionAnchor = "--trigger", PositionArea = new PositionArea(PositionAreaTrack.End, PositionAreaTrack.SpanEnd),
+                PositionTryFallbacks = [PositionTryTactic.FlipStart]
+            }
+        };
+        root.Children.Add(trigger);
+        root.Children.Add(popup);
+        ComputedStyle style = popup.ComputedStyle;
+
+        LayoutBox result = new LayoutEngine(SkiaTextShaper.Shared).ComputeLayout(root, new Size(300, 200));
+        LayoutBox popupBox = result.Children.Single(child => ReferenceEquals(child.Element, popup));
+
+        Assert.Equal(new Rect(80, 100, 100, 60), popupBox.BorderBox);
+        Assert.Same(style, popup.ComputedStyle);
+        Assert.Equal(WidthValue.Pixels(40), style.Width);
+        Assert.Equal(HeightValue.Pixels(100), style.Height);
+        Assert.Equal(WidthValue.Pixels(60), style.MinWidth);
+    }
+
+    /// <summary>Verifies fallback retention across anchor movement and reset after target sizing changes.</summary>
+    public static void VerifyAnchorFallbackRetention()
+    {
+        using View root = new() { Width = 300, Height = 200 };
+        View trigger = new()
+        {
+            Style = new Style { Width = 80, Height = 20, AnchorName = "--trigger", Margin = new ThicknessValue(140, 0, 0, 0) }
+        };
+        Style popupStyle = new()
+        {
+            Position = Position.Fixed, Width = 80, Height = 60, PositionAnchor = "--trigger",
+            PositionArea = new PositionArea(PositionAreaTrack.End, PositionAreaTrack.SpanEnd),
+            PositionTryFallbacks = [PositionTryTactic.FlipBlock]
+        };
+        View popup = new() { Style = popupStyle };
+        root.Children.Add(trigger);
+        root.Children.Add(popup);
+        LayoutEngine engine = new(SkiaTextShaper.Shared);
+
+        LayoutBox initial = engine.ComputeLayout(root, new Size(300, 200));
+        Assert.Equal(80.0, initial.Children[1].BorderBox.Y);
+        trigger.Style.Margin = new ThicknessValue(80, 0, 0, 0);
+        LayoutBox moved = engine.ComputeLayout(root, new Size(300, 200));
+        Assert.Equal(20.0, moved.Children[1].BorderBox.Y);
+        popupStyle.Height = 50;
+        LayoutBox resized = engine.ComputeLayout(root, new Size(300, 200));
+        Assert.Equal(100.0, resized.Children[1].BorderBox.Y);
+    }
+
+    /// <summary>Verifies that moving an anchor does not remeasure an unrelated intrinsic-size sibling.</summary>
+    public static void VerifyAnchorMeasurementReuse()
+    {
+        using View root = new() { Width = 300, Height = 300 };
+        View trigger = new() { Style = new Style { Width = 60, Height = 40, AnchorName = "--trigger" } };
+        View popup = new()
+        {
+            Style = new Style
+            {
+                Position = Position.Fixed, Width = 80, Height = 30, PositionAnchor = "--trigger",
+                PositionArea = new PositionArea(PositionAreaTrack.End, PositionAreaTrack.SpanEnd)
+            }
+        };
+        IntrinsicView sibling = new();
+        root.Children.Add(trigger);
+        root.Children.Add(sibling);
+        root.Children.Add(popup);
+        LayoutEngine engine = new(SkiaTextShaper.Shared);
+        engine.ComputeLayout(root, new Size(300, 300));
+        int count = sibling.MeasureCount;
+        ComputedStyle style = popup.ComputedStyle;
+
+        engine.ComputeLayout(root, new Size(300, 300));
+        trigger.Height = 70;
+        LayoutBox moved = engine.ComputeLayout(root, new Size(300, 300));
+
+        Assert.Equal(count, sibling.MeasureCount);
+        Assert.Equal(70.0, moved.Children.Single(child => ReferenceEquals(child.Element, popup)).BorderBox.Y);
+        Assert.Same(style, popup.ComputedStyle);
+    }
+
+    private sealed class IntrinsicView : View, IIntrinsicSize
+    {
+        public int MeasureCount { get; private set; }
+
+        public Size GetIntrinsicSize(Size? containingSize = null)
+        {
+            MeasureCount++;
+            return new Size(20, 20);
+        }
+    }
+
     public static void VerifyRelativePositioningDoesNotShiftSiblings()
     {
         View root = new() { Width = 300 };

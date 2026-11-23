@@ -251,7 +251,19 @@ public static partial class DomInterop
     /// popover, and returns false when <paramref name="parent"/> is not in the document.
     /// </summary>
     [JSImport("showPortal", "nativeui-dom")]
-    public static partial bool ShowPortal(JSObject parent, JSObject element);
+    public static partial bool ShowPortal(JSObject parent, JSObject element, JSObject? source);
+
+    /// <summary>Updates an open popover's native invoker association.</summary>
+    [JSImport("setPortalSource", "nativeui-dom")]
+    public static partial void SetPortalSource(JSObject element, JSObject? source);
+
+    /// <summary>Observes resize and scroll events affecting a portal arrow.</summary>
+    [JSImport("observePortal", "nativeui-dom")]
+    public static partial JSObject ObservePortal(JSObject element, JSObject anchor, [JSMarshalAs<JSType.Function>] Action callback);
+
+    /// <summary>Disconnects a portal observer and cancels its pending animation frame.</summary>
+    [JSImport("disconnectPortalObserver", "nativeui-dom")]
+    public static partial void DisconnectPortalObserver(JSObject observer);
 
     /// <summary>
     /// Opens a dialog element, as a modal one in the browser's top layer when <paramref name="isModal"/> is true.

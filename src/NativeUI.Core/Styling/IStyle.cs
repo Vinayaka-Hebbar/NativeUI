@@ -114,6 +114,18 @@ public interface IStyle
     /// <summary>Gets the specified left inset.</summary>
     InsetValue? Left { get; }
 
+    /// <summary>Gets the CSS anchor name; "none" explicitly removes the name.</summary>
+    string? AnchorName => null;
+
+    /// <summary>Gets the default anchor name; "auto" uses an implicit anchor.</summary>
+    string? PositionAnchor => null;
+
+    /// <summary>Gets the region around the default anchor.</summary>
+    PositionArea? PositionArea => null;
+
+    /// <summary>Gets the ordered fallback transformation groups.</summary>
+    ImmutableArray<PositionTryTactic>? PositionTryFallbacks => null;
+
     /// <summary>Gets the specified transform.</summary>
     StyleTransform? Transform { get; }
 

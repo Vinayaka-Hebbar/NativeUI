@@ -223,6 +223,22 @@ public sealed class Style : BindableObject, IStyle
     public static readonly BindableProperty<InsetValue?> LeftProperty =
         BindableProperty.Create<Style, InsetValue?>(nameof(Left));
 
+    /// <summary>Identifies the <see cref="AnchorName"/> bindable property.</summary>
+    public static readonly BindableProperty<string?> AnchorNameProperty =
+        BindableProperty.Create<Style, string?>(nameof(AnchorName));
+
+    /// <summary>Identifies the <see cref="PositionAnchor"/> bindable property.</summary>
+    public static readonly BindableProperty<string?> PositionAnchorProperty =
+        BindableProperty.Create<Style, string?>(nameof(PositionAnchor));
+
+    /// <summary>Identifies the <see cref="PositionArea"/> bindable property.</summary>
+    public static readonly BindableProperty<PositionArea?> PositionAreaProperty =
+        BindableProperty.Create<Style, PositionArea?>(nameof(PositionArea));
+
+    /// <summary>Identifies the <see cref="PositionTryFallbacks"/> bindable property.</summary>
+    public static readonly BindableProperty<ImmutableArray<PositionTryTactic>?> PositionTryFallbacksProperty =
+        BindableProperty.Create<Style, ImmutableArray<PositionTryTactic>?>(nameof(PositionTryFallbacks));
+
     /// <summary>
     /// Identifies the <see cref="Transform"/> bindable property.
     /// </summary>
@@ -554,6 +570,34 @@ public sealed class Style : BindableObject, IStyle
     {
         get => GetValue(LeftProperty);
         set => SetValue(LeftProperty, value);
+    }
+
+    /// <summary>Gets or sets the CSS anchor name; "none" explicitly removes the name.</summary>
+    public string? AnchorName
+    {
+        get => GetValue(AnchorNameProperty);
+        set => SetValue(AnchorNameProperty, value);
+    }
+
+    /// <summary>Gets or sets the default anchor name; "auto" uses an implicit anchor.</summary>
+    public string? PositionAnchor
+    {
+        get => GetValue(PositionAnchorProperty);
+        set => SetValue(PositionAnchorProperty, value);
+    }
+
+    /// <summary>Gets or sets the region around the default anchor.</summary>
+    public PositionArea? PositionArea
+    {
+        get => GetValue(PositionAreaProperty);
+        set => SetValue(PositionAreaProperty, value);
+    }
+
+    /// <summary>Gets or sets the ordered fallback transformation groups.</summary>
+    public ImmutableArray<PositionTryTactic>? PositionTryFallbacks
+    {
+        get => GetValue(PositionTryFallbacksProperty);
+        set => SetValue(PositionTryFallbacksProperty, value);
     }
 
     /// <summary>

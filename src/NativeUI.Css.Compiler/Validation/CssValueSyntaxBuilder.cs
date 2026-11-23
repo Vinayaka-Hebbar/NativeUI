@@ -80,7 +80,7 @@ internal static class CssValueSyntaxBuilder
             "height" => TryBuildAutoOrLengthSyntax(valueNode, out expression),
             "min-width" or "min-height" => TryBuildAutoOrLengthSyntax(valueNode, out expression),
             "max-width" or "max-height" => TryBuildNoneOrLengthSyntax(valueNode, out expression),
-            "font-size" or "gap" or "border-width" or "top" or "right" or "bottom" or "left" => TryBuildLengthSyntax(valueNode, out expression),
+            "font-size" or "gap" or "border-width" => TryBuildLengthSyntax(valueNode, out expression),
             "border-top-left-radius" or "border-top-right-radius" or "border-bottom-right-radius" or "border-bottom-left-radius" => TryBuildLengthSyntax(valueNode, out expression),
             "border-radius" => TryBuildBorderRadiusSyntax(valueNode, out expression),
             "padding" or "margin" => TryBuildThicknessSyntax(valueNode, out expression),
@@ -99,6 +99,11 @@ internal static class CssValueSyntaxBuilder
             "scrollbar-color" => TryBuildScrollbarColorSyntax(valueNode, out expression),
             "scrollbar-width" => TryBuildScrollbarWidthSyntax(valueNode, out expression),
             "position" => TryBuildPositionSyntax(valueNode, out expression),
+            "anchor-name" => TryBuildAnchorNameSyntax(valueNode, false, out expression),
+            "position-anchor" => TryBuildAnchorNameSyntax(valueNode, true, out expression),
+            "position-area" => TryBuildPositionAreaSyntax(valueNode, out expression),
+            "position-try-fallbacks" => TryBuildPositionTrySyntax(valueNode, out expression),
+            "top" or "right" or "bottom" or "left" => TryBuildInsetSyntax(valueNode, out expression),
             "transform" => TryBuildTransformSyntax(valueNode, out expression),
             "transition" => TryBuildTransitionSyntax(valueNode, out expression),
             "animation" => TryBuildAnimationSyntax(valueNode, out expression),
@@ -767,6 +772,246 @@ internal static class CssValueSyntaxBuilder
     private static ExpressionSyntax BuildCssColorValueSyntax(ParsedCssColor color)
     {
         return BuildNewCssValue("CssColorValue", BuildColorFactoryInvocation(color));
+    }
+
+    private static bool TryBuildAnchorNameSyntax(CssValueSyntaxNode node, bool isPositionAnchor, out ExpressionSyntax? expression)
+    {
+        expression = null;
+        if (node is not CssKeywordValueNode keyword)
+        {
+            return false;
+        }
+
+        if (keyword.Keyword.Equals(isPositionAnchor ? "auto" : "none", StringComparison.OrdinalIgnoreCase))
+        {
+            expression = BuildNewCssValue(isPositionAnchor ? "CssAutoValue" : "CssNoneValue");
+            return true;
+        }
+
+        if (!IsAnchorName(keyword.Keyword))
+        {
+            return false;
+        }
+
+        expression = BuildNewCssValue("CssStringValue", StringLiteral(keyword.Keyword));
+        return true;
+    }
+
+    private static bool IsAnchorName(string value)
+    {
+        return value.Length > 2 && value.StartsWith("--", StringComparison.Ordinal);
+    }
+
+    private static bool TryBuildInsetSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        expression = null;
+        if (node is not CssFunctionValueNode function || !function.Name.Equals("anchor", StringComparison.OrdinalIgnoreCase))
+        {
+            return TryBuildAutoOrLengthSyntax(node, out expression);
+        }
+
+        if (function.HasComma || function.SlashArgument is not null || function.Arguments.Count is < 1 or > 2)
+        {
+            return false;
+        }
+
+        string? name = null;
+        string? side = null;
+        foreach (CssValueSyntaxNode argument in function.Arguments)
+        {
+            if (argument is not CssKeywordValueNode keyword)
+            {
+                return false;
+            }
+
+            if (IsAnchorName(keyword.Keyword))
+            {
+                if (name is not null)
+                {
+                    return false;
+                }
+
+                name = keyword.Keyword;
+                continue;
+            }
+
+            if (side is not null)
+            {
+                return false;
+            }
+
+            side = keyword.Keyword.ToLowerInvariant() switch
+            {
+                "top" => "Top", "right" => "Right", "bottom" => "Bottom", "left" => "Left",
+                "start" => "Start", "end" => "End", "self-start" => "SelfStart", "self-end" => "SelfEnd",
+                "inside" => "Inside", "outside" => "Outside", "center" => "Center", _ => null
+            };
+            if (side is null)
+            {
+                return false;
+            }
+        }
+
+        if (side is null)
+        {
+            return false;
+        }
+
+        ExpressionSyntax inset = InvocationExpression(BuildEnumMember("InsetValue", "Anchor"))
+            .WithArgumentList(ArgumentList(SeparatedList(new[]
+            {
+                Argument(BuildEnumMember("AnchorSide", side)),
+                Argument(name is null ? LiteralExpression(SyntaxKind.NullLiteralExpression) : StringLiteral(name))
+            })));
+        expression = BuildNewCssValue("CssAnchorValue", inset);
+        return true;
+    }
+
+    private static bool TryBuildPositionAreaSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        expression = null;
+        if (node is CssKeywordValueNode none && none.Keyword.Equals("none", StringComparison.OrdinalIgnoreCase))
+        {
+            expression = BuildNewCssValue("CssNoneValue");
+            return true;
+        }
+
+        if (!TryGetComponents(node, out IReadOnlyList<CssValueSyntaxNode> components) || components.Count is < 1 or > 2)
+        {
+            return false;
+        }
+
+        List<(int Axis, string Track)> tracks = [];
+        foreach (CssValueSyntaxNode component in components)
+        {
+            if (component is not CssKeywordValueNode keyword || !TryReadPositionTrack(keyword.Keyword, out int axis, out string track))
+            {
+                return false;
+            }
+
+            tracks.Add((axis, track));
+        }
+
+        string block = "SpanAll";
+        string inline = "SpanAll";
+        if (tracks.Count == 1)
+        {
+            (int axis, string track) = tracks[0];
+            if (axis == 1)
+            {
+                inline = track;
+            }
+            else if (axis == 2)
+            {
+                block = track;
+            }
+            else
+            {
+                block = track;
+                inline = track;
+            }
+        }
+        else
+        {
+            (int firstAxis, string firstTrack) = tracks[0];
+            (int secondAxis, string secondTrack) = tracks[1];
+            if (firstAxis != 0 && firstAxis == secondAxis)
+            {
+                return false;
+            }
+
+            bool inlineFirst = firstAxis == 1 || secondAxis == 2;
+            block = inlineFirst ? secondTrack : firstTrack;
+            inline = inlineFirst ? firstTrack : secondTrack;
+        }
+
+        expression = BuildNewCssValue("CssPositionAreaValue",
+            ObjectCreationExpression(IdentifierName("PositionArea"))
+                .WithArgumentList(ArgumentList(SeparatedList(new[]
+                {
+                    Argument(BuildEnumMember("PositionAreaTrack", block)),
+                    Argument(BuildEnumMember("PositionAreaTrack", inline))
+                }))));
+        return true;
+    }
+
+    private static bool TryReadPositionTrack(string keyword, out int axis, out string track)
+    {
+        string value = keyword.ToLowerInvariant();
+        bool span = value.StartsWith("span-", StringComparison.Ordinal);
+        if (span)
+        {
+            value = value[5..];
+        }
+
+        axis = value switch
+        {
+            "top" or "bottom" => 2,
+            "left" or "right" => 1,
+            _ when value.Contains("block", StringComparison.Ordinal) || value.Contains("y-", StringComparison.Ordinal) => 2,
+            _ when value.Contains("inline", StringComparison.Ordinal) || value.Contains("x-", StringComparison.Ordinal) => 1,
+            _ => 0
+        };
+        string edge = value switch
+        {
+            "top" or "left" or "start" or "self-start" or "block-start" or "inline-start" or
+                "self-block-start" or "self-inline-start" or "x-start" or "y-start" or "self-x-start" or "self-y-start" => "Start",
+            "bottom" or "right" or "end" or "self-end" or "block-end" or "inline-end" or
+                "self-block-end" or "self-inline-end" or "x-end" or "y-end" or "self-x-end" or "self-y-end" => "End",
+            "center" when !span => "Center",
+            "all" when span => "All",
+            _ => string.Empty
+        };
+        track = span ? "Span" + edge : edge;
+        return edge.Length > 0;
+    }
+
+    private static bool TryBuildPositionTrySyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)
+    {
+        expression = null;
+        if (node is CssKeywordValueNode none && none.Keyword.Equals("none", StringComparison.OrdinalIgnoreCase))
+        {
+            expression = BuildNewCssValue("CssNoneValue");
+            return true;
+        }
+
+        IReadOnlyList<CssValueSyntaxNode> groups = node is CssValueListNode { Separator: CssValueSeparator.Comma } list ? list.Items : [node];
+        List<ExpressionSyntax> entries = [];
+        foreach (CssValueSyntaxNode group in groups)
+        {
+            if (!TryGetComponents(group, out IReadOnlyList<CssValueSyntaxNode> components))
+            {
+                return false;
+            }
+
+            HashSet<string> seen = new(StringComparer.Ordinal);
+            ExpressionSyntax? entry = null;
+            foreach (CssValueSyntaxNode component in components)
+            {
+                string? tactic = component is CssKeywordValueNode keyword ? keyword.Keyword.ToLowerInvariant() switch
+                {
+                    "flip-block" => "FlipBlock", "flip-inline" => "FlipInline", "flip-start" => "FlipStart",
+                    "flip-x" => "FlipX", "flip-y" => "FlipY", _ => null
+                } : null;
+                if (tactic is null || !seen.Add(tactic))
+                {
+                    return false;
+                }
+
+                ExpressionSyntax member = BuildEnumMember("PositionTryTactic", tactic);
+                entry = entry is null ? member : BinaryExpression(SyntaxKind.BitwiseOrExpression, entry, member);
+            }
+
+            if (entry is null)
+            {
+                return false;
+            }
+
+            entries.Add(entry);
+        }
+
+        expression = BuildNewCssValue("CssPositionTryFallbacksValue", BuildImmutableArrayCreate(entries));
+        return entries.Count > 0;
     }
 
     private static bool TryBuildWidthSyntax(CssValueSyntaxNode node, out ExpressionSyntax? expression)

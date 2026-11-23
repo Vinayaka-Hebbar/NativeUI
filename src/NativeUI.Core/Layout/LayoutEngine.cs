@@ -40,6 +40,7 @@ public interface ILayoutNode
 public sealed partial class LayoutEngine
 {
     private readonly ITextMeasurer _textMeasurer;
+    private AnchorLayout? _anchorLayout;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LayoutEngine"/> class.
@@ -61,20 +62,60 @@ public sealed partial class LayoutEngine
             return new LayoutBox(root, root.ComputedStyle, Rect.Empty, Rect.Empty, []);
         }
 
-        LayoutConstraints constraints = new(new Size(Math.Max(0, viewport.Width), Math.Max(0, viewport.Height)));
-        Measure(root, constraints);
+        return ComputeLayout(root, viewport, []);
+    }
 
-        LayoutState state = GetState(root);
-        Thickness margin = state.Margin;
-        state.VisualOffset = new Point(margin.Left, margin.Top);
-        state.Bounds = new Rect(state.VisualOffset.X, state.VisualOffset.Y, state.RenderSize.Width, state.RenderSize.Height);
-        if (!state.IsArrangeValid)
+    /// <summary>Computes a tree using preceding top-layer trees as additional anchor sources.</summary>
+    /// <param name="root">The tree being laid out.</param>
+    /// <param name="viewport">The viewport in logical pixels.</param>
+    /// <param name="precedingTrees">The main tree and any lower portal trees in the same window.</param>
+    public LayoutBox ComputeLayout(ILayoutNode root, Size viewport, IReadOnlyList<LayoutBox> precedingTrees)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        ArgumentNullException.ThrowIfNull(precedingTrees);
+        if (!root.IsVisible)
         {
-            Rect viewportBounds = new(0, 0, constraints.Viewport.Width, constraints.Viewport.Height);
-            Arrange(root, state.VisualOffset, viewportBounds, constraints.Viewport);
+            return new LayoutBox(root, root.ComputedStyle, Rect.Empty, Rect.Empty, []);
         }
 
-        return CreateBox(root, Point.Zero);
+        Size size = new(Math.Max(0, viewport.Width), Math.Max(0, viewport.Height));
+        LayoutState retained = GetState(root);
+        if (precedingTrees.Count == 0 && root is not IPortalLayoutNode && retained.IsMeasureValid && retained.IsArrangeValid &&
+            retained.PreviousConstraints == new LayoutConstraints(size))
+        {
+            return CreateBox(root, Point.Zero);
+        }
+
+        AnchorLayout? context = ContainsAnchors(root) ? new(this, root, precedingTrees) : null;
+        _anchorLayout = context;
+        try
+        {
+            LayoutConstraints constraints = new(new Size(Math.Max(0, viewport.Width), Math.Max(0, viewport.Height)));
+            if (root is IPortalLayoutNode { Anchor: not null } portal && _anchorLayout is not null)
+            {
+                _anchorLayout.PlaceRoot(portal, constraints.Viewport);
+            }
+            else
+            {
+                Measure(root, constraints);
+                LayoutState state = GetState(root);
+                Thickness margin = state.Margin;
+                state.VisualOffset = new Point(margin.Left, margin.Top);
+                state.Bounds = new Rect(state.VisualOffset.X, state.VisualOffset.Y, state.RenderSize.Width, state.RenderSize.Height);
+                if (!state.IsArrangeValid || _anchorLayout is not null)
+                {
+                    Rect viewportBounds = new(0, 0, constraints.Viewport.Width, constraints.Viewport.Height);
+                    Arrange(root, state.VisualOffset, viewportBounds, constraints.Viewport);
+                }
+            }
+
+            context?.Complete(constraints.Viewport);
+            return CreateBox(root, Point.Zero);
+        }
+        finally
+        {
+            _anchorLayout = null;
+        }
     }
 
     private static LayoutState GetState(ILayoutNode node)
@@ -95,29 +136,64 @@ public sealed partial class LayoutEngine
             return state.DesiredSize;
         }
 
+        return Measure(node, constraints, ResolveBoxConstraints(node, constraints));
+    }
+
+    private BoxConstraints ResolveBoxConstraints(ILayoutNode node, LayoutConstraints constraints)
+    {
+        ComputedStyle style = node.ComputedStyle;
+        Size available = constraints.AvailableSize;
+        Thickness margin = style.Margin.Resolve(available.Width);
+        Thickness insets = style.GetContentInsets(available.Width);
+        double width = ResolveBorderWidth(node, available.Width, available.Height, margin, insets, constraints.IsFixedWidth);
+        double? height = ResolveSpecifiedHeight(style, available.Height)
+            ?? (style.Height.IsAuto && constraints.IsFixedHeight ? available.Height : null);
+        (Size minimum, Size maximum) = ResolveSizeLimits(style, available);
+        return new BoxConstraints(width, height, minimum, maximum, margin);
+    }
+
+    private static (Size Minimum, Size Maximum) ResolveSizeLimits(ComputedStyle style, Size available)
+    {
+        Size minimum = new(
+            style.MinWidth is WidthValue minWidth ? ResolveWidthLimit(minWidth, available.Width) ?? 0 : 0,
+            style.MinHeight is HeightValue minHeight ? ResolveHeight(minHeight, available.Height) ?? 0 : 0);
+        Size maximum = new(
+            style.MaxWidth is WidthValue maxWidth ? ResolveWidthLimit(maxWidth, available.Width) ?? double.PositiveInfinity : double.PositiveInfinity,
+            style.MaxHeight is HeightValue maxHeight ? ResolveHeight(maxHeight, available.Height) ?? double.PositiveInfinity : double.PositiveInfinity);
+        return (minimum, maximum);
+    }
+
+    private Size Measure(ILayoutNode node, LayoutConstraints constraints, BoxConstraints box)
+    {
+        LayoutState state = GetState(node);
+        if (state.IsMeasureValid && state.PreviousConstraints == constraints && state.PreviousBoxConstraints == box)
+        {
+            return state.DesiredSize;
+        }
+
         state.IsMeasureValid = false;
         state.InvalidateArrange();
         state.PreviousConstraints = constraints;
+        state.PreviousBoxConstraints = box;
 
         ComputedStyle style = node.ComputedStyle;
-        Thickness margin = style.Margin.Resolve(constraints.AvailableSize.Width);
+        Thickness margin = box.Margin;
         Thickness insets = style.GetContentInsets(constraints.AvailableSize.Width);
         state.Margin = margin;
         state.ContentInsets = insets;
         Size availableSize = constraints.AvailableSize;
-        double borderWidth = ResolveBorderWidth(node, availableSize.Width, availableSize.Height, margin, insets, constraints.IsFixedWidth);
+        double borderWidth = box.ConstrainWidth(box.Width);
         double contentWidth = Math.Max(0, borderWidth - insets.Horizontal);
-        double? specifiedHeight = ResolveSpecifiedHeight(style, availableSize.Height)
-            ?? (style.Height.IsAuto && constraints.IsFixedHeight ? ClampHeight(style, availableSize.Height, availableSize.Height) : null);
+        double? specifiedHeight = box.Height is double definiteHeight ? box.ConstrainHeight(definiteHeight) : null;
 
         if (node is IIntrinsicSize intrinsic)
         {
-            return MeasureIntrinsic(state, intrinsic, style, insets, availableSize, borderWidth, contentWidth, specifiedHeight);
+            return MeasureIntrinsic(state, intrinsic, style, insets, availableSize, borderWidth, contentWidth, specifiedHeight, box);
         }
 
         if (node is ITextSource { Text: not null } source)
         {
-            return MeasureText(state, source, style, insets, borderWidth, contentWidth, availableSize.Height, specifiedHeight);
+            return MeasureText(state, source, style, insets, borderWidth, contentWidth, availableSize.Height, specifiedHeight, box);
         }
 
         double? contentDefiniteHeight = specifiedHeight is double height ? Math.Max(0, height - insets.Vertical) : null;
@@ -141,7 +217,7 @@ public sealed partial class LayoutEngine
             _ => MeasureBlock(node, 0, contentOrigin, contentWidth, childConstraints)
         };
 
-        double borderHeight = specifiedHeight ?? ClampHeight(style, content.Height + insets.Vertical, availableSize.Height);
+        double borderHeight = specifiedHeight ?? box.ConstrainHeight(content.Height + insets.Vertical);
         Size outOfFlowContainingBlock = style.IsPositioned
             ? new Size(paddingBoxWidth, Math.Max(0, borderHeight - borderInset))
             : constraints.ContainingBlock;
@@ -172,6 +248,7 @@ public sealed partial class LayoutEngine
     {
         LayoutState state = GetState(node);
         state.IsArrangeValid = true;
+        _anchorLayout?.Record(node, new Rect(origin.X, origin.Y, state.RenderSize.Width, state.RenderSize.Height));
         if (!LaysOutChildren(node))
         {
             return;
@@ -216,7 +293,15 @@ public sealed partial class LayoutEngine
             }
             else if (IsPositionedOutOfFlow(child))
             {
-                ArrangeChild(child, origin, GetContainingBlock(child, outOfFlowContainingBlock, viewport), viewport);
+                Rect block = GetContainingBlock(child, outOfFlowContainingBlock, viewport);
+                if (_anchorLayout is null)
+                {
+                    ArrangeChild(child, origin, block, viewport);
+                }
+                else
+                {
+                    _anchorLayout.Defer(child, block, origin, scrollOffset);
+                }
             }
         }
     }

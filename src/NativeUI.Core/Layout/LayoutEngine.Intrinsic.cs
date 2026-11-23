@@ -8,7 +8,7 @@ public sealed partial class LayoutEngine
     /// Returns the border-box width of <paramref name="node"/> when none of its text wraps. A percentage padding counts as
     /// zero, because no containing width exists while measuring content.
     /// </summary>
-    private double MeasureMaxContentWidth(ILayoutNode node)
+    private double MeasureMaxContentWidth(ILayoutNode node, bool ignoreSpecifiedWidth = false)
     {
         if (!node.IsVisible)
         {
@@ -16,14 +16,14 @@ public sealed partial class LayoutEngine
         }
 
         LayoutState state = GetState(node);
-        if (state.MaxContentWidth is double retained)
+        if (!ignoreSpecifiedWidth && state.MaxContentWidth is double retained)
         {
             return retained;
         }
 
         ComputedStyle style = node.ComputedStyle;
         double width;
-        if (style.Width is { IsPixels: true } fixedWidth)
+        if (!ignoreSpecifiedWidth && style.Width is { IsPixels: true } fixedWidth)
         {
             width = fixedWidth.Value;
         }
@@ -43,8 +43,11 @@ public sealed partial class LayoutEngine
         }
 
         // Only pixel limits apply. The containing width is unknown during measurement.
-        double maxContentWidth = ClampWidth(style, width, double.PositiveInfinity);
-        state.MaxContentWidth = maxContentWidth;
+        double maxContentWidth = ignoreSpecifiedWidth ? width : ClampWidth(style, width, double.PositiveInfinity);
+        if (!ignoreSpecifiedWidth)
+        {
+            state.MaxContentWidth = maxContentWidth;
+        }
         return maxContentWidth;
     }
 

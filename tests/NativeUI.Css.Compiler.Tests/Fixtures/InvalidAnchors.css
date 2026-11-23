@@ -1,0 +1,9 @@
+.bad-name { anchor-name: trigger; }
+.names { anchor-name: --one, --two; }
+.bad-side { top: anchor(middle); }
+.bad-comma { top: anchor(--trigger, bottom); }
+.fallback { top: anchor(bottom, 2px); }
+.same-axis { position-area: top bottom; }
+.bad-area { position-area: span-center; }
+.duplicate { position-try-fallbacks: flip-block flip-block; }
+.rule { position-try-fallbacks: --alternative; }
