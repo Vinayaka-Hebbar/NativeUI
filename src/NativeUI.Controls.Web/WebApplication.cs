@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using NativeUI.Core;
+using NativeUI.Layout;
 
 namespace NativeUI.Controls.Web;
 
@@ -18,6 +19,14 @@ public class WebApplication : Application
     {
         DomInterop.ObserveColorScheme(NotifySystemThemeChanged);
         Current = this;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Opening a browser popup window is not implemented yet.</remarks>
+    /// <exception cref="PlatformNotSupportedException">Always.</exception>
+    public override IWindow OpenWindow(IView content, string title, Size size)
+    {
+        throw new PlatformNotSupportedException("Opening windows is not implemented on Web yet.");
     }
 
     /// <inheritdoc />

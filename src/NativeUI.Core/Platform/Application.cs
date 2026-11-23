@@ -1,3 +1,5 @@
+using NativeUI.Layout;
+
 namespace NativeUI.Core;
 
 /// <summary>
@@ -176,6 +178,16 @@ public abstract class Application : BindableObject
     public event EventHandler<ThemeChangedEventArgs>? CurrentThemeChanged;
 
     /// <summary>
+    /// Opens a top-level window showing <paramref name="content"/>.
+    /// </summary>
+    /// <param name="content">The view to show, which must not be shown anywhere else.</param>
+    /// <param name="title">The text shown in the window's title bar.</param>
+    /// <param name="size">The size of the window's content area, in logical pixels.</param>
+    /// <returns>The opened window.</returns>
+    /// <exception cref="NotSupportedException">The platform cannot open windows.</exception>
+    public abstract IWindow OpenWindow(IView content, string title, Size size);
+
+    /// <summary>
     /// Gets the theme reported by the operating system or browser.
     /// </summary>
     protected abstract Theme SystemTheme { get; }
@@ -231,5 +243,10 @@ public abstract class Application : BindableObject
     private sealed class HeadlessApplication : Application
     {
         protected override Theme SystemTheme => Theme.Light;
+
+        public override IWindow OpenWindow(IView content, string title, Size size)
+        {
+            throw new NotSupportedException("An application without a platform host cannot open windows.");
+        }
     }
 }

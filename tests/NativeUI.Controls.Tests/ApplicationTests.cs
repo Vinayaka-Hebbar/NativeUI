@@ -1,4 +1,5 @@
 using NativeUI.Core;
+using NativeUI.Layout;
 using NativeUI.Tests;
 
 namespace NativeUI.Controls.Tests;
@@ -33,5 +34,10 @@ internal static class ApplicationTests
     private sealed class SingleViewApplication : Application
     {
         protected override Theme SystemTheme => Theme.Light;
+
+        public override IWindow OpenWindow(IView content, string title, Size size)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

@@ -1,4 +1,5 @@
 using NativeUI.Core;
+using NativeUI.Layout;
 
 namespace NativeUI.Controls.MacOS;
 
@@ -35,6 +36,33 @@ public class MacOSApplication : Application
     public IList<Window> Windows { get; } = [];
 
     /// <inheritdoc />
+    /// <remarks>
+    /// The window is titled, closable, resizable, and added to <see cref="Windows"/>. When it closes, it is removed from
+    /// <see cref="Windows"/> and disposed, which detaches <paramref name="content"/>.
+    /// </remarks>
+    /// <exception cref="ArgumentException"><paramref name="content"/> is not a <see cref="UIElement"/>.</exception>
+    public override IWindow OpenWindow(IView content, string title, Size size)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        if (content is not UIElement element)
+        {
+            throw new ArgumentException($"The content must be a {nameof(UIElement)}.", nameof(content));
+        }
+
+        Window window = new()
+        {
+            Title = title,
+            Width = size.Width,
+            Height = size.Height,
+            Content = element
+        };
+        window.Closed += OnOpenedWindowClosed;
+        Windows.Add(window);
+        window.Show();
+        return window;
+    }
+
+    /// <inheritdoc />
     protected sealed override Theme SystemTheme => MacOSPlatformSettings.Instance.GetSystemTheme();
 
     /// <summary>
@@ -60,6 +88,16 @@ public class MacOSApplication : Application
 
         AppKitInterop.SendMessageVoid(sharedApp, AppKitInterop.GetSelector("activateIgnoringOtherApps:"), true);
         _ = AppKitInterop.SendMessage(sharedApp, AppKitInterop.GetSelector("run"));
+    }
+
+    private void OnOpenedWindowClosed(object? sender, EventArgs e)
+    {
+        if (sender is Window window)
+        {
+            window.Closed -= OnOpenedWindowClosed;
+            Windows.Remove(window);
+            window.Dispose();
+        }
     }
 
     private void OnSystemThemeChanged(object? sender, Theme systemTheme)

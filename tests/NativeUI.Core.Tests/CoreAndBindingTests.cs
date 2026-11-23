@@ -459,6 +459,11 @@ sealed class FakeApplication : Application
 
     protected override Theme SystemTheme => _systemTheme;
 
+    public override IWindow OpenWindow(IView content, string title, Size size)
+    {
+        throw new NotSupportedException();
+    }
+
     public void ChangeSystemTheme(Theme systemTheme)
     {
         _systemTheme = systemTheme;

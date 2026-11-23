@@ -14,7 +14,7 @@ namespace NativeUI.Controls.MacOS;
 /// follows <see cref="Application.CurrentTheme"/>, propagates <see cref="StyleResolver"/>, routes mouse/keyboard text selection
 /// and clipboard operations, and renders its visual tree using <see cref="VisualTreeRenderer"/> and <see cref="SkiaSurface"/>.
 /// </summary>
-public sealed class Window : IDisposable, IRenderHost
+public sealed class Window : IDisposable, IRenderHost, IWindow
 {
     private const ulong StyleMaskTitled = 1UL << 0;
     private const ulong StyleMaskClosable = 1UL << 1;
@@ -63,6 +63,7 @@ public sealed class Window : IDisposable, IRenderHost
     private InputModifiers _pointerModifiers;
     private int _frameBatchDepth;
     private bool _isFrameDirty;
+    private bool _isClosed;
     private bool _disposed;
 
     /// <summary>
@@ -80,6 +81,11 @@ public sealed class Window : IDisposable, IRenderHost
     /// Gets the <see cref="IClipboard"/> associated with this window.
     /// </summary>
     public IClipboard Clipboard => _clipboard;
+
+    /// <summary>
+    /// Occurs once when the window closes, whether from <see cref="Close"/> or from its close button.
+    /// </summary>
+    public event EventHandler? Closed;
 
     /// <summary>
     /// Gets or sets the window title displayed in the native macOS title bar.
@@ -749,6 +755,41 @@ public sealed class Window : IDisposable, IRenderHost
     internal void HandleNativeClose()
     {
         _hostedDialog?.Close();
+        OnClosed();
+    }
+
+    /// <summary>
+    /// Closes the native window. A window that was never shown only raises <see cref="Closed"/>.
+    /// Closing a closed window does nothing.
+    /// </summary>
+    public void Close()
+    {
+        if (_isClosed)
+        {
+            return;
+        }
+
+        if (_nsWindow != nint.Zero && OperatingSystem.IsMacOS())
+        {
+            // AppKit posts the will-close notification during this call, which raises Closed.
+            _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("close"));
+        }
+
+        OnClosed();
+    }
+
+    /// <inheritdoc />
+    IView? IWindow.Content => _content as IView;
+
+    private void OnClosed()
+    {
+        if (_isClosed)
+        {
+            return;
+        }
+
+        _isClosed = true;
+        Closed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
