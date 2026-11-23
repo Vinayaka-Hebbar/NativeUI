@@ -13,8 +13,9 @@ namespace NativeUI.Controls;
 public sealed record RenderingEventArgs(TimeSpan TotalTime, TimeSpan DeltaTime);
 
 /// <summary>
-/// Shows a <see cref="Scene3D"/> through a <see cref="PerspectiveCamera"/>, drawn as flat-shaded polygons on the same
-/// surface as <see cref="CanvasView"/>. Size it like a canvas; without a height it does not draw.
+/// Shows a <see cref="Scene3D"/> through a <see cref="PerspectiveCamera"/> on the same surface as <see cref="CanvasView"/>.
+/// A drawing context that renders scenes on the GPU draws it with a depth buffer. Other contexts draw flat-shaded polygons.
+/// Size it like a canvas. Without a height it does not draw.
 /// </summary>
 public class Viewport3D : CanvasView, IFrameTarget
 {
@@ -104,9 +105,19 @@ public class Viewport3D : CanvasView, IFrameTarget
     protected override void OnDraw(DrawingContext context, Rect bounds)
     {
         base.OnDraw(context, bounds);
-        if (Scene is Scene3D scene)
+        if (Scene is not Scene3D scene)
         {
-            SceneRenderer.Render(context, bounds, scene, Camera ?? _defaultCamera);
+            return;
+        }
+
+        PerspectiveCamera camera = Camera ?? _defaultCamera;
+        if (context is ISceneDrawingContext sceneContext)
+        {
+            sceneContext.DrawScene(scene, camera, bounds);
+        }
+        else
+        {
+            SceneRenderer.Render(context, bounds, scene, camera);
         }
     }
 

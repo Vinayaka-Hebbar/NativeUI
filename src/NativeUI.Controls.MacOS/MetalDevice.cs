@@ -9,6 +9,7 @@ namespace NativeUI.Controls.MacOS;
 internal sealed class MetalDevice
 {
     private static MetalDevice? s_shared;
+    private MetalScenePipeline? _scenePipeline;
 
     private MetalDevice(nint device, nint commandQueue, GRContext context)
     {
@@ -37,6 +38,12 @@ internal sealed class MetalDevice
     /// Gets the Skia context drawing on <see cref="Device"/>.
     /// </summary>
     public GRContext Context { get; }
+
+    /// <summary>
+    /// Gets the pipeline that renders 3D scenes on this device, compiling its shaders on first use.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The shaders do not compile or a pipeline is invalid for the device.</exception>
+    public MetalScenePipeline ScenePipeline => _scenePipeline ??= new MetalScenePipeline(Device);
 
     private static MetalDevice Create()
     {

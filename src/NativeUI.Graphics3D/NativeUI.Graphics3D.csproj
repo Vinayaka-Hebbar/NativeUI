@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="NativeUI.Controls" />
+    <InternalsVisibleTo Include="NativeUI.Controls.MacOS" />
   </ItemGroup>
 
   <ItemGroup>

@@ -7,7 +7,7 @@ namespace NativeUI.Graphics.Skia;
 /// <summary>
 /// Implements <see cref="DrawingContext"/> backed by a SkiaSharp <see cref="SKCanvas"/> and <see cref="SkiaTextShaper"/>.
 /// </summary>
-public sealed partial class SkiaDrawingContext : DrawingContext
+public partial class SkiaDrawingContext : DrawingContext
 {
     private readonly SKCanvas _canvas;
     private readonly SkiaTextShaper _textShaper;

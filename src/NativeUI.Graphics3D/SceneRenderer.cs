@@ -14,13 +14,18 @@ internal static class SceneRenderer
     private const float NearPlane = 0.1f;
     private const float FarPlane = 1000f;
 
-    // The light every surface receives, so a face turned away from all lights stays visible.
-    private const float AmbientLight = 0.25f;
+    /// <summary>
+    /// The light every surface receives, which keeps a face turned away from all lights visible.
+    /// </summary>
+    internal const float AmbientLight = 0.25f;
 
     private const int SkyGradientStops = 48;
 
-    // Each face lists its corners of a unit cube, with its outward normal.
-    private static readonly (Vector3 Normal, Vector3[] Corners)[] s_boxFaces =
+    /// <summary>
+    /// The faces of a unit cube centered on the origin, each with its outward normal and its corners counter-clockwise as
+    /// seen from outside.
+    /// </summary>
+    internal static readonly (Vector3 Normal, Vector3[] Corners)[] BoxFaces =
     [
         (-Vector3.UnitZ, [new(-0.5f, -0.5f, -0.5f), new(0.5f, -0.5f, -0.5f), new(0.5f, 0.5f, -0.5f), new(-0.5f, 0.5f, -0.5f)]),
         (Vector3.UnitZ, [new(0.5f, -0.5f, 0.5f), new(-0.5f, -0.5f, 0.5f), new(-0.5f, 0.5f, 0.5f), new(0.5f, 0.5f, 0.5f)]),
@@ -40,13 +45,7 @@ internal static class SceneRenderer
             return;
         }
 
-        Matrix4x4 view = Matrix4x4.CreateLookAtLeftHanded(camera.Position, camera.LookAt, Vector3.UnitY);
-        Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfViewLeftHanded(
-            float.DegreesToRadians((float)camera.Fov),
-            (float)(bounds.Width / bounds.Height),
-            NearPlane,
-            FarPlane);
-        Matrix4x4 viewProjection = view * projection;
+        Matrix4x4 viewProjection = GetViewProjection(camera, bounds.Width / bounds.Height);
 
         List<DirectionalLight> lights = [];
         List<VisibleFace> faces = [];
@@ -75,6 +74,52 @@ internal static class SceneRenderer
         {
             context.FillPolygon(face.Points, new Paint(face.Color));
         }
+    }
+
+    /// <summary>
+    /// Returns the matrix that maps world positions to clip space for <paramref name="camera"/>, with depth in [0, 1].
+    /// </summary>
+    /// <param name="camera">The camera.</param>
+    /// <param name="aspectRatio">The viewport width divided by its height.</param>
+    internal static Matrix4x4 GetViewProjection(PerspectiveCamera camera, double aspectRatio)
+    {
+        Matrix4x4 view = Matrix4x4.CreateLookAtLeftHanded(camera.Position, camera.LookAt, Vector3.UnitY);
+        Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfViewLeftHanded(
+            float.DegreesToRadians((float)camera.Fov),
+            (float)aspectRatio,
+            NearPlane,
+            FarPlane);
+        return view * projection;
+    }
+
+    /// <summary>
+    /// Returns the rotation of <paramref name="mesh"/>, which also transforms its normals.
+    /// </summary>
+    internal static Matrix4x4 GetRotation(Mesh mesh)
+    {
+        return Matrix4x4.CreateFromYawPitchRoll(
+            float.DegreesToRadians(mesh.Rotation.Y),
+            float.DegreesToRadians(mesh.Rotation.X),
+            float.DegreesToRadians(mesh.Rotation.Z));
+    }
+
+    /// <summary>
+    /// Returns the transform from unit-cube coordinates to world coordinates of <paramref name="mesh"/> shaped as
+    /// <paramref name="box"/>.
+    /// </summary>
+    internal static Matrix4x4 GetBoxWorld(Mesh mesh, BoxGeometry box, Matrix4x4 rotation)
+    {
+        return Matrix4x4.CreateScale((float)box.Width, (float)box.Height, (float)box.Depth) *
+            rotation *
+            Matrix4x4.CreateTranslation(mesh.Position);
+    }
+
+    /// <summary>
+    /// Returns the surface color of <paramref name="mesh"/>, which is white without a <see cref="StandardMaterial"/>.
+    /// </summary>
+    internal static Color GetSurfaceColor(Mesh mesh)
+    {
+        return mesh.Material is StandardMaterial material ? material.Color : Colors.White;
     }
 
     /// <summary>
@@ -108,17 +153,11 @@ internal static class SceneRenderer
         List<DirectionalLight> lights,
         List<VisibleFace> faces)
     {
-        Matrix4x4 rotation = Matrix4x4.CreateFromYawPitchRoll(
-            float.DegreesToRadians(mesh.Rotation.Y),
-            float.DegreesToRadians(mesh.Rotation.X),
-            float.DegreesToRadians(mesh.Rotation.Z));
-        Matrix4x4 world =
-            Matrix4x4.CreateScale((float)box.Width, (float)box.Height, (float)box.Depth) *
-            rotation *
-            Matrix4x4.CreateTranslation(mesh.Position);
-        Color surface = mesh.Material is StandardMaterial material ? material.Color : Colors.White;
+        Matrix4x4 rotation = GetRotation(mesh);
+        Matrix4x4 world = GetBoxWorld(mesh, box, rotation);
+        Color surface = GetSurfaceColor(mesh);
 
-        foreach ((Vector3 localNormal, Vector3[] corners) in s_boxFaces)
+        foreach ((Vector3 localNormal, Vector3[] corners) in BoxFaces)
         {
             Vector3 normal = Vector3.TransformNormal(localNormal, rotation);
             Vector3 center = Vector3.Zero;

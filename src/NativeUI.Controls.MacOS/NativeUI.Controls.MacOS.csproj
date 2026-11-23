@@ -13,6 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Shaders\Scene.metal" LogicalName="NativeUI.Controls.MacOS.Shaders.Scene.metal" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\NativeUI.Core\NativeUI.Core.csproj" />
     <ProjectReference Include="..\NativeUI.Css\NativeUI.Css.csproj" />
     <ProjectReference Include="..\NativeUI.Controls\NativeUI.Controls.csproj" />

@@ -36,6 +36,7 @@ public sealed class Window : IDisposable, IRenderHost
     private readonly Dictionary<Dialog, DialogWindow> _dialogWindows = [];
     private SkiaSurface? _surface;
     private SkiaMetalLayer? _metalLayer;
+    private MetalSceneRenderer? _sceneRenderer;
     private readonly int _ownerThreadId = Environment.CurrentManagedThreadId;
     private nint _displayLink;
     private bool _isFrameScheduled;
@@ -298,6 +299,7 @@ public sealed class Window : IDisposable, IRenderHost
             new AppKitInterop.CGRect(0, 0, Width, Height));
         AppKitInterop.SendMessageVoid(_nsView, AppKitInterop.GetSelector("setWantsLayer:"), true);
         _metalLayer = new SkiaMetalLayer(device, _nsView);
+        _sceneRenderer = new MetalSceneRenderer(device);
 
         AppKitInterop.RegisterWindowView(_nsView, this);
         AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setContentView:"), _nsView);
@@ -955,18 +957,21 @@ public sealed class Window : IDisposable, IRenderHost
 
             // The canvas outlives the frame, and a CanvasView handler can leave saved states on it.
             _surface.Canvas.RestoreToCount(1);
-            return DrawFrame(_content, _surface.Canvas) ? _surface.Snapshot() : RenderFrame();
+            SkiaDrawingContext offscreenContext = new(_surface.Canvas, SkiaTextShaper.Shared);
+            return DrawFrame(_content, offscreenContext) ? _surface.Snapshot() : RenderFrame();
         }
 
-        if (_metalLayer.BeginFrame(pixelWidth, pixelHeight, ScaleFactor) is not SKCanvas canvas)
+        if (_sceneRenderer is null || _metalLayer.BeginFrame(pixelWidth, pixelHeight, ScaleFactor) is not SKCanvas canvas)
         {
             return null;
         }
 
         bool isPresented = false;
+        _sceneRenderer.BeginFrame();
         try
         {
-            if (DrawFrame(_content, canvas))
+            MetalDrawingContext frameContext = new(canvas, SkiaTextShaper.Shared, _sceneRenderer);
+            if (DrawFrame(_content, frameContext))
             {
                 _metalLayer.EndFrame();
                 isPresented = true;
@@ -978,6 +983,8 @@ public sealed class Window : IDisposable, IRenderHost
             {
                 _metalLayer.DiscardFrame();
             }
+
+            _sceneRenderer.EndFrame();
         }
 
         if (!isPresented)
@@ -1004,12 +1011,11 @@ public sealed class Window : IDisposable, IRenderHost
     }
 
     /// <summary>
-    /// Lays out and draws <paramref name="content"/> onto <paramref name="canvas"/> and updates <see cref="LastLayout"/>.
+    /// Lays out and draws <paramref name="content"/> with <paramref name="drawingContext"/> and updates <see cref="LastLayout"/>.
     /// </summary>
     /// <returns>False when a hosted dialog resized the window to its content, which leaves the drawn frame at the old size.</returns>
-    private bool DrawFrame(UIElement content, SKCanvas canvas)
+    private bool DrawFrame(UIElement content, SkiaDrawingContext drawingContext)
     {
-        SkiaDrawingContext drawingContext = new(canvas, SkiaTextShaper.Shared);
         Size layoutViewport = _hostedDialog is not null ? s_contentMeasureViewport : new Size(Width, Height);
         RenderPass pass = _renderer.ComputeLayout(content, layoutViewport, drawingContext.ImageDecoder);
         LastLayout = pass.Root;
@@ -1091,6 +1097,8 @@ public sealed class Window : IDisposable, IRenderHost
         _surface?.Dispose();
         _surface = null;
         _metalLayer = null;
+        _sceneRenderer?.Dispose();
+        _sceneRenderer = null;
         _nsView = nint.Zero;
         _nsWindow = nint.Zero;
     }

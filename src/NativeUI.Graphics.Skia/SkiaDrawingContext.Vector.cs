@@ -4,7 +4,7 @@ using SkiaSharp;
 
 namespace NativeUI.Graphics.Skia;
 
-public sealed partial class SkiaDrawingContext
+public partial class SkiaDrawingContext
 {
     /// <inheritdoc />
     public override IImageDecoder ImageDecoder => SkiaImageDecoder.Shared;
