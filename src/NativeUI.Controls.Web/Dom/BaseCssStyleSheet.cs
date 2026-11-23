@@ -595,23 +595,6 @@ internal sealed class BaseCssStyleSheet : CssStyleSheet
 
         rules.Add(Rule(
             CssSelector.Where(
-                CssSelector.Descendant(
-                    [CssSelector.Type("native-ui"), CssSelector.Type("nui-splitview")],
-                    CssSelector.Attribute(StyleSheetCss.PartAttribute, "layout")),
-                CssSelector.Descendant(
-                    [CssSelector.Type("native-ui"), CssSelector.Type("nui-splitview")],
-                    CssSelector.Attribute(StyleSheetCss.PartAttribute, "pane")),
-                CssSelector.Descendant(
-                    [CssSelector.Type("native-ui"), CssSelector.Type("nui-splitview")],
-                    CssSelector.Attribute(StyleSheetCss.PartAttribute, "content"))),
-            new()
-            {
-                ["height"] = "100%",
-                ["min-height"] = "inherit"
-            }));
-
-        rules.Add(Rule(
-            CssSelector.Where(
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Class("navigation-pane-root")),
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Class("navigation-pane-grid")),
                 CssSelector.Descendant(CssSelector.Type("native-ui"), CssSelector.Class("navigation-content-area")),
