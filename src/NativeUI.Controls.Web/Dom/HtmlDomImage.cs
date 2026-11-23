@@ -88,7 +88,7 @@ public sealed class HtmlDomImage : HtmlDomElement
                 }
                 else
                 {
-                    ReplaceElement(DomInterop.CreateElement("img"), "img");
+                    ReplaceElement(ImageInterop.CreateElement(), "img");
                 }
             }
 

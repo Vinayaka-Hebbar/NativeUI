@@ -21,6 +21,7 @@ public class HtmlDomView : HtmlDomElement, IScrollPeer
     private readonly Dictionary<Portal, HtmlDomElement> _portals = [];
     private string? _viewScopeId;
     private AdoptedStyleSheet? _styleSheet;
+    private JSObject? _scrollEvents;
 
     internal HtmlDomView(View view, JSObject? element, string tagName = "div") : base(view, element, tagName)
     {
@@ -80,10 +81,24 @@ public class HtmlDomView : HtmlDomElement, IScrollPeer
             new Size(metrics.GetPropertyAsDouble("clientWidth"), metrics.GetPropertyAsDouble("clientHeight")));
     }
 
+    /// <summary>Notifies shared scroll behavior after the browser changes this view's offset.</summary>
+    internal void OnBrowserScrolled()
+    {
+        if (!IsDisposed)
+        {
+            _view.NotifyPlatformScrolled();
+        }
+    }
+
     /// <inheritdoc />
     protected override void Initialize()
     {
         base.Initialize();
+        if (Element is JSObject element)
+        {
+            _scrollEvents = DomInterop.ObserveScroll(element, OnBrowserScrolled);
+        }
+
         if (_view is ScrollView)
         {
             SetAttribute(StyleSheetCss.ScrollViewAttribute, string.Empty);
@@ -108,6 +123,13 @@ public class HtmlDomView : HtmlDomElement, IScrollPeer
     /// <inheritdoc />
     protected override void OnDisposing()
     {
+        using JSObject? events = _scrollEvents;
+        _scrollEvents = null;
+        if (events is not null)
+        {
+            DomInterop.UnobserveScroll(events);
+        }
+
         _styleSheet?.Dispose();
         _styleSheet = null;
         UnsubscribeFromChildren();

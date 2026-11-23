@@ -109,6 +109,87 @@ public static class VisualTreeRendererTests
         });
     }
 
+    public static void VerifyDrawingUsesCompletedLayout()
+    {
+        TrackingTextMeasurer measurer = new(SkiaTextShaper.Shared);
+        using VisualTreeRenderer renderer = new(measurer);
+        MockDrawingContext context = new();
+        View root = new() { Style = new Style { Width = 200, Height = 100 } };
+        Text text = new() { Value = "Completed layout" };
+        root.Children.Add(text);
+        int sizeChanges = 0;
+        root.SizeChanged += (_, _) => sizeChanges++;
+        TrackingOverlay overlay = new();
+        renderer.Overlays.Add(overlay);
+
+        RenderPass pass = renderer.ComputeLayout(root, new Size(400, 300));
+        int measurements = measurer.LayoutCount;
+        Assert.Equal(1, sizeChanges);
+        Assert.Equal(0, context.SaveCount);
+        Assert.Equal(new Size(200, 100), root.ActualSize);
+
+        text.Value = "A pending change must not cause drawing to compute a new layout";
+        renderer.Draw(context, pass);
+        renderer.Draw(context, pass);
+
+        Assert.Equal(measurements, measurer.LayoutCount);
+        Assert.Equal(1, sizeChanges);
+        Assert.Equal(2, overlay.DrawCount);
+        Assert.True(ReferenceEquals(pass.Root, overlay.LastPass.Root));
+        Assert.True(ReferenceEquals(pass.Root.Children[0].TextLayout, context.LastTextLayout));
+        Assert.Equal("Completed layout", context.LastTextLayout?.Text);
+        Assert.Equal(context.SaveCount, context.RestoreCount);
+    }
+
+    public static void VerifyCompletedPortalGeometry()
+    {
+        using VisualTreeRenderer renderer = new(SkiaTextShaper.Shared);
+        MockDrawingContext context = new();
+        View root = new();
+        Portal portal = new();
+        portal.Children.Add(new Text { Value = "Portal content" });
+        root.Children.Add(portal);
+        portal.Show();
+        TrackingOverlay overlay = new();
+        renderer.Overlays.Add(overlay);
+
+        RenderPass pass = renderer.ComputeLayout(root, new Size(400, 300));
+        Assert.Equal(1, pass.PortalBoxes.Count);
+        Assert.True(ReferenceEquals(pass.PortalBoxes, renderer.PortalBoxes));
+        renderer.Draw(context, pass);
+
+        Assert.True(ReferenceEquals(pass.PortalBoxes, overlay.LastPass.PortalBoxes));
+        Assert.True(ReferenceEquals(pass.PortalBoxes[0], renderer.PortalBoxes[0]));
+        Assert.Equal(pass.PortalBoxes[0].BorderBox, portal.Bounds);
+    }
+
+    public static void VerifyLayoutWithoutDrawingReleasesText()
+    {
+        TrackingTextMeasurer measurer = new(SkiaTextShaper.Shared);
+        VisualTreeRenderer renderer = new(measurer);
+        Text root = new() { Value = "Measured without drawing" };
+        RenderPass pass = renderer.ComputeLayout(root, new Size(200, 100));
+        ITextLayout textLayout = pass.Root.TextLayout ?? throw new InvalidOperationException("Missing text layout.");
+
+        renderer.Dispose();
+
+        Assert.True(measurer.DisposedLayouts.Contains(textLayout));
+        AssertThrows<ObjectDisposedException>(() => renderer.ComputeLayout(root, new Size(200, 100)));
+        AssertThrows<ObjectDisposedException>(() => renderer.Draw(new MockDrawingContext(), pass));
+    }
+
+    private sealed class TrackingOverlay : IRenderOverlay
+    {
+        public int DrawCount { get; private set; }
+        public RenderPass LastPass { get; private set; }
+
+        public void Draw(DrawingContext context, RenderPass pass)
+        {
+            DrawCount++;
+            LastPass = pass;
+        }
+    }
+
     private static void AssertThrows<TException>(Action action)
         where TException : Exception
     {
@@ -219,6 +300,7 @@ public static class VisualTreeRendererTests
     private sealed class TrackingTextMeasurer(ITextMeasurer inner) : ITextMeasurer
     {
         public bool ThrowOnNextCreate { get; set; }
+        public int LayoutCount { get; private set; }
         public HashSet<ITextLayout> DisposedLayouts { get; } = new(ReferenceEqualityComparer.Instance);
 
         public Size MeasureText(string text, Size availableSize, ComputedStyle style)
@@ -228,6 +310,7 @@ public static class VisualTreeRendererTests
 
         public ITextLayout CreateTextLayout(string text, Size availableSize, ComputedStyle style)
         {
+            LayoutCount++;
             if (ThrowOnNextCreate)
             {
                 throw new InvalidOperationException("Simulated layout creation failure");
@@ -269,6 +352,7 @@ public static class VisualTreeRendererTests
     private sealed class MockDrawingContext : DrawingContext
     {
         public bool ThrowOnDraw { get; set; }
+        public ITextLayout? LastTextLayout { get; private set; }
         public int SaveCount { get; private set; }
         public int RestoreCount { get; private set; }
         public List<(Rect Bounds, double Opacity)> SavedLayers { get; } = [];
@@ -306,6 +390,9 @@ public static class VisualTreeRendererTests
         public override void StrokeRoundedRectangle(Rect rect, double radius, double strokeWidth, Paint paint) { }
         public override void FillPolygon(IReadOnlyList<Point> points, Paint paint) { }
         public override void FillLinearGradient(Rect rect, Point start, Point end, IReadOnlyList<GradientStop> stops) { }
-        public override void DrawTextLayout(ITextLayout layout, Point origin, Paint paint) { }
+        public override void DrawTextLayout(ITextLayout layout, Point origin, Paint paint)
+        {
+            LastTextLayout = layout;
+        }
     }
 }

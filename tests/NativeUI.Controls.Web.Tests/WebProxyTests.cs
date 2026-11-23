@@ -37,7 +37,10 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
     ("WebHost unmounts subscriptions and proxies before remounting", TestMountLifetime),
     ("Web hosts attach existing trees and detach them on unmount", TestVisualTreeAttachment),
     ("Web focus reports share the keyboard device and respect host teardown", TestKeyboardFocusLifetime),
-    ("Native form tags and delegated actions use shared MVVM form logic", TestForms),
+    ("Native form tags and element-owned actions use shared MVVM form logic", TestForms),
+    ("Sibling forms isolate actions and retain independent lifetimes", TestFormOwnership),
+    ("Element callbacks preserve control ownership and stop after disposal", TestElementEventOwnership),
+    ("Context menu peers retain identity when targets change", TestContextMenuTarget),
     ("WebHost rejects elements mounted by another host without disposing their proxies", TestHostOwnership),
     ("Disposing a control disposes its proxy and the proxies of its children", TestControlDisposal),
     ("Each browser pointer event routes once and updates hover in C#", TestPointerEventRouting),
@@ -49,9 +52,10 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
     ("View-scoped stylesheets manage view scope attributes on DOM mount and update", TestViewScopedStyleSheetLifecycle),
     ("View stylesheet changes between compiled, scoped, and empty sheets keep scope state consistent", TestViewStyleSheetTransitions),
     ("The base stylesheet writes zero-specificity block, button, and color-scheme rules", TestBaseStyleSheetCss),
-    ("Button mounts as HTML button element and synchronizes disabled and text attributes", TestButtonDomProxy),
+    ("Button mounts as native button element and synchronizes disabled and text attributes", TestButtonDomProxy),
     ("CanvasView mounts as HTML canvas element, synchronizes dimensions, and records 2D drawing", TestCanvasDomProxy),
     ("Select mounts as nui-select custom element and manages selection attributes", TestSelectDomProxy),
+    ("Image uses native roots and Portal uses a custom root while Dialog retains native semantics", TestCustomElementRoots),
     ("UIElement SizeChanged event tracks rendered dimensions and notifies peer", TestSizeChangedSubscription)
 ]);
 
@@ -178,7 +182,7 @@ static void TestRadios()
     Assert.Equal("nui-radiogroupitem", proxy.TagName);
     Assert.True(first.IsTabStop);
     Assert.False(second.IsTabStop);
-    host.DispatchLabelEvent(GetElement(label).NodeId);
+    ((HtmlDomLabel)GetElement(label)).OnBrowserActivated();
     Assert.Equal(true, second.IsChecked);
     Assert.Equal(false, first.IsChecked);
     Assert.Equal("second", root.SelectedValue);
@@ -217,27 +221,175 @@ static void TestForms()
     Assert.Equal("button", GetElement(save).TagName);
     int submits = 0;
     form.Submit += (_, args) => { submits++; Assert.Same(save, args.Submitter ?? throw new InvalidOperationException("Missing submitter.")); };
-    int formId = GetElement(form).NodeId;
-    int saveId = GetElement(save).NodeId;
-    host.DispatchFormEvent(formId, 0, saveId);
+    HtmlDomForm formElement = (HtmlDomForm)GetElement(form);
+    formElement.OnBrowserAction(0, save);
     Assert.Equal(1, submits);
     input.Value = string.Empty;
-    host.DispatchFormEvent(formId, 0, saveId);
+    formElement.OnBrowserAction(0, save);
     Assert.Equal(1, submits);
     Assert.False(Validation.GetHasError(input));
     Assert.True(input.Validity.ValueMissing);
     Assert.True(input.States.HasFlag(ElementStates.Invalid));
     Assert.Equal("label", GetElement(label).TagName);
-    host.DispatchFormEvent(formId, 1, GetElement(reset).NodeId);
+    formElement.OnBrowserAction(1, reset);
     Assert.Equal("Initial", input.Value);
     Assert.False(Validation.GetHasError(input));
-    host.DispatchFormEvent(formId, 2, saveId);
+    formElement.OnBrowserAction(2, save);
     Assert.Equal(2, submits);
     group.IsEnabled = false;
     Assert.False(input.IsEffectivelyEnabled);
     host.Unmount();
-    host.DispatchFormEvent(formId, 0, saveId);
+    formElement.OnBrowserAction(0, save);
     Assert.Equal(2, submits);
+}
+
+static void TestFormOwnership()
+{
+    using View root = new();
+    Form first = new();
+    Form second = new();
+    Button firstButton = new() { Type = ButtonType.Submit };
+    Button secondButton = new() { Type = ButtonType.Submit };
+    first.Children.Add(firstButton);
+    second.Children.Add(secondButton);
+    root.Children.Add(first);
+    root.Children.Add(second);
+    using HtmlDomRoot host = new();
+    host.MountHeadless(root);
+    HtmlDomForm firstElement = (HtmlDomForm)GetElement(first);
+    HtmlDomForm secondElement = (HtmlDomForm)GetElement(second);
+    int firstSubmits = 0;
+    int secondSubmits = 0;
+    first.Submit += (_, _) => firstSubmits++;
+    second.Submit += (_, _) => secondSubmits++;
+
+    firstElement.OnBrowserAction(0, firstButton);
+    secondElement.OnBrowserAction(0, secondButton);
+    firstElement.OnBrowserAction(0, secondButton);
+    secondElement.OnBrowserAction(2, firstButton);
+    Assert.Equal(1, firstSubmits);
+    Assert.Equal(1, secondSubmits);
+
+    root.Children.Remove(first);
+    firstElement.OnBrowserAction(0, firstButton);
+    secondElement.OnBrowserAction(0, secondButton);
+    Assert.Equal(1, firstSubmits);
+    Assert.Equal(2, secondSubmits);
+    Assert.Same(secondElement, GetElement(second));
+    first.Dispose();
+}
+
+static void TestElementEventOwnership()
+{
+    using View root = new();
+    Input first = new() { Value = "first" };
+    Input second = new() { Value = "second" };
+    View scroll = new();
+    Dialog dialog = new();
+    Dialog otherDialog = new();
+    root.Children.Add(first);
+    root.Children.Add(second);
+    root.Children.Add(scroll);
+    root.Children.Add(dialog);
+    root.Children.Add(otherDialog);
+    using HtmlDomRoot host = new();
+    host.MountHeadless(root);
+    HtmlDomInput inputElement = (HtmlDomInput)GetElement(first);
+    HtmlDomInput secondElement = (HtmlDomInput)GetElement(second);
+    HtmlDomView scrollElement = (HtmlDomView)GetElement(scroll);
+    HtmlDomDialog dialogElement = (HtmlDomDialog)GetElement(dialog);
+    int scrolls = 0;
+    scroll.ScrollChanged += (_, _) => scrolls++;
+
+    inputElement.OnBrowserInput("updated");
+    Assert.Equal("updated", first.Value);
+    Assert.Equal("second", second.Value);
+    first.IsReadOnly = true;
+    inputElement.OnBrowserInput("ignored");
+    Assert.Equal("updated", first.Value);
+    first.IsReadOnly = false;
+    first.IsEnabled = false;
+    inputElement.OnBrowserInput("disabled");
+    Assert.Equal("updated", first.Value);
+    first.IsEnabled = true;
+    scrollElement.OnBrowserScrolled();
+    Assert.Equal(1, scrolls);
+    dialog.Show();
+    otherDialog.Show();
+    dialogElement.OnBrowserClosed();
+    Assert.False(dialog.IsOpen);
+    Assert.True(otherDialog.IsOpen);
+
+    root.Children.Remove(first);
+    inputElement.OnBrowserInput("detached");
+    Assert.Equal("updated", first.Value);
+    secondElement.OnBrowserInput("retained");
+    Assert.Equal("retained", second.Value);
+    Assert.Same(secondElement, GetElement(second));
+    first.Dispose();
+    host.Unmount();
+    secondElement.OnBrowserInput("unmounted");
+    scrollElement.OnBrowserScrolled();
+    Assert.Equal("retained", second.Value);
+    Assert.Equal(1, scrolls);
+    dialog.Show();
+    dialogElement.OnBrowserClosed();
+    Assert.True(dialog.IsOpen);
+    dialog.Close();
+    otherDialog.Close();
+}
+
+static void TestContextMenuTarget()
+{
+    using View root = new();
+    Button first = new();
+    Button second = new();
+    ContextMenu menu = new() { Target = first };
+    Popover popover = new();
+    root.Children.Add(menu);
+    root.Children.Add(second);
+    root.Children.Add(popover);
+    using HtmlDomRoot host = new();
+    host.MountHeadless(root);
+    HtmlDomElement peer = GetElement(menu);
+    Assert.True(peer is HtmlDomContextMenu);
+    Assert.True(GetElement(popover) is HtmlDomPopover);
+    HtmlDomElement firstElement = GetElement(first);
+    HtmlDomElement secondElement = GetElement(second);
+    host.DispatchPointerEvent(new PointerEventData
+    {
+        Kind = PointerEventKind.Press,
+        NodeId = firstElement.NodeId,
+        PointerId = 1,
+        Buttons = PointerButtons.Secondary
+    });
+    Assert.True(menu.IsOpen);
+    menu.IsOpen = false;
+    menu.Target = second;
+    Assert.Same(peer, GetElement(menu));
+    Assert.Same(secondElement, GetElement(second));
+    Assert.Null(first.NativeHandle);
+    host.DispatchPointerEvent(new PointerEventData
+    {
+        Kind = PointerEventKind.Press,
+        NodeId = secondElement.NodeId,
+        PointerId = 2,
+        Buttons = PointerButtons.Secondary
+    });
+    Assert.True(menu.IsOpen);
+    menu.IsOpen = false;
+    menu.Target = null;
+    host.DispatchPointerEvent(new PointerEventData
+    {
+        Kind = PointerEventKind.Press,
+        NodeId = secondElement.NodeId,
+        PointerId = 3,
+        Buttons = PointerButtons.Secondary
+    });
+    Assert.False(menu.IsOpen);
+    host.Unmount();
+    Assert.Null(menu.NativeHandle);
+    first.Dispose();
 }
 
 static void TestKeyboardFocusLifetime()
@@ -913,6 +1065,33 @@ static void TestSizeChangedSubscription()
     view.SizeChanged -= handler;
     Assert.False(UIElement.BoundsProperty.HasSubscribers(view));
     Assert.False(view.HasHandler(UIElement.SizeChangedEvent));
+}
+
+static void TestCustomElementRoots()
+{
+    using View root = new();
+    Image image = new() { AltText = "Picture" };
+    Portal portal = new();
+    Dialog dialog = new();
+    root.Children.Add(image);
+    root.Children.Add(portal);
+    root.Children.Add(dialog);
+    using HtmlDomRoot host = new();
+    host.MountHeadless(root);
+
+    HtmlDomElement imageElement = GetElement(image);
+    Assert.Equal("img", imageElement.TagName);
+    Assert.Equal("nui-portal", GetElement(portal).TagName);
+    Assert.Equal("dialog", GetElement(dialog).TagName);
+    Assert.Equal(":is(img, svg)", HtmlTagMapping.GetTagSelector(typeof(Image)));
+    Assert.Equal(":is(img, svg)", HtmlTagMapping.GetTagSelector("image"));
+    Assert.Equal("nui-portal", HtmlTagMapping.GetTagSelector(typeof(Portal)));
+    Assert.Equal("nui-portal", HtmlTagMapping.GetTagSelector("portal"));
+    Assert.Equal("dialog", HtmlTagMapping.GetTagSelector(typeof(Dialog)));
+
+    image.AltText = "Updated picture";
+    image.IsDecorative = true;
+    Assert.Same(imageElement, GetElement(image));
 }
 
 static HtmlDomElement GetElement(UIElement element)

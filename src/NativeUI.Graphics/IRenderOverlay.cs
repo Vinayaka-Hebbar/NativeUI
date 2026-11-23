@@ -10,7 +10,13 @@ namespace NativeUI.Graphics;
 /// <param name="Viewport">The logical size of the drawing area.</param>
 /// <param name="LayoutDuration">The time this pass spent computing layout.</param>
 /// <param name="TextMeasurer">Creates text layouts for the overlay, which the overlay owns and disposes.</param>
-public readonly record struct RenderPass(LayoutBox Root, Size Viewport, TimeSpan LayoutDuration, ITextMeasurer TextMeasurer);
+public readonly record struct RenderPass(LayoutBox Root, Size Viewport, TimeSpan LayoutDuration, ITextMeasurer TextMeasurer)
+{
+    /// <summary>
+    /// Gets the completed portal layouts in drawing order, excluding portals hosted in their own windows.
+    /// </summary>
+    public IReadOnlyList<LayoutBox> PortalBoxes { get; init; } = [];
+}
 
 /// <summary>
 /// Identifies the pointer input delivered to an <see cref="IRenderOverlay"/>.

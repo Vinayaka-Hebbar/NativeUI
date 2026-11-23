@@ -12,6 +12,7 @@ namespace NativeUI.Controls.Web;
 public sealed class HtmlDomCanvas : HtmlDomElement
 {
     private readonly CanvasView _canvasView;
+    private JSObject? _resizeObserver;
     private int? _renderRequestId;
 
     internal HtmlDomCanvas(CanvasView canvasView, JSObject? element)
@@ -28,7 +29,7 @@ public sealed class HtmlDomCanvas : HtmlDomElement
         if (Element is JSObject element)
         {
             // The observer reports the first size once the element is connected and visible.
-            CanvasInterop.ObserveResize(element, ScheduleRender);
+            _resizeObserver = CanvasInterop.ObserveResize(element, ScheduleRender);
         }
     }
 
@@ -42,9 +43,13 @@ public sealed class HtmlDomCanvas : HtmlDomElement
             _renderRequestId = null;
         }
 
-        if (Element is JSObject element)
+        if (_resizeObserver is JSObject observer)
         {
-            CanvasInterop.UnobserveResize(element);
+            _resizeObserver = null;
+            using (observer)
+            {
+                CanvasInterop.UnobserveResize(observer);
+            }
         }
 
         base.OnDisposing();
@@ -95,7 +100,7 @@ public sealed class HtmlDomCanvas : HtmlDomElement
             return;
         }
 
-        WebCanvas2DDrawingContext context = new(element, width, height);
+        using WebCanvas2DDrawingContext context = new(element, width, height);
         try
         {
             context.Begin();

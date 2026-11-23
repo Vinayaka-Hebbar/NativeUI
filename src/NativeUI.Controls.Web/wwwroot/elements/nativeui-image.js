@@ -8,7 +8,15 @@
  */
 
 /** Minimal image and SVG operations. C# owns control state, SVG updates, and lifetimes. */
-export const image = {
+export class ImageElement extends HTMLImageElement {
+  /**
+   * Creates a native img element.
+   * @returns {HTMLImageElement} The native element.
+   */
+  static createElement() {
+    return document.createElement("img");
+  }
+
   /**
    * Decodes bounded, previously validated image bytes using the browser's image decoder.
    *
@@ -16,7 +24,7 @@ export const image = {
    * @param {"image/png" | "image/jpeg" | "image/svg+xml"} contentType The content type validated by C#.
    * @returns {Promise<DecodedImage>} An owned decoded image whose URL must be released.
    */
-  async decodeImage(base64, contentType) {
+  static async decodeImage(base64, contentType) {
     const bytes = Uint8Array.from(atob(base64), (character) =>
       character.charCodeAt(0),
     );
@@ -53,7 +61,7 @@ export const image = {
       decoded.onload = null;
       decoded.onerror = null;
     }
-  },
+  }
 
   /**
    * Creates a presentation node borrowing an owner's already loaded source URL.
@@ -61,9 +69,11 @@ export const image = {
    * @param {HTMLImageElement} decoded The decoded owner.
    * @returns {HTMLImageElement} A separate DOM node without URL ownership.
    */
-  cloneImage(decoded) {
-    return /** @type {HTMLImageElement} */ (decoded.cloneNode(false));
-  },
+  static cloneImage(decoded) {
+    const element = document.createElement("img");
+    element.src = decoded.src;
+    return element;
+  }
 
   /**
    * Releases an encoded image URL and clears its offscreen owner.
@@ -71,13 +81,13 @@ export const image = {
    * @param {DecodedImage} decoded The image returned by decodeImage.
    * @returns {void}
    */
-  releaseImage(decoded) {
+  static releaseImage(decoded) {
     if (decoded.nativeuiObjectUrl) {
       URL.revokeObjectURL(decoded.nativeuiObjectUrl);
       delete decoded.nativeuiObjectUrl;
     }
     decoded.removeAttribute("src");
-  },
+  }
 
   /**
    * Creates a native SVG node in the SVG namespace.
@@ -85,11 +95,11 @@ export const image = {
    * @param {string} tagName The SVG element name.
    * @returns {SVGElement} The detached SVG element.
    */
-  createSvgElement(tagName) {
+  static createSvgElement(tagName) {
     return /** @type {SVGElement} */ (
       document.createElementNS("http://www.w3.org/2000/svg", tagName)
     );
-  },
+  }
 
   /**
    * Reads SVG classes as text without accessing SVGAnimatedString through className.
@@ -97,9 +107,9 @@ export const image = {
    * @param {SVGElement} element The SVG element.
    * @returns {string} Its class attribute, or an empty string when absent.
    */
-  getSvgClassName(element) {
+  static getSvgClassName(element) {
     return element.getAttribute("class") ?? "";
-  },
+  }
 
   /**
    * Updates only an SVG element's class attribute.
@@ -108,9 +118,9 @@ export const image = {
    * @param {string | null} className The space-separated classes, or null to clear them.
    * @returns {void}
    */
-  setSvgClassName(element, className) {
+  static setSvgClassName(element, className) {
     element.setAttribute("class", className ?? "");
-  },
+  }
 
   /**
    * Creates an ordered text run inside SVG text content.
@@ -118,9 +128,9 @@ export const image = {
    * @param {string} text The text run.
    * @returns {Text} A detached text node.
    */
-  createTextNode(text) {
+  static createTextNode(text) {
     return document.createTextNode(text);
-  },
+  }
 
   /**
    * Gets an existing child for C# to update in place.
@@ -129,13 +139,13 @@ export const image = {
    * @param {number} index The zero-based child-node index, including text nodes.
    * @returns {ChildNode} The existing child.
    */
-  getChildNode(parent, index) {
+  static getChildNode(parent, index) {
     const child = parent.childNodes.item(index);
     if (!child) {
       throw new RangeError("SVG child index is out of range.");
     }
     return child;
-  },
+  }
 
   /**
    * Exchanges an Image presentation node while retaining its position and common attributes.
@@ -145,7 +155,7 @@ export const image = {
    * @param {HTMLElement | SVGElement} replacement Its replacement.
    * @returns {void}
    */
-  replaceElement(previous, replacement) {
+  static replaceElement(previous, replacement) {
     for (const attribute of previous.attributes) {
       if (
         ["id", "class", "style"].includes(attribute.name) ||
@@ -155,14 +165,14 @@ export const image = {
       }
     }
     previous.replaceWith(replacement);
-  },
+  }
 
   /**
    * Gets the document base URL used to resolve relative application image paths.
    *
    * @returns {string} The absolute document base URL.
    */
-  baseUri() {
+  static baseUri() {
     return document.baseURI;
-  },
-};
+  }
+}

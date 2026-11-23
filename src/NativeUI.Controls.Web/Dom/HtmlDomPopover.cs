@@ -12,7 +12,7 @@ namespace NativeUI.Controls.Web;
 /// <c>aria-controls</c> with the id of the content element.
 /// </summary>
 [SupportedOSPlatform("browser")]
-public sealed class HtmlDomPopover : HtmlDomView
+public class HtmlDomPopover : HtmlDomView
 {
     private readonly Popover _popover;
     private UIElement? _target;
@@ -51,7 +51,6 @@ public sealed class HtmlDomPopover : HtmlDomView
     protected override void OnDisposing()
     {
         _popover.ContentPart.TransitionStatusChanged -= OnTransitionStatusChanged;
-        SetContextMenuTarget(_target, null);
         SetTargetAttributes(_target, isOpen: null, contentId: null);
         _target = null;
         base.OnDisposing();
@@ -59,23 +58,8 @@ public sealed class HtmlDomPopover : HtmlDomView
 
     private void UpdateTarget()
     {
-        SetContextMenuTarget(_target, null);
         SetTargetAttributes(_target, isOpen: null, contentId: null);
         _target = _popover.Target;
-        SetContextMenuTarget(_target, _popover is ContextMenu ? string.Empty : null);
-    }
-
-    private void SetContextMenuTarget(UIElement? target, string? value)
-    {
-        if (_popover is not ContextMenu)
-        {
-            return;
-        }
-
-        if (target?.NativeHandle is HtmlDomElement { IsDisposed: false } element)
-        {
-            element.SetAttribute("data-nui-context-menu", value);
-        }
     }
 
     private void OnTransitionStatusChanged(object? sender, EventArgs args)

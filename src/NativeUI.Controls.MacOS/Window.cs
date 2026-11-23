@@ -948,7 +948,9 @@ public sealed class Window : IDisposable, IRenderHost
         _surface.Canvas.RestoreToCount(1);
         SkiaDrawingContext drawingContext = new(_surface.Canvas, SkiaTextShaper.Shared);
         Size layoutViewport = _hostedDialog is not null ? s_contentMeasureViewport : new Size(Width, Height);
-        LastLayout = _renderer.Render(drawingContext, _content, layoutViewport, ScaleFactor, _background);
+        RenderPass pass = _renderer.ComputeLayout(_content, layoutViewport, drawingContext.ImageDecoder);
+        LastLayout = pass.Root;
+        _renderer.Draw(drawingContext, pass, ScaleFactor, _background);
 
         if (_hostedDialog is not null && TryResizeToContent(LastLayout))
         {

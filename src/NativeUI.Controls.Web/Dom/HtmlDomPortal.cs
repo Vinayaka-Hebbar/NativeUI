@@ -41,14 +41,6 @@ public class HtmlDomPortal : HtmlDomView, IPortalPeer
     internal Portal Portal => _portal;
 
     /// <summary>
-    /// Applies a close that the browser performed, such as on Escape.
-    /// </summary>
-    internal void OnBrowserClosed()
-    {
-        _portal.Close();
-    }
-
-    /// <summary>
     /// Gets the id of the element: <see cref="UIElement.Id"/>, or a generated id when it is <see langword="null"/>, so
     /// <c>aria-controls</c> on the anchor can refer to the element.
     /// </summary>

@@ -16,6 +16,7 @@ public sealed class HtmlDomDialog : HtmlDomPortal
     private readonly Dialog _dialog;
     private readonly string _titleId;
     private readonly string _descriptionId;
+    private JSObject? _events;
 
     internal HtmlDomDialog(Dialog dialog, JSObject? element, string tagName)
         : base(dialog, element, tagName)
@@ -26,11 +27,38 @@ public sealed class HtmlDomDialog : HtmlDomPortal
         _descriptionId = $"nui-dialog-description-{id}";
     }
 
+    /// <summary>Applies a native dialog close, such as Escape, to the shared dialog.</summary>
+    internal void OnBrowserClosed()
+    {
+        if (!IsDisposed)
+        {
+            _dialog.Close();
+        }
+    }
+
     /// <inheritdoc />
     protected override void Initialize()
     {
         base.Initialize();
+        if (Element is JSObject element)
+        {
+            _events = DomInterop.ObserveDialog(element, OnBrowserClosed);
+        }
+
         UpdateAriaReferences();
+    }
+
+    /// <inheritdoc />
+    protected override void OnDisposing()
+    {
+        using JSObject? events = _events;
+        _events = null;
+        if (events is not null)
+        {
+            DomInterop.UnobserveDialog(events);
+        }
+
+        base.OnDisposing();
     }
 
     /// <inheritdoc />

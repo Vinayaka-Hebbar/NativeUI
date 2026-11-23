@@ -25,7 +25,7 @@
   <div id="second" class="popup" popover="manual">Shared trigger</div>
 </div>
 <script type="module">
-  import { dom } from '../../../src/NativeUI.Controls.Web/wwwroot/nativeui-dom.js';
+  import { PortalElement } from '../../../src/NativeUI.Controls.Web/wwwroot/elements/nativeui-portal.js';
   const output = document.querySelector('#results');
   const root = document.querySelector('#root');
   const trigger = document.querySelector('#trigger');
@@ -44,7 +44,7 @@
     output.textContent = messages.join('\n');
   };
   await check('native invoker establishes CSS positioning without changing author names', async () => {
-    if (!dom.showPortal(root, popup, trigger)) throw new Error('Portal did not mount');
+    if (!PortalElement.showPortal(root, popup, trigger)) throw new Error('Portal did not mount');
     await frame();
     near(popup.getBoundingClientRect().y, trigger.getBoundingClientRect().bottom + 4);
     near(popup.getBoundingClientRect().x, trigger.getBoundingClientRect().x);
@@ -61,14 +61,14 @@
     near(popup.getBoundingClientRect().y, trigger.getBoundingClientRect().bottom + 4);
   });
   await check('multiple portals can share one trigger', async () => {
-    dom.showPortal(root, second, trigger);
+    PortalElement.showPortal(root, second, trigger);
     await frame();
     near(second.getBoundingClientRect().y, popup.getBoundingClientRect().y);
     if (!popup.matches(':popover-open')) throw new Error('Opening the second portal closed the first');
     second.hidePopover();
   });
   await check('retargeting updates the native invoker', async () => {
-    dom.setPortalSource(popup, other);
+    PortalElement.setPortalSource(popup, other);
     await frame();
     near(popup.getBoundingClientRect().y, other.getBoundingClientRect().bottom + 4);
     near(popup.getBoundingClientRect().x, other.getBoundingClientRect().x);
@@ -83,11 +83,11 @@
   });
   await check('observer disposal cancels pending notifications', async () => {
     let notifications = 0;
-    const observer = dom.observePortal(popup, other, () => notifications++);
+    const observer = PortalElement.observePortal(popup, other, () => notifications++);
     await frame();
     if (!notifications) throw new Error('Observer did not notify');
     window.dispatchEvent(new Event('resize'));
-    dom.disconnectPortalObserver(observer);
+    PortalElement.disconnectPortalObserver(observer);
     const count = notifications;
     await frame();
     if (notifications !== count) throw new Error('A disposed observer notified');

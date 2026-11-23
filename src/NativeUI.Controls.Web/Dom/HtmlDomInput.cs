@@ -11,6 +11,7 @@ namespace NativeUI.Controls.Web;
 public sealed class HtmlDomInput : HtmlDomElement
 {
     private readonly Input _input;
+    private JSObject? _events;
 
     internal HtmlDomInput(Input input, JSObject? element)
         : base(input, element, "input")
@@ -23,7 +24,7 @@ public sealed class HtmlDomInput : HtmlDomElement
     /// </summary>
     internal void OnBrowserInput(string value)
     {
-        if (_input.IsEffectivelyEnabled && !_input.IsReadOnly)
+        if (!IsDisposed && _input.IsEffectivelyEnabled && !_input.IsReadOnly)
         {
             ValidityState.MarkUserInteraction(_input);
             _input.Value = value;
@@ -34,12 +35,30 @@ public sealed class HtmlDomInput : HtmlDomElement
     protected override void Initialize()
     {
         base.Initialize();
+        if (Element is JSObject element)
+        {
+            _events = DomInterop.ObserveInput(element, OnBrowserInput);
+        }
+
         SetAttribute("type", "text");
         UpdateValue();
         UpdatePlaceholder();
         UpdateReadOnly();
         UpdateConstraints();
         UpdateEnabledState();
+    }
+
+    /// <inheritdoc />
+    protected override void OnDisposing()
+    {
+        using JSObject? events = _events;
+        _events = null;
+        if (events is not null)
+        {
+            DomInterop.UnobserveInput(events);
+        }
+
+        base.OnDisposing();
     }
 
     /// <inheritdoc />

@@ -12,16 +12,21 @@ namespace NativeUI.Controls.Web;
 [SupportedOSPlatform("browser")]
 public sealed class WebCanvas2DDrawingContext : DrawingContext
 {
-    private readonly JSObject? _canvas;
+    private JSObject? _context;
     private readonly double _width;
     private readonly double _height;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="WebCanvas2DDrawingContext"/> class.
+    /// Initializes a drawing pass, acquiring the native 2D context once.
     /// </summary>
+    /// <param name="canvas">The borrowed native canvas, or null without a browser surface.</param>
+    /// <param name="width">The logical drawing width.</param>
+    /// <param name="height">The logical drawing height.</param>
     public WebCanvas2DDrawingContext(JSObject? canvas, double width, double height)
     {
-        _canvas = canvas;
+        _context = canvas is not null && OperatingSystem.IsBrowser()
+            ? CanvasInterop.CreateContext2D(canvas)
+            : null;
         _width = width;
         _height = height;
     }
@@ -41,9 +46,9 @@ public sealed class WebCanvas2DDrawingContext : DrawingContext
     /// </summary>
     public void Begin()
     {
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
-            CanvasInterop.Begin(_canvas, _width, _height);
+            CanvasInterop.Begin(_context, _width, _height);
         }
     }
 
@@ -52,81 +57,91 @@ public sealed class WebCanvas2DDrawingContext : DrawingContext
     /// </summary>
     public void End()
     {
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
-            CanvasInterop.End(_canvas);
+            CanvasInterop.End(_context);
         }
+    }
+
+    /// <summary>
+    /// Releases the retained browser context handle and drawing resources.
+    /// </summary>
+    public override void Dispose()
+    {
+        _context?.Dispose();
+        _context = null;
+        base.Dispose();
     }
 
     /// <inheritdoc />
     public override void Save()
     {
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
-            CanvasInterop.Save(_canvas);
+            CanvasInterop.Save(_context);
         }
     }
 
     /// <inheritdoc />
     public override void SaveLayer(Rect bounds, double opacity)
     {
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
-            CanvasInterop.Save(_canvas);
+            CanvasInterop.Save(_context);
         }
     }
 
     /// <inheritdoc />
     public override void Restore()
     {
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
-            CanvasInterop.Restore(_canvas);
+            CanvasInterop.Restore(_context);
         }
     }
 
     /// <inheritdoc />
     public override void Translate(double dx, double dy)
     {
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
-            CanvasInterop.Translate(_canvas, dx, dy);
+            CanvasInterop.Translate(_context, dx, dy);
         }
     }
 
     /// <inheritdoc />
     public override void Scale(float scaleX, float scaleY)
     {
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
-            CanvasInterop.Scale(_canvas, scaleX, scaleY);
+            CanvasInterop.Scale(_context, scaleX, scaleY);
         }
     }
 
     /// <inheritdoc />
     public override void Clear(Color color)
     {
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
-            CanvasInterop.Clear(_canvas, color.ToCssString());
+            CanvasInterop.Clear(_context, color.ToCssString());
         }
     }
 
     /// <inheritdoc />
     public override void ClipRect(Rect rect)
     {
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
-            CanvasInterop.ClipRect(_canvas, rect.X, rect.Y, rect.Width, rect.Height);
+            CanvasInterop.ClipRect(_context, rect.X, rect.Y, rect.Width, rect.Height);
         }
     }
 
     /// <inheritdoc />
     public override void ClipRoundedRectangle(Rect rect, double radius)
     {
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
-            CanvasInterop.ClipRoundRect(_canvas, rect.X, rect.Y, rect.Width, rect.Height, radius);
+            CanvasInterop.ClipRoundRect(_context, rect.X, rect.Y, rect.Width, rect.Height, radius);
         }
     }
 
@@ -134,11 +149,11 @@ public sealed class WebCanvas2DDrawingContext : DrawingContext
     public override void ClipRegion(IReadOnlyList<Rect> region, ClipMode mode)
     {
         ArgumentNullException.ThrowIfNull(region);
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
             foreach (Rect rect in region)
             {
-                CanvasInterop.ClipRect(_canvas, rect.X, rect.Y, rect.Width, rect.Height);
+                CanvasInterop.ClipRect(_context, rect.X, rect.Y, rect.Width, rect.Height);
             }
         }
     }
@@ -146,18 +161,18 @@ public sealed class WebCanvas2DDrawingContext : DrawingContext
     /// <inheritdoc />
     public override void DrawRectangle(Rect rect, Paint paint)
     {
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
-            CanvasInterop.DrawRect(_canvas, rect.X, rect.Y, rect.Width, rect.Height, paint.Color.ToCssString(), paint.Opacity);
+            CanvasInterop.DrawRect(_context, rect.X, rect.Y, rect.Width, rect.Height, paint.Color.ToCssString(), paint.Opacity);
         }
     }
 
     /// <inheritdoc />
     public override void DrawRoundedRectangle(Rect rect, double radius, Paint paint)
     {
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
-            CanvasInterop.DrawRoundRect(_canvas, rect.X, rect.Y, rect.Width, rect.Height, radius, paint.Color.ToCssString(), paint.Opacity);
+            CanvasInterop.DrawRoundRect(_context, rect.X, rect.Y, rect.Width, rect.Height, radius, paint.Color.ToCssString(), paint.Opacity);
         }
     }
 
@@ -165,7 +180,7 @@ public sealed class WebCanvas2DDrawingContext : DrawingContext
     public override void FillLinearGradient(Rect rect, Point start, Point end, IReadOnlyList<GradientStop> stops)
     {
         ArgumentNullException.ThrowIfNull(stops);
-        if (_canvas is null || !OperatingSystem.IsBrowser())
+        if (_context is null || !OperatingSystem.IsBrowser())
         {
             return;
         }
@@ -178,14 +193,14 @@ public sealed class WebCanvas2DDrawingContext : DrawingContext
             colors[i] = stops[i].Color.ToCssString();
         }
 
-        CanvasInterop.FillLinearGradient(_canvas, rect.X, rect.Y, rect.Width, rect.Height, start.X, start.Y, end.X, end.Y, offsets, colors);
+        CanvasInterop.FillLinearGradient(_context, rect.X, rect.Y, rect.Width, rect.Height, start.X, start.Y, end.X, end.Y, offsets, colors);
     }
 
     /// <inheritdoc />
     public override void FillPolygon(IReadOnlyList<Point> points, Paint paint)
     {
         ArgumentNullException.ThrowIfNull(points);
-        if (_canvas is null || !OperatingSystem.IsBrowser() || points.Count < 3)
+        if (_context is null || !OperatingSystem.IsBrowser() || points.Count < 3)
         {
             return;
         }
@@ -197,15 +212,15 @@ public sealed class WebCanvas2DDrawingContext : DrawingContext
             coordinates[(i * 2) + 1] = points[i].Y;
         }
 
-        CanvasInterop.FillPolygon(_canvas, coordinates, paint.Color.ToCssString(), paint.Opacity);
+        CanvasInterop.FillPolygon(_context, coordinates, paint.Color.ToCssString(), paint.Opacity);
     }
 
     /// <inheritdoc />
     public override void StrokeRoundedRectangle(Rect rect, double radius, double strokeWidth, Paint paint)
     {
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
-            CanvasInterop.StrokeRoundRect(_canvas, rect.X, rect.Y, rect.Width, rect.Height, radius, strokeWidth, paint.Color.ToCssString(), paint.Opacity);
+            CanvasInterop.StrokeRoundRect(_context, rect.X, rect.Y, rect.Width, rect.Height, radius, strokeWidth, paint.Color.ToCssString(), paint.Opacity);
         }
     }
 
@@ -213,9 +228,9 @@ public sealed class WebCanvas2DDrawingContext : DrawingContext
     public override void DrawTextLayout(ITextLayout layout, Point origin, Paint paint)
     {
         ArgumentNullException.ThrowIfNull(layout);
-        if (_canvas is not null && OperatingSystem.IsBrowser())
+        if (_context is not null && OperatingSystem.IsBrowser())
         {
-            CanvasInterop.DrawText(_canvas, layout.Text, origin.X, origin.Y, paint.Color.ToCssString(), paint.Opacity);
+            CanvasInterop.DrawText(_context, layout.Text, origin.X, origin.Y, paint.Color.ToCssString(), paint.Opacity);
         }
     }
 }

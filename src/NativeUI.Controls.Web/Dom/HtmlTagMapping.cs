@@ -12,6 +12,8 @@ internal static class HtmlTagMapping
     private const string CanvasTag = "canvas";
     private const string InputTag = "input";
     private const string DialogTag = "dialog";
+    private const string ImageTag = "img";
+    private const string PortalTag = "nui-portal";
     private const string SwitchTag = "nui-switch";
     private const string RadioGroupItemTag = "nui-radiogroupitem";
     private const string RadioButtonTag = "nui-radiobutton";
@@ -61,7 +63,7 @@ internal static class HtmlTagMapping
         if (element is Form) return "form";
         if (element is Fieldset) return "fieldset";
         if (element is Legend) return "legend";
-        if (element is Image) return "img";
+        if (element is Image) return ImageTag;
         if (element is Svg or Shapes.Shape) return "svg";
 
         if (element is Text)
@@ -82,6 +84,11 @@ internal static class HtmlTagMapping
         if (element is Dialog)
         {
             return DialogTag;
+        }
+
+        if (element is Portal)
+        {
+            return PortalTag;
         }
 
         if (element is CanvasView)
@@ -235,7 +242,7 @@ internal static class HtmlTagMapping
     /// </summary>
     public static string GetTagSelector(Type type)
     {
-        if (typeof(Image).IsAssignableFrom(type)) return ":is(img, svg)";
+        if (typeof(Image).IsAssignableFrom(type)) return $":is({ImageTag}, svg)";
         if (typeof(Svg).IsAssignableFrom(type) || typeof(Shapes.Shape).IsAssignableFrom(type)) return "svg";
 
         if (typeof(Text).IsAssignableFrom(type))
@@ -261,6 +268,11 @@ internal static class HtmlTagMapping
         if (typeof(Dialog).IsAssignableFrom(type))
         {
             return DialogTag;
+        }
+
+        if (typeof(Portal).IsAssignableFrom(type))
+        {
+            return PortalTag;
         }
 
         if (typeof(Switch).IsAssignableFrom(type))
@@ -422,10 +434,11 @@ internal static class HtmlTagMapping
     {
         return elementType.ToLowerInvariant() switch
         {
-            "image" => ":is(img, svg)",
+            "image" => $":is({ImageTag}, svg)",
             "svg" or "path" or "rectangle" or "ellipse" or "line" or "polygon" or "polyline" => "svg",
             "text" => TextTag,
-            "view" or "portal" or "progressbar" or "radiogroup" => ContainerTag,
+            "view" or "progressbar" or "radiogroup" => ContainerTag,
+            "portal" => PortalTag,
             "dialog" => DialogTag,
             "sheet" => "nui-sheet",
             "resizable" => ResizableTag,

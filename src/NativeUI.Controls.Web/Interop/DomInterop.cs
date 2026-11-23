@@ -23,6 +23,24 @@ public static partial class DomInterop
     public static partial JSObject CreateElement(string tagName);
 
     /// <summary>
+    /// Creates a native HTML button.
+    /// </summary>
+    [JSImport("createElement", "nativeui-button")]
+    internal static partial JSObject CreateButtonElement();
+
+    /// <summary>
+    /// Creates a native HTML span.
+    /// </summary>
+    [JSImport("createElement", "nativeui-text")]
+    internal static partial JSObject CreateTextElement();
+
+    /// <summary>
+    /// Creates a native HTML input.
+    /// </summary>
+    [JSImport("createElement", "nativeui-input")]
+    internal static partial JSObject CreateInputElement();
+
+    /// <summary>
     /// Gets an attribute value, or null when the attribute is absent.
     /// </summary>
     [JSImport("getAttribute", "nativeui-dom")]
@@ -103,12 +121,12 @@ public static partial class DomInterop
     public static partial bool IsChildAt(JSObject parent, JSObject child, int index);
 
     /// <summary>Connects native anchor activation to its shared inline event.</summary>
-    [JSImport("setHyperlinkHandler", "nativeui-dom")]
+    [JSImport("setHyperlinkHandler", "nativeui-text")]
     public static partial void SetHyperlinkHandler(JSObject element,
         [JSMarshalAs<JSType.Function<JSType.Boolean>>] Func<bool> dispatch);
 
     /// <summary>Releases a native anchor's activation callback.</summary>
-    [JSImport("clearHyperlinkHandler", "nativeui-dom")]
+    [JSImport("clearHyperlinkHandler", "nativeui-text")]
     public static partial void ClearHyperlinkHandler(JSObject element);
 
     /// <summary>
@@ -126,17 +144,8 @@ public static partial class DomInterop
     /// <summary>
     /// Associates a DOM element with the identifier reported for pointer events targeting it.
     /// </summary>
-    [JSImport("setNodeId", "nativeui-dom")]
+    [JSImport("setNodeId", "nativeui-root")]
     public static partial void SetNodeId(JSObject element, int nodeId);
-
-    /// <summary>
-    /// Sets the callback that a <c>native-ui</c> element invokes with the node identifier of each scrolled descendant.
-    /// The element adds its listener when connected and removes it when disconnected.
-    /// </summary>
-    [JSImport("setScrollDispatcher", "nativeui-dom")]
-    public static partial void SetScrollDispatcher(
-        JSObject root,
-        [JSMarshalAs<JSType.Function<JSType.Number>>] Action<int> dispatch);
 
     /// <summary>
     /// Scrolls an element to the given offset, which the browser limits to the scrollable range.
@@ -153,49 +162,80 @@ public static partial class DomInterop
     /// <summary>
     /// Invokes <paramref name="dispatch"/> whenever the browser's color scheme preference changes, for the application's lifetime.
     /// </summary>
-    [JSImport("observeColorScheme", "nativeui-dom")]
+    [JSImport("observeColorScheme", "nativeui-theme")]
     public static partial void ObserveColorScheme([JSMarshalAs<JSType.Function>] Action dispatch);
 
     /// <summary>
     /// Gets whether the browser reports a dark color scheme preference.
     /// </summary>
-    [JSImport("prefersDarkColorScheme", "nativeui-dom")]
+    [JSImport("prefersDarkColorScheme", "nativeui-theme")]
     public static partial bool PrefersDarkColorScheme();
 
     /// <summary>
     /// Sets the callback that a <c>native-ui</c> element invokes with each forwarded pointer event.
     /// The element adds its delegated listeners when connected and removes them when disconnected.
     /// </summary>
-    [JSImport("setPointerDispatcher", "nativeui-dom")]
+    [JSImport("setPointerDispatcher", "nativeui-root")]
     public static partial void SetPointerDispatcher(
         JSObject root,
         [JSMarshalAs<JSType.Function<JSType.Object>>] Action<JSObject> dispatch);
 
-    /// <summary>Routes accessibility or programmatic native label activation to its shared control.</summary>
-    [JSImport("setLabelDispatcher", "nativeui-dom")]
-    public static partial void SetLabelDispatcher(JSObject root,
-        [JSMarshalAs<JSType.Function<JSType.Number>>] Action<int> dispatch);
+    /// <summary>Attaches input handling to its native element.</summary>
+    [JSImport("observeEvents", "nativeui-input")]
+    internal static partial JSObject ObserveInput(JSObject element, [JSMarshalAs<JSType.Function<JSType.String>>] Action<string> dispatch);
 
-    /// <summary>Connects native form actions to the shared C# form pipeline.</summary>
-    [JSImport("setFormDispatcher", "nativeui-dom")]
-    public static partial void SetFormDispatcher(JSObject root,
-        [JSMarshalAs<JSType.Function<JSType.Number, JSType.Number, JSType.Number>>] Action<int, int, int> dispatch);
+    /// <summary>Disconnects the owned input subscription before disposal.</summary>
+    [JSImport("unobserveEvents", "nativeui-input")]
+    internal static partial void UnobserveInput(JSObject subscription);
 
-    /// <summary>
-    /// Sets the callback that a <c>native-ui</c> element invokes with the node identifier and value of each edited input.
-    /// The element adds its listener when connected and removes it when disconnected.
-    /// </summary>
-    [JSImport("setInputDispatcher", "nativeui-dom")]
-    public static partial void SetInputDispatcher(
-        JSObject root,
-        [JSMarshalAs<JSType.Function<JSType.Number, JSType.String>>] Action<int, string> dispatch);
+    /// <summary>Attaches dialog handling to its native element.</summary>
+    [JSImport("observeEvents", "nativeui-dialog")]
+    internal static partial JSObject ObserveDialog(JSObject element, [JSMarshalAs<JSType.Function>] Action dispatch);
+
+    /// <summary>Disconnects the owned dialog subscription before disposal.</summary>
+    [JSImport("unobserveEvents", "nativeui-dialog")]
+    internal static partial void UnobserveDialog(JSObject subscription);
+
+    /// <summary>Attaches scroll handling to its native element.</summary>
+    [JSImport("observeScroll", "nativeui-dom")]
+    internal static partial JSObject ObserveScroll(JSObject element, [JSMarshalAs<JSType.Function>] Action dispatch);
+
+    /// <summary>Disconnects the owned scroll subscription before disposal.</summary>
+    [JSImport("unobserveScroll", "nativeui-dom")]
+    internal static partial void UnobserveScroll(JSObject subscription);
+
+    /// <summary>Attaches contextmenu handling to its native element.</summary>
+    [JSImport("observeEvents", "nativeui-context-menu")]
+    internal static partial JSObject ObserveContextMenu(JSObject element);
+
+    /// <summary>Disconnects the owned contextmenu subscription before disposal.</summary>
+    [JSImport("unobserveEvents", "nativeui-context-menu")]
+    internal static partial void UnobserveContextMenu(JSObject subscription);
+
+    /// <summary>Attaches an activation callback to one native label.</summary>
+    [JSImport("observeEvents", "nativeui-label")]
+    internal static partial JSObject ObserveLabel(JSObject element,
+        [JSMarshalAs<JSType.Function>] Action dispatch);
+
+    /// <summary>Disconnects the native label subscription before its reference is disposed.</summary>
+    [JSImport("unobserveEvents", "nativeui-label")]
+    internal static partial void UnobserveLabel(JSObject subscription);
+
+    /// <summary>Attaches native action callbacks to one form.</summary>
+    [JSImport("observeEvents", "nativeui-form")]
+    internal static partial JSObject ObserveForm(JSObject element,
+        [JSMarshalAs<JSType.Function<JSType.Number, JSType.Number>>] Action<int, int> dispatch);
+
+    /// <summary>Disconnects the native form subscription before its reference is disposed.</summary>
+    [JSImport("unobserveEvents", "nativeui-form")]
+    internal static partial void UnobserveForm(JSObject subscription);
 
     /// <summary>
     /// Sets the callback that a <c>native-ui</c> element invokes with the node identifier, new state, and
     /// <c>:focus-visible</c> match of each attached element that gains or loses focus. The element adds its listeners
     /// when connected and removes them when disconnected.
     /// </summary>
-    [JSImport("setFocusDispatcher", "nativeui-dom")]
+    [JSImport("setFocusDispatcher", "nativeui-root")]
     public static partial void SetFocusDispatcher(
         JSObject root,
         [JSMarshalAs<JSType.Function<JSType.Number, JSType.Boolean, JSType.Boolean>>] Action<int, bool, bool> dispatch);
@@ -205,24 +245,15 @@ public static partial class DomInterop
     /// <c>KeyEventEntry</c>. The element prevents the browser's default action when the callback returns
     /// <see langword="true"/>. The element adds its listeners when connected and removes them when disconnected.
     /// </summary>
-    [JSImport("setKeyDispatcher", "nativeui-dom")]
+    [JSImport("setKeyDispatcher", "nativeui-root")]
     public static partial void SetKeyDispatcher(
         JSObject root,
         [JSMarshalAs<JSType.Function<JSType.Object, JSType.Boolean>>] Func<JSObject, bool> dispatch);
 
     /// <summary>
-    /// Sets the callback that a <c>native-ui</c> element invokes with the node identifier of each closed dialog element.
-    /// The element adds its listener when connected and removes it when disconnected.
-    /// </summary>
-    [JSImport("setCloseDispatcher", "nativeui-dom")]
-    public static partial void SetCloseDispatcher(
-        JSObject root,
-        [JSMarshalAs<JSType.Function<JSType.Number>>] Action<int> dispatch);
-
-    /// <summary>
     /// Sets the callback that a <c>native-ui</c> element invokes with the node identifier and new bounds of each resized descendant.
     /// </summary>
-    [JSImport("setResizeDispatcher", "nativeui-dom")]
+    [JSImport("setResizeDispatcher", "nativeui-root")]
     public static partial void SetResizeDispatcher(
         JSObject root,
         [JSMarshalAs<JSType.Function<JSType.Object>>] Action<JSObject> dispatch);
@@ -230,45 +261,45 @@ public static partial class DomInterop
     /// <summary>
     /// Observes resize changes on the specified DOM element using <c>ResizeObserver</c>.
     /// </summary>
-    [JSImport("observeResize", "nativeui-dom")]
+    [JSImport("observeResize", "nativeui-root")]
     public static partial void ObserveResize(JSObject root, JSObject element);
 
     /// <summary>
     /// Stops observing resize changes on the specified DOM element.
     /// </summary>
-    [JSImport("unobserveResize", "nativeui-dom")]
+    [JSImport("unobserveResize", "nativeui-root")]
     public static partial void UnobserveResize(JSObject root, JSObject element);
 
     /// <summary>
     /// Appends <paramref name="element"/> to the <c>native-ui</c> element containing <paramref name="parent"/>,
     /// and returns false when there is none.
     /// </summary>
-    [JSImport("mountPortal", "nativeui-dom")]
+    [JSImport("mountPortal", "nativeui-portal")]
     public static partial bool MountPortal(JSObject parent, JSObject element);
 
     /// <summary>
     /// Appends <paramref name="element"/> to <paramref name="parent"/> and shows it in the browser's top layer as a manual
     /// popover, and returns false when <paramref name="parent"/> is not in the document.
     /// </summary>
-    [JSImport("showPortal", "nativeui-dom")]
+    [JSImport("showPortal", "nativeui-portal")]
     public static partial bool ShowPortal(JSObject parent, JSObject element, JSObject? source);
 
     /// <summary>Updates an open popover's native invoker association.</summary>
-    [JSImport("setPortalSource", "nativeui-dom")]
+    [JSImport("setPortalSource", "nativeui-portal")]
     public static partial void SetPortalSource(JSObject element, JSObject? source);
 
     /// <summary>Observes resize and scroll events affecting a portal arrow.</summary>
-    [JSImport("observePortal", "nativeui-dom")]
+    [JSImport("observePortal", "nativeui-portal")]
     public static partial JSObject ObservePortal(JSObject element, JSObject anchor, [JSMarshalAs<JSType.Function>] Action callback);
 
     /// <summary>Disconnects a portal observer and cancels its pending animation frame.</summary>
-    [JSImport("disconnectPortalObserver", "nativeui-dom")]
+    [JSImport("disconnectPortalObserver", "nativeui-portal")]
     public static partial void DisconnectPortalObserver(JSObject observer);
 
     /// <summary>
     /// Opens a dialog element, as a modal one in the browser's top layer when <paramref name="isModal"/> is true.
     /// </summary>
-    [JSImport("showDialog", "nativeui-dom")]
+    [JSImport("showDialog", "nativeui-dialog")]
     public static partial void ShowDialog(JSObject element, bool isModal);
 
     /// <summary>
@@ -287,7 +318,7 @@ public static partial class DomInterop
     /// Plays a <c>@keyframes</c> rule on an element and invokes <paramref name="dispatch"/> when it ends or is cancelled.
     /// Returns a handle for <see cref="CancelAnimation"/>, or null when the browser found no such rule, after invoking the callback.
     /// </summary>
-    [JSImport("animate", "nativeui-dom")]
+    [JSImport("animate", "nativeui-root")]
     public static partial JSObject? Animate(
         JSObject element,
         string name,
@@ -299,19 +330,19 @@ public static partial class DomInterop
     /// <summary>
     /// Cancels an animation returned by <see cref="Animate"/>.
     /// </summary>
-    [JSImport("cancelAnimation", "nativeui-dom")]
+    [JSImport("cancelAnimation", "nativeui-root")]
     public static partial void CancelAnimation(JSObject animation);
 
     /// <summary>
     /// Gets the current value of an input element.
     /// </summary>
-    [JSImport("getValue", "nativeui-dom")]
+    [JSImport("getValue", "nativeui-input")]
     public static partial string GetValue(JSObject element);
 
     /// <summary>
     /// Sets the current value of an input element.
     /// </summary>
-    [JSImport("setValue", "nativeui-dom")]
+    [JSImport("setValue", "nativeui-input")]
     public static partial void SetValue(JSObject element, string value);
 
     /// <summary>
@@ -329,31 +360,31 @@ public static partial class DomInterop
     /// <summary>
     /// Injects or updates a <c>&lt;style&gt;</c> tag in <c>document.head</c> for a compiled <c>CssStyleSheet</c>.
     /// </summary>
-    [JSImport("injectStyleSheet", "nativeui-dom")]
+    [JSImport("injectStyleSheet", "nativeui-styles")]
     public static partial void InjectStyleSheet(string id, string cssText);
 
     /// <summary>
     /// Removes a stylesheet added by <see cref="InjectStyleSheet"/>.
     /// </summary>
-    [JSImport("removeStyleSheet", "nativeui-dom")]
+    [JSImport("removeStyleSheet", "nativeui-styles")]
     public static partial void RemoveStyleSheet(string id);
 
     /// <summary>
     /// Invokes <paramref name="completed"/> after the transitions and the animations with a finite number of iterations
     /// of <paramref name="element"/> itself end, or at once when it has none.
     /// </summary>
-    [JSImport("waitForAnimations", "nativeui-dom")]
+    [JSImport("waitForAnimations", "nativeui-root")]
     public static partial void WaitForAnimations(JSObject element, [JSMarshalAs<JSType.Function>] Action completed);
 
     /// <summary>
     /// Requests an animation frame and returns its cancellation identifier.
     /// </summary>
-    [JSImport("requestAnimationFrame", "nativeui-dom")]
+    [JSImport("requestAnimationFrame", "nativeui-root")]
     public static partial int RequestAnimationFrame([JSMarshalAs<JSType.Function>] Action dispatch);
 
     /// <summary>
     /// Cancels a pending animation frame.
     /// </summary>
-    [JSImport("cancelAnimationFrame", "nativeui-dom")]
+    [JSImport("cancelAnimationFrame", "nativeui-root")]
     public static partial void CancelAnimationFrame(int requestId);
 }

@@ -3,9 +3,9 @@
 <title>HTML and SVG class interoperability</title>
 <pre id="result">Running…</pre>
 <script type="module">
-    import { dom } from "../../../src/NativeUI.Controls.Web/wwwroot/nativeui-dom.js";
+    import { DomInterop } from "../../../src/NativeUI.Controls.Web/wwwroot/nativeui-dom.js";
 
-    import { image } from "../../../src/NativeUI.Controls.Web/wwwroot/nativeui-image.js";
+    import { ImageElement } from "../../../src/NativeUI.Controls.Web/wwwroot/elements/nativeui-image.js";
 
     const result = document.querySelector("#result");
     const assert = (condition, message) => {
@@ -18,8 +18,8 @@
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         for (const element of [html, svg, path]) {
             const isSvg = element.namespaceURI === "http://www.w3.org/2000/svg";
-            const getClass = isSvg ? image.getSvgClassName : dom.getClassName;
-            const setClass = isSvg ? image.setSvgClassName : dom.setClassName;
+            const getClass = isSvg ? ImageElement.getSvgClassName : DomInterop.getClassName;
+            const setClass = isSvg ? ImageElement.setSvgClassName : DomInterop.setClassName;
             assert(getClass(element) === "", "Missing class must read as an empty string");
             setClass(element, "image active");
             assert(getClass(element) === "image active", "Class must round-trip as a string");

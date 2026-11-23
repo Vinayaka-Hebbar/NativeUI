@@ -164,7 +164,20 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
         }
 
         string tagName = HtmlTagMapping.GetTag(source);
-        JSObject? element = rootElement is not null ? tagName == "svg" ? ImageInterop.CreateSvgElement(tagName) : DomInterop.CreateElement(tagName) : null;
+        JSObject? element = null;
+        if (rootElement is not null)
+        {
+            element = source switch
+            {
+                CanvasView => CanvasInterop.CreateElement(),
+                Button => DomInterop.CreateButtonElement(),
+                Text => DomInterop.CreateTextElement(),
+                Input => DomInterop.CreateInputElement(),
+                Image => ImageInterop.CreateElement(),
+                Svg or Shapes.Shape => ImageInterop.CreateSvgElement(tagName),
+                _ => DomInterop.CreateElement(tagName)
+            };
+        }
         HtmlDomElement proxy = source switch
         {
             Image image => new HtmlDomImage(image, element),
@@ -189,6 +202,7 @@ public class HtmlDomElement : INativeHandle, IAnimationPeer, IFocusPeer
             Legend legend => new HtmlDomView(legend, element, "legend"),
             MenuItem menuItem => new HtmlDomMenuItem(menuItem, element, tagName),
             MenuGroup menuGroup => new HtmlDomMenuGroup(menuGroup, element, tagName),
+            ContextMenu contextMenu => new HtmlDomContextMenu(contextMenu, element, tagName),
             Popover popover => new HtmlDomPopover(popover, element, tagName),
             Tooltip tooltip => new HtmlDomTooltip(tooltip, element, tagName),
             Badge or Avatar => new HtmlDomView((View)source, element, tagName),

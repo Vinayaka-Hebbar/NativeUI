@@ -65,52 +65,101 @@ public sealed class VisualTreeRenderer : IDisposable
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(root);
 
+        RenderPass pass = ComputeLayout(root, logicalViewport, context.ImageDecoder);
+        Draw(context, pass, scaleFactor, background);
+        return pass.Root;
+    }
+
+    /// <summary>
+    /// Computes root and portal geometry and publishes size changes without issuing drawing commands.
+    /// </summary>
+    /// <param name="root">The tree to lay out.</param>
+    /// <param name="logicalViewport">The available size in logical pixels.</param>
+    /// <param name="imageDecoder">The decoder used to attach image sources before measurement.</param>
+    /// <returns>
+    /// The completed geometry, borrowing retained text resources until a subsequent successful layout or disposal.
+    /// </returns>
+    public RenderPass ComputeLayout(UIElement root, Size logicalViewport, IImageDecoder? imageDecoder = null)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(root);
+
         HashSet<Image> currentImages = [];
-        AttachImages(root, context.ImageDecoder, currentImages);
-        foreach (Image previous in _images.Where(image => !currentImages.Contains(image))) previous.Detach();
+        AttachImages(root, imageDecoder, currentImages);
+        foreach (Image previous in _images.Where(image => !currentImages.Contains(image)))
+        {
+            previous.Detach();
+        }
+
         _images.Clear();
         _images.UnionWith(currentImages);
-        context.UseResources(_resources);
-        _resources.BeginPass();
         long layoutStart = Stopwatch.GetTimestamp();
         LayoutBox rootBox = _layoutEngine.ComputeLayout(root, logicalViewport);
-        PortalBoxes = LayoutPortals(root, rootBox, logicalViewport);
+        IReadOnlyList<LayoutBox> portalBoxes = LayoutPortals(root, rootBox, logicalViewport).AsReadOnly();
+        PortalBoxes = portalBoxes;
+        _currentRoot = root;
 
         NotifySizeChanged(rootBox);
-        foreach (LayoutBox portalBox in PortalBoxes)
+        foreach (LayoutBox portalBox in portalBoxes)
         {
             NotifySizeChanged(portalBox);
         }
 
-        TimeSpan layoutDuration = Stopwatch.GetElapsedTime(layoutStart);
+        return new RenderPass(rootBox, logicalViewport, Stopwatch.GetElapsedTime(layoutStart), _overlayTextMeasurer)
+        {
+            PortalBoxes = portalBoxes
+        };
+    }
 
-        context.Save();
+    /// <summary>
+    /// Draws completed root and portal geometry without computing layout or publishing size changes.
+    /// </summary>
+    /// <param name="context">The drawing target.</param>
+    /// <param name="pass">A completed pass whose borrowed resources remain valid.</param>
+    /// <param name="scaleFactor">The logical-to-device pixel scale.</param>
+    /// <param name="background">The surface clear color, or null to use the completed root style.</param>
+    public void Draw(DrawingContext context, RenderPass pass, float scaleFactor = 1.0f, Color? background = null)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(pass.Root);
+        if (pass.Root.Element is not UIElement root)
+        {
+            throw new ArgumentException("The layout root must be a UIElement.", nameof(pass));
+        }
+
         _currentRoot = root;
+        PortalBoxes = pass.PortalBoxes;
         _pixelScale = scaleFactor > 0 ? scaleFactor : 1;
+        context.UseResources(_resources);
+        _resources.BeginPass();
         try
         {
-            context.Scale(scaleFactor, scaleFactor);
-            context.Clear(background ?? root.ComputedStyle.BackgroundColor ?? Colors.Transparent);
-
-            DrawBoxRecursive(context, rootBox);
-            foreach (LayoutBox portalBox in PortalBoxes)
+            context.Save();
+            try
             {
-                DrawBoxRecursive(context, portalBox);
+                context.Scale(scaleFactor, scaleFactor);
+                context.Clear(background ?? pass.Root.Style.BackgroundColor ?? Colors.Transparent);
+                DrawBoxRecursive(context, pass.Root);
+                foreach (LayoutBox portalBox in pass.PortalBoxes)
+                {
+                    DrawBoxRecursive(context, portalBox);
+                }
+
+                foreach (IRenderOverlay overlay in Overlays)
+                {
+                    overlay.Draw(context, pass);
+                }
             }
-
-            RenderPass pass = new(rootBox, logicalViewport, layoutDuration, _overlayTextMeasurer);
-            foreach (IRenderOverlay overlay in Overlays)
+            finally
             {
-                overlay.Draw(context, pass);
+                context.Restore();
             }
         }
         finally
         {
-            context.Restore();
             _resources.EndPass();
         }
-
-        return rootBox;
     }
 
     /// <summary>

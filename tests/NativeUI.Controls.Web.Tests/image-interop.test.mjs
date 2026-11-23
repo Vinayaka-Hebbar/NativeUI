@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-// Only module initialization is stubbed. These checks do not emulate browser rendering.
-globalThis.matchMedia = () => ({ matches: false });
+// Only native construction is supplied here; no browser drawing is simulated.
 globalThis.HTMLElement = class {};
-globalThis.customElements = { get: () => undefined, define: () => {} };
-const { dom } = await import("../../src/NativeUI.Controls.Web/wwwroot/nativeui-dom.js");
-const { image } = await import("../../src/NativeUI.Controls.Web/wwwroot/nativeui-image.js");
+globalThis.HTMLImageElement = class extends HTMLElement {};
+globalThis.document = {
+    createElement(tag) {
+        assert.equal(tag, "img");
+        return new HTMLImageElement();
+    },
+};
+
+const { DomInterop } = await import("../../src/NativeUI.Controls.Web/wwwroot/nativeui-dom.js");
+const { ImageElement } = await import("../../src/NativeUI.Controls.Web/wwwroot/elements/nativeui-image.js");
 
 test("class operations use attributes and never touch SVG className", () => {
     const attributes = new Map();
@@ -16,12 +22,12 @@ test("class operations use attributes and never touch SVG className", () => {
         setAttribute(name, value) { attributes.set(name, value); },
         get className() { throw new Error("SVG className is an animated value, not a string"); },
     };
-    assert.equal(image.getSvgClassName(element), "");
-    image.setSvgClassName(element, "image active");
-    assert.equal(image.getSvgClassName(element), "image active");
+    assert.equal(ImageElement.getSvgClassName(element), "");
+    ImageElement.setSvgClassName(element, "image active");
+    assert.equal(ImageElement.getSvgClassName(element), "image active");
     assert.equal(attributes.get("class"), "image active");
-    image.setSvgClassName(element, null);
-    assert.equal(image.getSvgClassName(element), "");
+    ImageElement.setSvgClassName(element, null);
+    assert.equal(ImageElement.getSvgClassName(element), "");
 });
 
 test("HTML class operations retain the className property path", () => {
@@ -31,11 +37,11 @@ test("HTML class operations retain the className property path", () => {
         getAttribute() { throw new Error("HTML classes should use className"); },
         setAttribute() { throw new Error("HTML classes should use className"); },
     };
-    assert.equal(dom.getClassName(element), "initial");
-    dom.setClassName(element, "updated");
+    assert.equal(DomInterop.getClassName(element), "initial");
+    DomInterop.setClassName(element, "updated");
     assert.equal(element.className, "updated");
-    dom.setClassName(element, null);
-    assert.equal(dom.getClassName(element), "");
+    DomInterop.setClassName(element, null);
+    assert.equal(DomInterop.getClassName(element), "");
 });
 
 test("image decoding uses the C# content type and releases its owned URL", async () => {
@@ -57,10 +63,10 @@ test("image decoding uses the C# content type and releases its owned URL", async
     };
     URL.revokeObjectURL = (url) => released.push(url);
     try {
-        const decoded = await image.decodeImage("AQID", "image/png");
+        const decoded = await ImageElement.decodeImage("AQID", "image/png");
         assert.equal(decoded.nativeuiObjectUrl, "blob:test-image");
-        image.releaseImage(decoded);
-        image.releaseImage(decoded);
+        ImageElement.releaseImage(decoded);
+        ImageElement.releaseImage(decoded);
         assert.deepEqual(released, ["blob:test-image"]);
     } finally {
         globalThis.Image = previousImage;
@@ -82,11 +88,26 @@ test("oversized decoded images fail and release their Blob URL", async () => {
     URL.createObjectURL = () => "blob:oversized-image";
     URL.revokeObjectURL = (url) => released.push(url);
     try {
-        await assert.rejects(image.decodeImage("AQID", "image/png"), /pixel limit/);
+        await assert.rejects(ImageElement.decodeImage("AQID", "image/png"), /pixel limit/);
         assert.deepEqual(released, ["blob:oversized-image"]);
     } finally {
         globalThis.Image = previousImage;
         URL.createObjectURL = createUrl;
         URL.revokeObjectURL = revokeUrl;
     }
+});
+
+test("image presentation uses native img elements without borrowing URL ownership", () => {
+    const empty = ImageElement.createElement();
+    const owner = { src: "blob:loaded-image", nativeuiObjectUrl: "blob:loaded-image" };
+    const first = ImageElement.cloneImage(owner);
+    const second = ImageElement.cloneImage(owner);
+
+    assert.ok(empty instanceof HTMLImageElement);
+    assert.ok(first instanceof HTMLImageElement);
+    assert.ok(second instanceof HTMLImageElement);
+    assert.notEqual(first, second);
+    assert.equal(first.src, owner.src);
+    assert.equal(first.nativeuiObjectUrl, undefined);
+    assert.equal(second.nativeuiObjectUrl, undefined);
 });

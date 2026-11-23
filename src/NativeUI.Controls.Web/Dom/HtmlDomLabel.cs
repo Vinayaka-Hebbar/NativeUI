@@ -12,15 +12,29 @@ public sealed class HtmlDomLabel : HtmlDomView
 {
     private readonly Label _label;
     private UIElement? _target;
+    private JSObject? _events;
     internal HtmlDomLabel(Label label, JSObject? element) : base(label, element, "label") => _label = label;
 
     /// <inheritdoc />
     protected override void Initialize()
     {
         base.Initialize();
+        if (Element is not null)
+        {
+            _events = DomInterop.ObserveLabel(Element, OnBrowserActivated);
+        }
         _label.VisualInvalidated += OnLabelChanged;
         UpdateTarget();
     }
+    /// <summary>Activates the associated shared control for a native label click.</summary>
+    internal void OnBrowserActivated()
+    {
+        if (!IsDisposed)
+        {
+            _label.Activate();
+        }
+    }
+
     private void OnLabelChanged(object? sender, EventArgs args) => UpdateTarget();
     private void UpdateTarget()
     {
@@ -61,11 +75,18 @@ public sealed class HtmlDomLabel : HtmlDomView
     /// <inheritdoc />
     protected override void OnDisposing()
     {
+        using JSObject? events = _events;
+        _events = null;
+        if (events is not null)
+        {
+            DomInterop.UnobserveLabel(events);
+        }
+
         _label.VisualInvalidated -= OnLabelChanged;
         if (_target is not null)
-            {
-                _target.PropertyChanged -= OnTargetChanged;
-            }
+        {
+            _target.PropertyChanged -= OnTargetChanged;
+        }
         _target = null;
         base.OnDisposing();
     }

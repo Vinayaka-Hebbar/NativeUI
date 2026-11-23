@@ -232,13 +232,8 @@ internal sealed class HtmlDomRoot : IDisposable
                 DomInterop.SetAttribute(_rootElement, StyleSheetCss.ScopeAttribute, _scopeId.ToString(CultureInfo.InvariantCulture));
                 DomInterop.SetAttribute(_rootElement, "data-platform", Application.Current.Platform);
                 DomInterop.SetPointerDispatcher(_rootElement, OnPointerEvent);
-                DomInterop.SetScrollDispatcher(_rootElement, OnScroll);
-                DomInterop.SetInputDispatcher(_rootElement, OnInput);
-                DomInterop.SetFormDispatcher(_rootElement, DispatchFormEvent);
-                DomInterop.SetLabelDispatcher(_rootElement, DispatchLabelEvent);
                 DomInterop.SetFocusDispatcher(_rootElement, OnFocus);
                 DomInterop.SetKeyDispatcher(_rootElement, OnKeyEvent);
-                DomInterop.SetCloseDispatcher(_rootElement, OnPortalClosed);
                 DomInterop.SetResizeDispatcher(_rootElement, OnResize);
                 AnimationClock.FrameRequested += OnFrameRequested;
                 root.VisualInvalidated += OnVisualInvalidated;
@@ -280,60 +275,6 @@ internal sealed class HtmlDomRoot : IDisposable
                 Modifiers = (InputModifiers)pointerEvent.GetPropertyAsInt32("modifiers"),
                 ClickCount = pointerEvent.GetPropertyAsInt32("clickCount")
             });
-        }
-    }
-
-    private static void OnScroll(int nodeId)
-    {
-        if (HtmlDomElement.FindByNodeId(nodeId)?.Source is View view)
-        {
-            view.NotifyPlatformScrolled();
-        }
-    }
-
-    private static void OnInput(int nodeId, string value)
-    {
-        if (HtmlDomElement.FindByNodeId(nodeId) is HtmlDomInput input)
-        {
-            input.OnBrowserInput(value);
-        }
-    }
-
-    /// <summary>Routes native label activation without duplicating pointer activation.</summary>
-    internal void DispatchLabelEvent(int nodeId)
-    {
-        if (!_disposed && HtmlDomElement.FindByNodeId(nodeId)?.Source is Label label && ReferenceEquals(label.VisualRoot, _root))
-        {
-            label.Activate();
-        }
-    }
-
-    /// <summary>Routes native submission, reset, and non-pointer button activation through shared controls.</summary>
-    internal void DispatchFormEvent(int formNodeId, int kind, int submitterNodeId)
-    {
-        if (_disposed || HtmlDomElement.FindByNodeId(formNodeId)?.Source is not Form form ||
-            !ReferenceEquals(form.VisualRoot, _root))
-        {
-            return;
-        }
-
-        Button? submitter = HtmlDomElement.FindByNodeId(submitterNodeId)?.Source as Button;
-        if (submitter is not null && !ReferenceEquals(Form.GetForm(submitter), form))
-        {
-            return;
-        }
-
-        if (kind == 1)
-        {
-            form.ResetForm();
-        }
-        else if (kind == 2 && submitter is not null)
-        {
-            submitter.PerformClick();
-        }
-        else if (kind == 0)
-        {
-            form.RequestSubmit(submitter);
         }
     }
 
@@ -452,14 +393,6 @@ internal sealed class HtmlDomRoot : IDisposable
             _ when Enum.TryParse(key, ignoreCase: false, out Key functionKey) && functionKey is >= Key.F1 and <= Key.F12 => (functionKey, null),
             _ => (Key.None, null)
         };
-    }
-
-    private static void OnPortalClosed(int nodeId)
-    {
-        if (HtmlDomElement.FindByNodeId(nodeId) is HtmlDomPortal portal)
-        {
-            portal.OnBrowserClosed();
-        }
     }
 
     private static void OnResize(JSObject batch)

@@ -6,6 +6,10 @@ namespace NativeUI.Controls.Web;
 [SupportedOSPlatform("browser")]
 internal static partial class ImageInterop
 {
+    /// <summary>Creates a native HTML image.</summary>
+    [JSImport("createElement", "nativeui-image")]
+    internal static partial JSObject CreateElement();
+
     [JSImport("decodeImage", "nativeui-image")]
     [return: JSMarshalAs<JSType.Promise<JSType.Object>>]
     internal static partial Task<JSObject> DecodeImage(string base64, string contentType);

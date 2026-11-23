@@ -5,7 +5,7 @@ using NativeUI.Core;
 namespace NativeUI.Controls.Web;
 
 /// <summary>
-/// Synchronizes a <see cref="Button"/> with a native HTML <c>&lt;button type="button"&gt;</c> element.
+/// Synchronizes a <see cref="Button"/> with a native HTML <c>&lt;button&gt;</c> element.
 /// </summary>
 [SupportedOSPlatform("browser")]
 public sealed class HtmlDomButton : HtmlDomView
