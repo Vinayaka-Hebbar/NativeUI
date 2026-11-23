@@ -13,6 +13,20 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "clean",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["clean", "${workspaceFolder}/NativeUI.slnx"],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "clean: release",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["clean", "${workspaceFolder}/NativeUI.slnx", "-c", "Release"],
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "test: core",
       "command": "dotnet",
       "type": "process",
