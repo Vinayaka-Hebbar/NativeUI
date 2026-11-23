@@ -480,7 +480,8 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["FooterMenuItems"] = new PropertyElementTarget("FooterMenuItems", IsCollection: true),
                 ["PaneHeader"] = new PropertyElementTarget("PaneHeader", IsCollection: false),
                 ["PaneFooter"] = new PropertyElementTarget("PaneFooter", IsCollection: false),
-                ["Header"] = new PropertyElementTarget("Header", IsCollection: false)
+                ["Header"] = new PropertyElementTarget("Header", IsCollection: false),
+                ["ItemTemplate"] = new PropertyElementTarget("ItemTemplate", IsCollection: false)
             },
             ["NavigationViewItem"] = new Dictionary<string, PropertyElementTarget>(StringComparer.Ordinal)
             {

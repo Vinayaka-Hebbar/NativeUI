@@ -813,46 +813,16 @@ public class NavigationView : ContentControl
                 }
                 else if (dataItem is not null)
                 {
-                    NavigationViewItem created = new NavigationViewItem
+                    UIElement? element = ItemTemplate?.Build(dataItem);
+                    NavigationViewItemBase container = element as NavigationViewItemBase ?? new NavigationViewItem
                     {
                         DataContext = dataItem,
-                        Tag = dataItem
+                        Tag = dataItem,
+                        Content = element ?? dataItem
                     };
 
-                    if (ItemTemplate is not null)
-                    {
-                        created.Content = ItemTemplate.Build(dataItem);
-                    }
-                    else
-                    {
-                        System.Reflection.PropertyInfo? nameProp = dataItem.GetType().GetProperty("Name");
-                        created.Content = nameProp?.GetValue(dataItem) ?? dataItem;
-
-                        System.Reflection.PropertyInfo? iconProp = dataItem.GetType().GetProperty("Icon") ?? dataItem.GetType().GetProperty("IconData");
-                        if (iconProp?.GetValue(dataItem) is object iconVal)
-                        {
-                            if (iconVal is string iconPath && !string.IsNullOrEmpty(iconPath))
-                            {
-                                created.Icon = new NativeUI.Controls.Shapes.Path
-                                {
-                                    Data = Geometry.Parse(iconPath),
-                                    Fill = Brushes.Transparent,
-                                    Stroke = SvgCurrentColorBrush.Instance,
-                                    StrokeThickness = 1.5,
-                                    Width = 16,
-                                    Height = 16,
-                                    Stretch = Stretch.Uniform
-                                };
-                            }
-                            else
-                            {
-                                created.Icon = iconVal;
-                            }
-                        }
-                    }
-
-                    _realizedSourceItems.Add(created);
-                    RegisterItem(created);
+                    _realizedSourceItems.Add(container);
+                    RegisterItem(container);
                 }
             }
         }

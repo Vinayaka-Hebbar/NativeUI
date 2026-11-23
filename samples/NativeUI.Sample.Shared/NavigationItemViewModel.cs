@@ -1,3 +1,5 @@
+using NativeUI.Media;
+
 namespace NativeUI.Sample;
 
 /// <summary>
@@ -16,9 +18,9 @@ public class NavigationItemViewModel
     public string Tag { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the SVG path geometry data string for the icon.
+    /// Gets or sets the geometry drawn as the item's icon.
     /// </summary>
-    public string IconData { get; set; } = string.Empty;
+    public Geometry? IconData { get; set; }
 
     /// <inheritdoc />
     public override string ToString() => Name;
