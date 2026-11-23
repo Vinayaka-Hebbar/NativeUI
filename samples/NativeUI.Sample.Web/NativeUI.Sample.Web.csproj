@@ -6,6 +6,11 @@
     <RootNamespace>NativeUI.Sample.Web</RootNamespace>
   </PropertyGroup>
 
+  <!-- Ahead-of-time compilation applies to Release publish output only. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RunAOTCompilation>true</RunAOTCompilation>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\NativeUI.Core\NativeUI.Core.csproj" />
     <ProjectReference Include="..\..\src\NativeUI.Css\NativeUI.Css.csproj" />
