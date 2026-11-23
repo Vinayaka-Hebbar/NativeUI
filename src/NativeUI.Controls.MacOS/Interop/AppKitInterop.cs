@@ -20,10 +20,6 @@ internal static partial class AppKitInterop
     private const string AppKitFramework = "/System/Library/Frameworks/AppKit.framework/AppKit";
     private const string FoundationFramework = "/System/Library/Frameworks/Foundation.framework/Foundation";
     private const string CoreGraphicsFramework = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics";
-    private const nuint BitsPerComponent = 8;
-    private const nuint BitsPerPixel = 32;
-    private const uint ImageAlphaPremultipliedLast = 1;
-    private const int ColorRenderingIntentDefault = 0;
     private const ulong EventModifierFlagShift = 1UL << 17;
     private const ulong EventModifierFlagControl = 1UL << 18;
     private const ulong EventModifierFlagOption = 1UL << 19;
@@ -213,68 +209,20 @@ internal static partial class AppKitInterop
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
     public static partial nint SendMessageViewInit(nint receiver, nint selector, CGRect frameRect);
 
-    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
-    private static partial nint SendMessageImageInitWithCGImage(nint receiver, nint selector, nint cgImage, CGSize size);
-
     [LibraryImport(CoreGraphicsFramework, EntryPoint = "CGColorSpaceCreateWithName")]
     private static partial nint CGColorSpaceCreateWithName(nint name);
 
-    [LibraryImport(CoreGraphicsFramework, EntryPoint = "CGDataProviderCreateWithCFData")]
-    private static partial nint CGDataProviderCreateWithCFData(nint data);
-
-    [LibraryImport(CoreGraphicsFramework, EntryPoint = "CGDataProviderRelease")]
-    private static partial void CGDataProviderRelease(nint provider);
-
-    [LibraryImport(CoreGraphicsFramework, EntryPoint = "CGImageCreate")]
-    private static partial nint CGImageCreate(
-        nuint width,
-        nuint height,
-        nuint bitsPerComponent,
-        nuint bitsPerPixel,
-        nuint bytesPerRow,
-        nint colorSpace,
-        uint bitmapInfo,
-        nint provider,
-        nint decode,
-        [MarshalAs(UnmanagedType.I1)] bool shouldInterpolate,
-        int intent);
-
-    [LibraryImport(CoreGraphicsFramework, EntryPoint = "CGImageRelease")]
-    private static partial void CGImageRelease(nint image);
-
     /// <summary>
-    /// Returns a retained <c>NSImage</c> showing a copy of premultiplied RGBA pixels in sRGB, with the logical
-    /// <paramref name="size"/>. The caller releases it.
+    /// Returns the sRGB color space, which is created once and never released.
     /// </summary>
-    public static nint CreateImage(ReadOnlySpan<byte> rgbaPixels, int width, int height, int rowBytes, CGSize size)
+    public static nint GetSrgbColorSpace()
     {
         if (s_srgbColorSpace == nint.Zero)
         {
             s_srgbColorSpace = CGColorSpaceCreateWithName(ReadFrameworkConstant(CoreGraphicsFramework, "kCGColorSpaceSRGB"));
         }
 
-        nint provider = CGDataProviderCreateWithCFData(CreateNSData(rgbaPixels));
-        nint cgImage = CGImageCreate(
-            (nuint)width,
-            (nuint)height,
-            BitsPerComponent,
-            BitsPerPixel,
-            (nuint)rowBytes,
-            s_srgbColorSpace,
-            ImageAlphaPremultipliedLast,
-            provider,
-            nint.Zero,
-            false,
-            ColorRenderingIntentDefault);
-        CGDataProviderRelease(provider);
-
-        nint nsImage = SendMessageImageInitWithCGImage(
-            SendMessage(GetClass("NSImage"), GetSelector("alloc")),
-            GetSelector("initWithCGImage:size:"),
-            cgImage,
-            size);
-        CGImageRelease(cgImage);
-        return nsImage;
+        return s_srgbColorSpace;
     }
 
     /// <summary>
@@ -495,7 +443,12 @@ internal static partial class AppKitInterop
         SendMessageVoid(parent, GetSelector("addItem:"), item);
     }
 
-    public static unsafe nint GetInteractiveImageViewClass()
+    /// <summary>
+    /// Returns the class of window content views: an <c>NSView</c> backed by a <c>CAMetalLayer</c> on
+    /// <see cref="MetalDevice.Shared"/>, which forwards input to its <see cref="Window"/>. Create the shared device before
+    /// a view of this class becomes layer-backed.
+    /// </summary>
+    public static unsafe nint GetInteractiveViewClass()
     {
         if (s_interactiveViewClass != nint.Zero)
         {
@@ -503,20 +456,22 @@ internal static partial class AppKitInterop
         }
 
         EnsureFrameworksLoaded();
-        nint baseClass = GetClass("NSImageView");
-        nint existing = GetClass("NativeUIInteractiveImageView");
+        nint baseClass = GetClass("NSView");
+        nint existing = GetClass("NativeUIInteractiveView");
         if (existing != nint.Zero)
         {
             s_interactiveViewClass = existing;
             return existing;
         }
 
-        nint subClass = AllocateClassPair(baseClass, "NativeUIInteractiveImageView", 0);
+        nint subClass = AllocateClassPair(baseClass, "NativeUIInteractiveView", 0);
         if (subClass == nint.Zero)
         {
             return baseClass;
         }
 
+        delegate* unmanaged[Cdecl]<nint, nint, nint> makeBackingLayerPtr = &OnMakeBackingLayer;
+        delegate* unmanaged[Cdecl]<nint, nint, byte> wantsUpdateLayerPtr = &OnWantsUpdateLayer;
         delegate* unmanaged[Cdecl]<nint, nint, byte> acceptsFirstResponderPtr = &OnAcceptsFirstResponder;
         delegate* unmanaged[Cdecl]<nint, nint, byte> canBecomeKeyViewPtr = &OnCanBecomeKeyView;
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> mouseDownPtr = &OnMouseDown;
@@ -534,6 +489,8 @@ internal static partial class AppKitInterop
         delegate* unmanaged[Cdecl]<nint, nint, nint, void> keyUpPtr = &OnKeyUp;
         delegate* unmanaged[Cdecl]<nint, nint, nint, byte> performKeyEquivPtr = &OnPerformKeyEquivalent;
 
+        _ = ClassAddMethod(subClass, GetSelector("makeBackingLayer"), (nint)makeBackingLayerPtr, "@@:");
+        _ = ClassAddMethod(subClass, GetSelector("wantsUpdateLayer"), (nint)wantsUpdateLayerPtr, "c@:");
         _ = ClassAddMethod(subClass, GetSelector("acceptsFirstResponder"), (nint)acceptsFirstResponderPtr, "c@:");
         _ = ClassAddMethod(subClass, GetSelector("canBecomeKeyView"), (nint)canBecomeKeyViewPtr, "c@:");
         _ = ClassAddMethod(subClass, GetSelector("mouseDown:"), (nint)mouseDownPtr, "v@:@");
@@ -711,13 +668,22 @@ internal static partial class AppKitInterop
         }
     }
 
-    public static unsafe nint CreateNSData(ReadOnlySpan<byte> bytes)
+    /// <summary>
+    /// Returns an autoreleased <c>CAMetalLayer</c> as the view's backing layer.
+    /// </summary>
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static nint OnMakeBackingLayer(nint self, nint cmd)
     {
-        nint nsDataClass = GetClass("NSData");
-        fixed (byte* ptr = bytes)
-        {
-            return SendMessage(nsDataClass, GetSelector("dataWithBytes:length:"), (nint)ptr, (ulong)bytes.Length);
-        }
+        return MetalInterop.CreateLayer(MetalDevice.Shared.Device, GetSrgbColorSpace());
+    }
+
+    /// <summary>
+    /// Returns true, so AppKit never draws the layer's contents, which only Metal presents.
+    /// </summary>
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static byte OnWantsUpdateLayer(nint self, nint cmd)
+    {
+        return 1;
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
@@ -727,7 +693,7 @@ internal static partial class AppKitInterop
     }
 
     /// <summary>
-    /// Keeps the rendered image out of the Tab order, so Tab moves only between text fields.
+    /// Keeps the rendered content view out of the Tab order, so Tab moves only between text fields.
     /// </summary>
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static byte OnCanBecomeKeyView(nint self, nint cmd)

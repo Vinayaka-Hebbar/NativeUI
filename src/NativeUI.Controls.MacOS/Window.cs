@@ -35,6 +35,7 @@ public sealed class Window : IDisposable, IRenderHost
     private readonly Dictionary<Input, NativeTextField> _textFields = [];
     private readonly Dictionary<Dialog, DialogWindow> _dialogWindows = [];
     private SkiaSurface? _surface;
+    private SkiaMetalLayer? _metalLayer;
     private readonly int _ownerThreadId = Environment.CurrentManagedThreadId;
     private nint _displayLink;
     private bool _isFrameScheduled;
@@ -48,7 +49,7 @@ public sealed class Window : IDisposable, IRenderHost
     private IStyleResolver? _styleResolver;
     private Color? _background;
     private nint _nsWindow;
-    private nint _nsImageView;
+    private nint _nsView;
     private string _title = "NativeUI";
     private Text? _activeSelectionText;
     private LayoutBox? _activeSelectionBox;
@@ -256,7 +257,7 @@ public sealed class Window : IDisposable, IRenderHost
     }
 
     /// <summary>
-    /// Creates the <c>NSWindow</c> and its rendered image view, without showing the window.
+    /// Creates the <c>NSWindow</c> and its Metal-backed content view, without showing the window.
     /// </summary>
     private void CreateNativeWindow(ulong styleMask)
     {
@@ -287,19 +288,23 @@ public sealed class Window : IDisposable, IRenderHost
         nint nsTitle = AppKitInterop.CreateNSString(_title);
         AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setTitle:"), nsTitle);
 
-        nint imageViewClass = AppKitInterop.GetInteractiveImageViewClass();
-        nint allocImgView = AppKitInterop.SendMessage(imageViewClass, AppKitInterop.GetSelector("alloc"));
-        _nsImageView = AppKitInterop.SendMessageViewInit(
-            allocImgView,
+        // The shared device must exist before the view becomes layer-backed. A missing device then throws here instead of inside an AppKit callback.
+        MetalDevice device = MetalDevice.Shared;
+        nint viewClass = AppKitInterop.GetInteractiveViewClass();
+        nint allocView = AppKitInterop.SendMessage(viewClass, AppKitInterop.GetSelector("alloc"));
+        _nsView = AppKitInterop.SendMessageViewInit(
+            allocView,
             AppKitInterop.GetSelector("initWithFrame:"),
             new AppKitInterop.CGRect(0, 0, Width, Height));
+        AppKitInterop.SendMessageVoid(_nsView, AppKitInterop.GetSelector("setWantsLayer:"), true);
+        _metalLayer = new SkiaMetalLayer(device, _nsView);
 
-        AppKitInterop.RegisterWindowView(_nsImageView, this);
-        AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setContentView:"), _nsImageView);
-        AppKitInterop.InstallPointerTracking(_nsWindow, _nsImageView);
+        AppKitInterop.RegisterWindowView(_nsView, this);
+        AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setContentView:"), _nsView);
+        AppKitInterop.InstallPointerTracking(_nsWindow, _nsView);
         AppKitInterop.SendMessageVoid(_nsWindow, AppKitInterop.GetSelector("setAutorecalculatesKeyViewLoop:"), true);
-        _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
-        _displayLink = AppKitInterop.CreateDisplayLink(_nsImageView);
+        _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsView);
+        _displayLink = AppKitInterop.CreateDisplayLink(_nsView);
         if (_content is not null && AnimationClock.HasActiveAnimations(_content))
         {
             OnFrameRequested(_content);
@@ -909,9 +914,9 @@ public sealed class Window : IDisposable, IRenderHost
         }
 
         bool isNativeFieldFocused = _keyboard?.FocusedElement is Input input && _textFields.ContainsKey(input);
-        if (!isNativeFieldFocused && _nsWindow != nint.Zero && _nsImageView != nint.Zero)
+        if (!isNativeFieldFocused && _nsWindow != nint.Zero && _nsView != nint.Zero)
         {
-            _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
+            _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsView);
         }
     }
 
@@ -925,9 +930,12 @@ public sealed class Window : IDisposable, IRenderHost
     }
 
     /// <summary>
-    /// Renders a single frame of <see cref="Content"/> onto a <see cref="SkiaSurface"/>,
-    /// updates <see cref="LastLayout"/>, and presents to the native <c>NSWindow</c> if visible.
+    /// Renders a single frame of <see cref="Content"/> and updates <see cref="LastLayout"/>. A shown window presents the
+    /// frame through Metal, and a window without a native view renders it into an offscreen <see cref="SkiaSurface"/>.
     /// </summary>
+    /// <returns>
+    /// A snapshot of the offscreen frame, which the caller disposes, or null when the frame was presented or nothing rendered.
+    /// </returns>
     public SKImage? RenderFrame()
     {
         if (_content is null)
@@ -937,24 +945,79 @@ public sealed class Window : IDisposable, IRenderHost
 
         int pixelWidth = Math.Max(1, (int)Math.Round(Width * ScaleFactor));
         int pixelHeight = Math.Max(1, (int)Math.Round(Height * ScaleFactor));
-
-        if (_surface is null || _surface.PixelWidth != pixelWidth || _surface.PixelHeight != pixelHeight)
+        if (_metalLayer is null)
         {
-            _surface?.Dispose();
-            _surface = new SkiaSurface(pixelWidth, pixelHeight);
+            if (_surface is null || _surface.PixelWidth != pixelWidth || _surface.PixelHeight != pixelHeight)
+            {
+                _surface?.Dispose();
+                _surface = new SkiaSurface(pixelWidth, pixelHeight);
+            }
+
+            // The canvas outlives the frame, and a CanvasView handler can leave saved states on it.
+            _surface.Canvas.RestoreToCount(1);
+            return DrawFrame(_content, _surface.Canvas) ? _surface.Snapshot() : RenderFrame();
         }
 
-        // The canvas outlives the frame, and a CanvasView handler can leave saved states on it.
-        _surface.Canvas.RestoreToCount(1);
-        SkiaDrawingContext drawingContext = new(_surface.Canvas, SkiaTextShaper.Shared);
+        if (_metalLayer.BeginFrame(pixelWidth, pixelHeight, ScaleFactor) is not SKCanvas canvas)
+        {
+            return null;
+        }
+
+        bool isPresented = false;
+        try
+        {
+            if (DrawFrame(_content, canvas))
+            {
+                _metalLayer.EndFrame();
+                isPresented = true;
+            }
+        }
+        finally
+        {
+            if (!isPresented)
+            {
+                _metalLayer.DiscardFrame();
+            }
+        }
+
+        if (!isPresented)
+        {
+            return RenderFrame();
+        }
+
+        if (LastLayout is not null)
+        {
+            // Native views changing focus or closing invalidate the tree, which must not render during the updates.
+            BeginFrameBatch();
+            try
+            {
+                SyncTextFields(LastLayout);
+                SyncDialogWindows();
+            }
+            finally
+            {
+                EndFrameBatch();
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Lays out and draws <paramref name="content"/> onto <paramref name="canvas"/> and updates <see cref="LastLayout"/>.
+    /// </summary>
+    /// <returns>False when a hosted dialog resized the window to its content, which leaves the drawn frame at the old size.</returns>
+    private bool DrawFrame(UIElement content, SKCanvas canvas)
+    {
+        SkiaDrawingContext drawingContext = new(canvas, SkiaTextShaper.Shared);
         Size layoutViewport = _hostedDialog is not null ? s_contentMeasureViewport : new Size(Width, Height);
-        RenderPass pass = _renderer.ComputeLayout(_content, layoutViewport, drawingContext.ImageDecoder);
+        RenderPass pass = _renderer.ComputeLayout(content, layoutViewport, drawingContext.ImageDecoder);
         LastLayout = pass.Root;
         _renderer.Draw(drawingContext, pass, ScaleFactor, _background);
 
         if (_hostedDialog is not null && TryResizeToContent(LastLayout))
         {
-            return RenderFrame();
+            return false;
         }
 
         if (_activeSelectionText is not null && LastLayout is not null)
@@ -963,28 +1026,7 @@ public sealed class Window : IDisposable, IRenderHost
         }
 
         RenderCount++;
-
-        SKImage snapshot = _surface.Snapshot();
-        if (_nsImageView != nint.Zero && OperatingSystem.IsMacOS())
-        {
-            PresentSnapshotToNativeView(snapshot);
-            if (LastLayout is not null)
-            {
-                // Native views changing focus or closing invalidate the tree, which must not render during the updates.
-                BeginFrameBatch();
-                try
-                {
-                    SyncTextFields(LastLayout);
-                    SyncDialogWindows();
-                }
-                finally
-                {
-                    EndFrameBatch();
-                }
-            }
-        }
-
-        return snapshot;
+        return true;
     }
 
     /// <inheritdoc />
@@ -1015,10 +1057,10 @@ public sealed class Window : IDisposable, IRenderHost
             _displayLink = nint.Zero;
         }
 
-        if (_nsImageView != nint.Zero)
+        if (_nsView != nint.Zero)
         {
-            AppKitInterop.RemovePointerTracking(_nsImageView);
-            AppKitInterop.UnregisterWindowView(_nsImageView);
+            AppKitInterop.RemovePointerTracking(_nsView);
+            AppKitInterop.UnregisterWindowView(_nsView);
         }
 
         _overlayManager?.Dispose();
@@ -1048,7 +1090,8 @@ public sealed class Window : IDisposable, IRenderHost
         _renderer.Dispose();
         _surface?.Dispose();
         _surface = null;
-        _nsImageView = nint.Zero;
+        _metalLayer = null;
+        _nsView = nint.Zero;
         _nsWindow = nint.Zero;
     }
 
@@ -1178,7 +1221,7 @@ public sealed class Window : IDisposable, IRenderHost
         if (_inputBlocker != nint.Zero)
         {
             // Adding a view that is already a subview moves it above the fields created since.
-            AppKitInterop.SendMessageVoid(_nsImageView, AppKitInterop.GetSelector("addSubview:"), _inputBlocker);
+            AppKitInterop.SendMessageVoid(_nsView, AppKitInterop.GetSelector("addSubview:"), _inputBlocker);
         }
 
         foreach (Input input in _textFields.Keys.ToArray())
@@ -1218,7 +1261,7 @@ public sealed class Window : IDisposable, IRenderHost
         {
             if (!_textFields.TryGetValue(input, out NativeTextField? field))
             {
-                field = new NativeTextField(input, _nsImageView, this);
+                field = new NativeTextField(input, _nsView, this);
                 _textFields[input] = field;
             }
 
@@ -1440,8 +1483,8 @@ public sealed class Window : IDisposable, IRenderHost
         bool isBlocked = _dialogWindows.Keys.Any(static dialog => dialog.IsModal);
         if (isBlocked && _inputBlocker == nint.Zero)
         {
-            _inputBlocker = AppKitInterop.CreateInputBlocker(_nsImageView);
-            _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsImageView);
+            _inputBlocker = AppKitInterop.CreateInputBlocker(_nsView);
+            _ = AppKitInterop.SendMessage(_nsWindow, AppKitInterop.GetSelector("makeFirstResponder:"), _nsView);
         }
         else if (!isBlocked && _inputBlocker != nint.Zero)
         {
@@ -1665,7 +1708,7 @@ public sealed class Window : IDisposable, IRenderHost
         }
 
         IsTextCursorActive = cursor == Cursor.IBeam;
-        if (_nsImageView != nint.Zero && OperatingSystem.IsMacOS())
+        if (_nsView != nint.Zero && OperatingSystem.IsMacOS())
         {
             AppKitInterop.SetCursor(cursor);
         }
@@ -1797,24 +1840,6 @@ public sealed class Window : IDisposable, IRenderHost
         public Window Window { get; } = window;
 
         public Rect? Placement { get; set; }
-    }
-
-    private void PresentSnapshotToNativeView(SKImage snapshot)
-    {
-        using SKPixmap? pixels = snapshot.PeekPixels();
-        if (pixels is null)
-        {
-            return;
-        }
-
-        nint nsImage = AppKitInterop.CreateImage(
-            pixels.GetPixelSpan(),
-            pixels.Width,
-            pixels.Height,
-            pixels.RowBytes,
-            new AppKitInterop.CGSize(Width, Height));
-        AppKitInterop.SendMessageVoid(_nsImageView, AppKitInterop.GetSelector("setImage:"), nsImage);
-        _ = AppKitInterop.SendMessage(nsImage, AppKitInterop.GetSelector("release"));
     }
 
     /// <summary>
