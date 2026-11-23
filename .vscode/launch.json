@@ -29,6 +29,22 @@
       "timeout": 120000
     },
     {
+      "name": "Launch Sample: macOS (Native AOT)",
+      "type": "node-terminal",
+      "request": "launch",
+      "preLaunchTask": "publish: macos aot",
+      "command": "\"${workspaceFolder}/samples/NativeUI.Sample.MacOS/bin/Release/net10.0/osx-arm64/publish/NativeUI.Sample.MacOS\"",
+      "cwd": "${workspaceFolder}/samples/NativeUI.Sample.MacOS/bin/Release/net10.0/osx-arm64/publish"
+    },
+    {
+      "name": "Launch Sample: Web (AOT)",
+      "type": "msedge",
+      "request": "launch",
+      "preLaunchTask": "serve: web aot",
+      "url": "http://127.0.0.1:5174",
+      "webRoot": "${workspaceFolder}/samples/NativeUI.Sample.Web/bin/Release/net10.0/publish/wwwroot"
+    },
+    {
       "name": "Run Tests: NativeUI.Core.Tests",
       "type": "coreclr",
       "request": "launch",

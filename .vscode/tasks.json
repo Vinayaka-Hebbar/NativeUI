@@ -5,10 +5,7 @@
       "label": "build",
       "command": "dotnet",
       "type": "process",
-      "args": [
-        "build",
-        "${workspaceFolder}/NativeUI.slnx"
-      ],
+      "args": ["build", "${workspaceFolder}/NativeUI.slnx"],
       "group": {
         "kind": "build",
         "isDefault": true
@@ -85,6 +82,62 @@
         "${workspaceFolder}/samples/NativeUI.Sample.MacOS/NativeUI.Sample.MacOS.csproj"
       ],
       "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "publish: macos aot",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "publish",
+        "${workspaceFolder}/samples/NativeUI.Sample.MacOS/NativeUI.Sample.MacOS.csproj",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "-p:PublishAot=true"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "publish: web aot",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "publish",
+        "${workspaceFolder}/samples/NativeUI.Sample.Web/NativeUI.Sample.Web.csproj",
+        "-c",
+        "Release",
+        "-p:PublishAot=true"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "serve: web aot",
+      "dependsOn": "publish: web aot",
+      "command": "python3",
+      "type": "process",
+      "args": [
+        "-u",
+        "-m",
+        "http.server",
+        "5174",
+        "--bind",
+        "127.0.0.1",
+        "-d",
+        "${workspaceFolder}/samples/NativeUI.Sample.Web/bin/Release/net10.0/publish/wwwroot"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "http-server",
+        "pattern": {
+          "regexp": "^__never_matches__$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*$",
+          "endsPattern": "^Serving HTTP on"
+        }
+      }
     },
     {
       "label": "sample: web",
