@@ -5,7 +5,7 @@ namespace NativeUI.Sample;
 
 /// <summary>
 /// Sample page compiled from <c>AnimationSampleView.xaml</c>, showing progress bars, a CSS transition, and an animation
-/// started from C#. <c>HelloView.xaml.css</c> styles it, because a nested view resolves styles through the root of its tree.
+/// started from C#.
 /// </summary>
 public partial class AnimationSampleView
 {

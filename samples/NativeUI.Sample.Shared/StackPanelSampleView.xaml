@@ -1,0 +1,15 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.StackPanelSampleView">
+    <Text Class="section" Value="StackPanel" />
+    <StackPanel Class="panel-box" Orientation="Horizontal" Spacing="8" Padding="12">
+        <Button Class="btn-action" Text="Save" />
+        <Button Class="btn-action" Text="Cancel" />
+    </StackPanel>
+    <Text Class="section" Value="Vertical with spacing" />
+    <StackPanel Class="panel-box" Spacing="8" Padding="12">
+        <Text Class="scroll-line" Value="Children stack from top to bottom." />
+        <Text Class="scroll-line" Value="Spacing adds 8px between them." />
+        <Button Class="btn-action" Text="Keeps its own width" />
+    </StackPanel>
+</View>

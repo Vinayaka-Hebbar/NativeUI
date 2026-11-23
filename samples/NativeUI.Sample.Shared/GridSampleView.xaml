@@ -1,0 +1,31 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.GridSampleView">
+    <Text Class="section" Value="Grid" />
+    <Grid Class="panel-box"
+          Rows="Auto,*"
+          Columns="140,*"
+          RowSpacing="8"
+          ColumnSpacing="12"
+          Padding="12">
+        <Text Class="grid-sidebar" Grid.RowSpan="2" Value="This sidebar spans two rows in a 140px column." />
+        <Text Class="grid-title" Grid.Column="1" Value="Dashboard" />
+        <Text Class="scroll-line" Grid.Row="1" Grid.Column="1" Value="This cell is in the star column, which takes the remaining width and wraps long text like this sentence." />
+    </Grid>
+
+    <Text Class="section" Value="Resizable Panes" />
+    <Text Class="scroll-status" Value="Drag the handle, or focus it and press Arrow keys (Escape cancels drag)." />
+    <Resizable Orientation="Horizontal" Class="resizable-container">
+        <ResizablePanel DefaultSize="30" MinSize="20" Class="split-pane">
+            <Text Class="grid-title" Value="Sidebar" />
+            <Text Class="grid-sidebar" Value="DefaultSize 30%, MinSize 20%" />
+        </ResizablePanel>
+
+        <ResizableHandle Class="resizable-handle" />
+
+        <ResizablePanel DefaultSize="70" MinSize="30" Class="split-pane">
+            <Text Class="grid-title" Value="Main Content" />
+            <Text Class="scroll-line" Value="DefaultSize 70%, MinSize 30%. Drag the divider to resize both panels." />
+        </ResizablePanel>
+    </Resizable>
+</View>

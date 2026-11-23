@@ -10,6 +10,14 @@ using NativeUI.Media;
 using NativeUI.Sample;
 using NativeUI.Tests;
 
+if (args.Contains("--gallery"))
+{
+    return TestRunner.RunSuite("Sample gallery",
+    [
+        ("Gallery navigation reaches every compiled example", GalleryTests.VerifyNavigation)
+    ]);
+}
+
 if (args.Contains("--inlines"))
 {
     return TestRunner.RunSuite("Text inlines",
@@ -158,6 +166,7 @@ if (args.Contains("--anchors"))
 
 int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
 [
+    ("Gallery navigation reaches every compiled example", GalleryTests.VerifyNavigation),
         ("Radio groups enforce exclusivity and expose routed activation", RadioButtonTests.VerifyGrouping),
         ("Radio keyboard navigation wraps, skips unavailable options, and uses one tab stop", RadioButtonTests.VerifyKeyboard),
         ("Radio form constraints remain separate from binding errors and reset through MVVM", RadioButtonTests.VerifyFormsAndBindings),
@@ -219,7 +228,7 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("Image/vector PercentageSizingUsesDefiniteDimensions", ImageAndGeometryTests.PercentageSizingUsesDefiniteDimensions),
     ("Image/vector SvgTextKeepsDocumentOrder", ImageAndGeometryTests.SvgTextKeepsDocumentOrder),
     ("Image/vector CompiledFactoryIsRetainedAndInvalidatesOnce", ImageAndGeometryTests.CompiledFactoryIsRetainedAndInvalidatesOnce),
-    ("Image/vector HelloViewContainsWorkingImagePage", ImageAndGeometryTests.HelloViewContainsWorkingImagePage),
+    ("Image/vector SampleContainsWorkingImagePage", ImageAndGeometryTests.SampleContainsWorkingImagePage),
     ("Compiled gradient SVG matches runtime rendering", NativeUI.Controls.Tests.ImageAndGeometryTests.CompiledGradientMatchesRuntimeSvg),
     ("Typed SVG definitions render local references, clipping, masks, and text", NativeUI.Controls.Tests.ImageAndGeometryTests.TypedDefinitionsRenderReferencesClipsMasksAndText),
     ("Google SVG resource compiles, embeds, and renders", ImageAndGeometryTests.GoogleSvgResourceIsCompiledAndEmbedded),
@@ -244,7 +253,7 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Tests",
     ("Animation clock recovers after a callback throws", AnimationTests.VerifyTickRecoversAfterException),
     ("Animation clock does not allocate on steady-state ticks", AnimationTests.VerifyClockDoesNotAllocatePerTick),
     ("Control supports CSS Class styling, inline C# Style overrides, and application theme changes", TestClassAndInlineStyleSystem),
-    ("Desktop LayoutEngine and SkiaSurface render HelloView and re-render on ViewModel change", TestDesktopSkiaRenderingAndBindingUpdate),
+    ("Desktop LayoutEngine and SkiaSurface render the input sample and re-render on ViewModel change", TestDesktopSkiaRenderingAndBindingUpdate),
     ("HarfBuzz SkiaTextShaper and SkiaTextLayout support hit-testing, word boundaries, wrapped selection rects, and disposal", TestHarfBuzzTextShapingAndHitTesting),
     ("Selection follows font bounds with balanced line spacing and accurate cluster hit-testing", NativeUI.Controls.Tests.SelectionGeometryTests.Verify),
     ("Text inherits its parent's CSS font family and preserves local overrides", NativeUI.Controls.Tests.FontInheritanceTests.Verify),
@@ -339,19 +348,19 @@ return exitCode;
 
 static void TestClassAndInlineStyleSystem()
 {
-    HelloView view = new();
-
-    // Verify CSS class styling from HelloView.xaml.css via optional StyleResolver
-    Assert.Equal("card", view.Class);
-    Assert.Equal("title", view.TitleText.Class);
-    Assert.Equal(26.0, view.TitleText.ComputedStyle.FontSize);
-    Assert.Equal(FontWeight.Bold, view.TitleText.ComputedStyle.FontWeight);
-    Assert.Equal("Arial", view.TitleText.ComputedStyle.FontFamily);
+    using GalleryView gallery = new();
+    View view = gallery;
+    StackPanel brand = (StackPanel)(gallery.AppNav.PaneHeader ?? throw new InvalidOperationException("Missing brand header."));
+    Text title = (Text)brand.Children[1];
+    Assert.Equal("gallery-root", view.Class);
+    Assert.Equal("gallery-brand-title", title.Class);
+    Assert.Equal(18.0, title.ComputedStyle.FontSize);
+    Assert.Equal(FontWeight.ExtraBold, title.ComputedStyle.FontWeight);
 
     // Verify inline Style = new() { ... } works standalone and overrides CSS class properties
     Text styledBadge = new()
     {
-        Class = "subtitle",
+        Class = "gallery-brand-title",
         Value = "Submit",
         Style = new()
         {
@@ -367,8 +376,8 @@ static void TestClassAndInlineStyleSystem()
     Assert.Equal(Colors.White, styledBadge.ComputedStyle.TextColor);
     Assert.Equal(new Thickness(12, 8), styledBadge.ComputedStyle.Padding);
     Assert.Equal(6.0, styledBadge.ComputedStyle.BorderRadius);
-    // Retains FontSize from .subtitle class because inline Style did not override FontSize
-    Assert.Equal(16.0, styledBadge.ComputedStyle.FontSize);
+    // Retains FontSize from .gallery-brand-title class because inline Style did not override FontSize
+    Assert.Equal(18.0, styledBadge.ComputedStyle.FontSize);
 
     // Mutating inline Style triggers immediate recomputation
     styledBadge.Style.BorderRadius = 10;
@@ -376,17 +385,17 @@ static void TestClassAndInlineStyleSystem()
 
     // Changing the application theme re-evaluates @media (prefers-color-scheme: dark)
     using TestTheme testTheme = new();
-    testTheme.Apply(view, Theme.Light);
-    Color? lightTitleColor = view.TitleText.ComputedStyle.TextColor;
-    IUIElement element = view.TitleText;
+    testTheme.Apply(gallery, Theme.Light);
+    Color? lightTitleColor = title.ComputedStyle.TextColor;
+    IUIElement element = title;
     ThemeValue<Color> textColorToken = new("--color-text");
     Assert.Equal(lightTitleColor, CssStyleResolver.Instance.ResolveColor(textColorToken, element));
     ComputedStyle beforeResolution = element.ComputedStyle;
     Assert.Equal(beforeResolution, CssStyleResolver.Instance.ResolveStyle(element));
     Assert.Same(beforeResolution, element.ComputedStyle);
 
-    testTheme.Apply(view, Theme.Dark);
-    Color? darkTitleColor = view.TitleText.ComputedStyle.TextColor;
+    testTheme.Apply(gallery, Theme.Dark);
+    Color? darkTitleColor = title.ComputedStyle.TextColor;
     Assert.Equal(darkTitleColor, CssStyleResolver.Instance.ResolveColor(textColorToken, element));
 
     Assert.False(EqualityComparer<Color?>.Default.Equals(lightTitleColor, darkTitleColor));
@@ -395,7 +404,7 @@ static void TestClassAndInlineStyleSystem()
 static void TestDesktopSkiaRenderingAndBindingUpdate()
 {
     HelloViewModel viewModel = new();
-    HelloView view = new()
+    InputSampleView view = new()
     {
         DataContext = viewModel
     };
@@ -411,17 +420,17 @@ static void TestDesktopSkiaRenderingAndBindingUpdate()
     Assert.True(window.RenderCount >= 1);
     Assert.NotNull(window.LastLayout);
 
-    LayoutBox initialTitleBox = window.LastLayout!.Children[1];
+    LayoutBox initialTitleBox = window.LastLayout!.Children[2];
     Assert.True(initialTitleBox.ContentBox.Width > 50, "Expected non-zero measured Skia text width.");
 
     int countBeforeUpdate = window.RenderCount;
 
     // Mutate observable ViewModel property and verify incremental frame repaint without recreating controls
-    Text originalTitleInstance = view.TitleText;
-    viewModel.Title = "Updated Skia & DOM Title";
+    Text originalTitleInstance = view.GreetingText;
+    viewModel.UserName = "NativeUI";
 
-    Assert.Same(originalTitleInstance, view.TitleText);
-    Assert.Equal("Updated Skia & DOM Title", view.TitleText.Value);
+    Assert.Same(originalTitleInstance, view.GreetingText);
+    Assert.Equal("Hello, NativeUI", view.GreetingText.Value);
     Assert.True(window.RenderCount > countBeforeUpdate, "Expected desktop window to repaint on bound property change.");
 }
 
@@ -464,12 +473,12 @@ static void TestDesktopWindowTextSelectionAndClipboard()
 {
     InMemoryClipboard clipboard = new();
     HelloViewModel viewModel = new();
-    HelloView view = new()
+    InputSampleView view = new()
     {
         DataContext = viewModel
     };
 
-    Assert.True(view.TitleText.IsTextSelectionEnabled);
+    Assert.True(view.GreetingText.IsTextSelectionEnabled);
 
     using Window window = new(clipboard: clipboard)
     {
@@ -479,26 +488,26 @@ static void TestDesktopWindowTextSelectionAndClipboard()
         Content = view
     };
 
-    LayoutBox titleBox = window.LastLayout!.Children[1];
+    LayoutBox titleBox = window.LastLayout!.Children[2];
     Point doubleClickPoint = new(titleBox.ContentBox.X + 10, titleBox.ContentBox.Y + (titleBox.ContentBox.Height * 0.5));
 
-    // Double-click selects the first word of TitleText ("Cross")
+    // Double-click selects the first word of the sample greeting ("Nothing")
     window.HandlePointerPressed(doubleClickPoint, clickCount: 2);
-    Assert.True(view.TitleText.HasSelection);
-    Assert.Equal("Cross", view.TitleText.SelectedText);
+    Assert.True(view.GreetingText.HasSelection);
+    Assert.Equal("Nothing", view.GreetingText.SelectedText);
 
     // Cmd+C / Ctrl+C copies the selected text to the window's IClipboard
     bool copied = window.HandleKeyDownAsync("c", commandOrControl: true).GetAwaiter().GetResult();
     Assert.True(copied);
-    Assert.Equal("Cross", clipboard.GetTextAsync().GetAwaiter().GetResult());
+    Assert.Equal("Nothing", clipboard.GetTextAsync().GetAwaiter().GetResult());
 
-    // Drag selection across TitleText
+    // Drag selection across the sample greeting
     Point dragStart = new(titleBox.ContentBox.X + 2, titleBox.ContentBox.Y + (titleBox.ContentBox.Height * 0.5));
     Point dragEnd = new(titleBox.ContentBox.X + titleBox.ContentBox.Width - 2, titleBox.ContentBox.Y + (titleBox.ContentBox.Height * 0.5));
     window.HandlePointerPressed(dragStart, clickCount: 1);
     window.HandlePointerMoved(dragEnd, isPressed: true);
     window.HandlePointerReleased(dragEnd);
-    Assert.True(view.TitleText.SelectionLength > 5);
+    Assert.True(view.GreetingText.SelectionLength > 5);
 }
 
 file sealed class InMemoryClipboard : IClipboard

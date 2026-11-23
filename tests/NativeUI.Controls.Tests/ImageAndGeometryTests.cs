@@ -19,8 +19,10 @@ internal static class ImageAndGeometryTests
         try
         {
             Application.Current.RequestedTheme = Theme.Dark;
-            using HelloView hello = new();
-            ImageSampleView page = hello.ImagePage;
+            using GalleryView gallery = new();
+            GalleryViewModel model = (GalleryViewModel)(gallery.DataContext ?? throw new InvalidOperationException("Missing gallery model."));
+            model.SelectedPage = model.NavigationItems.Single(item => item.Tag == "Images");
+            ImageSampleView page = (ImageSampleView)(model.CurrentPage ?? throw new InvalidOperationException("Missing image page."));
             Text title = (Text)page.Children[0];
             Text description = (Text)page.Children[1];
             page.RecomputeStyle();
@@ -30,9 +32,10 @@ internal static class ImageAndGeometryTests
             Assert.Equal(24d, title.ComputedStyle.FontSize);
             Assert.Equal(14d, description.ComputedStyle.FontSize);
             Assert.Equal(13d, page.ImageStatus.ComputedStyle.FontSize);
-            Assert.Equal(Color.FromRgbBytes(248, 250, 252), title.ComputedStyle.TextColor);
-            Assert.Equal(Color.FromRgbBytes(248, 250, 252), page.ImageStatus.ComputedStyle.TextColor);
+            Assert.Equal(Color.FromRgbBytes(250, 250, 250), title.ComputedStyle.TextColor);
+            Assert.Equal(Color.FromRgbBytes(250, 250, 250), page.ImageStatus.ComputedStyle.TextColor);
             Application.Current.RequestedTheme = Theme.Light;
+            gallery.InvalidateStyle();
             title.RecomputeStyle();
             Assert.Equal(Color.FromRgbBytes(15, 23, 42), title.ComputedStyle.TextColor);
         }
@@ -113,13 +116,13 @@ internal static class ImageAndGeometryTests
         Assert.Equal(2, factories);
     }
 
-    public static void HelloViewContainsWorkingImagePage()
+    public static void SampleContainsWorkingImagePage()
     {
-        using HelloView hello = new();
-        Assert.True(hello.ImagePage.Preview.Source is CompiledSvgSource,
+        using ImageSampleView page = new();
+        Assert.True(page.Preview.Source is CompiledSvgSource,
             "The resource URI must be replaced by a compiled factory using its logical resource name.");
         QueuedDispatcher dispatcher = new();
-        Image preview = hello.ImagePage.Preview;
+        Image preview = page.Preview;
         preview.Dispatcher = dispatcher;
         int opened = 0;
         int failed = 0;
@@ -138,7 +141,7 @@ internal static class ImageAndGeometryTests
         Assert.Equal(2, opened);
         preview.Source = null;
         Assert.Equal(1, failed);
-        SvgNode inline = hello.ImagePage.InlineArtwork.Definition ?? throw new InvalidOperationException("Inline SVG definition is missing.");
+        SvgNode inline = page.InlineArtwork.Definition ?? throw new InvalidOperationException("Inline SVG definition is missing.");
         Assert.Equal(3, inline.Children.Length);
         Assert.Equal("Native", inline.Children[2].Children[0].Text);
     }

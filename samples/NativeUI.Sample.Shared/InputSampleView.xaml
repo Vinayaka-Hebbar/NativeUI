@@ -1,0 +1,22 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.InputSampleView"
+      x:DataType="NativeUI.Sample.HelloViewModel">
+    <Text Class="section" Value="Two-way binding" />
+    <Input x:Name="NameInput"
+           Class="field"
+           Placeholder="Type your name"
+           Value="{Binding UserName, Mode=TwoWay}" />
+    <Text x:Name="GreetingText" Class="scroll-status" Value="{Binding Greeting}" />
+    <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button x:Name="FocusNameButton" Class="btn-action" Text="Focus the field" />
+        <Button Class="btn-action" Text="Clear" Command="{Binding ClearUserNameCommand}" />
+    </StackPanel>
+    <Text x:Name="FocusStatus" Class="scroll-status" Value="The field does not have focus" />
+
+    <Text Class="section" Value="Read-only" />
+    <Input Class="field" IsReadOnly="true" Value="This text can be selected and copied" />
+
+    <Text Class="section" Value="Disabled" />
+    <Input Class="field" IsEnabled="false" Value="This field does not respond" />
+</View>

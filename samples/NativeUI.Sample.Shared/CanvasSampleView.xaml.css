@@ -1,0 +1,16 @@
+.canvas-box {
+  border-radius: 8px;
+  background-color: var(--color-muted-surface);
+}
+
+.canvas-shapes {
+  height: 120px;
+}
+
+.canvas-transforms {
+  height: 140px;
+}
+
+.canvas-chart {
+  height: 160px;
+}

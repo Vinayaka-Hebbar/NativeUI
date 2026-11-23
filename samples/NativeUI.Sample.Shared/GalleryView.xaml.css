@@ -199,3 +199,57 @@ NavigationViewItem:selected Text {
 .gallery-theme-btn:hover {
   background-color: var(--color-border);
 }
+
+
+.status {
+  color: var(--color-accent, #10b981);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.section {
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 16px 0 8px 0;
+}
+
+.scroll-line {
+  color: var(--color-text);
+  font-size: 14px;
+  margin: 0 0 8px 0;
+}
+
+.scroll-status {
+  color: var(--color-muted);
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+.btn-action {
+  background-color: var(--color-primary);
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-action:active {
+  opacity: 0.85;
+}
+
+.field {
+  background-color: var(--color-muted-surface);
+  color: var(--color-text);
+  padding: 8px 12px;
+  border-width: 1px;
+  border-color: var(--color-muted);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.field:focus {
+  border-color: var(--color-primary);
+}

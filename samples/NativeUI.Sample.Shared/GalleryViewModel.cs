@@ -75,6 +75,72 @@ public partial class GalleryViewModel : ObservableObject
             },
             new NavigationItemViewModel
             {
+                Name = "Scrolling",
+                Tag = "Scrolling",
+                IconData = "M8 4H5v16h3M16 4h3v16h-3M9 7l3-3 3 3M12 4v16M9 17l3 3 3-3"
+            },
+            new NavigationItemViewModel
+            {
+                Name = "Canvas",
+                Tag = "Canvas",
+                IconData = "M4 3h16v16H4V3zM8 23l4-4 4 4M12 3V1M8 13l3-4 3 3 3-5"
+            },
+            new NavigationItemViewModel
+            {
+                Name = "Input",
+                Tag = "Input",
+                IconData = "M3 5h18v14H3V5zM8 9v6M5 9h6M5 15h6M14 12h4"
+            },
+            new NavigationItemViewModel
+            {
+                Name = "Display",
+                Tag = "Display",
+                IconData = "M3 4h18v13H3V4zM12 17v4M8 21h8M7 8h10M7 12h6"
+            },
+            new NavigationItemViewModel
+            {
+                Name = "Popups",
+                Tag = "Popups",
+                IconData = "M3 4h18v13h-7l-4 4v-4H3V4zM7 8h10M7 12h6"
+            },
+            new NavigationItemViewModel
+            {
+                Name = "Tabs",
+                Tag = "Tabs",
+                IconData = "M3 7h18v14H3V7zM3 7V3h7v4M10 3h7v4M17 3h4v4"
+            },
+            new NavigationItemViewModel
+            {
+                Name = "List & Table",
+                Tag = "Collections",
+                IconData = "M3 3h18v18H3V3zM3 9h18M3 15h18M9 3v18"
+            },
+            new NavigationItemViewModel
+            {
+                Name = "Dialog",
+                Tag = "Dialog",
+                IconData = "M3 4h18v16H3V4zM3 8h18M7 6h1M10 6h1M8 12h8M10 16h6"
+            },
+            new NavigationItemViewModel
+            {
+                Name = "Animation",
+                Tag = "Animation",
+                IconData = "M13 2L4 14h7l-1 8 10-13h-7l1-7z"
+            },
+            new NavigationItemViewModel
+            {
+                Name = "3D",
+                Tag = "Scene3D",
+                IconData = "M12 2l9 5v10l-9 5-9-5V7l9-5zM3 7l9 5 9-5M12 12v10"
+            },
+            new NavigationItemViewModel
+            {
+                Name = "ResizeObserver",
+                Tag = "ResizeObserver",
+                IconData = "M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6M8 8h8v8H8V8z"
+            },
+            new NavigationItemViewModel
+            {
                 Name = "Forms",
                 Tag = "Forms",
                 IconData = "M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm3 5h10V6H7v2zm0 5h10v-2H7v2zm0 5h6v-2H7v2z"
@@ -139,14 +205,25 @@ public partial class GalleryViewModel : ObservableObject
         return item.Tag switch
         {
             "SplitView" => new SplitViewSampleView(),
-            "StackPanel" => new DisplaySampleView(),
-            "Grid" => new CollectionSampleView(),
+            "StackPanel" => new StackPanelSampleView(),
+            "Grid" => new GridSampleView(),
             "Images" => new ImageSampleView(),
             "Text" => new TextSampleView(),
             "Toggles" => new ToggleSampleView(),
             "Select" => new SelectSampleView(),
             "Forms" => new FormSampleView(),
-            _ => new SplitViewSampleView()
+            "Scrolling" => new ScrollSampleView(),
+            "Canvas" => new CanvasSampleView(),
+            "Input" => new InputSampleView(),
+            "Display" => new DisplaySampleView(),
+            "Popups" => new PopupSampleView(),
+            "Tabs" => new TabSampleView(),
+            "Collections" => new CollectionSampleView(),
+            "Dialog" => new DialogSampleView(),
+            "Animation" => new AnimationSampleView(),
+            "Scene3D" => new Scene3DSampleView(),
+            "ResizeObserver" => new ResizeSampleView(),
+            _ => null
         };
     }
 }

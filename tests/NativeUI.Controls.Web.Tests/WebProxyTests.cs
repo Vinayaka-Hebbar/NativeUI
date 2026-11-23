@@ -31,7 +31,7 @@ int exitCode = TestRunner.RunSuite("NativeUI.Controls.Web.Tests",
     ("Browser image formats use validated signatures instead of a JPEG fallback", TestImageContentTypes),
     ("SVG snapshots reflect live geometry and retain unchanged geometry definitions", TestSvgSnapshots),
     ("Natural-size vector icons retain their geometry scale", TestNaturalSizeIcon),
-    ("HelloView mounts its proxy hierarchy and performs targeted incremental updates", TestIncrementalUpdates),
+    ("Input sample mounts its proxy hierarchy and performs targeted incremental updates", TestIncrementalUpdates),
     ("DOM proxies synchronize text and keep their identity across property changes", TestPropertyChanges),
     ("View proxies reconcile children without recreating unchanged proxies", TestChildCollections),
     ("WebHost unmounts subscriptions and proxies before remounting", TestMountLifetime),
@@ -459,7 +459,7 @@ static void TestVisualTreeAttachment()
 static void TestIncrementalUpdates()
 {
     HelloViewModel viewModel = new();
-    HelloView view = new()
+    InputSampleView view = new()
     {
         DataContext = viewModel
     };
@@ -468,15 +468,14 @@ static void TestIncrementalUpdates()
     domRoot.MountHeadless(view);
 
     HtmlDomElement root = GetElement(view);
-    HtmlDomElement title = GetElement(view.TitleText);
+    HtmlDomElement title = GetElement(view.GreetingText);
     Assert.Equal("div", root.TagName);
-    Assert.Equal("card", root.ClassName);
     Assert.Equal("span", title.TagName);
-    Assert.Equal("title", title.ClassName);
+    Assert.Equal("scroll-status", title.ClassName);
 
-    viewModel.Title = "Incremental Web Update!";
-    Assert.Equal("Incremental Web Update!", title.TextContent);
-    Assert.Same(title, GetElement(view.TitleText));
+    viewModel.UserName = "NativeUI";
+    Assert.Equal("Hello, NativeUI", title.TextContent);
+    Assert.Same(title, GetElement(view.GreetingText));
 }
 
 static void TestPropertyChanges()

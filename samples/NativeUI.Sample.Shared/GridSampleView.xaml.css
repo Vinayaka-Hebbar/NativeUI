@@ -1,0 +1,39 @@
+.panel-box {
+  border-radius: 8px;
+  background-color: var(--color-muted-surface);
+}
+
+.grid-sidebar {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.grid-title {
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.resizable-container {
+  height: 220px;
+  background-color: var(--color-background);
+  border-width: 1px;
+  border-color: var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.split-pane {
+  background-color: var(--color-surface);
+  padding: 12px;
+}
+
+.resizable-handle {
+  background-color: var(--color-muted);
+}
+
+.resizable-handle:hover,
+.resizable-handle[data-dragging="true"],
+.resizable-handle[data-dragging] {
+  background-color: var(--color-primary);
+}

@@ -1,0 +1,13 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.CanvasSampleView">
+    <Text Class="section" Value="Shapes and opacity" />
+    <CanvasView x:Name="ShapesCanvas" Class="canvas-box canvas-shapes" />
+
+    <Text Class="section" Value="Transforms and clipping" />
+    <CanvasView x:Name="TransformCanvas" Class="canvas-box canvas-transforms" />
+
+    <Text Class="section" Value="Redrawing from data" />
+    <CanvasView x:Name="ChartCanvas" Class="canvas-box canvas-chart" />
+    <Button x:Name="ShuffleButton" Class="btn-action" Text="Shuffle data" />
+</View>

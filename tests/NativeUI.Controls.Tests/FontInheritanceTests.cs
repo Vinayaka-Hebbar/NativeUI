@@ -12,7 +12,7 @@ internal static class FontInheritanceTests
 {
     internal static void Verify()
     {
-        using HelloView sample = new();
+        using ImageSampleView sample = new();
         Assert.Equal("Arial", sample.ComputedStyle.FontFamily);
         foreach (UIElement child in sample.Children)
         {

@@ -4,7 +4,6 @@ namespace NativeUI.Sample;
 
 /// <summary>
 /// Sample page compiled from <c>DialogSampleView.xaml</c>, showing anchored and centered dialogs and a portal menu.
-/// <c>HelloView.xaml.css</c> styles it, because a nested view resolves styles through the root of its tree.
 /// </summary>
 public partial class DialogSampleView
 {
@@ -14,6 +13,7 @@ public partial class DialogSampleView
     public DialogSampleView()
     {
         InitializeComponent();
+        DataContext = new HelloViewModel();
 
         DeleteButton.Click += (_, _) => ConfirmDialog.Show(DeleteButton);
         AboutButton.Click += (_, _) => AboutDialog.Show();
