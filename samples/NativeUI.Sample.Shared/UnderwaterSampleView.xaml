@@ -1,0 +1,11 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.UnderwaterSampleView">
+
+    <Text Class="section" Value="Underwater" />
+    <Text Value="A procedural seabed with thousands of instanced rocks, corals, swaying plants, and fish, drawn on the GPU through fog." />
+    <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button x:Name="ViewButton" Class="btn-action" Text="View" />
+    </StackPanel>
+    <Text x:Name="WindowStatus" Class="scroll-status" Value="Opens the scene in its own window." />
+</View>

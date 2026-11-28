@@ -1,0 +1,97 @@
+<View xmlns="urn:nativeui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Class="NativeUI.Sample.UnderwaterSceneView"
+      Class="underwater-scene">
+
+    <Viewport3D x:Name="SceneView" Class="underwater-viewport">
+        <Viewport3D.Camera>
+            <PerspectiveCamera x:Name="Camera" Position="0, 3, -16" LookAt="0, 3, 0" Fov="60" />
+        </Viewport3D.Camera>
+        <Scene3D>
+            <!-- The water is brighter toward the surface. The fog takes this color along each view ray. Distant surfaces
+                 dissolve into the water behind them. -->
+            <GradientSky
+                TopColor="#A4EAF2"
+                HorizonColor="#22829A"
+                GroundHorizonColor="#22829A"
+                GroundColor="#082630"
+                SkyCurve="0.55"
+                GroundCurve="0.45"
+                EnergyMultiplier="1" />
+
+            <FogExp2 Color="#1E7A8E" Density="0.04" AerialPerspective="0.85" />
+
+            <HemisphereLight Color="#BDF1F8" GroundColor="#0B2A33" Intensity="1" />
+            <DirectionalLight Color="#5E8C90" Direction="0.2, 1, 0.15" Intensity="1.2" />
+            <Caustics x:Name="SeabedCaustics" Color="#D2F7FF" Intensity="1.6" Scale="3.5" />
+            <WindZone x:Name="Current" Direction="1, 0, 0.4" Strength="0.12" Turbulence="0.35" Frequency="0.35" />
+
+            <Environment3D
+                TonemapExposure="1.25"
+                IsGlowEnabled="True"
+                GlowIntensity="0.6"
+                GlowStrength="0.8"
+                GlowThreshold="0.85"
+                AdjustmentContrast="1.08"
+                AdjustmentSaturation="1.1"
+                LightShaftIntensity="0.9"
+                LightShaftDirection="0.15, 1, 0.1"
+                LightShaftColor="#CFF6FF"
+                LightShaftDecay="0.96"
+                VignetteIntensity="0.45"
+                VignetteSmoothness="0.6"
+                VignetteColor="#021820" />
+
+            <Mesh x:Name="Seabed">
+                <Mesh.Material>
+                    <StandardMaterial Color="#C4B796" DetailScale="0.6" DetailAmount="0.45" />
+                </Mesh.Material>
+            </Mesh>
+
+            <InstancedMesh x:Name="Boulders">
+                <InstancedMesh.Material>
+                    <StandardMaterial Color="#7E8B88" DetailScale="0.08" DetailAmount="0.7" />
+                </InstancedMesh.Material>
+            </InstancedMesh>
+
+            <InstancedMesh x:Name="Rocks">
+                <InstancedMesh.Material>
+                    <StandardMaterial Color="#87908E" DetailScale="0.25" DetailAmount="0.7" />
+                </InstancedMesh.Material>
+            </InstancedMesh>
+
+            <InstancedMesh x:Name="Corals">
+                <InstancedMesh.Material>
+                    <StandardMaterial Color="#C96A8A" DetailScale="0.15" DetailAmount="0.4" />
+                </InstancedMesh.Material>
+            </InstancedMesh>
+
+            <InstancedMesh x:Name="Grass">
+                <InstancedMesh.Material>
+                    <StandardMaterial Color="#4D7F45" WindResponse="1.5" />
+                </InstancedMesh.Material>
+            </InstancedMesh>
+
+            <InstancedMesh x:Name="Kelp">
+                <InstancedMesh.Material>
+                    <StandardMaterial Color="#466B2E" DetailScale="0.05" DetailAmount="0.3" WindResponse="1" />
+                </InstancedMesh.Material>
+            </InstancedMesh>
+
+            <InstancedMesh x:Name="Fish">
+                <InstancedMesh.Material>
+                    <StandardMaterial Color="#C9D6DC" />
+                </InstancedMesh.Material>
+            </InstancedMesh>
+
+            <InstancedMesh x:Name="MarineSnow">
+                <InstancedMesh.Geometry>
+                    <BoxGeometry Width="0.025" Height="0.025" Depth="0.025" />
+                </InstancedMesh.Geometry>
+                <InstancedMesh.Material>
+                    <StandardMaterial Color="#1A1A1A" EmissiveColor="#C4F1F4" EmissiveIntensity="4" />
+                </InstancedMesh.Material>
+            </InstancedMesh>
+        </Scene3D>
+    </Viewport3D>
+</View>

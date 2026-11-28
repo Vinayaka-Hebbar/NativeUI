@@ -136,6 +136,12 @@ public partial class GalleryViewModel : ObservableObject
             },
             new NavigationItemViewModel
             {
+                Name = "Underwater",
+                Tag = "Underwater",
+                IconData = Geometry.Parse("M2 9a5 5 0 0 1 10 0a5 5 0 0 0 10 0M2 17a5 5 0 0 1 10 0a5 5 0 0 0 10 0")
+            },
+            new NavigationItemViewModel
+            {
                 Name = "ResizeObserver",
                 Tag = "ResizeObserver",
                 IconData = Geometry.Parse("M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6M8 8h8v8H8V8z")
@@ -223,6 +229,7 @@ public partial class GalleryViewModel : ObservableObject
             "Dialog" => new DialogSampleView(),
             "Animation" => new AnimationSampleView(),
             "Scene3D" => new Scene3DSampleView(),
+            "Underwater" => new UnderwaterSampleView(),
             "ResizeObserver" => new ResizeSampleView(),
             _ => null
         };
