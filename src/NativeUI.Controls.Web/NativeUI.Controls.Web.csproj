@@ -15,4 +15,10 @@
     <ProjectReference Include="..\NativeUI.Controls\NativeUI.Controls.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\NativeUI.Build\NativeUI.Build.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <Import Project="..\NativeUI.Build\build\NativeUI.Web.targets" />
+
 </Project>

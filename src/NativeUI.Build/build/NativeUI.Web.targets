@@ -1,0 +1,58 @@
+<Project>
+  <!--
+    Serves NUglify-minified copies of the project's wwwroot scripts at their original paths when NativeUIMinifyScripts is
+    true. Release builds default NativeUIMinifyScripts to true.
+  -->
+  <PropertyGroup>
+    <NativeUIMinifyScripts Condition="'$(NativeUIMinifyScripts)' == '' and '$(Configuration)' == 'Release'">true</NativeUIMinifyScripts>
+    <_NativeUIBuildTasks>$(MSBuildThisFileDirectory)NativeUI.Build.dll</_NativeUIBuildTasks>
+    <_NativeUIBuildTasks Condition="!Exists('$(_NativeUIBuildTasks)')">$(MSBuildThisFileDirectory)../bin/$(Configuration)/net10.0/NativeUI.Build.dll</_NativeUIBuildTasks>
+    <_NativeUIMinifiedDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)', '$(Configuration)', 'minified'))</_NativeUIMinifiedDirectory>
+  </PropertyGroup>
+  <UsingTask TaskName="NativeUI.Build.MinifyJavaScript" AssemblyFile="$(_NativeUIBuildTasks)" />
+
+  <ItemGroup Condition="'$(NativeUIMinifyScripts)' == 'true'">
+    <_NativeUIScript Include="wwwroot/**/*.js" />
+  </ItemGroup>
+
+  <Target Name="MinifyNativeUIScripts"
+          Condition="'$(NativeUIMinifyScripts)' == 'true'"
+          Inputs="@(_NativeUIScript)"
+          Outputs="@(_NativeUIScript->'$(_NativeUIMinifiedDirectory)%(RecursiveDir)%(Filename)%(Extension)')">
+    <MinifyJavaScript SourceFiles="@(_NativeUIScript)"
+                      DestinationFiles="@(_NativeUIScript->'$(_NativeUIMinifiedDirectory)%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+
+  <!-- Replaces the discovered script assets and their endpoints with computed assets rooted at the minified directory. -->
+  <Target Name="UseMinifiedNativeUIScripts"
+          AfterTargets="ResolveProjectStaticWebAssets"
+          DependsOnTargets="MinifyNativeUIScripts"
+          Condition="'$(NativeUIMinifyScripts)' == 'true'">
+    <ItemGroup>
+      <_NativeUIScriptAsset Include="@(StaticWebAsset)" Condition="'%(SourceId)' == '$(PackageId)' and '%(SourceType)' == 'Discovered' and '%(Extension)' == '.js'" />
+      <_NativeUIScriptAsset MinifiedPath="$(_NativeUIMinifiedDirectory)$([MSBuild]::MakeRelative('%(ContentRoot)', '%(Identity)'))" />
+      <_NativeUIMinifiedAsset Include="@(_NativeUIScriptAsset->'%(MinifiedPath)')"
+                              RemoveMetadata="SourceType;AssetKind;Integrity;Fingerprint;MinifiedPath" />
+      <_NativeUIMinifiedAsset ContentRoot="$(_NativeUIMinifiedDirectory)" />
+    </ItemGroup>
+
+    <DefineStaticWebAssets CandidateAssets="@(_NativeUIMinifiedAsset)" SourceType="Computed" AssetKind="All">
+      <Output TaskParameter="Assets" ItemName="_NativeUIMinifiedStaticWebAsset" />
+    </DefineStaticWebAssets>
+    <DefineStaticWebAssetEndpoints CandidateAssets="@(_NativeUIMinifiedStaticWebAsset)"
+                                   ExistingEndpoints="@(StaticWebAssetEndpoint)"
+                                   ContentTypeMappings="@(StaticWebAssetContentTypeMapping)">
+      <Output TaskParameter="Endpoints" ItemName="_NativeUIMinifiedEndpoint" />
+    </DefineStaticWebAssetEndpoints>
+    <FilterStaticWebAssetEndpoints Endpoints="@(StaticWebAssetEndpoint)" Assets="@(_NativeUIScriptAsset)" Filters="">
+      <Output TaskParameter="FilteredEndpoints" ItemName="_NativeUIScriptEndpoint" />
+    </FilterStaticWebAssetEndpoints>
+
+    <ItemGroup>
+      <StaticWebAsset Remove="@(_NativeUIScriptAsset)" />
+      <StaticWebAsset Include="@(_NativeUIMinifiedStaticWebAsset)" />
+      <StaticWebAssetEndpoint Remove="@(_NativeUIScriptEndpoint)" />
+      <StaticWebAssetEndpoint Include="@(_NativeUIMinifiedEndpoint)" />
+    </ItemGroup>
+  </Target>
+</Project>

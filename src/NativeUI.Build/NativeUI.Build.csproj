@@ -4,12 +4,18 @@
     <TargetFramework>net10.0</TargetFramework>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);IncludeBuildTasksInPackage</TargetsForTfmSpecificContentInPackage>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NUglify" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="build\NativeUI.Build.props" Pack="true" PackagePath="build\" />
     <None Include="build\NativeUI.Build.targets" Pack="true" PackagePath="build\" />
     <None Include="build\NativeUI.MacOS.targets" Pack="true" PackagePath="build\" />
+    <None Include="build\NativeUI.Web.targets" Pack="true" PackagePath="build\" />
   </ItemGroup>
 
   <ItemGroup>
@@ -26,6 +32,7 @@
   <Target Name="IncludeBuildTasksInPackage">
     <ItemGroup>
       <TfmSpecificPackageFile Include="$(TargetPath)" PackagePath="build/" />
+      <TfmSpecificPackageFile Include="$(OutDir)NUglify.dll" PackagePath="build/" />
     </ItemGroup>
   </Target>
 
