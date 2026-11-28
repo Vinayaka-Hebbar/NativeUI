@@ -5,11 +5,12 @@ namespace NativeUI.Layout;
 public sealed partial class LayoutEngine
 {
     /// <summary>
-    /// Resolves columns, measures each child in its column width to learn its height, resolves rows, then offsets each
-    /// child to its cell. A child whose height is a percentage, or auto and shorter than its cell, is measured again against
-    /// the height of its cell, as the height of a grid area is not definite until the rows are resolved. Auto-height
-    /// children stretch to fill the cell, except those with an intrinsic size.
+    /// Measures <paramref name="grid"/> and places each child in its cell. Returns the size of its tracks and gaps.
     /// </summary>
+    /// <remarks>
+    /// A child with a percentage height resolves it against its cell. An auto-height child without an intrinsic size has
+    /// the height of its cell.
+    /// </remarks>
     private Size MeasureGrid(
         IGridLayoutNode grid,
         Point contentOrigin,
@@ -53,7 +54,7 @@ public sealed partial class LayoutEngine
             ComputedStyle childStyle = node.ComputedStyle;
             double areaHeight = MeasureSpan(rowHeights, placement.Row, placement.RowSpan, rowSpacing);
             double stretchHeight = Math.Max(0, areaHeight - GetState(node).Margin.Vertical);
-            bool stretches = childStyle.Height.IsAuto && node is not IIntrinsicSize && stretchHeight > sizes[i].Height;
+            bool stretches = childStyle.Height.IsAuto && node is not IIntrinsicSize;
             if (!childStyle.Height.IsPercent && !stretches)
             {
                 continue;
@@ -139,32 +140,39 @@ public sealed partial class LayoutEngine
     }
 
     /// <summary>
-    /// Gives each star row its weighted share of <paramref name="freeHeight"/>, which is the height that the other rows
-    /// leave.
+    /// Gives each star row its star value times the star size: <paramref name="freeHeight"/> divided by the sum of the star
+    /// values, or by 1 when that sum is below 1. These are the sizes of CSS Grid <c>minmax(0, fr)</c> tracks, which the Web
+    /// renderer emits for star rows.
     /// </summary>
     private static void DistributeToStarRows(List<GridLength> rows, double[] heights, double freeHeight)
     {
+        double starSize = Math.Max(0, freeHeight) / GetStarFactorSum(rows);
+        for (int i = 0; i < rows.Count; i++)
+        {
+            GridLength row = rows[i];
+            if (row.IsStar)
+            {
+                heights[i] = starSize * Math.Max(0, row.Value);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns the sum of the star values of <paramref name="tracks"/>, or 1 when that sum is below 1. This is the flex factor
+    /// sum of CSS Grid, by which the free space is divided to find the size of one star.
+    /// </summary>
+    private static double GetStarFactorSum(List<GridLength> tracks)
+    {
         double totalWeight = 0;
-        for (int i = 0; i < rows.Count; i++)
+        foreach (GridLength track in tracks)
         {
-            if (rows[i].IsStar)
+            if (track.IsStar)
             {
-                totalWeight += Math.Max(0, rows[i].Value);
+                totalWeight += Math.Max(0, track.Value);
             }
         }
 
-        if (totalWeight <= 0)
-        {
-            return;
-        }
-
-        for (int i = 0; i < rows.Count; i++)
-        {
-            if (rows[i].IsStar)
-            {
-                heights[i] = Math.Max(0, freeHeight) * Math.Max(0, rows[i].Value) / totalWeight;
-            }
-        }
+        return Math.Max(totalWeight, 1);
     }
 
     private static double[] ResolveColumnWidths(
@@ -192,28 +200,13 @@ public sealed partial class LayoutEngine
         }
 
         double fixedAndAuto = MeasureSpan(sizes, 0, sizes.Length, spacing);
-        double free = Math.Max(0, available - fixedAndAuto);
-        double totalWeight = 0;
+        double starSize = Math.Max(0, available - fixedAndAuto) / GetStarFactorSum(columns);
         for (int i = 0; i < columns.Count; i++)
         {
-            if (columns[i].IsStar)
+            GridLength column = columns[i];
+            if (column.IsStar)
             {
-                totalWeight += Math.Max(0, columns[i].Value);
-            }
-        }
-
-        for (int i = 0; i < columns.Count; i++)
-        {
-            if (columns[i].IsStar)
-            {
-                if (double.IsPositiveInfinity(available))
-                {
-                    sizes[i] = maxContentWidths[i];
-                }
-                else if (totalWeight > 0)
-                {
-                    sizes[i] = free * columns[i].Value / totalWeight;
-                }
+                sizes[i] = double.IsPositiveInfinity(available) ? maxContentWidths[i] : starSize * Math.Max(0, column.Value);
             }
         }
 
