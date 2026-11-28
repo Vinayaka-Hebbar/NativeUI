@@ -48,10 +48,17 @@ public abstract class SceneNode : BindableObject
     }
 
     /// <summary>
-    /// Raises <see cref="Changed"/>.
+    /// Gets a number that increases whenever this node or a node it owns changes. Renderers compare it to decide when
+    /// cached GPU data built from the node is stale.
+    /// </summary>
+    internal int Version { get; private set; }
+
+    /// <summary>
+    /// Increments <see cref="Version"/> and raises <see cref="Changed"/>.
     /// </summary>
     private protected void NotifyChanged()
     {
+        Version++;
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
@@ -193,6 +200,22 @@ public class DirectionalLight : SceneNode
     {
         get => GetValue(ColorProperty);
         set => SetValue(ColorProperty, value);
+    }
+
+    /// <summary>
+    /// Identifies the <see cref="Intensity"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double> IntensityProperty =
+        BindableProperty.Create<DirectionalLight, double>(nameof(Intensity), defaultValue: 1);
+
+    /// <summary>
+    /// Gets or sets the factor applied to <see cref="Color"/>. Values above 1 make lit surfaces bright enough to glow in a
+    /// scene whose <see cref="Environment3D"/> enables glow. Defaults to 1.
+    /// </summary>
+    public double Intensity
+    {
+        get => GetValue(IntensityProperty);
+        set => SetValue(IntensityProperty, value);
     }
 
     /// <summary>

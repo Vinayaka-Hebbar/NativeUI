@@ -7,7 +7,9 @@ namespace NativeUI.Controls.MacOS;
 /// </summary>
 internal enum MTLPixelFormat : ulong
 {
+    Invalid = 0,
     BGRA8Unorm = 80,
+    RGBA16Float = 115,
     Depth32Float = 252
 }
 
@@ -62,6 +64,8 @@ internal enum MTLBlendFactor : ulong
 /// </summary>
 internal enum MTLLoadAction : ulong
 {
+    DontCare = 0,
+    Load = 1,
     Clear = 2
 }
 
@@ -71,6 +75,7 @@ internal enum MTLLoadAction : ulong
 internal enum MTLStoreAction : ulong
 {
     DontCare = 0,
+    Store = 1,
     MultisampleResolve = 2
 }
 
@@ -87,7 +92,28 @@ internal enum MTLPrimitiveType : ulong
 /// </summary>
 internal enum MTLIndexType : ulong
 {
-    UInt16 = 0
+    UInt32 = 1
+}
+
+/// <summary>
+/// Identifies how a pipeline combines its output with the attachment. Each member names a Metal blend factor setup.
+/// </summary>
+internal enum PipelineBlending
+{
+    /// <summary>
+    /// Replaces the attachment.
+    /// </summary>
+    Replace,
+
+    /// <summary>
+    /// Draws premultiplied colors over the attachment: one and one minus source alpha.
+    /// </summary>
+    PremultipliedOver,
+
+    /// <summary>
+    /// Adds the output to the attachment: one and one.
+    /// </summary>
+    Additive
 }
 
 /// <summary>
@@ -123,6 +149,9 @@ internal static partial class MetalInterop
 
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
     private static partial void SendMessageVoid(nint receiver, nint selector, MTLClearColor arg1);
+
+    [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
+    private static partial void SendMessageVoid(nint receiver, nint selector, nint arg1, ulong arg2);
 
     [LibraryImport(ObjCLib, EntryPoint = "objc_msgSend")]
     private static partial void SendMessageVoid(nint receiver, nint selector, nint arg1, ulong arg2, ulong arg3);
@@ -276,32 +305,35 @@ internal static partial class MetalInterop
     /// <param name="vertexFunction">The vertex function.</param>
     /// <param name="fragmentFunction">The fragment function.</param>
     /// <param name="colorFormat">The color attachment's pixel format.</param>
+    /// <param name="depthFormat">The depth attachment's pixel format, or <see cref="MTLPixelFormat.Invalid"/> for none.</param>
     /// <param name="sampleCount">The number of samples per pixel.</param>
-    /// <param name="isPremultipliedBlendEnabled">Whether fragments blend over the attachment as premultiplied colors.</param>
+    /// <param name="blending">How fragments combine with the attachment.</param>
     /// <exception cref="InvalidOperationException">The pipeline is invalid for the device.</exception>
     public static unsafe nint CreateRenderPipelineState(
         nint device,
         nint vertexFunction,
         nint fragmentFunction,
         MTLPixelFormat colorFormat,
+        MTLPixelFormat depthFormat,
         int sampleCount,
-        bool isPremultipliedBlendEnabled)
+        PipelineBlending blending)
     {
         nint descriptor = CreateInstance("MTLRenderPipelineDescriptor");
         AppKitInterop.SendMessageVoid(descriptor, AppKitInterop.GetSelector("setVertexFunction:"), vertexFunction);
         AppKitInterop.SendMessageVoid(descriptor, AppKitInterop.GetSelector("setFragmentFunction:"), fragmentFunction);
         SendMessageVoid(descriptor, AppKitInterop.GetSelector("setRasterSampleCount:"), (ulong)sampleCount);
-        SendMessageVoid(descriptor, AppKitInterop.GetSelector("setDepthAttachmentPixelFormat:"), (ulong)MTLPixelFormat.Depth32Float);
+        SendMessageVoid(descriptor, AppKitInterop.GetSelector("setDepthAttachmentPixelFormat:"), (ulong)depthFormat);
 
         nint color = GetFirstColorAttachment(descriptor);
         SendMessageVoid(color, AppKitInterop.GetSelector("setPixelFormat:"), (ulong)colorFormat);
-        if (isPremultipliedBlendEnabled)
+        if (blending != PipelineBlending.Replace)
         {
+            MTLBlendFactor destination = blending == PipelineBlending.Additive ? MTLBlendFactor.One : MTLBlendFactor.OneMinusSourceAlpha;
             AppKitInterop.SendMessageVoid(color, AppKitInterop.GetSelector("setBlendingEnabled:"), true);
             SendMessageVoid(color, AppKitInterop.GetSelector("setSourceRGBBlendFactor:"), (ulong)MTLBlendFactor.One);
             SendMessageVoid(color, AppKitInterop.GetSelector("setSourceAlphaBlendFactor:"), (ulong)MTLBlendFactor.One);
-            SendMessageVoid(color, AppKitInterop.GetSelector("setDestinationRGBBlendFactor:"), (ulong)MTLBlendFactor.OneMinusSourceAlpha);
-            SendMessageVoid(color, AppKitInterop.GetSelector("setDestinationAlphaBlendFactor:"), (ulong)MTLBlendFactor.OneMinusSourceAlpha);
+            SendMessageVoid(color, AppKitInterop.GetSelector("setDestinationRGBBlendFactor:"), (ulong)destination);
+            SendMessageVoid(color, AppKitInterop.GetSelector("setDestinationAlphaBlendFactor:"), (ulong)destination);
         }
 
         nint error = nint.Zero;
@@ -414,6 +446,40 @@ internal static partial class MetalInterop
     }
 
     /// <summary>
+    /// Begins a single-sample render pass into <paramref name="texture"/> without depth, which starts as
+    /// <paramref name="loadAction"/> leaves it and keeps what the pass draws.
+    /// </summary>
+    /// <returns>The autoreleased render command encoder.</returns>
+    public static nint BeginPostPass(nint commandBuffer, nint texture, MTLLoadAction loadAction)
+    {
+        nint pass = AppKitInterop.SendMessage(
+            AppKitInterop.GetClass("MTLRenderPassDescriptor"),
+            AppKitInterop.GetSelector("renderPassDescriptor"));
+        nint color = GetFirstColorAttachment(pass);
+        AppKitInterop.SendMessageVoid(color, AppKitInterop.GetSelector("setTexture:"), texture);
+        SendMessageVoid(color, AppKitInterop.GetSelector("setLoadAction:"), (ulong)loadAction);
+        SendMessageVoid(color, AppKitInterop.GetSelector("setStoreAction:"), (ulong)MTLStoreAction.Store);
+        SendMessageVoid(color, AppKitInterop.GetSelector("setClearColor:"), new MTLClearColor(0, 0, 0, 0));
+        return AppKitInterop.SendMessage(commandBuffer, AppKitInterop.GetSelector("renderCommandEncoderWithDescriptor:"), pass);
+    }
+
+    /// <summary>
+    /// Sets the pipeline state of subsequent draws, for a pass without depth.
+    /// </summary>
+    public static void SetPipelineState(nint encoder, nint pipelineState)
+    {
+        AppKitInterop.SendMessageVoid(encoder, AppKitInterop.GetSelector("setRenderPipelineState:"), pipelineState);
+    }
+
+    /// <summary>
+    /// Binds <paramref name="texture"/> to the fragment stage at <paramref name="index"/>.
+    /// </summary>
+    public static void SetFragmentTexture(nint encoder, nint texture, int index)
+    {
+        SendMessageVoid(encoder, AppKitInterop.GetSelector("setFragmentTexture:atIndex:"), texture, (ulong)index);
+    }
+
+    /// <summary>
     /// Sets the pipeline and depth-stencil state of subsequent draws.
     /// </summary>
     public static void SetStates(nint encoder, nint pipelineState, nint depthStencilState)
@@ -445,11 +511,11 @@ internal static partial class MetalInterop
     }
 
     /// <summary>
-    /// Binds <paramref name="buffer"/> to the vertex stage at <paramref name="index"/>.
+    /// Binds <paramref name="buffer"/>, starting <paramref name="offset"/> bytes in, to the vertex stage at <paramref name="index"/>.
     /// </summary>
-    public static void SetVertexBuffer(nint encoder, nint buffer, int index)
+    public static void SetVertexBuffer(nint encoder, nint buffer, int offset, int index)
     {
-        SendMessageVoid(encoder, AppKitInterop.GetSelector("setVertexBuffer:offset:atIndex:"), buffer, 0, (ulong)index);
+        SendMessageVoid(encoder, AppKitInterop.GetSelector("setVertexBuffer:offset:atIndex:"), buffer, (ulong)offset, (ulong)index);
     }
 
     /// <summary>
@@ -474,7 +540,7 @@ internal static partial class MetalInterop
     }
 
     /// <summary>
-    /// Draws <paramref name="instanceCount"/> instances of the triangles listed by 16-bit indices in <paramref name="indexBuffer"/>.
+    /// Draws <paramref name="instanceCount"/> instances of the triangles listed by 32-bit indices in <paramref name="indexBuffer"/>.
     /// </summary>
     public static void DrawIndexedTriangles(nint encoder, int indexCount, nint indexBuffer, int instanceCount)
     {
@@ -483,7 +549,7 @@ internal static partial class MetalInterop
             AppKitInterop.GetSelector("drawIndexedPrimitives:indexCount:indexType:indexBuffer:indexBufferOffset:instanceCount:"),
             (ulong)MTLPrimitiveType.Triangle,
             (ulong)indexCount,
-            (ulong)MTLIndexType.UInt16,
+            (ulong)MTLIndexType.UInt32,
             indexBuffer,
             0,
             (ulong)instanceCount);

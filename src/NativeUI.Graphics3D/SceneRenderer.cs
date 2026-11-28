@@ -48,29 +48,73 @@ internal static class SceneRenderer
         Matrix4x4 viewProjection = GetViewProjection(camera, bounds.Width / bounds.Height);
 
         List<DirectionalLight> lights = [];
-        List<VisibleFace> faces = [];
+        SceneNode? fog = null;
+        GradientSky? sceneSky = null;
+        Caustics? caustics = null;
+        Environment3D? environment = null;
+        Vector3 hemisphereSky = Vector3.Zero;
+        Vector3 hemisphereGround = Vector3.Zero;
         foreach (SceneNode item in scene.Items)
         {
             if (item is DirectionalLight light)
             {
                 lights.Add(light);
             }
+            else if (item is Fog or FogExp2)
+            {
+                fog = item;
+            }
+            else if (item is HemisphereLight hemisphere)
+            {
+                float intensity = (float)hemisphere.Intensity;
+                hemisphereSky += ToVector3(SceneLighting.ToLinear(hemisphere.Color)) * intensity;
+                hemisphereGround += ToVector3(SceneLighting.ToLinear(hemisphere.GroundColor)) * intensity;
+            }
+            else if (item is Environment3D sceneEnvironment)
+            {
+                environment = sceneEnvironment;
+            }
+            else if (item is Caustics sceneCaustics)
+            {
+                caustics = sceneCaustics;
+            }
             else if (item is GradientSky sky)
             {
+                sceneSky = sky;
                 DrawSky(context, bounds, sky, camera);
             }
         }
 
+        RenderState state = new(
+            camera.Position,
+            viewProjection,
+            bounds,
+            lights,
+            hemisphereSky,
+            hemisphereGround,
+            fog,
+            sceneSky,
+            caustics,
+            environment,
+            []);
         foreach (SceneNode item in scene.Items)
         {
-            if (item is Mesh { Geometry: BoxGeometry box } mesh)
+            if (item is InstancedMesh { Geometry: Geometry3D instancedGeometry } instancedMesh)
             {
-                AddVisibleFaces(mesh, box, camera.Position, viewProjection, bounds, lights, faces);
+                foreach (MeshInstance instance in instancedMesh.GetInstances())
+                {
+                    AddVisibleFaces(state, instancedGeometry, instance);
+                }
+            }
+            else if (item is Mesh { Geometry: Geometry3D geometry } mesh)
+            {
+                Matrix4x4 world = GetGeometryTransform(geometry) * GetMeshTransform(mesh);
+                AddVisibleFaces(state, geometry, SceneBuffers.CreateInstance(world, GetSurfaceColor(mesh), mesh.Material));
             }
         }
 
-        faces.Sort(static (first, second) => second.DistanceToCamera.CompareTo(first.DistanceToCamera));
-        foreach (VisibleFace face in faces)
+        state.Faces.Sort(static (first, second) => second.DistanceToCamera.CompareTo(first.DistanceToCamera));
+        foreach (VisibleFace face in state.Faces)
         {
             context.FillPolygon(face.Points, new Paint(face.Color));
         }
@@ -104,14 +148,22 @@ internal static class SceneRenderer
     }
 
     /// <summary>
-    /// Returns the transform from unit-cube coordinates to world coordinates of <paramref name="mesh"/> shaped as
-    /// <paramref name="box"/>.
+    /// Returns the transform from <paramref name="geometry"/>'s own coordinates to its mesh's coordinates: the box size
+    /// for a <see cref="BoxGeometry"/>, whose vertices form a unit cube, and the identity otherwise.
     /// </summary>
-    internal static Matrix4x4 GetBoxWorld(Mesh mesh, BoxGeometry box, Matrix4x4 rotation)
+    internal static Matrix4x4 GetGeometryTransform(Geometry3D? geometry)
     {
-        return Matrix4x4.CreateScale((float)box.Width, (float)box.Height, (float)box.Depth) *
-            rotation *
-            Matrix4x4.CreateTranslation(mesh.Position);
+        return geometry is BoxGeometry box
+            ? Matrix4x4.CreateScale((float)box.Width, (float)box.Height, (float)box.Depth)
+            : Matrix4x4.Identity;
+    }
+
+    /// <summary>
+    /// Returns the transform from <paramref name="mesh"/>'s coordinates to world coordinates: its rotation, then its position.
+    /// </summary>
+    internal static Matrix4x4 GetMeshTransform(Mesh mesh)
+    {
+        return GetRotation(mesh) * Matrix4x4.CreateTranslation(mesh.Position);
     }
 
     /// <summary>
@@ -144,42 +196,80 @@ internal static class SceneRenderer
         context.FillLinearGradient(bounds, new Point(bounds.X, bounds.Y), new Point(bounds.X, bounds.Bottom), stops);
     }
 
-    private static void AddVisibleFaces(
-        Mesh mesh,
-        BoxGeometry box,
-        Vector3 cameraPosition,
-        Matrix4x4 viewProjection,
-        Rect bounds,
-        List<DirectionalLight> lights,
-        List<VisibleFace> faces)
+    /// <summary>
+    /// Adds the faces of <paramref name="geometry"/> placed and colored by <paramref name="instance"/> that face the camera.
+    /// </summary>
+    private static void AddVisibleFaces(RenderState state, Geometry3D geometry, MeshInstance instance)
     {
-        Matrix4x4 rotation = GetRotation(mesh);
-        Matrix4x4 world = GetBoxWorld(mesh, box, rotation);
-        Color surface = GetSurfaceColor(mesh);
-
-        foreach ((Vector3 localNormal, Vector3[] corners) in BoxFaces)
+        Matrix4x4 world = instance.World;
+        if (geometry is BoxGeometry)
         {
-            Vector3 normal = Vector3.TransformNormal(localNormal, rotation);
-            Vector3 center = Vector3.Zero;
-            Vector3[] worldCorners = new Vector3[corners.Length];
-            for (int i = 0; i < corners.Length; i++)
+            foreach ((_, Vector3[] corners) in BoxFaces)
             {
-                worldCorners[i] = Vector3.Transform(corners[i], world);
-                center += worldCorners[i];
+                Vector3[] worldCorners = new Vector3[corners.Length];
+                for (int i = 0; i < corners.Length; i++)
+                {
+                    worldCorners[i] = Vector3.Transform(corners[i], world);
+                }
+
+                AddFace(state, worldCorners, instance.Color, instance);
+            }
+        }
+        else if (geometry is MeshGeometry3D mesh)
+        {
+            (SceneVertex[] vertices, uint[] indices) = mesh.GetTriangles();
+            for (int i = 0; i < indices.Length; i += 3)
+            {
+                Vector3[] worldCorners =
+                [
+                    Vector3.Transform(vertices[indices[i]].Position, world),
+                    Vector3.Transform(vertices[indices[i + 1]].Position, world),
+                    Vector3.Transform(vertices[indices[i + 2]].Position, world)
+                ];
+                Vector4 vertexColor = (vertices[indices[i]].Color + vertices[indices[i + 1]].Color + vertices[indices[i + 2]].Color) / 3;
+                AddFace(state, worldCorners, instance.Color * vertexColor, instance);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Adds a flat polygon whose world corners are counter-clockwise as seen from its front, unless it faces away from
+    /// the camera or crosses the near plane.
+    /// </summary>
+    private static void AddFace(RenderState state, Vector3[] worldCorners, Vector4 surface, MeshInstance instance)
+    {
+        Vector3 frontNormal = MeshGeometry3D.GetFrontNormal(worldCorners[0], worldCorners[1], worldCorners[2]);
+        if (frontNormal == Vector3.Zero)
+        {
+            return;
+        }
+
+        Vector3 center = Vector3.Zero;
+        foreach (Vector3 corner in worldCorners)
+        {
+            center += corner;
+        }
+
+        center /= worldCorners.Length;
+
+        // A face pointing away from the camera is hidden behind the front of its closed surface.
+        if (Vector3.Dot(frontNormal, state.CameraPosition - center) <= 0)
+        {
+            return;
+        }
+
+        if (TryProject(worldCorners, state.ViewProjection, state.Bounds, out Point[] points))
+        {
+            float distance = Vector3.Distance(state.CameraPosition, center);
+            Vector4 material = instance.MaterialParameters;
+            if (material.Y > 0)
+            {
+                float shade = SceneNoise.GetDetailShade(center / material.X, material.Y);
+                surface = new Vector4(ToVector3(surface) * shade, surface.W);
             }
 
-            center /= corners.Length;
-
-            // A face pointing away from the camera is hidden behind the rest of the box.
-            if (Vector3.Dot(normal, cameraPosition - center) <= 0)
-            {
-                continue;
-            }
-
-            if (TryProject(worldCorners, viewProjection, bounds, out Point[] points))
-            {
-                faces.Add(new VisibleFace(points, ShadeFace(surface, normal, lights), Vector3.Distance(cameraPosition, center)));
-            }
+            Color color = ShadeFace(state, surface, ToVector3(instance.EmissiveColor), Vector3.Normalize(frontNormal), center);
+            state.Faces.Add(new VisibleFace(points, color, distance));
         }
     }
 
@@ -209,28 +299,78 @@ internal static class SceneRenderer
     }
 
     /// <summary>
-    /// Multiplies the surface color by the ambient light plus the light each source gives a face turned toward it.
+    /// Lights a face in linear light as the GPU scene shader does: the surface color times the ambient light, the
+    /// hemisphere light, the caustics on a face turned up, and the light each directional source gives a face turned
+    /// toward it, plus the emissive color, then blended toward the fog color by its distance.
     /// </summary>
-    private static Color ShadeFace(Color surface, Vector3 normal, List<DirectionalLight> lights)
+    private static Color ShadeFace(RenderState state, Vector4 surface, Vector3 emissive, Vector3 normal, Vector3 position)
     {
-        Vector3 received = new(AmbientLight);
-        foreach (DirectionalLight light in lights)
+        Vector3 received = new Vector3(AmbientLight)
+            + SceneLighting.GetHemisphereLight(normal, state.HemisphereSkyColor, state.HemisphereGroundColor);
+        foreach (DirectionalLight light in state.Lights)
         {
             float facing = Vector3.Dot(normal, Vector3.Normalize(light.Direction));
             if (facing > 0)
             {
-                (byte red, byte green, byte blue, _) = light.Color.ToSrgbBytes();
-                received += new Vector3(red, green, blue) / 255f * facing;
+                received += ToVector3(SceneLighting.ToLinear(light.Color)) * (float)light.Intensity * facing;
             }
         }
 
-        (byte surfaceRed, byte surfaceGreen, byte surfaceBlue, byte surfaceAlpha) = surface.ToSrgbBytes();
-        return Color.FromSrgb(
-            Math.Min(1, surfaceRed / 255.0 * received.X),
-            Math.Min(1, surfaceGreen / 255.0 * received.Y),
-            Math.Min(1, surfaceBlue / 255.0 * received.Z),
-            surfaceAlpha / 255.0);
+        if (state.Caustics is Caustics caustics && normal.Y > 0)
+        {
+            float scale = (float)Math.Max(caustics.Scale, 0.001);
+            float pattern = Caustics.GetPattern(position.X / scale, position.Z / scale, (float)caustics.Time.TotalSeconds);
+            received += ToVector3(SceneLighting.ToLinear(caustics.Color)) * (float)caustics.Intensity * pattern * normal.Y;
+        }
+
+        Vector3 color = (ToVector3(surface) * received) + emissive;
+        if (state.Environment is null)
+        {
+            color = Vector3.Min(Vector3.One, color);
+        }
+
+        float distance = Vector3.Distance(state.CameraPosition, position);
+        if (state.Fog is Fog fog)
+        {
+            float amount = Fog.GetAmount(distance, (float)fog.Near, (float)fog.Far);
+            color = Vector3.Lerp(color, ToVector3(SceneLighting.ToLinear(fog.Color)), amount);
+        }
+        else if (state.Fog is FogExp2 exponentialFog)
+        {
+            Vector3 fogColor = ToVector3(SceneLighting.ToLinear(exponentialFog.Color));
+            float aerialPerspective = Math.Clamp((float)exponentialFog.AerialPerspective, 0, 1);
+            if (state.Sky is GradientSky sky && aerialPerspective > 0)
+            {
+                Vector3 skyColor = ToVector3(SceneLighting.ToLinear(sky.GetColor(Vector3.Normalize(position - state.CameraPosition))));
+                fogColor = Vector3.Lerp(fogColor, skyColor, aerialPerspective);
+            }
+
+            color = Vector3.Lerp(color, fogColor, FogExp2.GetAmount(distance, (float)exponentialFog.Density));
+        }
+
+        return SceneLighting.Finish(color, surface.W, state.Environment);
     }
+
+    private static Vector3 ToVector3(Vector4 vector)
+    {
+        return new Vector3(vector.X, vector.Y, vector.Z);
+    }
+
+    /// <summary>
+    /// Holds the camera, lights, and fog of one render, and collects the faces it draws.
+    /// </summary>
+    private readonly record struct RenderState(
+        Vector3 CameraPosition,
+        Matrix4x4 ViewProjection,
+        Rect Bounds,
+        List<DirectionalLight> Lights,
+        Vector3 HemisphereSkyColor,
+        Vector3 HemisphereGroundColor,
+        SceneNode? Fog,
+        GradientSky? Sky,
+        Caustics? Caustics,
+        Environment3D? Environment,
+        List<VisibleFace> Faces);
 
     /// <summary>
     /// Holds one face ready to draw.

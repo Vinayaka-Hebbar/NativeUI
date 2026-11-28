@@ -5,8 +5,9 @@ using NativeUI.Graphics3D;
 namespace NativeUI.Controls.MacOS;
 
 /// <summary>
-/// Holds the Metal objects that every 3D scene on a device draws with: the sky and mesh pipeline states, their depth
-/// states, and the unit-box geometry. Created once per <see cref="MetalDevice"/> and kept for its lifetime.
+/// Holds the Metal objects that every 3D scene on a device draws with: the sky and mesh pipeline states in standard and
+/// HDR variants, the post-processing pipeline states, the depth states, and the unit-box geometry. Created once per
+/// <see cref="MetalDevice"/> and kept for its lifetime.
 /// </summary>
 internal sealed class MetalScenePipeline
 {
@@ -24,8 +25,15 @@ internal sealed class MetalScenePipeline
     public MetalScenePipeline(nint device)
     {
         nint library = MetalInterop.CreateLibrary(device, ReadShaderSource());
-        SkyPipelineState = CreatePipelineState(device, library, "skyVertex", "skyFragment", isPremultipliedBlendEnabled: false);
-        MeshPipelineState = CreatePipelineState(device, library, "meshVertex", "meshFragment", isPremultipliedBlendEnabled: true);
+        SkyPipelineState = CreateScenePipelineState(device, library, "skyVertex", "skyFragment", MTLPixelFormat.BGRA8Unorm, PipelineBlending.Replace);
+        MeshPipelineState = CreateScenePipelineState(device, library, "meshVertex", "meshFragment", MTLPixelFormat.BGRA8Unorm, PipelineBlending.PremultipliedOver);
+        HdrSkyPipelineState = CreateScenePipelineState(device, library, "skyVertex", "skyFragmentHdr", MTLPixelFormat.RGBA16Float, PipelineBlending.Replace);
+        HdrMeshPipelineState = CreateScenePipelineState(device, library, "meshVertex", "meshFragmentHdr", MTLPixelFormat.RGBA16Float, PipelineBlending.PremultipliedOver);
+        GlowThresholdPipelineState = CreatePostPipelineState(device, library, "glowThreshold", MTLPixelFormat.RGBA16Float, PipelineBlending.Replace);
+        GlowDownsamplePipelineState = CreatePostPipelineState(device, library, "glowDownsample", MTLPixelFormat.RGBA16Float, PipelineBlending.Replace);
+        GlowUpsamplePipelineState = CreatePostPipelineState(device, library, "glowUpsample", MTLPixelFormat.RGBA16Float, PipelineBlending.Additive);
+        LightShaftsPipelineState = CreatePostPipelineState(device, library, "lightShafts", MTLPixelFormat.RGBA16Float, PipelineBlending.Replace);
+        CompositePipelineState = CreatePostPipelineState(device, library, "composite", MTLPixelFormat.BGRA8Unorm, PipelineBlending.Replace);
         MetalInterop.Release(library);
 
         SkyDepthState = MetalInterop.CreateDepthStencilState(device, MTLCompareFunction.Always, isDepthWriteEnabled: false);
@@ -43,6 +51,41 @@ internal sealed class MetalScenePipeline
     /// Gets the pipeline state that draws mesh instances.
     /// </summary>
     public nint MeshPipelineState { get; }
+
+    /// <summary>
+    /// Gets the pipeline state that fills an HDR render target with the sky in linear light.
+    /// </summary>
+    public nint HdrSkyPipelineState { get; }
+
+    /// <summary>
+    /// Gets the pipeline state that draws mesh instances into an HDR render target in unclamped linear light.
+    /// </summary>
+    public nint HdrMeshPipelineState { get; }
+
+    /// <summary>
+    /// Gets the pipeline state that keeps the light above the glow threshold at half size.
+    /// </summary>
+    public nint GlowThresholdPipelineState { get; }
+
+    /// <summary>
+    /// Gets the pipeline state that halves a glow level.
+    /// </summary>
+    public nint GlowDownsamplePipelineState { get; }
+
+    /// <summary>
+    /// Gets the pipeline state that adds a smaller glow level onto the next larger one.
+    /// </summary>
+    public nint GlowUpsamplePipelineState { get; }
+
+    /// <summary>
+    /// Gets the pipeline state that streams bright light away from the light shaft source.
+    /// </summary>
+    public nint LightShaftsPipelineState { get; }
+
+    /// <summary>
+    /// Gets the pipeline state that combines the HDR image, glow, and light shafts, and tone maps them to sRGB.
+    /// </summary>
+    public nint CompositePipelineState { get; }
 
     /// <summary>
     /// Gets the depth state of the sky, which neither tests nor writes depth.
@@ -64,12 +107,36 @@ internal sealed class MetalScenePipeline
     /// </summary>
     public nint BoxIndexBuffer { get; }
 
+    private static nint CreateScenePipelineState(
+        nint device,
+        nint library,
+        string vertexName,
+        string fragmentName,
+        MTLPixelFormat colorFormat,
+        PipelineBlending blending)
+    {
+        return CreatePipelineState(device, library, vertexName, fragmentName, colorFormat, MTLPixelFormat.Depth32Float, SampleCount, blending);
+    }
+
+    private static nint CreatePostPipelineState(
+        nint device,
+        nint library,
+        string fragmentName,
+        MTLPixelFormat colorFormat,
+        PipelineBlending blending)
+    {
+        return CreatePipelineState(device, library, "postVertex", fragmentName, colorFormat, MTLPixelFormat.Invalid, 1, blending);
+    }
+
     private static nint CreatePipelineState(
         nint device,
         nint library,
         string vertexName,
         string fragmentName,
-        bool isPremultipliedBlendEnabled)
+        MTLPixelFormat colorFormat,
+        MTLPixelFormat depthFormat,
+        int sampleCount,
+        PipelineBlending blending)
     {
         nint vertexFunction = MetalInterop.CreateFunction(library, vertexName);
         nint fragmentFunction = MetalInterop.CreateFunction(library, fragmentName);
@@ -79,9 +146,10 @@ internal sealed class MetalScenePipeline
                 device,
                 vertexFunction,
                 fragmentFunction,
-                MTLPixelFormat.BGRA8Unorm,
-                SampleCount,
-                isPremultipliedBlendEnabled);
+                colorFormat,
+                depthFormat,
+                sampleCount,
+                blending);
         }
         finally
         {

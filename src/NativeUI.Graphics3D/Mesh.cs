@@ -81,12 +81,93 @@ public class StandardMaterial : Material3D
         BindableProperty.Create<StandardMaterial, Color>(nameof(Color), defaultValue: Colors.White);
 
     /// <summary>
+    /// Identifies the <see cref="EmissiveColor"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<Color> EmissiveColorProperty =
+        BindableProperty.Create<StandardMaterial, Color>(nameof(EmissiveColor), defaultValue: Colors.Black);
+
+    /// <summary>
+    /// Identifies the <see cref="EmissiveIntensity"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double> EmissiveIntensityProperty =
+        BindableProperty.Create<StandardMaterial, double>(nameof(EmissiveIntensity), defaultValue: 1);
+
+    /// <summary>
+    /// Identifies the <see cref="DetailScale"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double> DetailScaleProperty =
+        BindableProperty.Create<StandardMaterial, double>(nameof(DetailScale), defaultValue: 1);
+
+    /// <summary>
+    /// Identifies the <see cref="DetailAmount"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double> DetailAmountProperty =
+        BindableProperty.Create<StandardMaterial, double>(nameof(DetailAmount), defaultValue: 0);
+
+    /// <summary>
+    /// Identifies the <see cref="WindResponse"/> bindable property.
+    /// </summary>
+    public static readonly BindableProperty<double> WindResponseProperty =
+        BindableProperty.Create<StandardMaterial, double>(nameof(WindResponse), defaultValue: 0);
+
+    /// <summary>
     /// Gets or sets the surface color. The default is white.
     /// </summary>
     public Color Color
     {
         get => GetValue(ColorProperty);
         set => SetValue(ColorProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the light the surface gives off, added after the scene's lights and before fog. The default is black,
+    /// which gives off none.
+    /// </summary>
+    public Color EmissiveColor
+    {
+        get => GetValue(EmissiveColorProperty);
+        set => SetValue(EmissiveColorProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the factor applied to <see cref="EmissiveColor"/>. Values above 1 make the surface bright enough to glow
+    /// in a scene whose <see cref="Environment3D"/> enables glow. The default is 1.
+    /// </summary>
+    public double EmissiveIntensity
+    {
+        get => GetValue(EmissiveIntensityProperty);
+        set => SetValue(EmissiveIntensityProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the size, in the geometry's own units, of the largest bumps of the procedural surface detail. The
+    /// default is 1.
+    /// </summary>
+    public double DetailScale
+    {
+        get => GetValue(DetailScaleProperty);
+        set => SetValue(DetailScaleProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets how strongly procedural noise darkens, lightens, and bumps the surface, from 0 for none to 1. A GPU
+    /// renderer varies color and normals per pixel. The polygon renderer varies the color of each face. The default is 0.
+    /// </summary>
+    public double DetailAmount
+    {
+        get => GetValue(DetailAmountProperty);
+        set => SetValue(DetailAmountProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets how far the scene's <see cref="WindZone"/> bends the surface, from 0 for rigid. A GPU renderer bends
+    /// each vertex by the square of its height in the geometry's own coordinates, which suits plants one unit tall standing
+    /// on their origin. The polygon renderer does not bend surfaces. The default is 0.
+    /// </summary>
+    public double WindResponse
+    {
+        get => GetValue(WindResponseProperty);
+        set => SetValue(WindResponseProperty, value);
     }
 }
 

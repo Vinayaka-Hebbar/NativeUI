@@ -300,12 +300,68 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             ["DirectionalLight"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
                 ["Color"] = XamlPropertyKind.Color,
-                ["Direction"] = XamlPropertyKind.Vector3
+                ["Direction"] = XamlPropertyKind.Vector3,
+                ["Intensity"] = XamlPropertyKind.Double
+            },
+            ["WindZone"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Direction"] = XamlPropertyKind.Vector3,
+                ["Strength"] = XamlPropertyKind.Double,
+                ["Turbulence"] = XamlPropertyKind.Double,
+                ["Frequency"] = XamlPropertyKind.Double
+            },
+            ["Environment3D"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["TonemapExposure"] = XamlPropertyKind.Double,
+                ["IsGlowEnabled"] = XamlPropertyKind.Boolean,
+                ["GlowIntensity"] = XamlPropertyKind.Double,
+                ["GlowStrength"] = XamlPropertyKind.Double,
+                ["GlowThreshold"] = XamlPropertyKind.Double,
+                ["AdjustmentBrightness"] = XamlPropertyKind.Double,
+                ["AdjustmentContrast"] = XamlPropertyKind.Double,
+                ["AdjustmentSaturation"] = XamlPropertyKind.Double,
+                ["LightShaftIntensity"] = XamlPropertyKind.Double,
+                ["LightShaftDirection"] = XamlPropertyKind.Vector3,
+                ["LightShaftColor"] = XamlPropertyKind.Color,
+                ["LightShaftDecay"] = XamlPropertyKind.Double,
+                ["VignetteIntensity"] = XamlPropertyKind.Double,
+                ["VignetteSmoothness"] = XamlPropertyKind.Double,
+                ["VignetteColor"] = XamlPropertyKind.Color
             },
             ["Mesh"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
                 ["Position"] = XamlPropertyKind.Vector3,
                 ["Rotation"] = XamlPropertyKind.Vector3
+            },
+            ["InstancedMesh"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Position"] = XamlPropertyKind.Vector3,
+                ["Rotation"] = XamlPropertyKind.Vector3
+            },
+            ["MeshGeometry3D"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal),
+            ["Fog"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Color"] = XamlPropertyKind.Color,
+                ["Near"] = XamlPropertyKind.Double,
+                ["Far"] = XamlPropertyKind.Double
+            },
+            ["FogExp2"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Color"] = XamlPropertyKind.Color,
+                ["Density"] = XamlPropertyKind.Double,
+                ["AerialPerspective"] = XamlPropertyKind.Double
+            },
+            ["Caustics"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Color"] = XamlPropertyKind.Color,
+                ["Intensity"] = XamlPropertyKind.Double,
+                ["Scale"] = XamlPropertyKind.Double
+            },
+            ["HemisphereLight"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
+            {
+                ["Color"] = XamlPropertyKind.Color,
+                ["GroundColor"] = XamlPropertyKind.Color,
+                ["Intensity"] = XamlPropertyKind.Double
             },
             ["BoxGeometry"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
@@ -315,7 +371,12 @@ public sealed class XamlValidator : XamlSyntaxVisitor
             },
             ["StandardMaterial"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
-                ["Color"] = XamlPropertyKind.Color
+                ["Color"] = XamlPropertyKind.Color,
+                ["EmissiveColor"] = XamlPropertyKind.Color,
+                ["EmissiveIntensity"] = XamlPropertyKind.Double,
+                ["DetailScale"] = XamlPropertyKind.Double,
+                ["DetailAmount"] = XamlPropertyKind.Double,
+                ["WindResponse"] = XamlPropertyKind.Double
             },
             ["GradientSky"] = new Dictionary<string, XamlPropertyKind>(StringComparer.Ordinal)
             {
@@ -493,6 +554,11 @@ public sealed class XamlValidator : XamlSyntaxVisitor
                 ["Camera"] = new PropertyElementTarget("Camera", IsCollection: false)
             },
             ["Mesh"] = new Dictionary<string, PropertyElementTarget>(StringComparer.Ordinal)
+            {
+                ["Geometry"] = new PropertyElementTarget("Geometry", IsCollection: false),
+                ["Material"] = new PropertyElementTarget("Material", IsCollection: false)
+            },
+            ["InstancedMesh"] = new Dictionary<string, PropertyElementTarget>(StringComparer.Ordinal)
             {
                 ["Geometry"] = new PropertyElementTarget("Geometry", IsCollection: false),
                 ["Material"] = new PropertyElementTarget("Material", IsCollection: false)
