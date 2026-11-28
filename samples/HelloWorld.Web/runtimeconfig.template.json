@@ -1,0 +1,11 @@
+{
+  "wasmHostProperties": {
+    "mainAssembly": "HelloWorld.Web.dll",
+    "perHostConfig": [
+      {
+        "name": "browser",
+        "host": "browser"
+      }
+    ]
+  }
+}

@@ -15,6 +15,7 @@
     <Project Path="src/NativeUI.Xaml/NativeUI.Xaml.csproj" />
   </Folder>
   <Folder Name="/samples/">
+    <Project Path="samples/HelloWorld.Web/HelloWorld.Web.csproj" />
     <Project Path="samples/NativeUI.Sample.MacOS/NativeUI.Sample.MacOS.csproj" />
     <Project Path="samples/NativeUI.Sample.Shared/NativeUI.Sample.Shared.csproj" />
     <Project Path="samples/NativeUI.Sample.Web/NativeUI.Sample.Web.csproj" />
