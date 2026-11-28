@@ -19,6 +19,10 @@
     <ProjectReference Include="..\NativeUI.Build\NativeUI.Build.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <Content Remove="wwwroot/NativeUI.Controls.Web.lib.module.js" />
+  </ItemGroup>
+
   <Import Project="..\NativeUI.Build\build\NativeUI.Web.targets" />
 
 </Project>
